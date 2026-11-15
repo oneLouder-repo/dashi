@@ -1,12 +1,14 @@
 # Dashi (scratchpad)
 
-**Version 0.1.0-alpha.2**: the second tester release (new look, save light, Dashi dialogs, plugin management). See [CHANGELOG.md](CHANGELOG.md) for what's in it, [TESTING.md](TESTING.md) for testing it, and [DEPLOY.md](DEPLOY.md) for running it.
+**Version 0.1.0-alpha.3**: the third tester release (a reworked Ecosystem Mapper, the new Asset manager, a literature-focused Library, and four AI plugins drafted in the designer). See [CHANGELOG.md](CHANGELOG.md) for what's in it, [TESTING.md](TESTING.md) for testing it, and [DEPLOY.md](DEPLOY.md) for running it.
 
 A small, cohesive platform for nonprofits' planning, knowledge and learning work. It holds many organisations; each picks the **plugins** it uses. Open `index.html` (via `npm start`) for the dashboard, then choose a plugin:
 
 | Plugin | Page | What it does |
 | --- | --- | --- |
 | Ecosystem Mapper | `mapper.html` | Map actors, agents, relationships and loops through five systems lenses (below) |
+| Asset manager | `assets.html` | Everything the org has to work with (files, links, notes, maps, actors, people, library items, episodes) in collections and tags, seen through an ABCD lens as tiles, a list or an asset map; chunked uploads |
+| Library | `library.html` | Literature and documents: references in APA, Chicago, MLA or Harvard, Zotero/BibTeX/RIS import and export, a PDF reader with highlights and page notes, annotated bibliographies |
 | Strategy & Work | `strategy.html` | Framework → plans (nested, dated, themed) → objectives → goals → workplans → tasks, with Gantt charts and task lifetime timelines |
 | Workbench | `palette.html` | Mini-tools for the data dialogue: design dashboards, keep program data current, publish to sites |
 | Podcasts | `podcasts.html` | Your own podcast station: shows by season, uploaded .mp3/.wav episodes, featured shows, RSS feeds, and the station's look |

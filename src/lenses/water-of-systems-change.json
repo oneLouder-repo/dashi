@@ -5,9 +5,9 @@
   "layout": "triangle",
   "triangle": {
     "centerX": 0,
-    "top": -760,
-    "bottom": 860,
-    "halfWidth": 1050
+    "top": -950,
+    "bottom": 1100,
+    "halfWidth": 1450
   },
   "regions": [
     {

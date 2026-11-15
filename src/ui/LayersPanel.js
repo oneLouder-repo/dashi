@@ -1,7 +1,11 @@
 import { h } from './dom.js';
 import { icon } from './icons.js';
 
-/** Lists layers: pick the active one, show or hide, lock, rename. */
+/**
+ * Lists layers: pick the active one (new items go there), rename, show or
+ * hide, lock. Choosing a layer, or its pulse button, makes everything on
+ * it pulse for a few seconds so you can see what's there.
+ */
 export function LayersPanel(el, ctx) {
   const { store, ops, ui } = ctx;
 
@@ -16,13 +20,15 @@ export function LayersPanel(el, ctx) {
         [...layers].reverse().map((layer) =>
           h('li', { class: layer.id === ui.activeLayerId ? 'active' : '' },
             h('input', { type: 'radio', name: 'active-layer', title: 'New items go here', checked: layer.id === ui.activeLayerId,
-              onchange: () => { ui.activeLayerId = layer.id; render(); } }),
+              onchange: () => { ui.activeLayerId = layer.id; render(); ctx.mapView.signalLayer(layer.id); } }),
             h('input', { type: 'text', value: layer.name, 'aria-label': 'Layer name',
               onchange: (e) => store.apply(ops.updateLayer(layer.id, { name: e.target.value })) }),
+            h('button', { class: 'icon-button', title: 'Pulse what’s on this layer', 'aria-label': `Pulse ${layer.name}`,
+              onclick: () => ctx.mapView.signalLayer(layer.id) }, icon('target', 16)),
             h('button', { class: `icon-button${layer.visible ? '' : ' off'}`, title: layer.visible ? 'Hide' : 'Show',
-              onclick: () => store.apply(ops.updateLayer(layer.id, { visible: !layer.visible })) }, icon(layer.visible ? 'eye' : 'eyeOff', 18)),
+              onclick: () => store.apply(ops.updateLayer(layer.id, { visible: !layer.visible })) }, icon(layer.visible ? 'eye' : 'eyeOff', 16)),
             h('button', { class: `icon-button${layer.locked ? '' : ' off'}`, title: layer.locked ? 'Unlock' : 'Lock',
-              onclick: () => store.apply(ops.updateLayer(layer.id, { locked: !layer.locked })) }, icon(layer.locked ? 'lock' : 'unlock', 18)),
+              onclick: () => store.apply(ops.updateLayer(layer.id, { locked: !layer.locked })) }, icon(layer.locked ? 'lock' : 'unlock', 16)),
           ),
         ),
       ),

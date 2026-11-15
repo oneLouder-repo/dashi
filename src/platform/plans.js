@@ -36,34 +36,34 @@ export const FEATURES = [
 ];
 
 /** Plugins a plan can include. Organisation and Help are always there. */
-export const PLAN_PLUGINS = ['mapper', 'strategy', 'studio', 'palette', 'podcasts', 'pages', 'library'];
+export const PLAN_PLUGINS = ['mapper', 'assets', 'strategy', 'studio', 'palette', 'podcasts', 'pages', 'library'];
 
 export const DEFAULT_PLANS = {
   free: {
     id: 'free', label: 'Free', tagline: 'Try Dashi with a small team: a map, a dashboard, a public site and a weekly podcast.',
     price: { monthly: 0, note: 'Free for good' },
-    plugins: { mapper: true, strategy: false, studio: false, palette: true, podcasts: true, pages: true, library: true },
+    plugins: { mapper: true, assets: true, strategy: false, studio: false, palette: true, podcasts: true, pages: true, library: true },
     limits: { users: 5, maps: 1, frameworks: 0, plans: 0, dashboards: 1, sites: 1, shows: 1, documents: 50, storageMb: 1024, uploadMb: 10 },
     features: { socialLogin: false, customDomain: false, bibliographies: false, branding: false },
   },
   basic: {
     id: 'basic', label: 'Basic', tagline: 'For a small nonprofit putting its first strategic plan and impact data online.',
     price: { monthly: 19, note: 'a month, billed yearly' },
-    plugins: { mapper: true, strategy: true, studio: false, palette: true, podcasts: true, pages: true, library: true },
+    plugins: { mapper: true, assets: true, strategy: true, studio: false, palette: true, podcasts: true, pages: true, library: true },
     limits: { users: 15, maps: 2, frameworks: 1, plans: 2, dashboards: 3, sites: 1, shows: 2, documents: 500, storageMb: 5120, uploadMb: 50 },
     features: { socialLogin: true, customDomain: false, bibliographies: false, branding: false },
   },
   standard: {
     id: 'standard', label: 'Standard', tagline: 'Everything in Dashi, with room for a whole staff team and several programs.',
     price: { monthly: 49, note: 'a month, billed yearly' },
-    plugins: { mapper: true, strategy: true, studio: true, palette: true, podcasts: true, pages: true, library: true },
+    plugins: { mapper: true, assets: true, strategy: true, studio: true, palette: true, podcasts: true, pages: true, library: true },
     limits: { users: 50, maps: 5, frameworks: 2, plans: 4, dashboards: 10, sites: 3, shows: 5, documents: 5000, storageMb: 25600, uploadMb: 250 },
     features: { socialLogin: true, customDomain: false, bibliographies: true, branding: true },
   },
   custom: {
     id: 'custom', label: 'Custom', tagline: 'Your own domain, no limits, and a setup shaped around your organisation or network.',
     price: { monthly: null, note: 'Let’s talk' },
-    plugins: { mapper: true, strategy: true, studio: true, palette: true, podcasts: true, pages: true, library: true },
+    plugins: { mapper: true, assets: true, strategy: true, studio: true, palette: true, podcasts: true, pages: true, library: true },
     limits: { users: null, maps: null, frameworks: null, plans: null, dashboards: null, sites: null, shows: null, documents: null, storageMb: 102400, uploadMb: 700 },
     features: { socialLogin: true, customDomain: true, bibliographies: true, branding: true },
   },

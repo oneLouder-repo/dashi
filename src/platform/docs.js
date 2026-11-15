@@ -20,6 +20,7 @@ import { SEEDS } from './seeds.js';
 import { blankStudio, migrateStudio, seedStudio } from './studio.js';
 import { blankLibrary, migrateLibrary } from './library.js';
 import { migratePlanDocs, seedPlanDocs } from './plandocs.js';
+import { blankAssets, migrateAssets } from './assetHub.js';
 
 const seedFor = (doc) => SEEDS[activeOrg()]?.[doc];
 
@@ -39,6 +40,7 @@ export const loadPages = () => loadPagesFor(activeOrg());
 export const loadStudio = () => migrateStudio(loadOrSeed('studio', () => (seedFor('strategy') ? seedStudio(loadStrategy(), { staff: Object.keys(loadOrg().staff) }) : blankStudio())));
 export const loadMaps = () => loadMapIndex(seedFor('maps'));
 export const loadLibrary = () => migrateLibrary(loadOrSeed('library', seedFor('library') ?? blankLibrary));
+export const loadAssets = () => migrateAssets(loadOrSeed('assets', blankAssets));
 
 /** Plan documents. Every org with a plan starts with a draft of one; example orgs publish it to their public site. */
 export const loadPlanDocs = () => migratePlanDocs(loadOrSeed('plandocs', () => seedPlanDocs(loadStrategy(), loadData(), loadOrg(), { publish: !!seedFor('strategy') })));
@@ -56,6 +58,7 @@ export function loadAll() {
     pages: loadPages(),
     studio: loadStudio(),
     library: loadLibrary(),
+    assets: loadAssets(),
     plandocs: loadPlanDocs(),
   };
 }

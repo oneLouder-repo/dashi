@@ -2,26 +2,29 @@ import { h } from './dom.js';
 import { icon } from './icons.js';
 
 /**
- * The mapper's tools, as a menu in the sidebar. Nothing here stays
- * switched on except Data viz:
+ * The mapper's tools, as a grid of buttons in the panel's Tools section.
+ * Nothing here stays switched on except Pan and Data viz:
  *   Select          the usual pointer
- *   Actor, Agent    click to add one, or drag one onto the board
+ *   Actor, Agent    click to add a sticky note, or drag one onto the board
  *   Connect         draw one connector, then back to Select
+ *   Pan             drag the board (or hold Space with any tool)
  *   Data viz        on until you switch it off
  */
 export function Toolbar(el, ctx) {
   const { tools } = ctx;
-  el.classList.add('menu', 'side-menu', 'tool-menu');
+  el.classList.add('tool-grid');
+  el.setAttribute('role', 'toolbar');
+  el.setAttribute('aria-label', 'Tools');
   const label = (text, key) => h('span', { class: 'side-text' }, text, key && h('small', {}, key));
   const toolButton = (tool) => {
     const on = tool === tools.active;
-    return h('li', {}, h('button', {
+    return h('button', {
       type: 'button',
-      class: `tool${on && !tool.oneShot ? ' active menu-active' : ''}${on && tool.oneShot ? ' armed menu-active' : ''}`,
+      class: `tool${on && !tool.oneShot ? ' active' : ''}${on && tool.oneShot ? ' armed' : ''}`,
       title: `${tool.label}${tool.key ? ` (${tool.key.toUpperCase()})` : ''}${tool.hint ? `: ${tool.hint}` : ''}`,
       'aria-pressed': tool.oneShot ? null : String(on),
       onclick: () => tools.toggle(tool.id),
-    }, icon(tool.icon, 18), label(tool.label, tool.key?.toUpperCase())));
+    }, icon(tool.icon, 20), label(tool.label, tool.key?.toUpperCase()));
   };
 
   const render = () => {
@@ -29,8 +32,9 @@ export function Toolbar(el, ctx) {
     el.replaceChildren(
       toolButton(t('select')),
       AddButton(ctx, 'actor', 'Actor', 'A', label),
-      AddButton(ctx, 'agent', 'Agent', 'Shift+A', label),
+      AddButton(ctx, 'agent', 'Agent', '⇧A', label),
       toolButton(t('connect')),
+      toolButton(t('pan')),
       toolButton(t('dataviz')),
     );
   };
@@ -47,8 +51,8 @@ function AddButton(ctx, kind, text, key, label) {
 
   const button = h('button', {
     type: 'button',
-    class: 'tool tool-add',
-    title: `Add ${kind === 'agent' ? 'an agent' : 'an actor'} (${key}). Or drag it onto the board.`,
+    class: `tool tool-add ${kind}`,
+    title: `Add ${kind === 'agent' ? 'an agent' : 'an actor'} sticky note (${key === '⇧A' ? 'Shift+A' : key}). Or drag it onto the board.`,
     onclick: () => {
       if (suppressClick) { suppressClick = false; return; }
       ctx.actions.addActorInView(kind);
@@ -84,6 +88,6 @@ function AddButton(ctx, kind, text, key, label) {
         ctx.actions.addActorAt(w.x, w.y, kind);
       }
     },
-  }, icon(kind, 18), label(text, key));
-  return h('li', {}, button);
+  }, icon(kind, 20), label(text, key));
+  return button;
 }

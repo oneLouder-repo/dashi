@@ -241,3 +241,60 @@ a.cloud-tag { text-decoration: none; }
 .qa-drop { display: flex; gap: 8px; align-items: center; padding: 14px; border: 1.5px dashed var(--line); border-radius: 10px; cursor: pointer; color: var(--muted); }
 .qa-drop:hover { border-color: var(--color-primary); color: var(--ink); }
 .qa-form > .input, .qa-form > .textarea, .qa-form > .qa-source > .input, .qa-form > .qa-source > .select { width: 100%; max-width: none; }
+
+/* ---------------------------------------------------------------- citation styles */
+.cite-head { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.cite-head h3 { margin: 0; }
+.style-pick { width: auto; max-width: 240px; }
+.lib-menu .menu-title { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* ---------------------------------------------------------------- PDF reader (src/library/Reader.js) */
+.library-main.reading { padding: 0; overflow: hidden; height: calc(100vh - 84px); }
+.reader { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.reader-bar { flex: none; display: flex; align-items: center; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--line-soft); }
+.reader-title { max-width: 38vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 650; }
+.reader-page { width: 58px; text-align: center; }
+.reader-zoom { min-width: 42px; text-align: center; font-variant-numeric: tabular-nums; }
+.reader-sep { width: 1px; height: 20px; background: var(--line); margin: 0 6px; }
+.reader-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 340px; }
+.reader-pages { overflow: auto; background: color-mix(in oklab, var(--ink) 7%, var(--color-base-200)); padding: 16px 24px 40px; display: flex; flex-direction: column; align-items: center; gap: 14px; outline: none; }
+.reader-loading { margin: 40px; color: var(--muted); }
+.pdf-page { position: relative; flex: none; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / 0.18), 0 6px 18px rgb(0 0 0 / 0.08); }
+.pdf-canvas { position: absolute; inset: 0; display: block; }
+.pdf-page-no { position: absolute; right: -30px; bottom: 4px; font-size: 11px; color: var(--muted); }
+.hl-layer { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.hl { position: absolute; background: var(--hl); opacity: 0.38; mix-blend-mode: multiply; border-radius: 2px; pointer-events: auto; cursor: pointer; }
+.hl:hover { opacity: 0.55; }
+.pdf-page .textLayer { z-index: 2; }
+.textLayer { position: absolute; text-align: initial; inset: 0; overflow: clip; opacity: 1; line-height: 1; text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0; caret-color: CanvasText; }
+.textLayer :is(span, br) { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
+.textLayer > :not(.markedContent), .textLayer .markedContent span:not(.markedContent) { z-index: 1; }
+.textLayer span.markedContent { top: 0; height: 0; }
+.textLayer ::selection { background: rgb(0 90 255 / 0.25); }
+.textLayer br::selection { background: transparent; }
+.textLayer .endOfContent { display: block; position: absolute; inset: 100% 0 0; z-index: 0; cursor: default; user-select: none; }
+.textLayer.selecting .endOfContent { top: 0; }
+.reader-error { margin: 60px auto; display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--muted); }
+.reader-pop { position: fixed; z-index: 60; display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgb(0 0 0 / 0.18); }
+.reader-pop[hidden] { display: none; }
+.reader-notes { overflow: auto; border-left: 1px solid var(--line-soft); padding: 12px 14px 24px; display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+.reader-notes > .btn { align-self: flex-start; }
+.reader-notes-head { display: flex; align-items: center; gap: 8px; }
+.reader-notes-head h3 { margin: 0; font-size: 15px; }
+.reader-cite { margin: 0; font-size: 13px; line-height: 1.45; padding-left: 1.6em; text-indent: -1.6em; color: var(--ink); }
+.reader-hint { margin: 0; }
+.reader-notes-list { display: flex; flex-direction: column; gap: 8px; }
+.rnote { --hl: #f5cf3d; border: 1px solid var(--line-soft); border-left: 4px solid var(--hl); border-radius: 8px; padding: 6px 8px 8px; display: flex; flex-direction: column; gap: 5px; background: var(--panel); transition: box-shadow 0.3s; }
+.rnote.flash { box-shadow: 0 0 0 3px color-mix(in oklab, var(--hl) 60%, transparent); }
+.rnote-head { display: flex; align-items: center; gap: 6px; }
+.rnote-page { border: 0; background: color-mix(in oklab, var(--hl) 25%, transparent); border-radius: 6px; padding: 1px 7px; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--ink); }
+.rnote-colors { display: inline-flex; gap: 3px; }
+.rnote-dot { --c: #f5cf3d; width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--panel); background: var(--c); box-shadow: 0 0 0 1px var(--line); cursor: pointer; padding: 0; }
+.rnote-dot.on { box-shadow: 0 0 0 2px var(--ink); }
+.reader-pop .rnote-dot { width: 20px; height: 20px; }
+.rnote-x { border: 0; background: none; color: var(--muted); font-size: 16px; cursor: pointer; padding: 0 4px; }
+.rnote-x:hover { color: var(--color-error); }
+.rnote blockquote { margin: 0; padding: 2px 0 2px 8px; border-left: 2px solid color-mix(in oklab, var(--hl) 70%, var(--line)); font-size: 13px; line-height: 1.45; font-style: italic; color: var(--ink); max-height: 9em; overflow: auto; }
+.rnote-cite { color: var(--muted); font-size: 11.5px; }
+.reader-notes-foot { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px; border-top: 1px solid var(--line-soft); }
+@media (max-width: 1000px) { .reader-body { grid-template-columns: 1fr; grid-template-rows: 1fr 40%; } .reader-notes { border-left: 0; border-top: 1px solid var(--line-soft); } }

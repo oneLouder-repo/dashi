@@ -37,8 +37,8 @@ export function LabelEditor(ctx) {
       left: `${p.x}px`,
       top: `${p.y}px`,
       width: `${actor.w * scale}px`,
-      height: `${actor.h * scale}px`,
-      fontSize: `${15 * scale}px`,
+      height: `${Math.min(actor.h, 52) * scale}px`,
+      fontSize: `${16.5 * scale}px`,
     });
     input.value = actor.label;
     input.hidden = false;

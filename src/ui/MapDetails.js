@@ -18,7 +18,8 @@ export function MapDetails(ctx) {
       ctx.store.apply(ctx.ops.renameMap(t));
       document.dispatchEvent(new CustomEvent('dashi:map-renamed'));
     } },
-      h('h3', {}, 'Map details and sharing'),
+      h('h3', {}, 'Map details and people'),
+      h('p', { class: 'muted' }, 'The owner and members can edit this map. Everyone in your organisation can see it.'),
       h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Title'), title),
       h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Description'), description),
       h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Owner'), owner),

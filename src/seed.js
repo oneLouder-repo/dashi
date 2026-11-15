@@ -1,4 +1,4 @@
-import { createMap, ops, applyOp } from './core/ops.js';
+import { createMap, ops, applyOp, ACTOR_SIZE, OLD_ACTOR_SIZE } from './core/ops.js';
 import { unproject } from './lenses/index.js';
 
 /**
@@ -41,6 +41,34 @@ const ACTORS = [
   ['volunteers', 'Volunteer instructors', 'other', 0.71, -0.85],
   ['skeptics', 'Skeptical educators', 'problem', 0.8, 0.8],
 ];
+
+/** A line or two for each example sticky note. */
+const DESCRIPTIONS = {
+  ised: 'Core federal funder for national STEM outreach.',
+  nserc: 'Grants for science promotion through universities.',
+  corporate: 'Tech and resource firms sponsoring camps.',
+  foundations: 'Fund local programs, often for a year at a time.',
+  ministries: 'Set curriculum; slow to adopt outreach programs.',
+  'policy-net': 'Coalition pushing for STEM equity in policy.',
+  'indig-gov': 'Nations and organisations who set the terms of partnership.',
+  actua: 'Runs the network: training, standards and data.',
+  universities: 'Host camps and hire summer instructors.',
+  mentors: 'Professionals who visit and mentor youth.',
+  'community-orgs': 'Clubs and centres that reach youth after school.',
+  'indig-comm': 'Partners in land-based and culturally rooted learning.',
+  boards: 'Open or close the door to school visits.',
+  teachers: 'Bring programs into class; need PD and time.',
+  parents: 'Shape whether youth sign up and stay.',
+  researchers: 'Evaluate outcomes and share what works.',
+  instructors: 'Deliver hands-on programs; many are students.',
+  coordinators: 'Plan programs, coach instructors, gather data.',
+  youth: 'The heart of it: curious, busy, often first in family in STEM.',
+  girls: 'Programs designed with them, not just for them.',
+  'indig-youth': 'Learning that weaves science and traditional knowledge.',
+  alumni: 'Past participants who come back to lead.',
+  champions: 'Staff who hold the equity practice day to day.',
+  skeptics: 'Unsure outreach fits the curriculum; worth hearing.',
+};
 
 const CONNECTIONS = [
   // from, to, type, label, strength (1–5, default 3)
@@ -91,7 +119,7 @@ export function seedMap() {
   const ids = {};
   for (const [key, label, category, depth, spread, kind = 'actor'] of ACTORS) {
     // Stable ids so other tools (e.g. task assets) can point at example actors.
-    const op = ops.addActor({ id: `actor-${key}`, label, category, kind, place: { depth, spread }, layerId });
+    const op = ops.addActor({ id: `actor-${key}`, label, category, kind, place: { depth, spread }, layerId, meta: DESCRIPTIONS[key] ? { description: DESCRIPTIONS[key] } : {} });
     applyOp(map, op);
     ids[key] = op.id;
   }
@@ -111,6 +139,12 @@ export function migrateMap(map, lenses) {
   const lens = lenses.get(map.lensId) ?? lenses.values().next().value;
   for (const a of Object.values(map.actors)) {
     a.kind ??= 'actor';
+    // Actors became sticky notes in alpha.3: grow the old cards to the new size.
+    if (a.w === OLD_ACTOR_SIZE.w && a.h === OLD_ACTOR_SIZE.h) Object.assign(a, ACTOR_SIZE);
+    a.meta ??= {};
+    // The example map's notes picked up short descriptions in alpha.3.
+    const key = /^actor-(.+)$/.exec(a.id)?.[1];
+    if (key && DESCRIPTIONS[key] && a.meta.description == null && ACTORS.some((x) => x[0] === key && x[1] === a.label)) a.meta.description = DESCRIPTIONS[key];
     if (!a.place) {
       a.place = unproject(lens, a.x ?? 0, a.y ?? 0);
       delete a.x;

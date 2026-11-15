@@ -4,7 +4,7 @@
   "description": "Donella Meadows' places to intervene in a system, from shallow (numbers) at the top to deep (paradigms) at the bottom, grouped as parameters, feedbacks, design and intent (Abson et al. 2017).",
   "layout": "bands",
   "width": 1500,
-  "bandHeight": 84,
+  "bandHeight": 132,
   "labelSize": "small",
   "regions": [
     { "id": "lp12", "label": "12 · Constants, parameters, numbers", "group": "Parameters", "depth": [0, 0.083], "tint": "#eef1f6" },

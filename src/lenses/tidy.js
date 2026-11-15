@@ -1,4 +1,5 @@
 import { layouts, regionForDepth, columnAt, unproject, project } from './index.js';
+import { ACTOR_SIZE } from '../core/ops.js';
 
 /**
  * Tidy: clear up overlapping actors, each staying in its zone (region) of
@@ -12,7 +13,7 @@ import { layouts, regionForDepth, columnAt, unproject, project } from './index.j
  *   actors: [{ id, place, w, h }]
  */
 const GAP_X = 20;
-const GAP_Y = 22;
+const GAP_Y = 18;
 
 export function tidyPlaces(lens, actors, { groupOf = () => null } = {}) {
   const tidy = TIDY[lens.layout] ?? TIDY.bands;
@@ -54,8 +55,8 @@ function share(n, capacities) {
 }
 
 const size = (actors) => ({
-  w: Math.max(150, ...actors.map((a) => a.w ?? 150)),
-  h: Math.max(58, ...actors.map((a) => a.h ?? 58)),
+  w: Math.max(ACTOR_SIZE.w, ...actors.map((a) => a.w ?? ACTOR_SIZE.w)),
+  h: Math.max(ACTOR_SIZE.h, ...actors.map((a) => a.h ?? ACTOR_SIZE.h)),
 });
 
 const TIDY = {

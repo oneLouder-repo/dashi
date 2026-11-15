@@ -71,7 +71,7 @@ test('tidy keeps every actor in its zone (and grid column), and spaces them out'
       pts.push(project(lens, places[a.id]));
     }
     let overlaps = 0;
-    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) if (Math.abs(pts[i].x - pts[j].x) < 150 && Math.abs(pts[i].y - pts[j].y) < 58) overlaps++;
+    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) if (Math.abs(pts[i].x - pts[j].x) < actors[i].w && Math.abs(pts[i].y - pts[j].y) < actors[i].h) overlaps++;
     assert.ok(overlaps <= 3, `${lens.id}: ${overlaps} overlapping cards`);
   }
 });
@@ -85,4 +85,36 @@ test('data viz lights up an actor’s connections, or a connector’s two ends',
   assert.ok(!lit.has('actor-ised'));
   const conn = Object.values(map.connectors).find((c) => c.label === 'core funding');
   assert.deepEqual([...relatedTo(map, conn.id)].sort(), [conn.id, 'actor-actua', 'actor-ised'].sort());
+});
+
+test('tidy keeps its layout per lens, so each actor keeps its own place everywhere else', async () => {
+  const { tidyPlaces } = await import('../src/lenses/tidy.js');
+  const { seedMap } = await import('../src/seed.js');
+  const { Store } = await import('../src/core/Store.js');
+  const { ops } = await import('../src/core/ops.js');
+  const store = new Store(seedMap());
+  const before = structuredClone(Object.fromEntries(Object.values(store.map.actors).map((a) => [a.id, a.place])));
+  const rings = lenses['micro-meso-macro'];
+  const actors = Object.values(store.map.actors).map((a) => ({ id: a.id, place: a.place, w: a.w, h: a.h }));
+  store.apply(ops.arrange(rings.id, tidyPlaces(rings, actors)));
+  // Nobody's own place moved, so the bands and grids still see the detail they had.
+  for (const a of Object.values(store.map.actors)) assert.deepEqual(a.place, before[a.id]);
+  assert.equal(Object.keys(store.map.arrangements[rings.id]).length, actors.length);
+  // Dragging one by hand gives it a new place and takes it out of the arrangement; undo puts both back.
+  const id = actors[0].id;
+  const seat = store.map.arrangements[rings.id][id];
+  store.apply(ops.moveActor(id, { depth: 0.9, spread: 0.5 }));
+  assert.equal(store.map.arrangements[rings.id][id], undefined);
+  store.undo();
+  assert.deepEqual(store.map.arrangements[rings.id][id], seat);
+  assert.deepEqual(store.map.actors[id].place, before[id]);
+  // Removing an actor and undoing that brings back its seat too.
+  store.apply(ops.removeItems(store.map, { actorIds: [id] }));
+  store.undo();
+  assert.deepEqual(store.map.arrangements[rings.id][id], seat);
+  // Untidy drops the lens's arrangement; undo brings it back.
+  store.apply(ops.arrange(rings.id, null));
+  assert.equal(store.map.arrangements[rings.id], undefined);
+  store.undo();
+  assert.ok(store.map.arrangements[rings.id]);
 });

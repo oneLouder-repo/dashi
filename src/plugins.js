@@ -28,6 +28,19 @@ export const PLUGINS = [
     },
   },
   {
+    id: 'assets',
+    short: 'Assets',
+    tone: '#0f7f9c',
+    name: 'Asset manager',
+    href: 'assets.html',
+    icon: 'sec-assets',
+    blurb: 'Everything your organisation has to work with, in one place: files, maps, people, stories and places, filed in collections, tagged, and seen through an asset-based (ABCD) lens.',
+    stats: ({ assets }) => {
+      const items = Object.values(assets?.items ?? {});
+      return `${items.filter((i) => i.kind !== 'ref').length} files, links and notes · ${Object.keys(assets?.collections ?? {}).length} collections`;
+    },
+  },
+  {
     id: 'strategy',
     short: 'Strategy',
     tone: '#3d63dd',

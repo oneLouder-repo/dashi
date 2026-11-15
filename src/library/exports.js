@@ -6,6 +6,7 @@
 import { parseMarkdown, toHtml } from '../core/markdown.js';
 import { docx, odt } from '../core/office.js';
 import { pdf } from '../core/pdf.js';
+import { toBibtex, toRis } from '../platform/citeStyles.js';
 import { dublinCore, dublinCoreXml, cslJson, apaReference, runsToHtml, runsToMarkdown, sortKey, creatorsBy, fullName, apaDate } from '../platform/library.js';
 import { uiAlert } from '../ui/dialog.js';
 
@@ -102,12 +103,12 @@ function blocksHtml(blocks) {
   return out.join('\n');
 }
 
-/** Reference-list blocks (APA, hanging indent) for a set of items. */
-export function referenceBlocks(items, heading = 'References') {
+/** Reference-list blocks (hanging indent) for a set of items, in APA or another style's reference(). */
+export function referenceBlocks(items, heading = 'References', reference = apaReference) {
   const sorted = [...items].sort((a, b) => sortKey(a.meta).localeCompare(sortKey(b.meta)));
   return [
     heading && { type: 'heading', level: 2, runs: [{ t: heading }] },
-    ...sorted.map((it) => ({ type: 'para', style: 'reference', runs: apaReference(it.meta) })),
+    ...sorted.map((it) => ({ type: 'para', style: 'reference', runs: reference(it.meta) })),
   ].filter(Boolean);
 }
 
@@ -131,6 +132,8 @@ export function printHtml(title, markdownOrHtml, { dc = {}, isHtml = false } = {
 
 export const exportDublinCore = (item) => download(dublinCoreXml(item), fileName(item.meta.title, 'dc.xml'), 'application/xml');
 export const exportCsl = (items, name = 'references') => download(cslJson(items), fileName(name, 'json'), 'application/vnd.citationstyles.csl+json');
+export const exportBibtex = (items, name = 'references') => download(toBibtex(items), fileName(name, 'bib'), 'application/x-bibtex');
+export const exportRis = (items, name = 'references') => download(toRis(items), fileName(name, 'ris'), 'application/x-research-info-systems');
 
 /** Who and when, for a byline. */
 export const byline = (meta) => [creatorsBy(meta, 'author').map(fullName).join(', '), apaDate(meta.issued)].filter((x) => x && x !== 'n.d.').join(' · ');

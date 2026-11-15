@@ -76,19 +76,13 @@ function Home({ site, plans }) {
 
 /**
  * A picture of Dashi, from its mark: three rings that touch at one point
- * (micro, meso and macro, or a drop landing in broth), with the plugins
- * sitting on them in their own colours.
+ * (micro, meso and macro, or a drop landing in broth), on their own.
  */
 function HeroArt() {
   const W = 520;
   const H = 480;
   // Rings tangent at the bottom, like the logo.
   const rings = [{ r: 220 }, { r: 150 }, { r: 82 }].map((x) => ({ ...x, cx: W / 2, cy: H - 16 - x.r }));
-  const on = (ring, deg) => ({ x: ring.cx + ring.r * Math.cos((deg * Math.PI) / 180), y: ring.cy + ring.r * Math.sin((deg * Math.PI) / 180) });
-  const spots = [
-    ['mapper', 0, 205], ['strategy', 0, 250], ['palette', 0, 295], ['pages', 0, 335],
-    ['podcasts', 1, 225], ['library', 1, 315], ['studio', 2, 270],
-  ];
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS, 'svg');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
@@ -101,14 +95,7 @@ function HeroArt() {
   const drop = document.createElementNS(svgNS, 'circle');
   for (const [k, v] of Object.entries({ cx: W / 2, cy: H - 16 - 82, r: 14, class: 'hr-drop' })) drop.setAttribute(k, v);
   svg.append(drop);
-  const nodes = spots.map(([id, ring, deg], i) => {
-    const p = pluginOf(id);
-    if (!p) return null;
-    const { x, y } = on(rings[ring], deg);
-    return h('div', { class: 'hero-node', style: `--tone:${p.tone};left:${(x / W) * 100}%;top:${(y / H) * 100}%;--d:${i * 0.6}s` },
-      h('span', { class: 'hero-node-tile' }, icon(p.icon, 24)), h('span', { class: 'hero-node-label' }, p.short ?? p.name));
-  });
-  return h('div', { class: 'hero-ripple', 'aria-hidden': 'true' }, svg, nodes);
+  return h('div', { class: 'hero-ripple', 'aria-hidden': 'true' }, svg);
 }
 
 /* ----------------------------------------------------------- pricing */
