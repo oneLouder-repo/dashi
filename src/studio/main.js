@@ -17,6 +17,7 @@ import { SoarBoard } from './SoarBoard.js';
 import { SoarList } from './SoarList.js';
 import { Results } from './Results.js';
 import { Assemble } from './Assemble.js';
+import { uiPrompt } from '../ui/dialog.js';
 
 /**
  * Planning Studio: facilitating a strategic plan, online and together.
@@ -124,8 +125,8 @@ function drawSide({ planId, tab }) {
   ] }));
 }
 
-function newPlan() {
-  const title = prompt('Name of the new strategic plan', 'Strategic plan');
+async function newPlan() {
+  const title = await uiPrompt('Name of the new strategic plan', 'Strategic plan');
   if (!title?.trim()) return;
   const root = rootOf(strategy.doc);
   const op = strategy.apply(strategyOps.addNode(strategy.doc, { type: 'plan', parentId: root.id, title: title.trim() }));

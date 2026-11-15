@@ -4,6 +4,7 @@ import { icon } from './icons.js';
 import { MapDetails } from './MapDetails.js';
 import { MapHelp } from './MapHelp.js';
 import { toast } from './Shell.js';
+import { uiAlert } from './dialog.js';
 
 /**
  * The mapper's top bar: the map's name (click to rename), map help, the
@@ -20,7 +21,7 @@ export function TopBar(el, ctx) {
       const { map, entry } = await importMap(file);
       OpenChoice(ctx, ctx.actions.migrate(map), entry);
     } catch (err) {
-      alert(`Couldn't open that file: ${err.message}`);
+      uiAlert(`Couldn't open that file: ${err.message}`);
     }
   } });
 

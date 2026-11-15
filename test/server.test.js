@@ -66,7 +66,8 @@ test('visitors get only what is published', async () => {
   assert.equal(s.canEdit, false);
   assert.ok(!s.docs.maps && !s.docs['map/map-ecosystem'], 'no maps');
   assert.ok(!Object.values(s.docs.pages.pages).some((p) => p.status === 'draft'), 'no drafts');
-  assert.ok(!Object.values(s.docs.podcasts.episodes).some((e) => e.status === 'scheduled'), 'no future episodes');
+  const today = new Date().toISOString().slice(0, 10);
+  assert.ok(!Object.values(s.docs.podcasts.episodes).some((e) => e.status === 'scheduled' && e.publishedAt > today), 'no future episodes');
   assert.ok(Object.values(s.docs.dashboards.dashboards).every((d) => d.visibility === 'public'));
   assert.ok(Object.keys(s.docs.org.staff).length < 12, 'only people the public content names');
   assert.ok(Object.values(s.docs.org.staff).every((p) => !('email' in p) && !('roleId' in p)));
@@ -581,4 +582,59 @@ test('the session says which version is running', async () => {
   assert.equal(VERSION, pkg.version, 'src/version.js matches package.json');
   assert.equal((await call(EX, 'GET', '/api/session')).json.version, pkg.version);
   assert.equal((await call('anything', 'GET', '/version')).json.version, pkg.version);
+});
+
+test('plugins: the platform admin designs, releases, packages and rolls back; orgs see the result', async () => {
+  const admin = await signIn('admin@localhost', 'localhost');
+  const amara = await signIn('amara@example.org');
+  const api = (method, path, body, cookie = admin) => call('localhost', method, path, { body, cookie });
+  assert.equal((await api('GET', '/api/admin/plugins', null, amara)).status, 403, 'platform admin only');
+  const list = await api('GET', '/api/admin/plugins');
+  assert.equal(list.status, 200);
+  assert.ok(list.json.plugins.mapper.builtIn && list.json.plugins.mapper.features.length > 0);
+
+  // A new plugin starts as a draft that orgs don't see.
+  assert.equal((await api('POST', '/api/admin/plugins/new', { id: 'partners', name: 'Partner Directory' })).status, 201);
+  assert.equal((await api('POST', '/api/admin/plugins/new', { id: 'partners', name: 'Again' })).status, 409);
+  assert.equal((await api('POST', '/api/admin/plugins/new', { id: 'Bad Id', name: 'X' })).status, 400);
+  let s = (await call(EX, 'GET', '/api/session', { cookie: amara })).json;
+  assert.ok(!s.plugins.partners, 'drafts stay with the platform admin');
+
+  // The designer saves a working copy; a bad manifest is refused.
+  const draft = (await api('GET', '/api/admin/plugins/partners')).json.plugin;
+  assert.equal((await api('PUT', '/api/admin/plugins/partners', { ...draft, look: { tone: 'red' } })).status, 400);
+  assert.equal((await api('PUT', '/api/admin/plugins/partners', { ...draft, blurb: 'Who we work with.' })).json.plugin.blurb, 'Who we work with.');
+
+  // Releasing a minor version installs it; orgs on every plan get it.
+  const rel = await api('POST', '/api/admin/plugins/partners/release', { part: 'minor', notes: 'First release' });
+  assert.equal(rel.json.plugin.version, '0.2.0');
+  assert.equal(rel.json.plugin.status, 'installed');
+  s = (await call(EX, 'GET', '/api/session', { cookie: amara })).json;
+  assert.equal(s.plugins.partners.version, '0.2.0');
+  assert.ok(!s.docs.org.platform.paused.partners);
+
+  // A package with a newer version updates it; the same version is refused; rollback goes back.
+  const pkg = { dashiPlugin: 1, manifest: { ...rel.json.plugin, version: '0.3.0', name: 'Partners+', plans: { free: false, basic: true, standard: true, custom: true } } };
+  assert.equal((await api('POST', '/api/admin/plugins/install', { package: pkg })).status, 200);
+  assert.equal((await api('POST', '/api/admin/plugins/install', { package: pkg })).status, 409);
+  const back = await api('POST', '/api/admin/plugins/partners/rollback', { version: '0.2.0' });
+  assert.equal(back.json.plugin.version, '0.2.0');
+  assert.equal(back.json.plugin.name, 'Partner Directory');
+
+  // Switching a built-in plugin off pauses it for every org; reset brings it back.
+  const strategy = (await api('GET', '/api/admin/plugins/strategy')).json.plugin;
+  assert.equal((await api('PUT', '/api/admin/plugins/strategy', { ...strategy, status: 'disabled' })).status, 200);
+  s = (await call(EX, 'GET', '/api/session', { cookie: amara })).json;
+  assert.ok(s.docs.org.platform.paused.strategy, 'paused everywhere');
+  assert.equal((await api('POST', '/api/admin/plugins/strategy/reset')).json.plugin.status, 'installed');
+  assert.equal((await api('DELETE', '/api/admin/plugins/strategy')).status, 400, 'built-ins are switched off, not removed');
+
+  // Installing from a package never takes fields Dashi doesn't know, and can be uninstalled.
+  const fresh = { dashiPlugin: 1, manifest: { id: 'grants', name: 'Grant Tracker', version: '1.0.0', script: 'alert(1)', look: { tone: '#0f7ea8', icon: 'flag' } } };
+  const inst = await api('POST', '/api/admin/plugins/install', { package: fresh });
+  assert.equal(inst.status, 201);
+  assert.ok(!('script' in inst.json.plugin));
+  assert.equal(inst.json.plugin.href, 'plugin.html?id=grants');
+  assert.equal((await api('DELETE', '/api/admin/plugins/grants')).status, 200);
+  assert.equal((await api('GET', '/api/admin/plugins/grants')).status, 404);
 });

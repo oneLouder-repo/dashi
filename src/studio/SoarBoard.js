@@ -3,6 +3,7 @@ import { icon } from '../ui/icons.js';
 import { initials } from '../platform/org.js';
 import { QUADRANTS, quadrant, ofPlan, quadrantAt, borderFor, freeSpot, CARD_SIZE } from '../platform/studio.js';
 import { Viewport } from './Viewport.js';
+import { uiConfirm } from '../ui/dialog.js';
 
 /**
  * The SOAR board: one open, zoomable canvas with the four quadrants
@@ -44,7 +45,7 @@ export function SoarBoard(ctx, plan) {
 
   const vp = Viewport(ctx.views[`soar:${plan.id}`] ??= {}, {
     home: (w, hgt) => ({ x: w / 2, y: hgt / 2, z: Math.max(0.3, Math.min(1, Math.min(w, hgt) / 1500)) }),
-    buttons: [h('button', { class: 'btn btn-sm join-item', title: 'Move the most dotted cards nearest the centre', onclick: () => { if (confirm('Arrange every quadrant with the most dotted cards nearest the centre?')) rank(); } }, icon('tidy', 15), 'Rank by dots')],
+    buttons: [h('button', { class: 'btn btn-sm join-item', title: 'Move the most dotted cards nearest the centre', onclick: async () => { if (await uiConfirm('Arrange every quadrant with the most dotted cards nearest the centre?')) rank(); } }, icon('tidy', 15), 'Rank by dots')],
   });
   const S = 6000;
   vp.world.append(
@@ -88,7 +89,7 @@ function Card(ctx, c, me, vp) {
         onclick: () => ctx.put('cards', c.id, { votes: voted ? c.votes.filter((v) => v !== me) : [...c.votes, me] }) },
         h('span', { class: 'dot', 'aria-hidden': 'true' }), c.votes.length || ''),
       h('button', { class: 'soar-x', title: 'Remove card', 'aria-label': 'Remove card',
-        onclick: () => { if (!c.text || confirm('Remove this card?')) ctx.remove('cards', c.id); } }, '×')),
+        onclick: async () => { if (!c.text || await uiConfirm('Remove this card?')) ctx.remove('cards', c.id); } }, '×')),
     h('textarea', { name: `card-${c.id}`, rows: 3, placeholder: 'Write here…', 'aria-label': 'Card text',
       onchange: (e) => ctx.put('cards', c.id, { text: e.target.value.trim() }) }, c.text));
   place(c.wx, c.wy);

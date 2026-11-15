@@ -11,8 +11,9 @@ import { loadOrg } from '../platform/docs.js';
 import { ROLES, staffList, teamList, membersOf } from '../platform/org.js';
 import { orgList, openOrg, createOrg, deleteOrg, renameOrg, platformUrl } from '../platform/session.js';
 import { PALETTES, SHAPES, applyTheme } from '../platform/themes.js';
-import { PLUGINS, pausedForOrg } from '../plugins.js';
+import { PLUGINS, pausedForOrg, featureOn } from '../plugins.js';
 import { LIMITS, FEATURES, PLAN_IDS, PLAN_PLUGINS, amount } from '../platform/plans.js';
+import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
 
 const api = async (method, url, body) => {
   const res = await fetch(url, { method, headers: { 'content-type': 'application/json', 'x-toolbox': '1' }, body: body && JSON.stringify(body) });
@@ -66,7 +67,7 @@ const area = (name, value, onchange) => h('textarea', { class: 'textarea textare
 
 function imagePicker({ name, current, onPick, onClear, preview }) {
   const input = h('input', { type: 'file', accept: 'image/*', class: 'file-input file-input-sm', name, onchange: async (e) => {
-    try { onPick(await readImage(e.target.files[0])); } catch (err) { alert(err.message); }
+    try { onPick(await readImage(e.target.files[0])); } catch (err) { uiAlert(err.message); }
   } });
   return h('div', { class: 'image-picker' }, preview, h('div', {}, input, current && h('button', { class: 'btn btn-xs btn-ghost', onclick: onClear }, 'Remove')));
 }
@@ -144,7 +145,7 @@ function People(org) {
             options(ROLES.map((r) => ({ id: r.id, label: r.label })), s.roleId))),
           h('td', {}, teamChips(s)),
           h('td', {}, signInCell(s)),
-          h('td', {}, h('button', { class: 'btn btn-xs btn-ghost btn-error', onclick: () => confirm(`Remove ${s.name}?`) && store.apply(col.remove('staff', s.id)) }, 'Remove')))))),
+          h('td', {}, h('button', { class: 'btn btn-xs btn-ghost btn-error', onclick: async () => await uiConfirm(`Remove ${s.name}?`) && store.apply(col.remove('staff', s.id)) }, 'Remove')))))),
     h('form', { class: 'inline-form', onsubmit: (e) => {
       e.preventDefault();
       if (!newStaff.name.value.trim()) return;
@@ -205,7 +206,7 @@ function Sites(org) {
               onchange: (e) => store.apply(col.update('sites', site.id, { shows: e.target.value })) })),
             h('td', {}, h('select', { class: 'select select-sm', 'aria-label': 'Visibility', onchange: (e) => store.apply(col.update('sites', site.id, { visibility: e.target.value })) },
               options([{ id: 'public', label: 'Public' }, { id: 'unlisted', label: 'Unlisted' }, { id: 'private', label: 'Private' }], site.visibility))),
-            h('td', {}, h('button', { class: 'btn btn-xs btn-ghost btn-error', onclick: () => confirm(`Remove ${site.name}?`) && store.apply(col.remove('sites', site.id)) }, 'Remove')))))),
+            h('td', {}, h('button', { class: 'btn btn-xs btn-ghost btn-error', onclick: async () => await uiConfirm(`Remove ${site.name}?`) && store.apply(col.remove('sites', site.id)) }, 'Remove')))))),
       h('form', { class: 'inline-form', onsubmit: (e) => {
         e.preventDefault();
         if (newSite.name.value.trim()) store.apply(col.add('sites', { name: newSite.name.value.trim(), url: newSite.url.value.trim(), visibility: 'private', shows: '' }));
@@ -213,18 +214,30 @@ function Sites(org) {
 }
 
 function Plugins(org) {
+  const tier = org.platform?.tier ?? null;
+  const cats = [...new Set(PLUGINS.filter((p) => !p.platformOff).map((p) => p.category ?? 'Other'))];
+  const card = (p) => {
+    const paused = pausedForOrg(org, p.id);
+    const on = p.core || (!paused && org.plugins[p.id] !== false);
+    return h('article', { class: `org-plug${on ? ' on' : ''}${paused ? ' locked' : ''}`, style: `--tone:${p.tone}` },
+      h('div', { class: 'org-plug-head' },
+        h('span', { class: 'tone-tile' }, icon(p.icon, 22)),
+        h('div', { class: 'org-plug-title' }, h('h3', {}, p.name), h('span', { class: 'muted small' }, [p.category, p.version && `v${p.version}`].filter(Boolean).join(' · '))),
+        p.core
+          ? h('span', { class: 'badge badge-ghost badge-sm' }, 'Always on')
+          : paused
+          ? h('span', { class: 'badge badge-warning badge-soft badge-sm', title: 'Ask the platform admin, or change your plan under Plan' }, 'Not in your plan')
+          : h('input', { type: 'checkbox', class: 'toggle toggle-sm toggle-primary', 'aria-label': `Use ${p.name}`, checked: org.plugins[p.id] !== false,
+              onchange: (e) => set('plugins', { ...org.plugins, [p.id]: e.target.checked }) })),
+      h('p', { class: 'org-plug-blurb' }, p.blurb),
+      (p.features ?? []).length > 0 && h('ul', { class: 'org-plug-feats' }, p.features.map((f) => {
+        const ok = featureOn(p.id, f.id, tier);
+        return h('li', { class: ok ? '' : 'off', title: ok ? f.description : `${f.description ?? ''} (not in your plan)`.trim() }, icon(ok ? 'check' : 'lock', 12), f.label);
+      })));
+  };
   return h('div', {},
-    h('p', { class: 'lede' }, 'Choose the plugins your org uses. Switching one off hides it from the dashboard and header; its data is kept.'),
-    h('div', { class: 'cards' }, PLUGINS.map((p) =>
-      h('div', { class: 'card' },
-        h('h3', {}, icon(p.icon, 24), p.name, h('span', { class: 'spacer' }),
-          p.core
-            ? h('span', { class: 'badge badge-ghost' }, 'Always on')
-            : pausedForOrg(org, p.id)
-            ? h('span', { class: 'badge badge-warning badge-soft', title: 'Ask the platform admin to switch it on' }, 'Not in your plan')
-            : h('input', { type: 'checkbox', class: 'toggle toggle-primary', 'aria-label': `Use ${p.name}`, checked: org.plugins[p.id] !== false,
-                onchange: (e) => set('plugins', { ...org.plugins, [p.id]: e.target.checked }) })),
-        h('p', {}, p.blurb)))));
+    h('p', { class: 'lede' }, 'Choose the plugins your organisation uses. Switching one off hides it from the dashboard and header; its data is kept. Each plugin lists its features; a lock means your plan leaves that one out.'),
+    h('div', { class: 'org-plug-grid' }, cats.flatMap((c) => PLUGINS.filter((p) => !p.platformOff && (p.category ?? 'Other') === c)).map(card)));
 }
 
 /** The org's plan: what it includes, how much is used, and asking for another. */
@@ -275,9 +288,9 @@ function Domain(org) {
       h('div', {}, domains.map((d) => h('div', { class: 'card card-border bg-base-100 domain-card' }, h('div', { class: 'card-body' },
         h('div', { class: 'domain-head' }, h('strong', {}, d.host), h('span', { class: `badge badge-sm ${STATUS[d.status][0]}` }, STATUS[d.status][1]), d.primary && h('span', { class: 'badge badge-sm badge-ghost' }, 'Main address'),
           h('span', { class: 'spacer' }),
-          d.status !== 'active' && h('button', { class: 'btn btn-xs btn-primary', onclick: async (e) => { e.target.disabled = true; await api('POST', `/api/domains/${d.host}/check`).catch((err) => alert(err.message)); load(); } }, 'Check now'),
+          d.status !== 'active' && h('button', { class: 'btn btn-xs btn-primary', onclick: async (e) => { e.target.disabled = true; await api('POST', `/api/domains/${d.host}/check`).catch((err) => uiAlert(err.message)); load(); } }, 'Check now'),
           d.status === 'active' && !d.primary && h('button', { class: 'btn btn-xs', onclick: async () => { await api('POST', `/api/domains/${d.host}/primary`); load(); } }, 'Make main address'),
-          h('button', { class: 'btn btn-xs btn-ghost btn-error', onclick: async () => { if (confirm(`Stop using ${d.host}? It stops working at once.`)) { await api('DELETE', `/api/domains/${d.host}`); load(); } } }, 'Remove')),
+          h('button', { class: 'btn btn-xs btn-ghost btn-error', onclick: async () => { if (await uiConfirm(`Stop using ${d.host}? It stops working at once.`)) { await api('DELETE', `/api/domains/${d.host}`); load(); } } }, 'Remove')),
         d.records.length > 0 && h('table', { class: 'table table-sm dns-table' },
           h('thead', {}, h('tr', {}, ['Type', 'Name (host)', 'Value', ''].map((t) => h('th', {}, t)))),
           h('tbody', {}, d.records.map((r) => h('tr', {}, h('td', {}, h('code', {}, r.type)), h('td', {}, h('code', {}, r.name)), h('td', {}, h('code', { class: 'dns-value' }, r.value),
@@ -305,15 +318,15 @@ function Platform(org) {
           h('td', { class: 'right' },
             o.id !== org.id && h('button', { class: 'btn btn-sm', onclick: () => openOrg(o.id) }, 'Open'),
             ' ',
-            !isHosted() && h('button', { class: 'btn btn-sm btn-ghost btn-error', onclick: () => {
-              if (!confirm(`Delete ${o.name} and all its data? This can't be undone.`)) return;
-              try { deleteOrg(o.id); location.assign('org.html#platform'); } catch (err) { alert(err.message); }
+            !isHosted() && h('button', { class: 'btn btn-sm btn-ghost btn-error', onclick: async () => {
+              if (!await uiConfirm(`Delete ${o.name} and all its data? This can't be undone.`)) return;
+              try { deleteOrg(o.id); location.assign('org.html#platform'); } catch (err) { uiAlert(err.message); }
             } }, 'Delete')))))),
     isHosted()
       ? platformUrl() && h('p', {}, 'Organisations are added and removed on the ', h('a', { href: platformUrl() }, 'platform admin page'), '.')
       : h('div', { class: 'inline-form' },
-          h('button', { class: 'btn btn-sm btn-primary', onclick: () => {
-            const name = prompt('Name of the new organisation');
+          h('button', { class: 'btn btn-sm btn-primary', onclick: async () => {
+            const name = await uiPrompt('Name of the new organisation');
             if (name?.trim()) { createOrg(name.trim()); location.assign('org.html'); }
           } }, icon('plus', 16), 'New organisation')));
 }

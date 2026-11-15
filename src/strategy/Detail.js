@@ -10,6 +10,7 @@ import { loadDashboards, saveDoc } from '../platform/docs.js';
 import { dashboardFromNode } from '../platform/dashboards.js';
 import { uid } from '../core/ops.js';
 import { currentUser } from '../platform/session.js';
+import { uiConfirm } from '../ui/dialog.js';
 
 /** The selected node: its fields, its people, and its Gantt chart or timeline. */
 export function Detail(ctx) {
@@ -82,8 +83,8 @@ export function Detail(ctx) {
     h('div', { class: 'fields' }, fields(), text('notes', 'Notes', { area: true, wide: true, rows: 3 })),
     h('div', { class: 'detail-actions' },
       type.children.map((c) => h('button', { class: 'btn btn-sm', onclick: () => ctx.addChild(n.id, c) }, `Add ${NODE_TYPES[c].label.toLowerCase()}`)),
-      n.parentId && h('button', { class: 'btn btn-sm btn-ghost btn-error', onclick: () => {
-        if (confirm(`Delete “${n.title}” and everything under it? You can undo.`)) {
+      n.parentId && h('button', { class: 'btn btn-sm btn-ghost btn-error', onclick: async () => {
+        if (await uiConfirm(`Delete “${n.title}” and everything under it? You can undo.`)) {
           select(n.parentId);
           store.apply(strategyOps.removeNode(doc, n.id));
         }

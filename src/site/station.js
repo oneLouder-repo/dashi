@@ -8,6 +8,7 @@ import { showArchive, archiveBytes } from '../platform/showArchive.js';
 import { zipStream } from '../core/zip.js';
 import { stationView, seasonsOf, published, podcastRss } from '../platform/podcasts.js';
 import { short } from '../strategy/dates.js';
+import { uiAlert } from '../ui/dialog.js';
 
 /**
  * The public podcast station: its pages (station home, a show, an
@@ -88,7 +89,7 @@ export function DownloadShow(ctx, show, cls = 'btn-sm') {
     try {
       await buildInBrowser(ctx, show, (t) => { btn.lastChild.textContent = t; });
     } catch (err) {
-      alert(`The download didn’t work: ${err.message}`);
+      uiAlert(`The download didn’t work: ${err.message}`);
     }
     btn.lastChild.textContent = label;
     btn.disabled = false;

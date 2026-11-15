@@ -1,4 +1,5 @@
 import { svg } from '../core/svg.js';
+import { PHOSPHOR } from './phosphor.js';
 
 /**
  * Monochrome line icons on a 24×24 grid, drawn with currentColor so they
@@ -63,11 +64,55 @@ export const ICONS = {
   ticket: 'M3 7 H21 V10 A2 2 0 0 0 21 14 V17 H3 V14 A2 2 0 0 0 3 10 Z M14 7 V17',
 };
 
+/**
+ * Dashi's own section icons (the "Grid" direction): circles, squares and
+ * straight lines on a 4px grid, flat ends, one accent piece in the
+ * section's tone (--accent, else the text colour). Raw SVG on 24×24.
+ */
+const AC = 'class="accent-stroke"';
+const ACF = 'class="accent-fill"';
+export const SECTION_ICONS = {
+  'sec-home': `<rect x="4" y="4" width="7" height="7"/><rect x="13" y="4" width="7" height="7"/><rect x="4" y="13" width="7" height="7"/><path d="M13 20 A7 7 0 0 1 20 13 V20 Z" ${ACF}/>`,
+  'sec-mapper': `<path d="M8.7 7.3 L15.3 7.3 M7 9.2 L10.6 15.2 M17 9.2 L13.4 15.2"/><circle cx="6" cy="7" r="2.5"/><circle cx="18" cy="7" r="2.5"/><circle cx="12" cy="18" r="2.5" ${ACF}/>`,
+  'sec-strategy': `<path d="M3 20 H8 V15 H13 V10 H17"/><circle cx="19" cy="6" r="2.5" ${AC}/><path d="M3 4 V20" stroke-dasharray="1 3"/>`,
+  'sec-studio': `<rect x="4" y="4" width="16" height="16"/><path d="M12 4 V20 M4 12 H20"/><circle cx="16" cy="8" r="2" ${ACF}/>`,
+  'sec-data': `<path d="M4 20 H20 M7 20 V14 M12 20 V11 M17 20 V13"/><path d="M5 9 L10 6 L14 8 L19 4" ${AC}/>`,
+  'sec-podcasts': `<circle cx="12" cy="12" r="4"/><path d="M6.3 6.3 A8 8 0 0 0 6.3 17.7 M17.7 6.3 A8 8 0 0 1 17.7 17.7"/><circle cx="12" cy="12" r="1.5" ${ACF}/>`,
+  'sec-library': `<rect x="4" y="4" width="4" height="16"/><rect x="9" y="4" width="4" height="16"/><path d="M15 5 L18.8 4 L22 19 L18.2 20 Z" ${AC}/>`,
+  'sec-sites': `<rect x="3" y="4" width="18" height="16"/><path d="M3 8 H21"/><path d="M7 20 A5 5 0 0 1 17 20" ${AC}/>`,
+  'sec-org': `<rect x="9" y="3" width="6" height="6" ${AC}/><path d="M12 9 V13 M6 13 H18 M6 13 V15 M18 13 V15"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/>`,
+  'sec-help': `<path d="M8 8 A4 4 0 1 1 12 12 V14"/><rect x="10.5" y="17" width="3" height="3" ${ACF}/><path d="M3 3 H7 M3 3 V7 M21 3 H17 M21 3 V7 M3 21 H7 M3 21 V17 M21 21 H17 M21 21 V17"/>`,
+  'sec-plugins': `<rect x="4" y="4" width="7" height="7"/><rect x="13" y="13" width="7" height="7"/><path d="M4 13 H11 V20 H4 Z" stroke-dasharray="2 2"/><circle cx="16.5" cy="7.5" r="3.5" ${AC}/>`,
+};
+// The section names the pages used before: they now draw the Grid icons.
+for (const [old, sec] of [['home', 'sec-home'], ['mapper', 'sec-mapper'], ['strategy', 'sec-strategy'], ['studio', 'sec-studio'], ['workbench', 'sec-data'], ['org', 'sec-org']]) {
+  SECTION_ICONS[old] = SECTION_ICONS[sec];
+}
+
+/** Every icon name: Dashi's section icons, then Phosphor, then the board's own line icons above. */
+export const iconNames = () => [...new Set([...Object.keys(SECTION_ICONS), ...Object.keys(PHOSPHOR), ...Object.keys(ICONS)])];
+
 export function icon(nameOrPath, size = 20) {
+  if (SECTION_ICONS[nameOrPath]) {
+    const el = svg('svg', { viewBox: '0 0 24 24', width: size, height: size, class: 'icon icon-grid', 'aria-hidden': 'true' });
+    el.innerHTML = SECTION_ICONS[nameOrPath];
+    return el;
+  }
+  if (nameOrPath === 'help') nameOrPath = 'question';
+  // The board's own drawing tools keep their line icons; everything else is Phosphor.
+  if (PHOSPHOR[nameOrPath] && !BOARD_OWN.has(nameOrPath)) {
+    const el = svg('svg', { viewBox: '0 0 256 256', width: size, height: size, class: 'icon icon-ph', 'aria-hidden': 'true' });
+    svg('path', { d: PHOSPHOR[nameOrPath] }, el);
+    return el;
+  }
   const el = svg('svg', { viewBox: '0 0 24 24', width: size, height: size, class: 'icon', 'aria-hidden': 'true' });
   svg('path', { d: ICONS[nameOrPath] ?? nameOrPath }, el);
   return el;
 }
+const BOARD_OWN = new Set(['actor', 'agent']);
+
+/** An icon as SVG text (for places that build HTML strings). */
+export const iconSvg = (name, size = 20) => icon(name, size).outerHTML;
 
 // Custom board cursors: a black arrow with a small badge, tip at (3, 2).
 const ARROW = 'M3 2 L3 17 L7 13.2 L9.8 19.5 L12.2 18.4 L9.5 12.3 L14.8 12.3 Z';

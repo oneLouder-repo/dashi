@@ -7,6 +7,7 @@ import { parseMarkdown, toHtml } from '../core/markdown.js';
 import { docx, odt } from '../core/office.js';
 import { pdf } from '../core/pdf.js';
 import { dublinCore, dublinCoreXml, cslJson, apaReference, runsToHtml, runsToMarkdown, sortKey, creatorsBy, fullName, apaDate } from '../platform/library.js';
+import { uiAlert } from '../ui/dialog.js';
 
 export const FORMATS = [
   { id: 'pdf', label: 'PDF', ext: 'pdf', type: 'application/pdf' },
@@ -120,7 +121,7 @@ export async function exportDoc(item, format) {
 /** Print a doc (or anything as HTML) with the browser, which can save as PDF too. */
 export function printHtml(title, markdownOrHtml, { dc = {}, isHtml = false } = {}) {
   const w = window.open('', '_blank');
-  if (!w) { alert('Your browser blocked the print window. Allow pop-ups for this site, or download a PDF instead.'); return; }
+  if (!w) { uiAlert('Your browser blocked the print window. Allow pop-ups for this site, or download a PDF instead.'); return; }
   const body = isHtml ? markdownOrHtml : blocksHtml([...titleBlocks(title, dc, parseMarkdown(markdownOrHtml)), ...parseMarkdown(markdownOrHtml)]);
   w.document.write(htmlPage(title, body, dc));
   w.document.close();

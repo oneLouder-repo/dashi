@@ -29,6 +29,7 @@ import { toast } from './ui/Shell.js';
 import { enabledPlugins } from './plugins.js';
 import { loadMapContent, mapDocName, createMapIn } from './platform/maps.js';
 import { currentUser } from './platform/session.js';
+import { uiPrompt } from './ui/dialog.js';
 
 const org = loadOrg();
 Shell(document.querySelector('#shell'), { current: 'mapper', org });
@@ -269,7 +270,7 @@ const main = document.querySelector('main');
 ctx.dock = DockPanels(main, [
   { id: 'tools', title: 'Tools', body: toolMenu, dock: 'left', compact: true, closable: false },
   { id: 'maps', title: 'Maps', body: mapsEl, dock: 'left', width: 220,
-    action: { label: 'New map', onclick: () => { const title = prompt('Name of the new map', 'Untitled map'); if (title?.trim()) ctx.actions.newMap(title.trim()); } } },
+    action: { label: 'New map', onclick: async () => { const title = await uiPrompt('Name', 'Untitled map', { title: 'New ecosystem map', ok: 'Create map' }); if (title?.trim()) ctx.actions.newMap(title.trim()); } } },
   { id: 'layers', title: 'Layers', body: layersEl, dock: 'right', width: 240, action: { label: 'Add layer', onclick: () => ctx.actions.addLayer() } },
 ], { key: 'dashi.mapper.panels' });
 Toolbar(toolMenu, ctx);

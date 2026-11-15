@@ -5,6 +5,7 @@ import { isAudioFile, slugify, published, seasonsOf, showsInOrder, nextNumber } 
 import { putMedia, audioDuration, maxUploadMb } from '../platform/media.js';
 import { fmtDuration } from '../site/station.js';
 import { today, short } from '../strategy/dates.js';
+import { uiAlert } from '../ui/dialog.js';
 
 
 /**
@@ -68,7 +69,7 @@ function QuickPublish(ctx, shows, now) {
   f.when.addEventListener('change', () => { f.date.hidden = f.when.value !== 'later'; });
   f.file.addEventListener('change', () => {
     const file = f.file.files[0];
-    if (file && !isAudioFile(file)) { alert('Choose an .mp3 or .wav file.'); f.file.value = ''; return; }
+    if (file && !isAudioFile(file)) { uiAlert('Choose an .mp3 or .wav file.'); f.file.value = ''; return; }
     if (file && !f.title.value) f.title.value = file.name.replace(/\.(mp3|wav)$/i, '').replace(/[-_]+/g, ' ');
   });
   const submit = h('button', { class: 'btn btn-sm btn-primary', type: 'submit' }, icon('upload', 14), 'Upload');
@@ -76,14 +77,14 @@ function QuickPublish(ctx, shows, now) {
   return h('form', { class: 'panel quick-publish', onsubmit: async (ev) => {
     ev.preventDefault();
     const file = f.file.files[0];
-    if (file.size > maxUploadMb() * 1048576) return alert(`Audio files can be up to ${maxUploadMb()} MB.`);
+    if (file.size > maxUploadMb() * 1048576) return uiAlert(`Audio files can be up to ${maxUploadMb()} MB.`);
     submit.disabled = true;
     submit.textContent = 'Uploading…';
     let audio;
     try {
       audio = { mediaId: await putMedia(file, { onProgress: (f) => { submit.textContent = `Uploading… ${Math.floor(f * 100)}%`; } }), duration: await audioDuration(file), mimetype: file.type || (/\.wav$/i.test(file.name) ? 'audio/wav' : 'audio/mpeg'), size: file.size, name: file.name };
     } catch (err) {
-      alert(err.message);
+      uiAlert(err.message);
       submit.disabled = false;
       submit.textContent = 'Upload';
       return;

@@ -6,6 +6,7 @@ import { kindById } from '../platform/assets.js';
 import { strategyOps, taskSummary } from '../platform/strategy.js';
 import { QUADRANTS, quadrant, ofPlan, blockLabel, canWire, sendToPlan, bringInPlan, CONTEXT_KINDS } from '../platform/studio.js';
 import { Viewport } from './Viewport.js';
+import { uiAlert, uiConfirm } from '../ui/dialog.js';
 
 /**
  * Assemble: a patching canvas, after Max/MSP and Scratch. Drag SOAR cards,
@@ -87,7 +88,7 @@ export function Assemble(ctx, plan) {
   const planOnCanvas = blocks.some((b) => b.kind === 'plan');
   const bringIn = () => {
     const ops = bringInPlan(doc, ctx.strategy.doc, plan.id);
-    if (!ops.length) { alert('Everything in the plan is already on the canvas.'); return; }
+    if (!ops.length) { uiAlert('Everything in the plan is already on the canvas.'); return; }
     ctx.store.apply(col.batch(ops));
   };
   const bins = h('aside', { class: 'patch-bins', 'aria-label': 'Things to patch in' },
@@ -179,12 +180,12 @@ export function Assemble(ctx, plan) {
     window.addEventListener('pointerup', up);
   });
 
-  const send = () => {
+  const send = async () => {
     const out = sendToPlan(doc, ctx.strategy.doc, plan.id);
-    if (!out.made && !out.updated) { alert('Add an objective block, and wire goals (and workplans into those) into it, to send them to the plan.'); return; }
+    if (!out.made && !out.updated) { uiAlert('Add an objective block, and wire goals (and workplans into those) into it, to send them to the plan.'); return; }
     const msg = [`This makes ${out.made} new and updates ${out.updated} existing objectives, goals and workplans in “${plan.title}” in Strategy & Work.`,
       out.loose && `${out.loose} goal${out.loose === 1 ? ' isn’t' : 's aren’t'} wired into an objective yet, so ${out.loose === 1 ? 'it stays' : 'they stay'} here.`].filter(Boolean).join('\n\n');
-    if (!confirm(msg)) return;
+    if (!await uiConfirm(msg)) return;
     ctx.strategy.apply(col.batch(out.strategyOps));
     if (out.studioOps.length) ctx.store.apply(col.batch(out.studioOps));
     ctx.flash = { text: `Sent to Strategy & Work: ${out.made} made, ${out.updated} updated.`, until: Date.now() + 10000 };

@@ -14,6 +14,9 @@
  *
  * Every document belongs to an org, so nothing leaks between them.
  */
+import { applyRegistry } from '../plugins.js';
+import { setLocalMode } from '../ui/netlight.js'; // Wraps fetch first, so the header's save light sees every call.
+
 // Bump the version when the example data changes shape, so everyone starts fresh.
 const ROOT = 'org-toolbox:v3:';
 export const REGISTRY_KEY = `${ROOT}registry`;
@@ -30,6 +33,9 @@ if (inBrowser && location.protocol.startsWith('http')) {
     // No server here: run locally.
   }
 }
+if (inBrowser) setLocalMode(!hosted);
+// The platform admin's plugin registry: names, looks, statuses and installed plugins.
+applyRegistry(hosted?.plugins);
 export const session = () => hosted;
 export const isHosted = () => !!hosted;
 /** The server's limits (largest upload), when hosted. */
@@ -191,6 +197,7 @@ export function loadDoc(name, orgId) {
  * don't announce themselves.
  */
 export function saveDoc(name, doc, orgId, { quiet = false } = {}) {
+  if (inBrowser) window.dispatchEvent(new CustomEvent('toolbox:save-sent', { detail: { name } }));
   if (hosted) {
     if (orgId && orgId !== activeOrgId) return false;
     cache[name] = structuredClone(doc);
@@ -226,6 +233,7 @@ export function autosaveDoc(name, store, delay = 400) {
   let timer;
   const orgId = activeOrgId;
   store.addEventListener('change', () => {
+    if (inBrowser) window.dispatchEvent(new CustomEvent('toolbox:save-pending', { detail: { name } }));
     clearTimeout(timer);
     timer = setTimeout(() => saveDoc(name, store.doc, orgId), delay);
   });

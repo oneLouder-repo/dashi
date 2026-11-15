@@ -3,6 +3,7 @@ import { icon } from '../ui/icons.js';
 import { openAssetChooser } from '../ui/AssetChooser.js';
 import { assetTile } from '../strategy/Assets.js';
 import { QUADRANTS, quadrant, ofPlan, freeSpot } from '../platform/studio.js';
+import { uiConfirm } from '../ui/dialog.js';
 
 /**
  * Strengths, Opportunities or Aspirations as a list: the same cards as on
@@ -44,7 +45,7 @@ export function SoarList(ctx, plan, tab) {
         h('select', { class: 'select select-xs', name: `q-${c.id}`, 'aria-label': 'Move to', title: 'Move to another quadrant', onchange: (e) => ctx.put('cards', c.id, { quadrant: e.target.value, ...freeSpot(ctx.doc, plan.id, e.target.value) }) },
           options(QUADRANTS.map((x) => ({ id: x.id, label: x.label })), c.quadrant)),
         h('button', { class: 'btn btn-ghost btn-xs', disabled: onCanvas.has(c.id), title: onCanvas.has(c.id) ? 'Already on the Assemble canvas' : 'Put it on the Assemble canvas', onclick: () => toCanvas(c) }, icon('connect', 13), onCanvas.has(c.id) ? 'On canvas' : 'To canvas'),
-        h('button', { class: 'btn btn-ghost btn-xs btn-square', title: 'Remove', 'aria-label': 'Remove card', onclick: () => { if (confirm('Remove this card?')) ctx.remove('cards', c.id); } }, '×')),
+        h('button', { class: 'btn btn-ghost btn-xs btn-square', title: 'Remove', 'aria-label': 'Remove card', onclick: async () => { if (await uiConfirm('Remove this card?')) ctx.remove('cards', c.id); } }, '×')),
       h('textarea', { class: 'textarea textarea-sm', name: `d-${c.id}`, rows: 2, placeholder: 'Say more: evidence, examples, who raised it', onchange: (e) => ctx.put('cards', c.id, { detail: e.target.value }) }, c.detail ?? ''),
       h('div', { class: 'soar-assets-row' },
         h('ul', { class: 'asset-tiles' }, (c.assets ?? []).map((a) => assetTile(a, ctx.docs, { remove: () => ctx.put('cards', c.id, { assets: c.assets.filter((x) => x.id !== a.id) }) }))),

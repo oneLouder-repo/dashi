@@ -1,13 +1,23 @@
 import { h } from './dom.js';
 import { svg } from '../core/svg.js';
 
-/** The platform's mark (a little dashboard of tiles) and its name, Dashi. */
+/**
+ * Dashi's mark, "Ripple": nested rings that touch at one point, like a
+ * drop landing in broth (and the micro / meso / macro rings of the
+ * Mapper), with the drop in Dashi orange. Then the name, lowercase.
+ * The same drawing is media/brand/dashi-mark.svg and the favicon.
+ */
+export function RippleMark(size = 22, cls = 'dashi-mark') {
+  const mark = svg('svg', { viewBox: '0 0 64 64', width: size, height: size, class: cls, 'aria-hidden': 'true' });
+  // Small sizes get heavier rings so they stay crisp.
+  const w = size <= 16 ? 6.5 : size <= 24 ? 5.5 : 4.5;
+  svg('circle', { cx: 32, cy: 33, r: 27, class: 'ring r1', 'stroke-width': w }, mark);
+  svg('circle', { cx: 32, cy: 41.5, r: 18.5, class: 'ring r2', 'stroke-width': w }, mark);
+  svg('circle', { cx: 32, cy: 50, r: 10, class: 'ring r3', 'stroke-width': w }, mark);
+  svg('circle', { cx: 32, cy: 50, r: 4.2, class: 'drop' }, mark);
+  return mark;
+}
+
 export function Wordmark(size = 22, { text = true } = {}) {
-  const mark = svg('svg', { viewBox: '0 0 24 24', width: size, height: size, class: 'dashi-mark', 'aria-hidden': 'true' });
-  svg('rect', { x: 1, y: 1, width: 22, height: 22, rx: 6, class: 'dashi-mark-bg' }, mark);
-  svg('rect', { x: 5, y: 5, width: 6, height: 9, rx: 1.5, class: 'dashi-mark-tile' }, mark);
-  svg('rect', { x: 13, y: 5, width: 6, height: 5, rx: 1.5, class: 'dashi-mark-tile' }, mark);
-  svg('rect', { x: 13, y: 12, width: 6, height: 7, rx: 1.5, class: 'dashi-mark-tile dim' }, mark);
-  svg('rect', { x: 5, y: 16, width: 6, height: 3, rx: 1.5, class: 'dashi-mark-tile dim' }, mark);
-  return h('span', { class: 'dashi-wordmark', style: `font-size:${Math.round(size * 0.86)}px` }, mark, text && h('span', {}, 'Dashi'));
+  return h('span', { class: 'dashi-wordmark', style: `font-size:${Math.round(size * 0.92)}px` }, RippleMark(size), text && h('span', { class: 'dashi-name' }, 'dashi'));
 }

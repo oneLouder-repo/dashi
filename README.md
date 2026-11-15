@@ -1,6 +1,6 @@
 # Dashi (scratchpad)
 
-**Version 0.1.0-alpha.1**: the first tester release. See [CHANGELOG.md](CHANGELOG.md) for what's in it, [TESTING.md](TESTING.md) for testing it, and [DEPLOY.md](DEPLOY.md) for running it.
+**Version 0.1.0-alpha.2**: the second tester release (new look, save light, Dashi dialogs, plugin management). See [CHANGELOG.md](CHANGELOG.md) for what's in it, [TESTING.md](TESTING.md) for testing it, and [DEPLOY.md](DEPLOY.md) for running it.
 
 A small, cohesive platform for nonprofits' planning, knowledge and learning work. It holds many organisations; each picks the **plugins** it uses. Open `index.html` (via `npm start`) for the dashboard, then choose a plugin:
 
@@ -16,7 +16,9 @@ A small, cohesive platform for nonprofits' planning, knowledge and learning work
 | Help | `help.html` | User guide, how the systems lenses line up, and the data model, with diagrams |
 | Sample public site | `site.html?site=<id>` | What the public sees: dashboards, pages, news and the podcast station, in the org's theme |
 
-Every plugin shares the same small framework (`src/core`), header (`src/ui/Shell.js`), data layer (`src/platform`) and UI kit ([DaisyUI](https://daisyui.com), vendored in `vendor/daisyui`, so still no build step). To add a plugin: make a page and its module, then add an entry to `src/plugins.js`; it appears on the dashboard, in the header and in Organisation → Plugins. Data autosaves to the browser for now, per organisation.
+Every plugin shares the same small framework (`src/core`), header (`src/ui/Shell.js`), data layer (`src/platform`) and UI kit ([DaisyUI](https://daisyui.com), vendored in `vendor/daisyui`, so still no build step). To add a plugin: make a page and its module, then add an entry to `src/plugins.js`; it appears on the dashboard, in the header and in Organisation → Plugins. On the hosted platform, the platform admin manages every plugin under **Platform admin → Plugins**: rename and recolour it, switch features on per plan, describe its data model, release versions and roll back, and install or update plugins from a JSON package. A plugin made there gets a page generated from its data model (`plugin.html?id=<id>`) until it has one of its own. See `src/platform/pluginRegistry.js`.
+
+The look: the **Ripple** mark (`media/brand/`), Dashi's **Grid** section icons and **Phosphor** icons (MIT, `vendor/phosphor/LICENSE`) in `src/ui/icons.js`; themed dialogs in `src/ui/dialog.js` (never the browser's `alert`, `confirm` or `prompt`); and the **save light** in the header (`src/ui/netlight.js`), which shows every call to the server. Data autosaves to the browser for now, per organisation.
 
 Two example organisations come built in (switch from the menu at the top left). Accounts are mocked: the menu under your picture signs you in as anyone on staff.
 

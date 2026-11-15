@@ -1,12 +1,15 @@
 import { h, options } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { initials } from '../platform/org.js';
-import { PLUGINS } from '../plugins.js';
+import { PLUGINS, applyRegistry } from '../plugins.js';
+import { NetLight } from '../ui/netlight.js';
+import { PluginsAdmin } from './pluginAdmin.js';
 import { Wordmark } from '../ui/Wordmark.js';
 import { SideNav } from '../ui/SideNav.js';
 import { salesPage } from './sales.js';
 import { PLAN_IDS, PLAN_PLUGINS, LIMITS, FEATURES, amount } from '../platform/plans.js';
 import { statusBadge, when, KIND_LABEL, TicketThread } from '../help/support.js';
+import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
 
 /**
  * The platform's own site (the root domain): the organisations you can
@@ -33,12 +36,14 @@ try {
   location.replace('index.html'); // No server: the local prototype.
   throw new Error('No server');
 }
+applyRegistry(session.plugins);
 
 async function render() {
   const { user } = session;
   const head = h('header', { class: 'platform-head' },
     h('a', { href: '/', class: 'platform-brand', 'aria-label': 'Dashi home' }, Wordmark(22)),
     h('span', { class: 'spacer' }),
+    user && NetLight(),
     user
       ? [h('span', { class: 'muted' }, user.email), h('button', { class: 'btn btn-sm', onclick: async () => { await call('POST', '/api/auth/logout'); location.reload(); } }, 'Sign out')]
       : h('a', { class: 'btn btn-sm btn-primary', href: '/login.html?next=/' }, 'Sign in'));
@@ -73,18 +78,31 @@ async function render() {
   const suffix = location.host;
   const u = { email: h('input', { class: 'input input-sm', type: 'email', placeholder: 'Email', required: true }), name: h('input', { class: 'input input-sm', placeholder: 'Name' }) };
   const OPTIONAL = PLUGINS.filter((p) => !p.core);
-  const pluginToggles = (o) => h('div', { class: 'plugin-toggles' }, OPTIONAL.map((p) => {
-    const inPlan = o.included?.[p.id] !== false;
-    const on = inPlan && !o.paused[p.id] && o.chosen[p.id] !== false;
-    return h('label', { class: 'feature-toggle', title: !inPlan ? `Not in the ${o.plan} plan. Change the plan, or give it under Own limits.` : on ? `${p.name} is on for ${o.name}` : o.paused[p.id] ? `Paused by you` : `Switched off by ${o.name}` },
-      h('input', { type: 'checkbox', class: 'toggle toggle-xs toggle-primary', checked: on, disabled: !inPlan,
-        onchange: (e) => act(() => call('POST', `/api/admin/orgs/${o.id}/plugins`, { plugin: p.id, on: e.target.checked })) }),
-      icon(p.icon, 14), p.name);
-  }));
-  const act = async (fn) => { try { await fn(); await reload(); } catch (err) { alert(err.message); } };
+  /**
+   * An org's plugins as one row of chips, in the registry's order: on (in its
+   * tone), switched off by the org, paused by you, or not in its plan.
+   * Click a chip to switch it on for the org or pause it.
+   */
+  const pluginToggles = (o) => {
+    const states = OPTIONAL.map((p) => {
+      const inPlan = o.included?.[p.id] !== false && !(p.installed && p.platformOff);
+      const state = p.platformOff ? 'platform' : !inPlan ? 'plan' : o.paused[p.id] ? 'paused' : o.chosen[p.id] === false ? 'org' : 'on';
+      return { p, state };
+    });
+    const on = states.filter((x) => x.state === 'on').length;
+    const why = { on: 'On. Click to pause it for this organisation.', org: `Switched off by ${o.name} in its settings. Click to switch it back on.`, paused: 'Paused by you. Click to switch it on.', plan: `Not in the ${o.plan} plan. Change the plan, or give it under Own limits.`, platform: 'Switched off for the whole platform (Plugins).' };
+    return h('div', { class: 'org-plugins' },
+      h('div', { class: 'org-plugin-chips' }, states.map(({ p, state }) => h('button', {
+        type: 'button', class: `org-plugin ${state}`, style: `--tone:${p.tone}`, disabled: state === 'plan' || state === 'platform',
+        title: `${p.name}: ${why[state]}`, 'aria-pressed': String(state === 'on'), 'aria-label': `${p.name}: ${why[state]}`,
+        onclick: () => act(() => call('POST', `/api/admin/orgs/${o.id}/plugins`, { plugin: p.id, on: state !== 'on' })),
+      }, icon(p.icon, 16)))),
+      h('span', { class: 'org-plugin-sum' }, `${on} of ${OPTIONAL.length} on`));
+  };
+  const act = async (fn) => { try { await fn(); await reload(); } catch (err) { uiAlert(err.message); } };
 
   const hash = decodeURIComponent(location.hash.slice(1));
-  const route = hash.startsWith('support') ? 'support' : ['orgs', 'add', 'people', 'plans', 'requests', 'site', 'security'].includes(hash) ? hash : 'orgs';
+  const route = hash.startsWith('support') ? 'support' : hash.startsWith('plugins') ? 'plugins' : ['orgs', 'add', 'people', 'plans', 'requests', 'site', 'security'].includes(hash) ? hash : 'orgs';
   const active = orgs.filter((o) => o.status === 'active').length;
   const stat = (label, value, hint) => h('div', { class: 'stat' }, h('div', { class: 'stat-title' }, label), h('div', { class: 'stat-value' }, value), hint && h('div', { class: 'stat-desc' }, hint));
   const side = SideNav({ label: 'Platform admin', sections: [
@@ -92,6 +110,7 @@ async function render() {
       { label: 'Organisations', sub: `${orgs.length} on the platform`, icon: 'org', href: '#orgs', on: route === 'orgs' },
       { label: 'Add an organisation', icon: 'plus', href: '#add', on: route === 'add' },
       { label: 'People who can sign in', sub: `${users.length} people`, icon: 'person', href: '#people', on: route === 'people' },
+      { label: 'Plugins', sub: `${PLUGINS.length} on the platform`, icon: 'sec-plugins', href: '#plugins', on: route === 'plugins' },
       { label: 'Plans', sub: 'What each tier includes', icon: 'star', href: '#plans', on: route === 'plans' },
       { label: 'Requests', sub: 'Sign-ups, plan changes, messages', icon: 'news', href: '#requests', on: route === 'requests', badge: openRequests ? String(openRequests) : null, badgeClass: 'badge-primary' },
       { label: 'Support', sub: `${queue.tickets.length} open ticket${queue.tickets.length === 1 ? '' : 's'}`, icon: 'ticket', href: '#support', on: route === 'support', badge: waitingOnUs ? String(waitingOnUs) : null, badgeClass: 'badge-primary' },
@@ -115,6 +134,11 @@ async function render() {
   sections.requests = () => Requests(requests, act);
   sections.site = () => SalesSite();
   sections.support = () => Support(hash.split('/')[1] ?? null);
+  sections.plugins = () => {
+    const holder = h('div', {}, h('p', { class: 'muted' }, 'Loading the plugins…'));
+    PluginsAdmin({ call, sub: hash.split('/')[1] ?? null, rerender: () => render(), previewOrg: session.orgs[0] ?? null }).then((el) => holder.replaceChildren(el));
+    return holder;
+  };
   window.onhashchange = () => render();
 
   const addOrg = h('section', { class: 'card card-border bg-base-100 platform-card' }, h('div', { class: 'card-body' },
@@ -128,23 +152,24 @@ async function render() {
       h('p', { class: 'muted small' }, 'Their admin can then sign in with that email (with Google, or a password you set below) and add their own staff.')));
   const allOrgs = h('section', {},
       h('h2', {}, 'Manage organisations'),
-      h('p', { class: 'muted small' }, 'Switch a plugin on to add it to an organisation’s plan; switch it off to pause it. A paused plugin keeps its content, but the organisation and its public site can’t use it until you switch it back on.'),
-      h('div', { class: 'table-scroll' }, h('table', { class: 'table table-sm' },
+      h('p', { class: 'muted small' }, 'Each icon is one of the organisation’s plugins. Coloured: on. Grey: paused by you or switched off by the organisation. Dashed: not in its plan. Click one to switch it on or pause it; a paused plugin keeps its content. Change what plugins exist under Plugins.'),
+      h('div', { class: 'org-plugin-legend' }, OPTIONAL.map((p) => h('span', { style: `--tone:${p.tone}` }, icon(p.icon, 14), p.short ?? p.name))),
+      h('div', { class: 'table-scroll' }, h('table', { class: 'table table-sm orgs-table' },
         h('thead', {}, h('tr', {}, ['Name', 'Address', 'Plan', 'Plugins', 'Use', 'Status', ''].map((t) => h('th', {}, t)))),
         h('tbody', {}, orgs.map((o) => h('tr', {},
           h('td', {}, h('strong', {}, o.name)),
           h('td', {}, h('a', { href: open(o) }, o.url.replace(/^https?:\/\//, '')),
             (o.domains ?? []).filter((d) => d.status !== 'active').map((d) => h('div', { class: 'small muted' }, `${d.host} (${d.status}) `,
               h('button', { class: 'btn btn-xs btn-ghost', title: 'Switch this domain on without the DNS check', onclick: () => act(() => call('POST', `/api/admin/domains/${d.host}/activate`)) }, 'Switch on')))),
-          h('td', {}, h('select', { class: 'select select-xs', 'aria-label': `Plan for ${o.name}`, onchange: (e) => act(() => call('PATCH', `/api/admin/orgs/${o.id}`, { plan: e.target.value })) }, options(PLANS, o.plan))),
+          h('td', {}, h('select', { class: 'select select-xs plan-select', 'aria-label': `Plan for ${o.name}`, onchange: (e) => act(() => call('PATCH', `/api/admin/orgs/${o.id}`, { plan: e.target.value })) }, options(PLANS, o.plan))),
           h('td', {}, pluginToggles(o)),
           h('td', { class: 'small' }, `${o.members} people`, h('br'), `${o.usage?.storageMb ?? 0} MB`,
             h('details', { class: 'limits-edit' }, h('summary', { class: 'link-button' }, Object.keys(o.limits?.limits ?? {}).length ? 'Own limits ✓' : 'Own limits'), LimitsEditor(o, act))),
           h('td', {}, h('label', { class: 'feature-toggle' },
             h('input', { type: 'checkbox', class: 'toggle toggle-xs toggle-primary', checked: o.status === 'active', onchange: (e) => act(() => call('PATCH', `/api/admin/orgs/${o.id}`, { status: e.target.checked ? 'active' : 'suspended' })) }),
             o.status)),
-          h('td', {}, h('button', { class: 'btn btn-xs btn-ghost btn-error', onclick: () => {
-            if (prompt(`This deletes ${o.name} and everything in it, for good. Type its address (${o.slug}) to confirm.`) === o.slug) act(() => call('DELETE', `/api/admin/orgs/${o.id}`));
+          h('td', {}, h('button', { class: 'btn btn-xs btn-ghost btn-error', onclick: async () => {
+            if (await uiPrompt(`Type its address, ${o.slug}, to confirm`, '', { title: `Delete ${o.name} for good?`, ok: 'Delete', help: 'This deletes the organisation and everything in it. It can’t be undone.' }) === o.slug) act(() => call('DELETE', `/api/admin/orgs/${o.id}`));
           } }, 'Delete'))))))));
   const people = h('section', {},
       h('h2', {}, 'People who can sign in'),
@@ -156,8 +181,8 @@ async function render() {
           h('td', {}, x.email),
           h('td', {}, x.memberships.map((m) => `${m.name} (${m.role})`).join(', ') || '—'),
           h('td', {}, [...(x.providers ?? (x.google ? ['Google'] : [])), x.has_password && 'password'].filter(Boolean).join(', ') || 'not yet'),
-          h('td', {}, h('button', { class: 'btn btn-xs', onclick: () => {
-            const pw = prompt(`New password for ${x.email} (at least 10 characters). Share it with them safely.`);
+          h('td', {}, h('button', { class: 'btn btn-xs', onclick: async () => {
+            const pw = await uiPrompt('New password (at least 10 characters)', '', { title: `Set a password for ${x.email}`, type: 'password', help: 'Share it with them safely.', ok: 'Set password' });
             if (pw) act(() => call('POST', `/api/admin/users/${x.id}/password`, { password: pw }));
           } }, 'Set password'))))))),
       h('form', { class: 'inline-form', onsubmit: (e) => { e.preventDefault(); act(() => call('POST', '/api/admin/users', { email: u.email.value, name: u.name.value, isSuper: true })); } },
@@ -213,7 +238,7 @@ function Security() {
   }
   const now = h('button', { class: 'btn btn-sm', onclick: async () => {
     now.disabled = true;
-    try { await call('POST', '/api/admin/backups'); await Promise.all([loadBackups(), run()]); } catch (err) { alert(err.message); }
+    try { await call('POST', '/api/admin/backups'); await Promise.all([loadBackups(), run()]); } catch (err) { uiAlert(err.message); }
     now.disabled = false;
   } }, icon('download', 14), 'Back up now');
   run().catch((err) => body.replaceChildren(h('p', { class: 'empty' }, err.message)));
@@ -269,7 +294,7 @@ function Plans() {
           h('tr', { class: 'group' }, h('th', { colspan: 5 }, 'Features')),
           FEATURES.map((f) => h('tr', {}, h('th', {}, f.label), PLAN_IDS.map((id) => h('td', {}, check(id, 'features', f.id, f.label)))))))),
       h('div', { class: 'inline-form' }, h('button', { class: 'btn btn-sm btn-primary', onclick: save }, 'Save plans'),
-        h('button', { class: 'btn btn-sm btn-ghost', onclick: async () => { if (confirm('Go back to Dashi’s default plans?')) { overrides = {}; await save(); location.reload(); } } }, 'Back to the defaults'), status));
+        h('button', { class: 'btn btn-sm btn-ghost', onclick: async () => { if (await uiConfirm('Go back to Dashi’s default plans?')) { overrides = {}; await save(); location.reload(); } } }, 'Back to the defaults'), status));
   }).catch((err) => box.replaceChildren(h('p', { class: 'empty' }, err.message)));
   return h('div', {},
     h('h2', {}, 'Plans'),
@@ -398,7 +423,7 @@ async function SupportTicket(box, id) {
     TicketThread(t, messages, { admin: true }),
     h('form', { class: 'ticket-reply', onsubmit: async (e) => {
       e.preventDefault();
-      try { await call('POST', `/api/tickets/${t.id}/messages`, { body: reply.value, internal: internal.checked }); await again(); } catch (err) { alert(err.message); }
+      try { await call('POST', `/api/tickets/${t.id}/messages`, { body: reply.value, internal: internal.checked }); await again(); } catch (err) { uiAlert(err.message); }
     } }, reply,
       h('div', { class: 'row-actions' },
         h('label', { class: 'check small' }, internal, ' Internal note (only platform admins see it)'),

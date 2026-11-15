@@ -15,6 +15,7 @@ import { readImage } from '../ui/images.js';
 import { Cover, Player, fmtDuration } from '../site/station.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
 import { today, short } from '../strategy/dates.js';
+import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
 
 /**
  * Podcasts: the admin for an org's own podcast station.
@@ -74,8 +75,8 @@ function render() {
   if (focused) main.querySelector(`[name="${focused}"]`)?.focus();
 }
 
-function newShow() {
-  const title = prompt('Name of the new show');
+async function newShow() {
+  const title = await uiPrompt('Name of the new show');
   if (!title?.trim()) return;
   const op = store.apply(col.add('podcasts', {
     handle: slugify(title).replace(/-/g, ''), title: title.trim(), description: '', category: 'Education', language: 'en', type: 'episodic', explicit: false,
@@ -88,7 +89,7 @@ function newShow() {
 /** Click-to-upload cover art (square images work best in podcast apps). */
 function CoverUpload(current, size, onPick, label) {
   const input = h('input', { type: 'file', accept: 'image/*', class: 'sr-only', 'aria-label': label, onchange: async (e) => {
-    try { onPick(await readImage(e.target.files[0], 600)); } catch (err) { alert(err.message); }
+    try { onPick(await readImage(e.target.files[0], 600)); } catch (err) { uiAlert(err.message); }
   } });
   return h('label', { class: 'cover-upload', title: label }, Cover(current, size), h('span', { class: 'cover-edit' }, current?.cover ? 'Change art' : 'Add art'), input);
 }
@@ -188,8 +189,8 @@ function EpisodeRow(e, { showShow = false, now: onNow = false } = {}) {
       live ? 'Published' : e.status === 'draft' ? 'Draft' : `Scheduled ${short(e.publishedAt)}`),
     h('div', { class: 'episode-actions' },
       h('button', { class: 'btn btn-xs btn-ghost', onclick: () => editEpisode(e) }, 'Edit'),
-      h('button', { class: 'icon-button', 'aria-label': `Delete ${e.title}`, title: 'Delete', onclick: () => {
-        if (!confirm(`Delete “${e.title}”?`)) return;
+      h('button', { class: 'icon-button', 'aria-label': `Delete ${e.title}`, title: 'Delete', onclick: async () => {
+        if (!await uiConfirm(`Delete “${e.title}”?`)) return;
         store.apply(col.remove('episodes', e.id));
         if (e.audio?.mediaId) deleteMedia(e.audio.mediaId);
       } }, '×')));
@@ -219,7 +220,7 @@ function EpisodeForm(p, e, done) {
   f.file.addEventListener('change', () => {
     const file = f.file.files[0];
     if (!file) return;
-    if (!isAudioFile(file)) { alert('Choose an .mp3 or .wav file.'); f.file.value = ''; return; }
+    if (!isAudioFile(file)) { uiAlert('Choose an .mp3 or .wav file.'); f.file.value = ''; return; }
     fileNote.textContent = `${file.name} · ${(file.size / 1048576).toFixed(1)} MB`;
     if (!f.title.value) f.title.value = file.name.replace(/\.(mp3|wav)$/i, '').replace(/[-_]+/g, ' ');
   });
@@ -228,7 +229,7 @@ function EpisodeForm(p, e, done) {
   const form = h('form', { class: 'episode-form', onsubmit: async (ev) => {
     ev.preventDefault();
     const file = f.file.files[0];
-    if (file && file.size > maxUploadMb() * 1048576) return alert(`Audio files can be up to ${maxUploadMb()} MB.`);
+    if (file && file.size > maxUploadMb() * 1048576) return uiAlert(`Audio files can be up to ${maxUploadMb()} MB.`);
     submit.disabled = true;
     submit.textContent = file ? 'Uploading…' : 'Saving…';
     const ops = [];
@@ -239,7 +240,7 @@ function EpisodeForm(p, e, done) {
       try {
         audio = { mediaId: await putMedia(file, { onProgress: (f) => { submit.textContent = `Uploading… ${Math.floor(f * 100)}%`; } }), duration: await audioDuration(file), mimetype: file.type || (/\.wav$/i.test(file.name) ? 'audio/wav' : 'audio/mpeg'), size: file.size, name: file.name };
       } catch (err) {
-        alert(err.message);
+        uiAlert(err.message);
         submit.disabled = false;
         submit.textContent = e ? 'Save episode' : 'Add episode';
         return;
@@ -362,8 +363,8 @@ function Show(p) {
         h('input', { class: 'title-input season-desc', name: `season-${s.number}-desc`, value: s.description, placeholder: 'What this season is about', 'aria-label': `Season ${s.number} description`, onchange: (e) => setSeason(s.number, { description: e.target.value }) }),
         inSeason.length ? h('ul', { class: 'episode-list' }, inSeason.map((e) => EpisodeRow(e))) : h('p', { class: 'empty' }, 'No episodes in this season yet.'));
     }),
-    h('p', { class: 'note' }, h('button', { class: 'btn btn-xs btn-ghost btn-error', onclick: () => {
-      if (!confirm(`Delete the show “${p.title}” and its episodes?`)) return;
+    h('p', { class: 'note' }, h('button', { class: 'btn btn-xs btn-ghost btn-error', onclick: async () => {
+      if (!await uiConfirm(`Delete the show “${p.title}” and its episodes?`)) return;
       store.apply(col.batch([...eps.map((e) => col.remove('episodes', e.id)), col.remove('podcasts', p.id)]));
       for (const e of eps) if (e.audio?.mediaId) deleteMedia(e.audio.mediaId);
       location.hash = 'station';

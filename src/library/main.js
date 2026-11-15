@@ -20,6 +20,7 @@ import {
 import { FORMATS, download, fileName, renderMarkdown, exportDoc, printHtml, exportDublinCore, exportCsl, referenceBlocks, byline } from './exports.js';
 import { parseMarkdown, toHtml } from '../core/markdown.js';
 import { dashiToolbarItems } from './DashiTools.js';
+import { uiAlert, uiConfirm, uiForm, uiPrompt } from '../ui/dialog.js';
 
 /**
  * The document library.
@@ -260,14 +261,14 @@ function ImportButton(folderId, bib, status) {
       render();
     } catch (err) {
       const msg = `Couldn’t read ${file.name}: ${err.message}`;
-      if (status) say(status, msg); else alert(msg);
+      if (status) say(status, msg); else uiAlert(msg);
     }
   } });
   return h('label', { class: bib ? 'btn btn-sm' : '' }, icon('book', 15), bib ? 'Import references' : 'Import references (Zotero CSL JSON, BibTeX, RIS)', input);
 }
 
-function newDoc(folderId) {
-  const title = prompt('Title of the new doc', 'Untitled doc');
+async function newDoc(folderId) {
+  const title = await uiPrompt('Title of the new doc', 'Untitled doc');
   if (title == null) return;
   const id = uid('doc');
   apply(col.add('items', {
@@ -282,12 +283,22 @@ const nameOf = (person) => {
   return { role: 'author', family: parts.at(-1), given: parts.slice(0, -1).join(' ') };
 };
 
-function addLink(folderId, kind) {
-  const url = prompt(kind === 'gdoc' ? 'Paste the Google Doc, Sheet or Slides address (share it with your team in Google first)' : 'Web address');
-  if (!url?.trim()) return;
-  if (!/^https?:\/\//i.test(url.trim())) { alert('That isn’t a web address. It should start with https://'); return; }
-  if (kind === 'gdoc' && !/^https:\/\/(docs|drive)\.google\.com\//.test(url.trim())) { alert('That isn’t a Google Docs or Drive address.'); return; }
-  const title = prompt('Title', '') ?? '';
+async function addLink(folderId, kind) {
+  const gdoc = kind === 'gdoc';
+  const values = await uiForm({
+    title: gdoc ? 'Add a Google Doc, Sheet or Slides' : 'Add a web page', ok: 'Add',
+    fields: [
+      { name: 'url', label: 'Address', type: 'url', required: true, placeholder: gdoc ? 'https://docs.google.com/…' : 'https://…', help: gdoc ? 'Share it with your team in Google first.' : null },
+      { name: 'title', label: 'Title', placeholder: 'Leave blank to use the address' },
+    ],
+    validate: ({ url }) => {
+      if (!/^https?:\/\//i.test(url.trim())) throw new Error('That isn’t a web address. It should start with https://');
+      if (gdoc && !/^https:\/\/(docs|drive)\.google\.com\//.test(url.trim())) throw new Error('That isn’t a Google Docs or Drive address.');
+    },
+  });
+  if (!values) return;
+  const url = values.url;
+  const title = values.title ?? '';
   const id = uid('doc');
   apply(col.add('items', { id, kind, url: url.trim(), folderId: folderId ?? null, tags: [], meta: blankMeta({ type: kind === 'gdoc' ? 'manuscript' : 'webpage', title: title.trim() || url.trim(), URL: url.trim(), accessed: new Date().toISOString().slice(0, 10) }), createdAt: now(), updatedAt: now(), createdBy: me?.id ?? null }));
   location.hash = `item/${id}`;
@@ -299,15 +310,15 @@ function addReference(folderId) {
   location.hash = `item/${id}`;
 }
 
-function newFolder() {
-  const name = prompt('Name of the new folder');
+async function newFolder() {
+  const name = await uiPrompt('Name of the new folder');
   if (!name?.trim()) return;
   const id = uid('folder');
   apply(col.add('folders', { id, name: name.trim(), parentId: null }));
   location.hash = `files/${id}`;
 }
-function renameFolder(f) {
-  const name = prompt('Folder name', f.name);
+async function renameFolder(f) {
+  const name = await uiPrompt('Folder name', f.name);
   if (!name?.trim()) return;
   store.apply(col.update('folders', f.id, { name: name.trim() }));
 }
@@ -337,7 +348,7 @@ function ItemPage(item) {
 
 async function openMedia(item, asDownload) {
   const url = await mediaUrl(item.file.mediaId);
-  if (!url) { alert('That file is no longer stored.'); return; }
+  if (!url) { uiAlert('That file is no longer stored.'); return; }
   if (asDownload) { const a = h('a', { href: url.startsWith('blob:') ? url : `${url}?download`, download: item.file.name }); document.body.append(a); a.click(); a.remove(); } else window.open(url, '_blank', 'noopener');
 }
 
@@ -372,14 +383,14 @@ function AttachButton(item) {
       const mediaId = await putMedia(file, { kind: 'document' });
       touch(item, { kind: 'file', file: { mediaId, name: file.name, size: file.size, type: file.type } });
       render();
-    } catch (err) { alert(err.message); }
+    } catch (err) { uiAlert(err.message); }
   } });
   return h('label', { class: 'btn btn-sm' }, icon('upload', 14), 'Attach a file', input);
 }
 
-function removeItem(item) {
+async function removeItem(item) {
   const inBibs = Object.values(lib().bibs).filter((b) => b.itemIds.includes(item.id));
-  if (!confirm(`Delete “${item.meta.title || 'Untitled'}”?${inBibs.length ? ` It is in ${n(inBibs.length, 'bibliography', 'bibliographies')}, and its annotations there go too.` : ''}`)) return;
+  if (!await uiConfirm(`Delete “${item.meta.title || 'Untitled'}”?${inBibs.length ? ` It is in ${n(inBibs.length, 'bibliography', 'bibliographies')}, and its annotations there go too.` : ''}`)) return;
   apply(col.batch([
     ...inBibs.map((b) => { const annotations = { ...b.annotations }; delete annotations[item.id]; return col.update('bibs', b.id, { itemIds: b.itemIds.filter((x) => x !== item.id), annotations }); }),
     col.remove('items', item.id),
@@ -589,8 +600,8 @@ function BibList() {
       : h('p', { class: 'empty' }, 'No bibliographies yet.'));
 }
 
-function newBib() {
-  const title = prompt('Name of the bibliography', 'Annotated bibliography');
+async function newBib() {
+  const title = await uiPrompt('Name of the bibliography', 'Annotated bibliography');
   if (!title?.trim()) return;
   const bib = blankBib(title.trim());
   apply(col.add('bibs', bib));
@@ -618,14 +629,15 @@ function BibPage(bib) {
       actions: h('div', { class: 'lib-actions' },
         h('button', { class: 'btn btn-sm', onclick: () => pickItems(bib) }, icon('plus', 14), 'Add sources'),
         ImportButton(null, bib),
-        h('button', { class: 'btn btn-sm btn-ghost', onclick: () => {
-          const title = prompt('Name', bib.title);
-          if (title == null) return;
-          const description = prompt('One line on what it collects', bib.description) ?? bib.description;
-          updateBib(bib, { title: title.trim() || bib.title, description: description.trim() });
+        h('button', { class: 'btn btn-sm btn-ghost', onclick: async () => {
+          const v = await uiForm({ title: 'Rename the bibliography', fields: [
+            { name: 'title', label: 'Name', value: bib.title, required: true },
+            { name: 'description', label: 'One line on what it collects', value: bib.description ?? '' }] });
+          if (!v) return;
+          updateBib(bib, { title: v.title.trim() || bib.title, description: v.description.trim() });
           render();
         } }, 'Rename'),
-        h('button', { class: 'btn btn-sm btn-ghost', 'aria-label': 'Delete bibliography', onclick: () => { if (confirm(`Delete “${bib.title}” and its annotations? The documents stay in the library.`)) { apply(col.remove('bibs', bib.id)); location.hash = 'bibs'; } } }, icon('trash', 14))),
+        h('button', { class: 'btn btn-sm btn-ghost', 'aria-label': 'Delete bibliography', onclick: async () => { if (await uiConfirm(`Delete “${bib.title}” and its annotations? The documents stay in the library.`)) { apply(col.remove('bibs', bib.id)); location.hash = 'bibs'; } } }, icon('trash', 14))),
       tabs, current,
     }),
     body(bib));
@@ -721,15 +733,15 @@ function Lexicon(bib) {
     const v = (cell(itemId, termId) + 1) % 4;
     setLx({ cells: { ...lx.cells, [itemId]: { ...(lx.cells[itemId] ?? {}), [termId]: v } } });
   };
-  const addTerm = () => {
-    const label = prompt('New term (a word or short phrase)');
+  const addTerm = async () => {
+    const label = await uiPrompt('New term (a word or short phrase)');
     if (!label?.trim()) return;
-    if (terms.some((t) => t.label.toLowerCase() === label.trim().toLowerCase())) { alert('That term is already in the lexicon.'); return; }
+    if (terms.some((t) => t.label.toLowerCase() === label.trim().toLowerCase())) { uiAlert('That term is already in the lexicon.'); return; }
     const id = uid('term');
     setLx({ terms: { ...lx.terms, [id]: { id, label: label.trim().toLowerCase(), definition: '', facetId: facets[0]?.id ?? null } } });
   };
-  const addFacet = () => {
-    const name = prompt('New facet (a dimension of the data model, e.g. Scale, Actor, Policy lever)');
+  const addFacet = async () => {
+    const name = await uiPrompt('New facet (a dimension of the data model, e.g. Scale, Actor, Policy lever)');
     if (!name?.trim()) return;
     const id = uid('facet');
     setLx({ facets: { ...lx.facets, [id]: { id, name: name.trim() } } });
@@ -885,8 +897,8 @@ function Weekly(bib) {
       h('span', { class: 'spacer' }),
       h('span', { class: 'muted small' }, `${n(notes.length, 'annotation')} this week · ${Object.keys(bib.weeks).length ? `briefs for ${n(Object.keys(bib.weeks).length, 'week')}` : 'no briefs yet'}`),
       h('label', { class: 'muted small week-model' }, 'Lay the brief out by ', frameworkSelect),
-      h('button', { class: 'btn btn-sm', disabled: !notes.length, title: 'A first draft from this week’s annotations, laid out by the model you chose, to rewrite', onclick: () => {
-        if ((w.policy?.trim() || w.stateOfPlay?.trim() || w.recommendations?.trim()) && !confirm('Replace this week’s brief, state of play and recommendations with a fresh draft?')) return;
+      h('button', { class: 'btn btn-sm', disabled: !notes.length, title: 'A first draft from this week’s annotations, laid out by the model you chose, to rewrite', onclick: async () => {
+        if ((w.policy?.trim() || w.stateOfPlay?.trim() || w.recommendations?.trim()) && !await uiConfirm('Replace this week’s brief, state of play and recommendations with a fresh draft?')) return;
         saveWeek(draftBrief(lib(), lib().bibs[bib.id], week, { framework: frameworkSelect.value }));
         render();
       } }, 'Draft from this week’s annotations')),
@@ -994,8 +1006,8 @@ function TagPage(tag) {
       : h('p', { class: 'empty' }, 'Nothing carries this tag any more.'));
 }
 
-function renameTagEverywhere(from) {
-  const to = prompt(`Rename “${from}” to (an existing tag merges them)`, from);
+async function renameTagEverywhere(from) {
+  const to = await uiPrompt(`Rename “${from}” to (an existing tag merges them)`, from);
   if (!to?.trim() || to.trim().toLowerCase() === from) return;
   const { items, bibs } = renameTag(lib(), from, to);
   const ops = [

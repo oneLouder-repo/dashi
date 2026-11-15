@@ -14,6 +14,7 @@ import { StrategicData, Completion, Roadmap } from './Reports.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
 import { short } from './dates.js';
+import { uiConfirm } from '../ui/dialog.js';
 
 /**
  * Strategy & Work, in sections listed down the shared sidebar:
@@ -77,8 +78,8 @@ const head = h('div', { class: 'strategy-head' });
 const tools = h('div', { class: 'plugin-header-actions' },
     h('button', { class: 'btn btn-sm', onclick: () => store.undo() }, 'Undo'),
     h('button', { class: 'btn btn-sm', onclick: () => store.redo() }, 'Redo'),
-    h('button', { class: 'btn btn-sm', title: 'Replace with the example strategy', onclick: () => {
-      if (!confirm('Load the example strategy? Your current strategy is replaced.')) return;
+    h('button', { class: 'btn btn-sm', title: 'Replace with the example strategy', onclick: async () => {
+      if (!await uiConfirm('Load the example strategy? Your current strategy is replaced.')) return;
       store.load(migrateStrategy(seedStrategy()));
       saveDoc('strategy', store.doc);
       ctx.select(rootOf(store.doc).id);
