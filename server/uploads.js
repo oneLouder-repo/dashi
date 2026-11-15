@@ -1,5 +1,5 @@
 /**
- * Large uploads (podcast audio up to several hundred MB), in resumable chunks.
+ * Large uploads (podcast audio, video and documents up to several hundred MB), in resumable chunks.
  *
  *   POST   /api/uploads                 { filename, size, type } → { id, chunkSize, received }
  *   GET    /api/uploads/:id             → { received }  (to resume after a dropped connection)
@@ -59,6 +59,12 @@ export const DOC_TYPES = {
   json: ['application/json', 'text'],
   bib: ['text/plain; charset=utf-8', 'text'],
   ris: ['text/plain; charset=utf-8', 'text'],
+  // Video and other audio, for the Asset manager.
+  mp4: ['video/mp4', 'ftyp'],
+  m4v: ['video/mp4', 'ftyp'],
+  mov: ['video/quicktime', 'ftyp'],
+  m4a: ['audio/mp4', 'ftyp'],
+  webm: ['video/webm', 'ebml'],
 };
 const extOf = (name) => (String(name).match(/\.([a-z0-9]+)$/i)?.[1] ?? '').toLowerCase();
 export const isDocumentName = (name) => extOf(name) in DOC_TYPES;
@@ -78,6 +84,8 @@ export function sniffDocument(buf, filename) {
     jpeg: () => buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff,
     gif: () => s(0, 4) === 'GIF8',
     webp: () => s(0, 4) === 'RIFF' && s(8, 12) === 'WEBP',
+    ftyp: () => s(4, 8) === 'ftyp',
+    ebml: () => buf[0] === 0x1a && buf[1] === 0x45 && buf[2] === 0xdf && buf[3] === 0xa3,
     // Text: no NUL bytes and not a web page in disguise.
     text: () => !buf.includes(0) && !/^\s*<(!doctype|html|script|svg)/i.test(s(0, 200)),
   }[t[1]];
@@ -134,8 +142,13 @@ export function uploadRoutes({ q, newId, limitsOf = () => ({}) }) {
       const cap = caps(a.org);
       if (size > cap.uploadMb * 1048576) throw new HttpError(413, `Files can be up to ${cap.uploadMb} MB on your plan.`);
       const audioOk = isAudioName(filename) || /^audio\/(mpeg|mp3|wav|x-wav|wave|vnd\.wave)$/.test(String(body?.type ?? ''));
-      if (body?.kind === 'document' ? !isDocumentName(filename) : !audioOk) {
-        throw new HttpError(415, body?.kind === 'document' ? 'That kind of file can’t go in the library. PDF, Word, Excel, PowerPoint, OpenDocument, images, text and CSV files can.' : 'Upload an .mp3 or .wav file');
+      // The library takes documents; the Asset manager takes documents, audio and video; podcasts take audio.
+      const kind = body?.kind;
+      const ok = kind === 'document' ? isDocumentName(filename) : kind === 'asset' ? isDocumentName(filename) || isAudioName(filename) : audioOk;
+      if (!ok) {
+        throw new HttpError(415, kind === 'document' ? 'That kind of file can’t go in the library. PDF, Word, Excel, PowerPoint, OpenDocument, images, text and CSV files can.'
+          : kind === 'asset' ? 'That kind of file can’t be kept here. Documents, spreadsheets, slides, images, audio and video can (no web pages or programs).'
+            : 'Upload an .mp3 or .wav file');
       }
       if (used(a.org.id) + size > cap.storageMb * 1048576) throw new HttpError(507, `Your organisation’s storage (${cap.storageMb >= 1024 ? `${+(cap.storageMb / 1024).toFixed(1)} GB` : `${cap.storageMb} MB`}) is full. Remove old files or ask about a larger plan.`);
       const id = newId('up');

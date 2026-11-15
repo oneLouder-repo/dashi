@@ -17,7 +17,9 @@ import {
   searchItems, fullName, yearOf, sortKey, apaList, fileHints, matchReference,
   libraryTags, itemsTagged, suggestTags, renameTag, frameworksFor, weekResources, isMapFile,
 } from '../platform/library.js';
-import { FORMATS, download, fileName, renderMarkdown, exportDoc, printHtml, exportDublinCore, exportCsl, referenceBlocks, byline } from './exports.js';
+import { FORMATS, download, fileName, renderMarkdown, exportDoc, printHtml, exportDublinCore, exportCsl, exportBibtex, exportRis, referenceBlocks, byline } from './exports.js';
+import { STYLES, styleOf, referenceList } from '../platform/citeStyles.js';
+import { Reader } from './Reader.js';
 import { parseMarkdown, toHtml } from '../core/markdown.js';
 import { dashiToolbarItems } from './DashiTools.js';
 import { uiAlert, uiConfirm, uiForm, uiPrompt } from '../ui/dialog.js';
@@ -26,8 +28,9 @@ import { uiAlert, uiConfirm, uiForm, uiPrompt } from '../ui/dialog.js';
  * The document library.
  *
  *   #files/<folder>        the repository: uploads, Dashi docs, links, references
- *   #item/<id>             one item: its metadata, preview, APA reference, Dublin Core
- *                          (a Dashi doc opens in the editor)
+ *   #item/<id>             one item: its metadata, preview, reference (APA, Chicago,
+ *                          MLA or Harvard), Dublin Core (a Dashi doc opens in the editor)
+ *   #read/<id>             read a PDF: highlights and page notes, cited in the chosen style
  *   #bibs                  annotated bibliographies
  *   #bib/<id>/<tab>        one bibliography: annotations, lexicon, groups, references, weekly
  *   #tags, #tag/<tag>      every tag in the library as a cloud; the items under one tag
@@ -59,6 +62,29 @@ const now = () => Date.now();
 const n = (count, word, plural = `${word}s`) => `${count} ${count === 1 ? word : plural}`;
 const route = () => (decodeURIComponent(location.hash.slice(1)) || 'files/all').split('/');
 
+/* The citation style, remembered per browser. */
+let citeStyle = (() => { try { return styleOf(localStorage.getItem('dashi.library.style')).id; } catch { return 'apa'; } })();
+const style = () => styleOf(citeStyle);
+function StylePicker() {
+  return h('select', { class: 'select select-xs style-pick', 'aria-label': 'Citation style', title: 'Citation style', onchange: (e) => {
+    citeStyle = e.target.value;
+    try { localStorage.setItem('dashi.library.style', citeStyle); } catch { /* private window */ }
+    render();
+  } }, options(Object.values(STYLES).map((x) => ({ id: x.id, label: x.long })), citeStyle));
+}
+/** Export references for Zotero, Mendeley, EndNote or LaTeX. */
+function ExportRefs(items, name, { label = 'Export references', cls = 'btn btn-sm' } = {}) {
+  const refs = () => items().filter((i) => i.kind !== 'doc' || i.meta?.creators?.length);
+  const pick = (fn) => (e) => { e.target.closest('details').open = false; const list = refs(); if (!list.length) { toast('No references to export here'); return; } fn(list, name); };
+  return h('details', { class: 'dropdown dropdown-end' },
+    h('summary', { class: cls }, icon('download', 14), label),
+    h('ul', { class: 'menu dropdown-content lib-menu' },
+      h('li', { class: 'menu-title' }, 'For Zotero and reference managers'),
+      h('li', {}, h('button', { onclick: pick(exportCsl) }, 'CSL JSON (Zotero’s best match)')),
+      h('li', {}, h('button', { onclick: pick(exportBibtex) }, 'BibTeX (.bib, for LaTeX)')),
+      h('li', {}, h('button', { onclick: pick(exportRis) }, 'RIS (.ris, EndNote, Mendeley)'))));
+}
+
 /* Re-render on changes, except while someone is typing in the editor. */
 let quiet = false;
 const apply = (op, opts) => { quiet = true; try { store.apply(op, opts); } finally { quiet = false; } };
@@ -70,12 +96,14 @@ function render() {
   drawSide(view, a);
   const scroll = main.scrollTop;
   let page;
-  if (view === 'item' && lib().items[a]) page = lib().items[a].kind === 'doc' ? DocPage(lib().items[a]) : ItemPage(lib().items[a]);
+  if (view === 'read' && lib().items[a]?.file) page = Reader(lib().items[a], readerCtx);
+  else if (view === 'item' && lib().items[a]) page = lib().items[a].kind === 'doc' ? DocPage(lib().items[a]) : ItemPage(lib().items[a]);
   else if (view === 'bibs') page = BibList();
   else if (view === 'bib' && lib().bibs[a]) page = bibsAllowed ? BibPage(lib().bibs[a], b || 'annotations') : Upsell();
   else if (view === 'tags') page = TagsPage();
   else if (view === 'tag' && a) page = TagPage(a);
   else page = Files(a || 'all');
+  main.classList.toggle('reading', view === 'read');
   main.replaceChildren(page);
   main.scrollTop = scroll;
 }
@@ -162,7 +190,8 @@ function Files(scope) {
       h('h2', {}, title, h('span', { class: 'muted' }, ` · ${n(items.length, 'item')}`)),
       h('input', { class: 'input input-sm lib-search', type: 'search', placeholder: 'Search titles, authors, tags, abstracts', value: search, 'aria-label': 'Search the library', oninput: (e) => { search = e.target.value; draw(); } }),
       h('select', { class: 'select select-sm', 'aria-label': 'Sort by', onchange: (e) => { sort = e.target.value; draw(); } },
-        options([{ id: 'updated', label: 'Newest changes' }, { id: 'title', label: 'Title' }, { id: 'author', label: 'Author' }, { id: 'year', label: 'Year' }], sort))),
+        options([{ id: 'updated', label: 'Newest changes' }, { id: 'title', label: 'Title' }, { id: 'author', label: 'Author' }, { id: 'year', label: 'Year' }], sort)),
+      ExportRefs(() => searchItems(lib(), search).filter(inScope), title, { label: 'Export', cls: 'btn btn-sm btn-ghost' })),
     !folder && scope === 'all' && QuickAdd(),
     !folder && scope === 'all' && MiniCloud(),
     limit != null && h('p', { class: 'muted small' }, `${used} of ${limit} documents on your plan · files up to ${maxUploadMb()} MB`),
@@ -264,7 +293,7 @@ function ImportButton(folderId, bib, status) {
       if (status) say(status, msg); else uiAlert(msg);
     }
   } });
-  return h('label', { class: bib ? 'btn btn-sm' : '' }, icon('book', 15), bib ? 'Import references' : 'Import references (Zotero CSL JSON, BibTeX, RIS)', input);
+  return h('label', { class: bib ? 'btn btn-sm' : '' }, icon('book', 15), bib ? 'Import references' : 'Import from Zotero (CSL JSON, BibTeX or RIS)', input);
 }
 
 async function newDoc(folderId) {
@@ -326,6 +355,15 @@ async function renameFolder(f) {
 /* ---------- One item ---------- */
 
 const touch = (item, patch) => apply(col.update('items', item.id, { ...patch, updatedAt: now() }));
+/** What the PDF reader needs from the library page. */
+const readerCtx = {
+  me, style, StylePicker, lib, n,
+  setNotes: (item, notes) => { quiet = true; try { store.apply(col.update('items', item.id, { notes, updatedAt: now() })); } finally { quiet = false; } },
+  addToAnnotation: (bib, item, text) => {
+    const cur = bib.annotations?.[item.id] ?? {};
+    updateBib(bib, { annotations: { ...bib.annotations, [item.id]: { ...cur, text: `${cur.text ? `${cur.text.trim()}\n\n` : ''}${text}`, updatedAt: now(), by: me?.id ?? null } } });
+  },
+};
 const setMeta = (item, patch) => touch(item, { meta: { ...item.meta, ...patch } });
 
 function ItemPage(item) {
@@ -337,7 +375,8 @@ function ItemPage(item) {
       h('input', { class: 'title-input', value: item.meta.title, placeholder: 'Title', 'aria-label': 'Title', onchange: (e) => { setMeta(item, { title: e.target.value }); render(); } }),
       h('div', { class: 'item-actions' },
         isMapFile(item) && h('a', { class: 'btn btn-sm btn-primary', href: `mapper.html#open=${encodeURIComponent(item.id)}`, title: 'Open this map file in the Ecosystem Mapper, as a new map or in place of one' }, icon('mapper', 14), 'Open in the Mapper'),
-        item.file && !isMapFile(item) && h('button', { class: 'btn btn-sm btn-primary', onclick: async () => openMedia(item, false) }, icon('globe', 14), 'Open'),
+        item.file && extOf(item.file.name) === 'pdf' && h('a', { class: 'btn btn-sm btn-primary', href: `#read/${item.id}` }, icon('book', 14), (item.notes ?? []).length ? `Read · ${n(item.notes.length, 'note')}` : 'Read and annotate'),
+        item.file && !isMapFile(item) && h('button', { class: `btn btn-sm${extOf(item.file.name) === 'pdf' ? '' : ' btn-primary'}`, onclick: async () => openMedia(item, false) }, icon('globe', 14), 'Open'),
         item.file && h('button', { class: 'btn btn-sm', onclick: async () => openMedia(item, true) }, icon('download', 14), 'Download'),
         item.url && h('a', { class: 'btn btn-sm btn-primary', href: item.url, target: '_blank', rel: 'noopener noreferrer' }, icon('globe', 14), item.kind === 'gdoc' ? `Open in ${formatLabel(item).replace('Google ', 'Google ')}` : 'Open page'),
         h('button', { class: 'btn btn-sm btn-ghost text-error', onclick: () => removeItem(item) }, icon('trash', 14), 'Delete'))),
@@ -400,15 +439,18 @@ async function removeItem(item) {
 }
 
 function Citation(item) {
-  const ref = apaReference(item.meta);
+  const st = style();
+  const ref = st.reference(item.meta);
   const copy = (text) => navigator.clipboard?.writeText(text).then(() => toast('Copied'), () => {});
   return h('section', { class: 'card cite-card' },
-    h('h3', {}, 'APA 7 reference'),
+    h('div', { class: 'cite-head' }, h('h3', {}, 'Reference'), StylePicker()),
     h('p', { class: 'reference', innerHTML: runsToHtml(ref) }),
-    h('p', { class: 'muted small' }, 'In the text: ', h('code', {}, apaCitation(item.meta)), ' or ', h('code', {}, apaCitation(item.meta, { narrative: true }))),
+    h('p', { class: 'muted small' }, 'In the text: ', h('code', {}, st.citation(item.meta)), ' or ', h('code', {}, st.citation(item.meta, { narrative: true }))),
     h('div', { class: 'row-actions' },
       h('button', { class: 'btn btn-xs', onclick: () => copy(runsToText(ref)) }, 'Copy reference'),
       h('button', { class: 'btn btn-xs', onclick: () => exportCsl([item], item.meta.title) }, 'CSL JSON'),
+      h('button', { class: 'btn btn-xs', onclick: () => exportBibtex([item], item.meta.title) }, 'BibTeX'),
+      h('button', { class: 'btn btn-xs', onclick: () => exportRis([item], item.meta.title) }, 'RIS'),
       h('button', { class: 'btn btn-xs', onclick: () => exportDublinCore(item) }, 'Dublin Core XML')));
 }
 
@@ -616,7 +658,7 @@ function BibPage(bib) {
     { id: 'annotations', label: 'Annotations', icon: 'doc' },
     { id: 'lexicon', label: 'Lexicon', icon: 'tidy' },
     { id: 'groups', label: 'Groups', icon: 'strategy' },
-    { id: 'references', label: 'APA references', icon: 'book' },
+    { id: 'references', label: 'References', icon: 'book' },
     { id: 'weekly', label: 'Weekly brief and newsletter', icon: 'news' },
   ].map((t) => ({ ...t, href: `#bib/${bib.id}/${t.id}` }));
   const [, , tab] = route();
@@ -709,7 +751,8 @@ function AnnotationCard(bib, item) {
   const author = a.by && org.staff[a.by];
   return h('article', { class: 'card annotation' },
     h('div', { class: 'annotation-head' },
-      h('p', { class: 'reference', innerHTML: runsToHtml(apaReference(item.meta)) }),
+      h('p', { class: 'reference', innerHTML: runsToHtml(style().reference(item.meta)) }),
+      item.file && extOf(item.file.name) === 'pdf' && h('a', { class: 'btn btn-xs btn-ghost', href: `#read/${item.id}` }, 'Read'),
       h('a', { class: 'btn btn-xs btn-ghost', href: `#item/${item.id}` }, 'Open'),
       h('button', { class: 'icon-button', 'aria-label': 'Take out of this bibliography', title: 'Take out of this bibliography', onclick: () => { updateBib(bib, { itemIds: bib.itemIds.filter((x) => x !== item.id) }); render(); } }, '×')),
     h('textarea', { class: 'textarea annotation-text', rows: 6, placeholder: 'Summarise the source, assess it (method, evidence, bias), and say how it bears on this collection. 200–600 words.', 'aria-label': `Annotation for ${item.meta.title}`,
@@ -825,25 +868,28 @@ function Groups(bib) {
 let refsByGroup = false;
 function References(bib) {
   const items = bibItems(bib);
+  const st = style();
   const groups = refsByGroup ? groupItems(lib(), bib).filter((g) => g.itemIds.length) : [{ name: '', itemIds: items.map((i) => i.id) }];
-  const markdown = () => groups.map((g) => `${g.name ? `## ${g.name}\n\n` : ''}${apaList(g.itemIds.map((id) => lib().items[id].meta)).map(runsToMarkdown).join('\n\n')}`).join('\n\n');
-  const extra = () => groups.flatMap((g) => referenceBlocks(g.itemIds.map((id) => lib().items[id]), g.name || null));
-  const dc = { title: `${bib.title}: references`, creator: [org.name], subject: allTags(bib), description: bib.description, language: 'en', date: new Date().toISOString().slice(0, 10) };
+  const list = (g) => referenceList(citeStyle, g.itemIds.map((id) => lib().items[id].meta));
+  const markdown = () => groups.map((g) => `${g.name ? `## ${g.name}\n\n` : ''}${list(g).map(runsToMarkdown).join('\n\n')}`).join('\n\n');
+  const extra = () => groups.flatMap((g) => referenceBlocks(g.itemIds.map((id) => lib().items[id]), g.name || null, st.reference));
+  const dc = { title: `${bib.title}: ${st.listTitle.toLowerCase()}`, creator: [org.name], subject: allTags(bib), description: bib.description, language: 'en', date: new Date().toISOString().slice(0, 10) };
   const save = async (f) => {
-    const blob = f.id === 'md' ? new Blob([`# ${bib.title}: references\n\n${markdown()}\n`], { type: f.type }) : await renderMarkdown('', f.id, { title: `${bib.title}: References`, dc, extraBlocks: extra() });
-    download(blob, fileName(`${bib.title} references`, f.ext), f.type);
+    const blob = f.id === 'md' ? new Blob([`# ${bib.title}: ${st.listTitle}\n\n${markdown()}\n`], { type: f.type }) : await renderMarkdown('', f.id, { title: `${bib.title}: ${st.listTitle}`, dc, extraBlocks: extra() });
+    download(blob, fileName(`${bib.title} ${st.listTitle.toLowerCase()}`, f.ext), f.type);
   };
   return h('div', { class: 'references' },
     h('div', { class: 'lib-toolbar' },
-      h('h2', {}, `References (${items.length})`),
+      h('h2', {}, `${st.listTitle} (${items.length})`),
+      StylePicker(),
       h('label', { class: 'check' }, h('input', { type: 'checkbox', class: 'toggle toggle-sm', checked: refsByGroup, onchange: (e) => { refsByGroup = e.target.checked; render(); } }), 'By group'),
       h('span', { class: 'spacer' }),
-      h('button', { class: 'btn btn-sm', onclick: () => navigator.clipboard?.writeText(groups.map((g) => `${g.name ? `${g.name}\n\n` : ''}${apaList(g.itemIds.map((id) => lib().items[id].meta)).map(runsToText).join('\n\n')}`).join('\n\n')).then(() => toast('Copied')) }, 'Copy'),
+      h('button', { class: 'btn btn-sm', onclick: () => navigator.clipboard?.writeText(groups.map((g) => `${g.name ? `${g.name}\n\n` : ''}${list(g).map(runsToText).join('\n\n')}`).join('\n\n')).then(() => toast('Copied')) }, 'Copy'),
       FORMATS.map((f) => h('button', { class: 'btn btn-sm', onclick: () => save(f) }, f.label)),
-      h('button', { class: 'btn btn-sm', onclick: () => exportCsl(items, `${bib.title} references`) }, 'CSL JSON')),
+      ExportRefs(() => items, `${bib.title} references`, { label: 'Zotero, BibTeX, RIS' })),
     h('div', { class: 'card ref-sheet' }, groups.map((g) => [
       g.name && h('h3', {}, g.name),
-      apaList(g.itemIds.map((id) => lib().items[id].meta)).map((r) => h('p', { class: 'reference', innerHTML: runsToHtml(r) })),
+      list(g).map((r) => h('p', { class: 'reference', innerHTML: runsToHtml(r) })),
     ]), !items.length && h('p', { class: 'empty' }, 'No sources yet.')));
 }
 

@@ -42,7 +42,7 @@ import { showArchive } from '../src/platform/showArchive.js';
 import { blankOrg, migrateOrg } from '../src/platform/org.js';
 import { planFor, allPlans, overLimit, usageOf, PLAN_IDS } from '../src/platform/plans.js';
 import { siteContent } from '../src/platform/salesSite.js';
-import { mergeRegistry, registryView, pausedByRegistry, manifestProblems, cleanManifest, compareVersions, bumpVersion, defaultManifest, manifestFromPackage, blankManifest } from '../src/platform/pluginRegistry.js';
+import { mergeRegistry, registryView, pausedByRegistry, manifestProblems, cleanManifest, compareVersions, bumpVersion, defaultManifest, manifestFromPackage, blankManifest, SCAFFOLDS } from '../src/platform/pluginRegistry.js';
 import { blankStrategy } from '../src/platform/strategySeed.js';
 
 const scrypt = promisify(scryptCb);
@@ -856,6 +856,8 @@ export function createApp(db, options = {}) {
         if (!action && method === 'DELETE') {
           if (current.builtIn) throw new HttpError(400, 'Built-in plugins can be switched off, not removed');
           delete stored.plugins[id];
+          // A scaffolded draft would come back on its own: remember it was removed.
+          if (SCAFFOLDS.some((sc) => sc.id === id)) stored.dismissed = [...new Set([...(stored.dismissed ?? []), id])];
           delete stored.history[id];
           saveRegistry(stored, a.user.id);
           return json(res, 200, { ok: true });
@@ -1003,8 +1005,8 @@ export function createApp(db, options = {}) {
       if (!a.member && !mediaIsPublic(readDocs(a.org.id), row.id, today())) return send(res, 404, 'Not found');
       return sendFile(req, res, join(config.dataDir, 'media', a.org.id, row.id), {
         type: row.mimetype, cache: a.member ? 'private, max-age=3600' : 'public, max-age=3600',
-        // Audio, PDFs, images and plain text open in the browser; anything else downloads.
-        headers: { 'content-disposition': `${/^(audio|image)\/|^application\/pdf|^text\/plain/.test(row.mimetype) && !new URL(req.url, 'http://x').searchParams.has('download') ? 'inline' : 'attachment'}; filename="${row.filename.replace(/"/g, '')}"` },
+        // Audio, video, PDFs, images and plain text open in the browser; anything else downloads.
+        headers: { 'content-disposition': `${/^(audio|image|video)\/|^application\/pdf|^text\/plain/.test(row.mimetype) && !new URL(req.url, 'http://x').searchParams.has('download') ? 'inline' : 'attachment'}; filename="${row.filename.replace(/"/g, '')}"` },
       });
     }
     if ((m = path.match(/^\/podcasts\/([\w-]+)\.zip$/))) return showZip(req, res, a, m[1]);

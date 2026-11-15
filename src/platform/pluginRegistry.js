@@ -26,7 +26,7 @@ export const STATUSES = [
   { id: 'disabled', label: 'Switched off', hint: 'Hidden everywhere. Content is kept.' },
   { id: 'draft', label: 'In development', hint: 'Only you see it, in the designer and its preview.' },
 ];
-export const CATEGORIES = ['Mapping', 'Planning', 'Data', 'Media', 'Knowledge', 'Publishing', 'Platform', 'Other'];
+export const CATEGORIES = ['Mapping', 'Planning', 'Data', 'Media', 'Knowledge', 'Publishing', 'AI', 'Platform', 'Other'];
 export const FIELD_TYPES = [
   { id: 'text', label: 'Text' },
   { id: 'longtext', label: 'Long text' },
@@ -63,6 +63,20 @@ const BUILT_IN = {
         { id: 'actors', label: 'Actors and agents', fields: [f('label', 'Name', 'text', { required: true }), f('kind', 'Actor or agent', 'select', { options: ['actor', 'agent'] }), f('category', 'Category', 'select'), f('place', 'Place on the lens', 'list')] },
         { id: 'connectors', label: 'Connectors', fields: [f('from', 'From', 'reference'), f('to', 'To', 'reference'), f('type', 'Type', 'select', { options: ['relationship', 'feedback', 'learning'] }), f('strength', 'Strength', 'number')] },
         { id: 'groups', label: 'Groups', fields: [f('label', 'Name'), f('memberIds', 'Actors', 'list')] }] }] },
+  },
+  assets: {
+    category: 'Knowledge',
+    features: [
+      feat('collections', 'Collections', 'Folders that nest, with drag and drop from anywhere on the page.'),
+      feat('uploads', 'Large uploads', 'Files of any size the plan allows, sent in resumable 8 MB chunks.'),
+      feat('abcd', 'ABCD lens', 'Sort assets as individuals, associations, institutions, physical, economic and cultural.'),
+      feat('assetMap', 'Asset map', 'Assets as a map in the ABCD wedges: drag to sort, see what links to what.'),
+      feat('dashiSources', 'Everything in Dashi', 'Maps, actors, people, library items and episodes, live, without copies.'),
+      feat('comments', 'Notes and comments', 'Talk about an asset where it lives.'),
+    ],
+    dataModel: { docs: [{ name: 'assets', label: 'Assets', description: 'Files, links and notes, plus tags and collections for things elsewhere in Dashi.', collections: [
+      { id: 'items', label: 'Assets', fields: [f('kind', 'Kind', 'select', { required: true, options: ['file', 'link', 'note', 'ref'] }), f('title', 'Title', 'text'), f('description', 'Description', 'longtext'), f('abcd', 'ABCD type', 'select', { options: ['individual', 'association', 'institution', 'physical', 'economic', 'cultural'] }), f('sensitivity', 'Sensitivity', 'select', { options: ['public', 'internal', 'restricted'] }), f('tags', 'Tags', 'list'), f('collectionIds', 'Collections', 'list'), f('file', 'File', 'reference'), f('url', 'Web address', 'url'), f('ref', 'Thing in Dashi', 'reference')] },
+      { id: 'collections', label: 'Collections', fields: [f('name', 'Name', 'text', { required: true }), f('color', 'Colour'), f('parentId', 'Inside', 'reference'), f('description', 'Description', 'longtext')] }] }] },
   },
   strategy: {
     category: 'Planning',
@@ -155,6 +169,80 @@ const BUILT_IN = {
     dataModel: { docs: [{ name: 'help (platform)', label: 'Help library', collections: [{ id: 'sections', label: 'Sections', fields: [f('title', 'Title'), f('pages', 'Pages', 'list')] }] }] },
   },
 };
+
+/**
+ * Plugins in development that ship with Dashi as drafts, so the platform
+ * admin can open them in the designer, shape them and release them. Each
+ * starts on the generated records page (plugin.html) until it has its own.
+ * Removing one from the designer keeps it removed (stored.dismissed).
+ */
+const draft = (m) => ({
+  version: '0.1.0', status: 'draft', builtIn: false, core: false, author: 'Dashi', homepage: '', href: `plugin.html?id=${m.id}`,
+  plans: { ...ALL_TIERS }, changelog: [{ version: '0.1.0', date: '2026-11-15', notes: 'Scaffolded in alpha.3: data model and features roughed in.', by: 'Dashi' }],
+  ...m,
+});
+export const SCAFFOLDS = [
+  draft({
+    id: 'ai-policy', name: 'AI Policy Studio', short: 'AI policy', category: 'AI',
+    blurb: 'Frame your organisation’s AI policy together: the principles you hold, which uses are fine, careful or off-limits, what data never goes in, and when you’ll look again.',
+    look: { tone: '#5a54c4', icon: 'scales', accent: 'soft' },
+    features: [
+      feat('principles', 'Principles', 'Start from values (care, consent, Indigenous data sovereignty, accessibility) and write what each means here.'),
+      feat('useRules', 'Use-case traffic lights', 'Green, amber and red uses, with the safeguards each needs.'),
+      feat('dataRules', 'Data rules', 'What may never go into an AI tool: personal, health, community-held or restricted data.'),
+      feat('plainPolicy', 'Plain-language policy', 'Assemble the policy as a Dashi doc for the library, in plain words.'),
+      feat('acknowledge', 'Staff acknowledgement', 'Each person reads and signs the current version.', { plans: { free: false, basic: true, standard: true, custom: true } }),
+      feat('reviews', 'Review cycle', 'A date to look again, with what changed and why.'),
+    ],
+    dataModel: { docs: [{ name: 'plugin/ai-policy', label: 'AI policy', description: 'Principles, use rules and reviews.', collections: [
+      { id: 'principles', label: 'Principles', fields: [f('title', 'Principle', 'text', { required: true }), f('statement', 'What it means here', 'longtext'), f('why', 'Why it matters to us', 'longtext')] },
+      { id: 'rules', label: 'Use rules', fields: [f('useCase', 'Use case', 'text', { required: true }), f('light', 'Light', 'select', { required: true, options: ['Green: go ahead', 'Amber: with care', 'Red: not here'] }), f('dataAllowed', 'Data that may go in', 'list'), f('safeguards', 'Safeguards', 'longtext'), f('owner', 'Who decides', 'person')] },
+      { id: 'reviews', label: 'Reviews', fields: [f('date', 'Date', 'date', { required: true }), f('by', 'Led by', 'person'), f('changes', 'What changed', 'longtext'), f('next', 'Next review', 'date')] }] }] },
+  }),
+  draft({
+    id: 'ai-register', name: 'AI Use Register', short: 'AI register', category: 'AI',
+    blurb: 'A simple, honest record of the AI tools your team uses: what for, what goes in, what it costs, and how risky it is, so nobody has to guess.',
+    look: { tone: '#c0562f', icon: 'robot', accent: 'soft' },
+    features: [
+      feat('tools', 'Tool list', 'Every AI tool in use, free or paid, with who approved it.'),
+      feat('uses', 'Use log', 'Quick entries: team, purpose, the kind of data, and a risk level.'),
+      feat('risk', 'Risk view', 'Uses by risk and data sensitivity, linked to the AI policy’s rules.'),
+      feat('costs', 'Costs', 'What each tool costs, and free options that would do.', { plans: { free: false, basic: true, standard: true, custom: true } }),
+      feat('report', 'Board report', 'A one-page summary of AI use for the board.', { plans: { free: false, basic: false, standard: true, custom: true } }),
+    ],
+    dataModel: { docs: [{ name: 'plugin/ai-register', label: 'AI use register', description: 'Tools and how they are used.', collections: [
+      { id: 'tools', label: 'AI tools', fields: [f('name', 'Tool', 'text', { required: true }), f('vendor', 'Made by'), f('url', 'Web address', 'url'), f('cost', 'Cost a month', 'number'), f('free', 'Free to use', 'boolean'), f('dataHome', 'Where data goes', 'select', { options: ['Stays on our devices', 'Canada', 'United States', 'Elsewhere', 'Not sure'] }), f('status', 'Status', 'select', { options: ['Approved', 'Trial', 'Not approved'] })] },
+      { id: 'uses', label: 'Uses', fields: [f('tool', 'Tool', 'text', { required: true }), f('purpose', 'What for', 'longtext'), f('team', 'Team'), f('data', 'Kind of data', 'select', { options: ['Public', 'Internal', 'Personal', 'Restricted'] }), f('risk', 'Risk', 'select', { options: ['Low', 'Medium', 'High'] }), f('person', 'Who', 'person'), f('date', 'When', 'date')] }] }] },
+  }),
+  draft({
+    id: 'prompt-commons', name: 'Prompt Commons', short: 'Prompts', category: 'AI',
+    blurb: 'Your team’s shared recipes for free and accessible AI tools: prompts that work, examples of good output, and the care each one needs.',
+    look: { tone: '#2f8a5b', icon: 'chats', accent: 'soft' },
+    features: [
+      feat('recipes', 'Prompt recipes', 'A prompt, the task it’s for, the tool it was tested in, and an example.'),
+      feat('ratings', 'Tried and rated', 'Colleagues mark what worked for them, and say how they changed it.'),
+      feat('freeTools', 'Free tool guide', 'Accessible, no-cost tools, including ones that run on your own computer.'),
+      feat('safeUse', 'Safe-use notes', 'Each recipe says what data it’s fine with, from the AI policy.'),
+    ],
+    dataModel: { docs: [{ name: 'plugin/prompt-commons', label: 'Prompt commons', description: 'Shared prompt recipes.', collections: [
+      { id: 'prompts', label: 'Recipes', fields: [f('title', 'Name', 'text', { required: true }), f('task', 'Task', 'select', { options: ['Summarise', 'Draft', 'Plain language', 'Translate', 'Brainstorm', 'Analyse data', 'Other'] }), f('prompt', 'Prompt', 'longtext', { required: true }), f('tool', 'Tested in'), f('example', 'Example output', 'longtext'), f('tested', 'Tested by the team', 'boolean'), f('dataOk', 'Fine with', 'select', { options: ['Public data only', 'Internal data', 'No data: general use'] })] },
+      { id: 'tools', label: 'Free tools', fields: [f('name', 'Tool', 'text', { required: true }), f('url', 'Web address', 'url'), f('offline', 'Runs on your own computer', 'boolean'), f('goodFor', 'Good for', 'longtext')] }] }] },
+  }),
+  draft({
+    id: 'plain-words', name: 'Plain Words', short: 'Plain words', category: 'AI',
+    blurb: 'An accessibility kit for everything you publish: reading-level checks, plain-language rewrites, alt text and captions, using tools that are free and work in the browser.',
+    look: { tone: '#2f6fb5', icon: 'textAa', accent: 'soft' },
+    features: [
+      feat('readability', 'Reading level', 'Check a passage’s reading level and long sentences, right in the browser.'),
+      feat('rewrite', 'Plain-language rewrite', 'Side-by-side before and after, with an optional AI helper.', { plans: { free: false, basic: true, standard: true, custom: true } }),
+      feat('altText', 'Alt text helper', 'Draft and review alt text for images in the Asset manager.'),
+      feat('captions', 'Captions checklist', 'For podcast episodes and video.'),
+    ],
+    dataModel: { docs: [{ name: 'plugin/plain-words', label: 'Plain words', description: 'Checks and rewrites.', collections: [
+      { id: 'checks', label: 'Checks', fields: [f('title', 'What it is', 'text', { required: true }), f('before', 'Original', 'longtext', { required: true }), f('after', 'Plain version', 'longtext'), f('grade', 'Reading grade', 'number'), f('status', 'Status', 'select', { options: ['To do', 'Rewritten', 'Checked by a reader'] })] },
+      { id: 'alt', label: 'Alt text', fields: [f('image', 'Image', 'reference'), f('alt', 'Alt text', 'longtext', { required: true }), f('reviewed', 'Reviewed', 'boolean')] }] }] },
+  }),
+];
 
 /** The manifest a built-in plugin starts from. */
 export function builtInManifest(p) {
@@ -275,6 +363,7 @@ export function mergeRegistry(stored = {}) {
   const plugins = {};
   for (const p of ORIGINAL) plugins[p.id] = stored.plugins?.[p.id] ? { ...builtInManifest(p), ...stored.plugins[p.id], builtIn: true, core: !!p.core, id: p.id, href: p.href } : builtInManifest(p);
   for (const [id, m] of Object.entries(stored.plugins ?? {})) if (!plugins[id]) plugins[id] = { ...m, builtIn: false, core: false };
+  for (const sc of SCAFFOLDS) if (!plugins[sc.id] && !(stored.dismissed ?? []).includes(sc.id)) plugins[sc.id] = structuredClone(sc);
   return { plugins, history: stored.history ?? {} };
 }
 

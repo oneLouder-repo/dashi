@@ -71,7 +71,7 @@ h1, h2, h3, .card-title { font-weight: 750; letter-spacing: -0.005em; }
 #app.frame { gap: 14px; padding: 0 14px 14px; }
 #app.frame > * { background: var(--panel); border-radius: var(--panel-radius); box-shadow: var(--panel-shadow); }
 #app.frame > .side-nav { border-right: 0; }
-body:not(.app-page, .mapper-page, .login-page, .platform-page, .studio-page, .strategy-page, .podcasts-page, .palette-page, .sales-page) > #app {
+body:not(.app-page, .mapper-page, .login-page, .platform-page, .studio-page, .strategy-page, .podcasts-page, .palette-page, .sales-page, .assets-page) > #app {
   margin: 0 14px 14px; background: var(--panel); border-radius: var(--panel-radius); box-shadow: var(--panel-shadow); min-height: calc(100vh - 70px);
 }
 

@@ -1,13 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mergeRegistry, registryView, manifestProblems, cleanManifest, bumpVersion, compareVersions, blankManifest, pausedByRegistry, defaultManifest } from '../src/platform/pluginRegistry.js';
+import { mergeRegistry, registryView, manifestProblems, cleanManifest, bumpVersion, compareVersions, blankManifest, pausedByRegistry, defaultManifest, SCAFFOLDS } from '../src/platform/pluginRegistry.js';
 import { PLUGINS, BUILT_IN_PLUGINS, applyRegistry, featureOn, enabledPlugins } from '../src/plugins.js';
 import { seedOrg } from '../src/platform/org.js';
 
 test('every built-in plugin has a valid starting manifest', () => {
   const reg = mergeRegistry({});
-  assert.deepEqual(Object.keys(reg.plugins), BUILT_IN_PLUGINS.map((p) => p.id));
+  assert.deepEqual(Object.keys(reg.plugins), [...BUILT_IN_PLUGINS.map((p) => p.id), ...SCAFFOLDS.map((s) => s.id)]);
   for (const m of Object.values(reg.plugins)) assert.deepEqual(manifestProblems(m), [], m.id);
+  // The scaffolded plugins arrive as drafts for the designer, and stay away once removed.
+  for (const s of SCAFFOLDS) assert.equal(reg.plugins[s.id].status, 'draft');
+  assert.ok(!mergeRegistry({ dismissed: ['ai-policy'] }).plugins['ai-policy']);
+  assert.ok(reg.plugins.assets && reg.plugins.assets.builtIn, 'the Asset manager ships with Dashi');
   assert.deepEqual(manifestProblems(blankManifest({ id: 'x-y', name: 'X' })), []);
 });
 
