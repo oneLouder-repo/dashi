@@ -143,5 +143,5 @@ test('public calculators and stories publish with just the measures they use', (
   assert.equal(pub.data.series['m-views'], undefined, 'a private story’s measure stays private');
   assert.ok(mediaIsPublic(docs, 'media_clip'));
   assert.ok(!mediaIsPublic(docs, 'media_draft'));
-  assert.deepEqual(migrateDashboards({ id: 'dashboards', dashboards: {} }), { id: 'dashboards', dashboards: {}, calculators: {}, stories: {} });
+  assert.deepEqual(migrateDashboards({ id: 'dashboards', dashboards: {} }), { id: 'dashboards', dashboards: {}, calculators: {}, stories: {}, forms: {}, reports: {} });
 });

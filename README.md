@@ -1,6 +1,6 @@
 # Dashi
 
-**Version 0.1.0-alpha.5**: the fifth tester release (Strategy & Work and the Planning Studio rethought: a road thumbnail and sliding roadmap, swimlanes, board and condensed Gantt views, people pickers for big teams, a Studio that opens on framework and plans, a richer plan designer, and first releases of Plain Words, AI Policy Studio, AI Use Register, Prompt Commons and Critical Media). See [CHANGELOG.md](CHANGELOG.md) for what's in it, [TESTING.md](TESTING.md) for testing it, and [DEPLOY.md](DEPLOY.md) for running it.
+**Version 0.1.0-alpha.6**: the sixth tester release (the Public Portal: one entry point for every public site, dashboard and plan, with a diagram of what is live and in design; warmer public sites; a members-only board portal with governance guides, a minutes archive and finance summaries from the Library; a slicker roadmap; strategy widgets for dashboards; and first goes at feedback forms and funder reports). See [CHANGELOG.md](CHANGELOG.md) for what's in it, [TESTING.md](TESTING.md) for testing it, and [DEPLOY.md](DEPLOY.md) for running it.
 
 A small, cohesive platform for nonprofits' planning, knowledge and learning work. It holds many organisations; each picks the **plugins** it uses. Open `index.html` (via `npm start`) for the dashboard, then choose a plugin:
 
@@ -32,7 +32,7 @@ Two example organisations come built in (switch from the menu at the top left). 
 - Objectives and goals carry **measures** (name, target, unit). **Create dashboard** on an objective or goal builds an accessible dashboard from every measure on it and below, and opens it in the Workbench.
 - Every task (and workplan) has a **toolbox of assets**: ecosystem-map actors, staff, outside people, other strategy items, documents, links, literature and media, picked from one pop-up. Workplans, goals, objectives and plans gather the assets used beneath them, showing which tasks use each one.
 - The URL holds the selected item (`strategy.html#<id>`), so links can point straight at a task.
-- **Roadmap** is a road that slides sideways: traffic lights you've passed on the left (green, amber or red by how each workplan went), red lights still ahead on the right, milestone flags, and a road sign for each goal.
+- **Roadmap** is a road that slides sideways: traffic lights you've passed on the left (green, amber or red by how each workplan went), red lights still ahead on the right, milestone pennants, and a road sign for each goal. Today is a pulsing beacon. Slide with the arrows, the minimap strip, the mouse wheel or the arrow keys.
 - Plans, objectives and goals open on **Lanes** (plan down to task, with a condensed Gantt); workplans open on a **Board** of their tasks. The full Gantt is one click away.
 - Big teams show as avatar stacks with a **people picker** (search, team filters, add a whole team).
 
@@ -46,7 +46,7 @@ Two example organisations come built in (switch from the menu at the top left). 
 - **Podcasts** holds shows, each organised by season. Upload an episode as an .mp3 or .wav file (it is kept in the browser for now), give it a season, notes and people, and publish it now, on a date, or keep it as a draft.
 - Toggle any show as a **featured show**, and drag the order with the arrows. The public **station page** leads with the newest episode, then the featured shows, then an archive of every show by season, with search.
 - The station's **look** (player style, cover art shape, banner or split header) sits on top of the org's palette and shape, so each org can skin its station.
-- **Sites & Pages** lists every site and what is on it, and is where you write pages (in the site menu) and news articles. A line like `[[dashboard:dash-equity]]` or `[[episode:ep-sv-3]]` embeds live content.
+- **Public Portal** lists every site and what is on it, with a diagram of what is live and in design, and is where you write pages (in the site menu) and news articles. A line like `[[dashboard:dash-equity]]` or `[[episode:ep-sv-3]]` embeds live content.
 - On a public site, links change the page without reloading, so the player keeps playing as visitors move around.
 
 ### Workbench and public sites, quickly
@@ -55,6 +55,15 @@ Two example organisations come built in (switch from the menu at the top left). 
 - **Play** steps a dashboard month by month through its data, in the editor and on public sites.
 - **Program data**: edit the monthly values behind each measure. Public sites open in another tab update as you type.
 - **Publishing**: which dashboards each site shows. Private sites show a sign-in message.
+- **From your strategy**: road, goal lights, next milestones and work progress widgets show where the plan stands, live from Strategy & Work.
+- **Feedback forms**: short anonymous questions under a site's dashboards or on its front page; answers come back to the Workbench.
+- **Funder reports**: pick a funder, a period and what they fund, and get a first draft from your measures, workplans and stories to edit, print or keep in the Library.
+
+### Board portal, quickly
+
+- Open it from **Public Portal → Members only → Board portal**, or `site.html?site=site-board`. Only signed-in members see it.
+- Governance guides, minutes and finance summaries are Library documents tagged `board` plus `governance`, `minutes` or `finance`. Tag a document and it appears; edit it in the Library.
+- The home page shows the **Board scorecard** dashboard (edit it in the Workbench) and a short feedback form for the board.
 
 ---
 

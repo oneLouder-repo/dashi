@@ -60,6 +60,7 @@ function Editor(ctx, dash) {
   // Strategy measures, then calculated ones (Program data).
   const measures = [...Object.values(measureIndex(ctx.strategy)), ...Object.values(ctx.data.doc.calcs ?? {}).map(calcMeasure)];
   const nodes = Object.values(ctx.strategy.nodes).filter((n) => ['plan', 'objective', 'goal', 'workplan'].includes(n.type));
+  const plans = Object.values(ctx.strategy.nodes).filter((n) => n.type === 'plan');
   const sites = Object.values(org.sites);
   const site = org.sites[dash.siteId];
   const live = dash.visibility === 'public' && site && site.visibility !== 'private';
@@ -137,7 +138,7 @@ function Editor(ctx, dash) {
     h('div', { class: 'dd-body' },
       canvas,
       h('aside', { class: 'dd-panel' }, ctx.selectedWidget
-        ? WidgetPanel(ctx, dash.widgets.find((w) => w.id === ctx.selectedWidget), { measures, nodes, setWidget, close: () => select(null), remove: (id) => { update({ widgets: dash.widgets.filter((x) => x.id !== id) }); select(null); } })
+        ? WidgetPanel(ctx, dash.widgets.find((w) => w.id === ctx.selectedWidget), { measures, nodes, plans, setWidget, close: () => select(null), remove: (id) => { update({ widgets: dash.widgets.filter((x) => x.id !== id) }); select(null); } })
         : AddPanel(ctx, dash, { measures, add }))));
 }
 
@@ -167,16 +168,35 @@ function AddPanel(ctx, dash, { measures, add }) {
   return h('div', {},
     h('h3', {}, 'Add to the dashboard'),
     h('div', { class: 'dd-kinds' }, WIDGET_TYPES.map((t) => h('button', { type: 'button', class: 'dd-kind', onclick: () => {
-      const first = { measure: { measureId: measures[0]?.id }, measures: { measureIds: measures.slice(0, 2).map((m) => m.id) }, node: { nodeId: dash.sourceNodeId ?? Object.values(ctx.strategy.nodes).find((n) => n.type === 'objective')?.id }, null: { title: 'Heading', text: 'Say what this shows and why it matters.' } };
+      const first = { measure: { measureId: measures[0]?.id }, measures: { measureIds: measures.slice(0, 2).map((m) => m.id) }, node: { nodeId: dash.sourceNodeId ?? Object.values(ctx.strategy.nodes).find((n) => n.type === 'objective')?.id }, plan: { nodeId: planFor(ctx, dash) }, null: { title: 'Heading', text: 'Say what this shows and why it matters.' } };
       add(widget(t.id, first[t.needs]));
     } }, h('span', { class: `dd-kind-icon k-${t.id}`, 'aria-hidden': 'true' }), t.label))),
+    h('h3', {}, 'From your strategy'),
+    h('p', { class: 'muted small' }, 'Show where the plan stands, live from Strategy & Work: the road, the goals’ lights, what is coming up.'),
+    h('div', { class: 'dd-strategic' },
+      [['road', 'The road so far', 'Lights passed and ahead, milestones, today', { nodeId: planFor(ctx, dash) }],
+        ['lights', 'Goal lights', 'A light per workplan, goal by goal', { nodeId: dash.sourceNodeId ?? planFor(ctx, dash) }],
+        ['milestones', 'Next milestones', 'The next five, nearest first', { nodeId: dash.sourceNodeId ?? planFor(ctx, dash) }],
+        ['progress', 'Work progress', 'Tasks by status', { nodeId: dash.sourceNodeId ?? planFor(ctx, dash) }]].map(([type, label, blurb, more]) =>
+        h('button', { type: 'button', class: 'dd-strat', onclick: () => add(widget(type, more)) }, h('span', { class: `dd-kind-icon k-${type}`, 'aria-hidden': 'true' }), h('span', {}, h('strong', {}, label), h('small', {}, blurb))))),
     h('h3', {}, 'From your measures'),
     h('p', { class: 'muted small' }, 'Add a measure as a number, a line or columns.'),
     q, list);
 }
 
+/** The plan a strategic widget starts on: the dashboard's own, else the longest plan holding today. */
+function planFor(ctx, dash) {
+  const nodes = ctx.strategy.nodes;
+  let n = nodes[dash.sourceNodeId];
+  while (n && n.type !== 'plan') n = nodes[n.parentId];
+  if (n) return n.id;
+  const now = new Date().toISOString().slice(0, 10);
+  const plans = Object.values(nodes).filter((x) => x.type === 'plan');
+  return (plans.filter((p) => p.start && p.end && p.start <= now && now <= p.end).sort((a, b) => (b.end > a.end ? 1 : -1))[0] ?? plans[0])?.id;
+}
+
 /** Settings for the selected widget. */
-function WidgetPanel(ctx, w, { measures, nodes, setWidget, close, remove }) {
+function WidgetPanel(ctx, w, { measures, nodes, plans, setWidget, close, remove }) {
   const type = WIDGET_TYPES.find((t) => t.id === w.type);
   const field = (label, control) => h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, label), control);
   const groups = {};
@@ -193,6 +213,7 @@ function WidgetPanel(ctx, w, { measures, nodes, setWidget, close, remove }) {
       if (next.needs === 'measures' && !w.measureIds) patch.measureIds = [w.measureId ?? measures[0]?.id].filter(Boolean);
       if (next.needs === 'measure' && !w.measureId) patch.measureId = w.measureIds?.[0] ?? measures[0]?.id;
       if (next.needs === 'node' && !w.nodeId) patch.nodeId = nodes[0]?.id;
+      if (next.needs === 'plan' && !plans.some((p) => p.id === w.nodeId)) patch.nodeId = plans[0]?.id;
       setWidget(w.id, patch);
     } }, options(WIDGET_TYPES.map((t) => ({ id: t.id, label: t.label })), w.type))),
     type?.needs === 'measure' && field('Measure', measureSelect(w.measureId, (e) => setWidget(w.id, { measureId: e.target.value }), 'dd-measure')),
@@ -202,6 +223,9 @@ function WidgetPanel(ctx, w, { measures, nodes, setWidget, close, remove }) {
           onchange: (e) => setWidget(w.id, { measureIds: e.target.checked ? [...on, m.id] : [...on].filter((id) => id !== m.id) }) }), m.name)))),
     type?.needs === 'node' && field('Work under', h('select', { class: 'select select-sm w-full', name: 'dd-node', onchange: (e) => setWidget(w.id, { nodeId: e.target.value }) },
       nodes.map((n) => h('option', { value: n.id, selected: n.id === w.nodeId }, `${NODE_TYPES[n.type].glyph} ${n.title}`)))),
+    type?.needs === 'plan' && field('Plan', h('select', { class: 'select select-sm w-full', name: 'dd-plan', onchange: (e) => setWidget(w.id, { nodeId: e.target.value }) },
+      plans.map((n) => h('option', { value: n.id, selected: n.id === w.nodeId }, n.title)))),
+    type?.needs === 'plan' && h('p', { class: 'muted small' }, 'Visitors see the road: lights passed and ahead, milestones and today. Titles stay out of it; the table view lists the goals.'),
     field('Title (leave empty for the measure’s name)', h('input', { class: 'input input-sm w-full', name: 'dd-title', value: w.title ?? '', onchange: (e) => setWidget(w.id, { title: e.target.value || undefined }) })),
     w.type === 'text' && field('Text', h('textarea', { class: 'textarea textarea-sm w-full', rows: 4, name: 'dd-text', onchange: (e) => setWidget(w.id, { text: e.target.value }) }, w.text ?? '')),
     field('Size', h('div', { class: 'join' }, [['small', 'Small'], ['wide', 'Wide'], ['full', 'Full width']].map(([id, label]) =>

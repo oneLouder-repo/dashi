@@ -44,6 +44,7 @@ import { planFor, allPlans, overLimit, usageOf, PLAN_IDS } from '../src/platform
 import { siteContent } from '../src/platform/salesSite.js';
 import { mergeRegistry, registryView, pausedByRegistry, manifestProblems, cleanManifest, compareVersions, bumpVersion, defaultManifest, manifestFromPackage, blankManifest, SCAFFOLDS } from '../src/platform/pluginRegistry.js';
 import { blankStrategy } from '../src/platform/strategySeed.js';
+import { cleanResponse, migrateFeedback } from '../src/platform/feedback.js';
 
 const scrypt = promisify(scryptCb);
 const COOKIE = 'tb_session';
@@ -469,6 +470,31 @@ export function createApp(db, options = {}) {
         announce(a.org.id, name, a.tag);
         return json(res, 200, { ok: true, version });
       }
+    }
+
+    /* A visitor answers a feedback form (Data Workbench → Feedback forms). Anyone may answer a
+       public form on a site that isn't private; members may answer any form. Answers append to
+       the org's "feedback" document, which visitors never read. */
+    if (path === '/api/feedback' && method === 'POST') {
+      needOrg();
+      bump(`feedback:${clientIp(req)}`, 30);
+      const body = await readJson(req, 20_000);
+      if (body?.website) throw new HttpError(400, 'Something went wrong');
+      const all = readDocs(a.org.id);
+      const form = all.dashboards?.forms?.[String(body?.formId ?? '')];
+      const site = form && all.org?.sites?.[form.siteId];
+      const open = form && site && (a.member || (form.visibility === 'public' && site.visibility !== 'private'));
+      if (!open) throw new HttpError(404, 'No such form');
+      const r = cleanResponse(form, body?.answers, { siteId: form.siteId, at: new Date().toISOString() });
+      if (!r) throw new HttpError(400, 'Nothing to send');
+      const fb = migrateFeedback(readDoc(a.org.id, 'feedback'));
+      fb.responses[r.id] = r;
+      // Keep the document a sensible size: the newest two thousand answers.
+      const ids = Object.keys(fb.responses);
+      if (ids.length > 2000) for (const id of ids.slice(0, ids.length - 2000)) delete fb.responses[id];
+      writeDoc(a.org.id, 'feedback', fb, a.user?.id ?? null);
+      announce(a.org.id, 'feedback', a.tag);
+      return json(res, 201, { ok: true });
     }
 
     // The org's plan and how much of it is used (Organisation → Plan).

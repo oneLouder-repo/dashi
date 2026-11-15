@@ -19,6 +19,9 @@ import { dataMonths, measureFacts } from './data.js';
  *   line      a measure over time, with its target
  *   bar       a measure month by month
  *   progress  task status under a strategy node
+ *   road      the plan's road: traffic lights passed and ahead (strategic data on a public page)
+ *   lights    one row per goal under a node, with a light per workplan and how far along it is
+ *   milestones  the next milestones under a node, as a short list
  *   text      a heading and paragraph
  * Add a widget type in charts/widgets.js and list it in WIDGET_TYPES.
  *
@@ -34,13 +37,18 @@ import { dataMonths, measureFacts } from './data.js';
  * Story { title, summary, visibility, siteId,
  *         steps: [{ id, heading, text, chart: 'kpi' | 'line' | 'bar' | null, measureId?, audio? }] }
  *   A scrolling data story; audio is { mediaId | url, name } and plays from a Listen button.
+ * forms    feedback forms (see feedback.js); reports  funder reports (see funderReports.js)
  */
+import { seedForms } from './feedback.js';
 export const WIDGET_TYPES = [
   { id: 'kpi', label: 'Headline number', needs: 'measure', size: 'small' },
   { id: 'line', label: 'Line over time', needs: 'measure', size: 'wide' },
   { id: 'bar', label: 'Monthly columns', needs: 'measure', size: 'wide' },
   { id: 'compare', label: 'Compare measures', needs: 'measures', size: 'full' },
   { id: 'progress', label: 'Work progress', needs: 'node', size: 'wide' },
+  { id: 'road', label: 'The road so far', needs: 'plan', size: 'full' },
+  { id: 'lights', label: 'Goal lights', needs: 'node', size: 'wide' },
+  { id: 'milestones', label: 'Next milestones', needs: 'node', size: 'small' },
   { id: 'text', label: 'Text', needs: null, size: 'wide' },
 ];
 
@@ -95,7 +103,28 @@ export function seedDashboards(strategy) {
     if (!strategy.nodes[ex.objectiveId]) continue;
     dashboards[ex.id] = { ...dashboardFromNode(strategy, ex.objectiveId, ex.createdBy), id: ex.id, title: ex.title, visibility: 'public', siteId: ex.siteId };
   }
+  Object.assign(dashboards, boardDashboards(strategy));
   return { id: 'dashboards', dashboards, ...seedExtras(strategy) };
+}
+
+/** The STEM example's board scorecard: the road, the headline numbers, the goal lights, and what is next. */
+function boardDashboards(strategy) {
+  const plan = Object.values(strategy.nodes).find((n) => n.type === 'plan' && n.start && n.end && n.start <= '2026-11-15' && '2026-11-15' <= n.end && n.parentId && strategy.nodes[n.parentId]?.type === 'plan') ?? Object.values(strategy.nodes).find((n) => n.type === 'plan');
+  if (!plan || !strategy.nodes['obj-equity']) return {};
+  const master = rootOf(strategy)?.type === 'framework' ? childrenOf(strategy, rootOf(strategy).id).find((n) => n.type === 'plan') : rootOf(strategy);
+  return {
+    'dash-board': {
+      id: 'dash-board', title: 'Board scorecard', description: 'Where the strategic plan stands, for the board pack: live from the roadmap and our program data.',
+      visibility: 'private', siteId: 'site-board', sourceNodeId: master?.id ?? plan.id, createdBy: 's-ed',
+      widgets: [
+        widget('road', { nodeId: master?.id ?? plan.id, title: 'The road so far' }),
+        widget('kpi', { measureId: 'm-reach' }), widget('kpi', { measureId: 'm-equity' }), widget('kpi', { measureId: 'm-trained' }), widget('kpi', { measureId: 'm-partners' }),
+        widget('lights', { nodeId: plan.id, title: `Goals in ${plan.title}` }),
+        widget('milestones', { nodeId: master?.id ?? plan.id, title: 'Coming up', size: 'wide' }),
+        widget('progress', { nodeId: plan.id, title: 'Tasks this year', size: 'full' }),
+      ],
+    },
+  };
 }
 
 export const STORY_CHARTS = [
@@ -186,11 +215,17 @@ function seedExtras(strategy) {
 }
 
 /** Bring an older dashboards document up to the current shape. */
-export function migrateDashboards(doc, strategy = null) {
+export function migrateDashboards(doc, strategy = null, org = null) {
   if (!doc.calculators || !doc.stories) {
     const extras = strategy ? seedExtras(strategy) : { calculators: {}, stories: {} };
     doc.calculators ??= extras.calculators;
     doc.stories ??= extras.stories;
   }
+  // Feedback forms and funder reports arrived in alpha.6; the examples get starter forms and a board scorecard.
+  if (!doc.forms) doc.forms = org?.id === 'org-example' ? seedForms(org) : {};
+  doc.reports ??= {};
+  // An early alpha.6 copy put the example's numbers form on the main site, which has no dashboards.
+  if (org?.id === 'org-example' && doc.forms['form-numbers']?.siteId === 'site-main' && org.sites?.['site-impact']) doc.forms['form-numbers'].siteId = 'site-impact';
+  if (strategy && org?.id === 'org-example' && !doc.dashboards['dash-board']) Object.assign(doc.dashboards, boardDashboards(strategy));
   return doc;
 }

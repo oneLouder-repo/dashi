@@ -7,13 +7,14 @@ import { seedOrg, seedRiverbend } from './org.js';
 import { seedStrategy, seedRiverbendStrategy } from './strategySeed.js';
 import { measureIndex, migrateStrategy } from './strategy.js';
 import { seedData } from './data.js';
-import { seedDashboards } from './dashboards.js';
+import { seedDashboards, migrateDashboards } from './dashboards.js';
 import { seedPodcasts } from './podcasts.js';
 import { seedPages, seedRiverbendPages } from './pages.js';
 import { mapEntry, mapDocName } from './maps.js';
 import { createMap } from '../core/ops.js';
 import { seedMap } from '../seed.js';
 import { seedStudio } from './studio.js';
+import { seedLibrary } from './boardSeed.js';
 
 const exampleMaps = () => {
   const main = { ...seedMap(), id: 'map-ecosystem' };
@@ -28,7 +29,7 @@ const exampleMaps = () => {
 };
 
 export const SEEDS = {
-  'org-example': { org: seedOrg, strategy: seedStrategy, maps: exampleMaps, podcasts: seedPodcasts, pages: seedPages },
+  'org-example': { org: seedOrg, strategy: seedStrategy, maps: exampleMaps, podcasts: seedPodcasts, pages: seedPages, library: seedLibrary },
   'org-riverbend': {
     org: seedRiverbend,
     strategy: seedRiverbendStrategy,
@@ -49,11 +50,13 @@ export function exampleDocs(orgId) {
     org: seed.org(),
     strategy,
     data: seedData(Object.keys(measureIndex(strategy))),
-    dashboards: seedDashboards(strategy),
+    dashboards: null,
     pages: seed.pages(),
     maps: maps.index,
   };
+  docs.dashboards = migrateDashboards(seedDashboards(strategy), strategy, docs.org);
   if (seed.podcasts) docs.podcasts = seed.podcasts();
+  if (seed.library) docs.library = seed.library();
   docs.studio = seedStudio(strategy, { staff: Object.keys(docs.org.staff) });
   for (const [id, map] of Object.entries(maps.contents)) docs[mapDocName(id)] = map;
   return docs;

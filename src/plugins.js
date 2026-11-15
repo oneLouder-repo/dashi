@@ -105,12 +105,12 @@ export const PLUGINS = [
   },
   {
     id: 'pages',
-    short: 'Web views',
+    short: 'Portal',
     tone: '#3a8a3f',
-    name: 'Web views',
+    name: 'Public Portal',
     href: 'pages.html',
     icon: 'sec-sites',
-    blurb: 'Your public face in one place: what visitors see of your dashboards, strategic plan, podcasts, pages and news, site by site.',
+    blurb: 'One way in to everything you show outside: public sites, dashboards, your plan, podcasts, pages and news, plus members-only portals for your board.',
     stats: ({ pages }) => {
       const list = Object.values(pages?.pages ?? {});
       return `${list.filter((p) => p.kind === 'page').length} pages · ${list.filter((p) => p.kind === 'article').length} articles · ${list.filter((p) => p.status === 'draft').length} drafts`;

@@ -21,6 +21,9 @@ function block(b, embed) {
     case 'ul': case 'ol': return h(b.t, {}, b.items.map((c) => h('li', {}, inline(c))));
     case 'quote': return h('blockquote', {}, inline(b.c));
     case 'hr': return h('hr');
+    case 'table': return h('div', { class: 'md-table' }, h('table', {},
+      b.head && h('thead', {}, h('tr', {}, b.head.map((c) => h('th', {}, inline(c))))),
+      h('tbody', {}, b.rows.map((r) => h('tr', {}, r.map((c) => h('td', {}, inline(c))))))));
     case 'embed': return embed?.(b) ?? h('div', { class: 'md-embed-missing' }, `${b.kind} “${b.id}” is not available here.`);
     default: return null;
   }

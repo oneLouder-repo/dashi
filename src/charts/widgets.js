@@ -2,7 +2,9 @@ import { h } from '../ui/dom.js';
 import { svg } from '../core/svg.js';
 import { measureIndex, descendants, TASK_STATUSES, statusAt } from '../platform/strategy.js';
 import { valueAt, pointsUntil, seriesOf, calcMeasure, dataMonths } from '../platform/data.js';
-import { monthLabel, addDays } from '../strategy/dates.js';
+import { monthLabel, addDays, short, today } from '../strategy/dates.js';
+import { RoadSvg, lightFor, LIGHT_COLOR } from '../strategy/Road.js';
+import { taskSummary, childrenOf } from '../platform/strategy.js';
 
 /**
  * Dashboard widgets. Each renders for one moment in time (`ctx.asOf`), so
@@ -315,4 +317,61 @@ function compare(w, ctx) {
     table);
 }
 
-const RENDERERS = { kpi, line, bar, progress, text, compare };
+// ---------------------------------------------------------------- strategic data
+/** The plan's road, compact: lights passed and ahead, milestones, today. Strategic data on a public page. */
+function road(w, ctx) {
+  const node = ctx.strategy.nodes[w.nodeId];
+  if (!node) return missing(w, 'plan');
+  const r = RoadSvg(ctx.strategy, node.id, { compact: true, links: false });
+  if (!r) return h('figure', { class: `widget size-${w.size ?? 'full'}` }, h('p', { class: 'muted' }, 'Give the plan’s workplans dates to draw its road.'));
+  const m = r.model;
+  const passed = m.posts.filter((p) => p.date < m.now);
+  const n = (l) => passed.filter((p) => p.light === l).length;
+  const fig = figure(w, 'road-widget', w.title ?? `${node.title}: the road so far`, h('div', { class: 'road-widget-body' }, r.el,
+    h('p', { class: 'kpi-meta road-widget-tally' },
+      h('span', {}, h('b', {}, String(passed.length)), ` workplan${passed.length === 1 ? '' : 's'} passed: `, h('i', { class: 'lg-light', style: `--c:${LIGHT_COLOR.green}` }), ` ${n('green')} done or on track, `, h('i', { class: 'lg-light', style: `--c:${LIGHT_COLOR.amber}` }), ` ${n('amber')} behind, `, h('i', { class: 'lg-light', style: `--c:${LIGHT_COLOR.red}` }), ` ${n('red')} missed`),
+      h('span', {}, h('b', {}, String(m.posts.length - passed.length)), ' still ahead · ', h('i', { class: 'lg-flag' }), ` ${m.milestones.length} milestones`))),
+  null);
+  return fig;
+}
+
+/** One row per goal under a node: a light per workplan, how far along, and when its work ends. */
+function lights(w, ctx) {
+  const node = ctx.strategy.nodes[w.nodeId];
+  if (!node) return missing(w, 'strategy item');
+  const now = today();
+  const goals = node.type === 'goal' ? [node] : descendants(ctx.strategy, node.id).filter((n) => n.type === 'goal');
+  const rows = goals.map((g) => {
+    const wps = descendants(ctx.strategy, g.id).filter((n) => n.type === 'workplan' && n.start && n.end).sort((a, b) => a.end.localeCompare(b.end));
+    const t = taskSummary(ctx.strategy, g.id);
+    return { g, wps, lights: wps.map((wp) => lightFor(ctx.strategy, wp, now)), pct: t.total ? Math.round((t.done / t.total) * 100) : 0, end: wps.at(-1)?.end ?? g.end };
+  });
+  const body = h('ul', { class: 'lights-list' }, rows.map((r) => h('li', {},
+    h('span', { class: 'lights-dots', role: 'img', 'aria-label': r.lights.map((l) => ({ green: 'done or on track', amber: 'behind', red: 'still ahead or missed' })[l]).join(', ') || 'no workplans yet' },
+      r.lights.length ? r.lights.map((l) => h('i', { style: `--c:${LIGHT_COLOR[l]}` })) : h('i', { class: 'none' })),
+    h('span', { class: 'lights-title' }, r.g.title),
+    h('span', { class: 'lights-meta' }, `${r.pct}% done${r.end ? ` · ends ${short(r.end)}` : ''}`))));
+  const table = h('table', { class: 'list compact' }, h('thead', {}, h('tr', {}, h('th', {}, 'Goal'), h('th', {}, 'Workplans on track'), h('th', {}, 'Tasks done'), h('th', {}, 'Work ends'))),
+    h('tbody', {}, rows.map((r) => h('tr', {}, h('td', {}, r.g.title), h('td', {}, `${r.lights.filter((l) => l === 'green').length} of ${r.lights.length}`), h('td', {}, `${r.pct}%`), h('td', {}, short(r.end))))));
+  return figure(w, 'lights-widget', w.title ?? `Goals under ${node.title}`, rows.length ? body : h('p', { class: 'muted' }, 'No goals under this yet.'), table);
+}
+
+/** The next milestones under a node, nearest first. */
+function milestones(w, ctx) {
+  const node = ctx.strategy.nodes[w.nodeId];
+  if (!node) return missing(w, 'strategy item');
+  const now = today();
+  const all = [node, ...descendants(ctx.strategy, node.id)].flatMap((n) => [
+    ...(n.milestones ?? []).map((m) => ({ date: m.date, title: m.title, of: n.title })),
+    ...(n.events ?? []).filter((e) => e.kind === 'milestone').map((e) => ({ date: e.date, title: e.text, of: n.title })),
+  ]).filter((m) => m.date).sort((a, b) => a.date.localeCompare(b.date));
+  const ahead = all.filter((m) => m.date >= now);
+  const passed = all.length - ahead.length;
+  return figure(w, 'milestones-widget', w.title ?? 'Next milestones',
+    h('div', {},
+      ahead.length ? h('ol', { class: 'ms-list' }, ahead.slice(0, 5).map((m) => h('li', {}, h('time', { datetime: m.date }, short(m.date)), h('span', {}, m.title, h('small', {}, m.of))))) : h('p', { class: 'muted' }, 'No milestones ahead.'),
+      h('p', { class: 'kpi-meta' }, `${passed} passed · ${ahead.length} ahead`)),
+    null);
+}
+
+const RENDERERS = { kpi, line, bar, progress, text, compare, road, lights, milestones };

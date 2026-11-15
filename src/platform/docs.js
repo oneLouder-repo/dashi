@@ -19,6 +19,7 @@ import { loadMapIndex, loadAllMaps } from './maps.js';
 import { SEEDS } from './seeds.js';
 import { blankStudio, migrateStudio, seedStudio } from './studio.js';
 import { blankLibrary, migrateLibrary } from './library.js';
+import { addBoardDocs } from './boardSeed.js';
 import { migratePlanDocs, seedPlanDocs } from './plandocs.js';
 import { blankAssets, migrateAssets } from './assetHub.js';
 
@@ -30,8 +31,8 @@ export const loadData = () => loadOrSeed('data', () => seedData(Object.keys(meas
 // Example orgs get the example calculators and stories when an older document has none.
 export function loadDashboards() {
   const doc = loadOrSeed('dashboards', () => seedDashboards(loadStrategy()));
-  if (doc.calculators && doc.stories) return doc;
-  migrateDashboards(doc, seedFor('strategy') ? loadStrategy() : null);
+  if (doc.calculators && doc.stories && doc.forms && doc.reports && (activeOrg() !== 'org-example' || (doc.dashboards['dash-board'] && doc.forms['form-numbers']?.siteId !== 'site-main'))) return doc;
+  migrateDashboards(doc, seedFor('strategy') ? loadStrategy() : null, loadOrg());
   saveDoc('dashboards', doc, undefined, { quiet: true });
   return doc;
 }
@@ -39,7 +40,12 @@ export const loadPodcasts = () => migratePodcasts(loadOrSeed('podcasts', seedFor
 export const loadPages = () => loadPagesFor(activeOrg());
 export const loadStudio = () => migrateStudio(loadOrSeed('studio', () => (seedFor('strategy') ? seedStudio(loadStrategy(), { staff: Object.keys(loadOrg().staff) }) : blankStudio())));
 export const loadMaps = () => loadMapIndex(seedFor('maps'));
-export const loadLibrary = () => migrateLibrary(loadOrSeed('library', seedFor('library') ?? blankLibrary));
+/** The library. The STEM example's board documents are added to older copies that lack them. */
+export function loadLibrary() {
+  const lib = migrateLibrary(loadOrSeed('library', seedFor('library') ?? blankLibrary));
+  if (addBoardDocs(lib, activeOrg())) saveDoc('library', lib, undefined, { quiet: true });
+  return lib;
+}
 export const loadAssets = () => migrateAssets(loadOrSeed('assets', blankAssets));
 
 /** Plan documents. Every org with a plan starts with a draft of one; example orgs publish it to their public site. */
