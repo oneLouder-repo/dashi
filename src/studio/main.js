@@ -11,7 +11,10 @@ import { loadAllMaps } from '../platform/maps.js';
 import { migrateStrategy, strategyOps, rootOf } from '../platform/strategy.js';
 import { currentUser } from '../platform/session.js';
 import { mergeStudio, migrateStudio, plansOf, studioOps, ofPlan, QUADRANTS } from '../platform/studio.js';
-import { short } from '../strategy/dates.js';
+import { short, range, today, daysBetween } from '../strategy/dates.js';
+import { taskSummary } from '../platform/strategy.js';
+import { loadPlanDocs } from '../platform/docs.js';
+import { LevelBadge, ProgressRing, AvatarStack, objectiveOrder } from '../ui/strategyLook.js';
 import { PlanHome } from './PlanHome.js';
 import { SoarBoard } from './SoarBoard.js';
 import { SoarList } from './SoarList.js';
@@ -113,10 +116,14 @@ function drawSide({ planId, tab }) {
   const plans = plansOf(strategy.doc);
   const count = (id, c) => ofPlan(store.doc, c, id).length;
   side = swapSide(side, SideNav({ label: 'Planning Studio', sections: [
-    { title: 'Planning Studio', items: [{ label: 'Framework and plans', sub: 'Mission, vision, values', icon: 'strategy', href: '#framework', on: tab === 'framework' }] },
+    { title: 'Planning Studio', items: [
+      { label: 'Framework and plans', sub: 'Mission, vision, values', icon: 'strategy', href: '#framework', on: tab === 'framework' },
+      { label: 'Plan designer', sub: 'Designed plans to print or publish', icon: 'brush', href: 'plandoc.html' },
+      { label: 'Strategy & Work', sub: 'The plans as work', icon: 'mapTrifold', href: 'strategy.html' },
+    ] },
     { title: 'Plans', action: { label: 'New plan', onclick: newPlan }, items: plans.map((p) => ({
       label: p.title, sub: count(p.id, 'cards') ? `${count(p.id, 'cards')} SOAR cards` : [p.start, p.end].filter(Boolean).map(short).join(' – '),
-      icon: 'doc', href: `#${p.id}`, on: p.id === planId && tab === 'home', className: p.depth ? 'side-indent' : null,
+      icon: 'mapTrifold', href: `#${p.id}`, on: p.id === planId && tab === 'home', className: p.depth ? 'side-indent' : null,
     })) },
     planId && { title: 'This plan', items: TABS.filter((t) => t.id !== 'home').map((t) => ({
       label: t.label, icon: t.icon, href: `#${planId}/${t.id}`, on: t.id === tab,
@@ -134,32 +141,73 @@ async function newPlan() {
   ctx.go(`${op.id}/soar`);
 }
 
+/**
+ * The Studio's front page: the framework (editable, in the same look as
+ * Strategy & Work), then the plans as a tree of cards, each with where its
+ * planning stands (SOAR cards, results, team) and where its work stands
+ * (tasks done), and the designed plan documents.
+ */
 function Framework() {
   const root = rootOf(strategy.doc);
   const plans = plansOf(strategy.doc);
+  const sdoc = strategy.doc;
   const setRoot = (k) => (e) => strategy.apply(strategyOps.update(root.id, { [k]: e.target.value }));
-  const area = (k, label, rows = 2) => h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, label),
-    h('textarea', { class: 'textarea textarea-sm', name: `fw-${k}`, rows, onchange: setRoot(k) }, root?.[k] ?? ''));
-  return h('div', { class: 'studio-page-body' },
-    PluginHeader('studio', { actions: h('button', { class: 'btn btn-sm btn-primary', onclick: newPlan }, icon('plus', 14), 'New plan') }),
+  const statement = (k, label, ic, rows = 3) => h('label', { class: 'sw-statement editable' },
+    h('span', { class: 'sw-statement-ico' }, icon(ic, 18)),
+    h('div', {}, h('span', {}, label), h('textarea', { class: 'sw-statement-input', name: `fw-${k}`, rows, onchange: setRoot(k), placeholder: `Our ${label.toLowerCase()}…` }, root?.[k] ?? '')));
+  const designs = Object.values(loadPlanDocs().docs ?? {});
+  const now = today();
+  const planCard = (p) => {
+    const rec = store.doc.plans[p.id];
+    const cards = ofPlan(store.doc, 'cards', p.id);
+    const results = ofPlan(store.doc, 'results', p.id).length;
+    const objectives = objectiveOrder(sdoc).filter(({ node }) => ancestorsOf(node.id).includes(p.id));
+    const t = taskSummary(sdoc, p.id);
+    const total = p.start && p.end ? Math.max(1, daysBetween(p.start, p.end)) : 0;
+    const gone = total ? Math.max(0, Math.min(1, daysBetween(p.start, now) / total)) : 0;
+    const team = (rec?.team ?? []).map((m) => org.staff[m.staffId]);
+    const design = designs.find((d) => d.planId === p.id);
+    return h('article', { class: `sw-card studio-plan${p.depth ? ' nested' : ''}`, style: `--depth:${p.depth}` },
+      h('header', { class: 'studio-plan-top' },
+        LevelBadge('plan', { plain: true }),
+        h('a', { class: 'studio-plan-name', href: `#${p.id}` }, p.title),
+        h('span', { class: 'muted small' }, range(p.start, p.end)),
+        h('span', { class: 'spacer' }),
+        ProgressRing(t.total ? t.done / t.total : 0, { size: 36, label: `${t.done} of ${t.total} tasks done` })),
+      total > 0 && h('div', { class: 'sw-plan-time', title: `${Math.round(gone * 100)}% of the way through its dates` }, h('i', { style: `width:${gone * 100}%` }), h('b', { style: `left:${gone * 100}%` })),
+      objectives.length > 0 && h('div', { class: 'studio-plan-objs' }, objectives.map(({ node, hue }) => h('a', { class: 'studio-obj-chip', href: `strategy.html#${node.id}`, style: `--hue:${hue}` }, node.title))),
+      h('div', { class: 'soar-mini' }, QUADRANTS.map((q) => h('a', { href: `#${p.id}/${q.id === 'r' ? 'results' : ['s', 'o', 'a'].includes(q.id) ? q.id : 'soar'}`, style: `--q:${q.color}` }, h('strong', {}, String(q.id === 'r' ? results || cards.filter((c) => c.quadrant === 'r').length : cards.filter((c) => c.quadrant === q.id).length)), q.label))),
+      h('footer', { class: 'studio-plan-foot' },
+        AvatarStack(team, { max: 6, size: 24 }),
+        h('span', { class: 'spacer' }),
+        h('a', { class: 'btn btn-xs btn-ghost', href: `#${p.id}/soar` }, icon('workbench', 13), 'SOAR'),
+        h('a', { class: 'btn btn-xs btn-ghost', href: `strategy.html#${p.id}` }, icon('mapTrifold', 13), 'Work'),
+        design ? h('a', { class: 'btn btn-xs btn-ghost', href: `plandoc.html#${design.id}` }, icon('brush', 13), design.status === 'published' ? 'Design · published' : 'Design')
+          : h('a', { class: 'btn btn-xs btn-ghost', href: 'plandoc.html', title: 'Make a designed plan document from this plan' }, icon('brush', 13), 'Design it')));
+  };
+  return h('div', { class: 'studio-page-body studio-front' },
+    PluginHeader('studio', { actions: [
+      h('a', { class: 'btn btn-sm btn-ghost', href: 'plandoc.html' }, icon('brush', 14), 'Plan designer'),
+      h('button', { class: 'btn btn-sm btn-primary', onclick: newPlan }, icon('plus', 14), 'New plan')] }),
     !root ? h('p', { class: 'empty' }, 'Start a framework in Strategy & Work first.') : [
-      h('section', { class: 'card card-border bg-base-100 framework-card' }, h('div', { class: 'card-body' },
-        h('h2', { class: 'card-title' }, icon('strategy', 18), 'The strategic framework'),
-        h('p', { class: 'muted' }, 'One framework for the organisation. Every plan in the Studio works toward it. These are the same fields as in Strategy & Work.'),
-        h('div', { class: 'framework-fields' }, area('mission', 'Mission'), area('vision', 'Vision'), area('values', 'Values', 1)))),
-      h('h2', { class: 'studio-h2' }, 'Plans'),
-      h('div', { class: 'cards plan-cards' }, plans.map((p) => {
-        const rec = store.doc.plans[p.id];
-        const cards = ofPlan(store.doc, 'cards', p.id);
-        return h('a', { class: 'card card-border bg-base-100 plan-card', href: `#${p.id}`, style: p.depth ? 'margin-left:24px' : null },
-          h('div', { class: 'card-body' },
-            h('h3', { class: 'card-title' }, icon('doc', 18), p.title),
-            h('p', { class: 'muted' }, [p.start, p.end].filter(Boolean).map(short).join(' – ') || 'No dates yet'),
-            h('div', { class: 'soar-mini' }, QUADRANTS.map((q) => h('span', { style: `--q:${q.color}` }, h('strong', {}, cards.filter((c) => c.quadrant === q.id).length), q.label))),
-            h('div', { class: 'avatar-row' }, (rec?.team ?? []).map((t) => org.staff[t.staffId] && Avatar(org.staff[t.staffId], 24)))));
-      })),
+      h('section', { class: 'sw-hero' },
+        h('div', { class: 'sw-hero-head' }, LevelBadge('framework', { long: true }), h('h2', {}, root.title || 'Strategic framework'),
+          h('span', { class: 'muted small' }, 'Every plan works toward it. The same words as in Strategy & Work.')),
+        h('div', { class: 'sw-statements' },
+          statement('mission', 'Mission', 'target'),
+          statement('vision', 'Vision', 'eye'),
+          statement('values', 'Values', 'heart', 2))),
+      h('div', { class: 'sw-section-head' }, h('h2', {}, 'Plans'), h('span', { class: 'muted small' }, 'Plan together here; the plans become work in Strategy & Work.')),
+      h('div', { class: 'studio-plans' }, plans.map(planCard)),
+      h('div', { class: 'sw-section-head' }, h('h2', {}, 'Designed plans'), h('a', { class: 'small', href: 'plandoc.html' }, 'Open the plan designer →')),
+      designs.length
+        ? h('div', { class: 'studio-designs' }, designs.map((d) => h('a', { class: 'sw-card studio-design', href: `plandoc.html#${d.id}` },
+          h('span', { class: `studio-design-thumb pd-thumb-${d.template ?? 'modern'}` }),
+          h('div', {}, h('strong', {}, sdoc.nodes[d.planId]?.title ?? 'A removed plan'), h('span', { class: 'muted small' }, d.status === 'published' ? `Published ${d.publishedAt ?? ''}` : 'Draft')))))
+        : h('p', { class: 'muted' }, 'No designed plans yet. The plan designer turns a plan into pages to print, save as PDF or publish.'),
     ]);
 }
+const ancestorsOf = (id) => { const out = []; let n = strategy.doc.nodes[id]; while (n?.parentId) { out.push(n.parentId); n = strategy.doc.nodes[n.parentId]; } return out; };
 
 const VIEWS = { home: PlanHome, soar: SoarBoard, s: SoarList, o: SoarList, a: SoarList, results: Results, assemble: Assemble };
 
@@ -177,10 +225,10 @@ function render() {
       h('header', { class: 'studio-plan-head' },
         h('div', { class: 'studio-plan-title' },
           h('span', { class: 'plugin-header-icon', 'aria-hidden': 'true' }, icon('studio', 22)),
-          h('div', {}, h('small', { class: 'muted' }, 'Planning Studio · strategic plan'), h('h1', {}, plan.title)),
+          h('div', {}, h('div', { class: 'studio-plan-kicker' }, LevelBadge('plan', { long: true }), h('a', { class: 'small', href: '#framework' }, '← Framework and plans')), h('h1', {}, plan.title)),
           h('span', { class: 'spacer' }),
           live.el,
-          h('div', { class: 'avatar-row' }, ctx.planRecord(plan.id).team.map((t) => org.staff[t.staffId] && Avatar(org.staff[t.staffId], 26)))),
+          AvatarStack(ctx.planRecord(plan.id).team.map((t) => org.staff[t.staffId]), { max: 8, size: 28 })),
         h('div', { role: 'tablist', class: 'tabs tabs-border studio-tabs' }, TABS.map((t) =>
           h('a', { role: 'tab', class: `tab${t.id === route.tab ? ' tab-active' : ''}`, href: `#${plan.id}${t.id === 'home' ? '' : `/${t.id}`}`, 'aria-selected': String(t.id === route.tab) }, icon(t.icon, 15), t.label)))),
       VIEWS[route.tab](ctx, plan, route.tab)));
@@ -204,11 +252,7 @@ document.addEventListener('keydown', (e) => {
     try { e.shiftKey ? store.redo() : store.undo(); } catch { /* someone else removed what that undo touches */ }
   }
 });
-// Open on the plan's home: the studio's plan if it has one, otherwise the first plan.
-if (!location.hash) {
-  const plans = plansOf(strategy.doc);
-  const first = plans.find((p) => store.doc.plans[p.id]) ?? plans[0];
-  if (first) history.replaceState(null, '', `#${first.id}`);
-}
+// Open on the framework and its plans.
+if (!location.hash) history.replaceState(null, '', '#framework');
 render();
 window.studio = ctx;

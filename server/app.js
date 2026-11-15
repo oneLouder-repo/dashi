@@ -698,7 +698,7 @@ export function createApp(db, options = {}) {
         if (on) delete paused[plugin]; else paused[plugin] = true;
         q('UPDATE orgs SET paused_plugins = ? WHERE id = ?').run(JSON.stringify(paused), org.id);
         const doc = readDoc(org.id, 'org');
-        if (doc && on && doc.plugins?.[plugin] === false) writeDoc(org.id, 'org', { ...doc, plugins: { ...doc.plugins, [plugin]: true } }, a.user.id);
+        if (doc && on && doc.plugins?.[plugin] !== true) writeDoc(org.id, 'org', { ...doc, plugins: { ...doc.plugins, [plugin]: true } }, a.user.id);
         announce(org.id, 'org', null);
         return json(res, 200, { paused });
       }
@@ -761,7 +761,8 @@ export function createApp(db, options = {}) {
         const usage = Object.fromEntries(Object.keys(reg.plugins).map((id) => [id, orgRows.filter((o) => {
           const paused = { ...JSON.parse(o.paused_plugins || '{}'), ...pausedByRegistry(reg, orgPlan(o).id) };
           for (const [pid, on] of Object.entries(orgPlan(o).plugins)) if (!on) paused[pid] = true;
-          return !paused[id] && readDoc(o.id, 'org')?.plugins?.[id] !== false;
+          const chosen = readDoc(o.id, 'org')?.plugins?.[id];
+          return !paused[id] && (reg.plugins[id]?.defaultOff ? chosen === true : chosen !== false);
         }).length]));
         return json(res, 200, { plugins: reg.plugins, history: Object.fromEntries(Object.entries(reg.history).map(([id, h]) => [id, h.map((x) => ({ version: x.version, savedAt: x.savedAt }))])), usage, orgs: orgRows.length });
       }

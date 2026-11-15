@@ -1,6 +1,6 @@
 # Dashi
 
-**Version 0.1.0-alpha.4**: the fourth tester release (a calmer header with org-wide search, a new org home page, thumbnails in the Asset manager, a quicker Library front page, and a reimagined Podcasts studio). See [CHANGELOG.md](CHANGELOG.md) for what's in it, [TESTING.md](TESTING.md) for testing it, and [DEPLOY.md](DEPLOY.md) for running it.
+**Version 0.1.0-alpha.5**: the fifth tester release (Strategy & Work and the Planning Studio rethought: a road thumbnail and sliding roadmap, swimlanes, board and condensed Gantt views, people pickers for big teams, a Studio that opens on framework and plans, a richer plan designer, and first releases of Plain Words, AI Policy Studio, AI Use Register, Prompt Commons and Critical Media). See [CHANGELOG.md](CHANGELOG.md) for what's in it, [TESTING.md](TESTING.md) for testing it, and [DEPLOY.md](DEPLOY.md) for running it.
 
 A small, cohesive platform for nonprofits' planning, knowledge and learning work. It holds many organisations; each picks the **plugins** it uses. Open `index.html` (via `npm start`) for the dashboard, then choose a plugin:
 
@@ -32,6 +32,14 @@ Two example organisations come built in (switch from the menu at the top left). 
 - Objectives and goals carry **measures** (name, target, unit). **Create dashboard** on an objective or goal builds an accessible dashboard from every measure on it and below, and opens it in the Workbench.
 - Every task (and workplan) has a **toolbox of assets**: ecosystem-map actors, staff, outside people, other strategy items, documents, links, literature and media, picked from one pop-up. Workplans, goals, objectives and plans gather the assets used beneath them, showing which tasks use each one.
 - The URL holds the selected item (`strategy.html#<id>`), so links can point straight at a task.
+- **Roadmap** is a road that slides sideways: traffic lights you've passed on the left (green, amber or red by how each workplan went), red lights still ahead on the right, milestone flags, and a road sign for each goal.
+- Plans, objectives and goals open on **Lanes** (plan down to task, with a condensed Gantt); workplans open on a **Board** of their tasks. The full Gantt is one click away.
+- Big teams show as avatar stacks with a **people picker** (search, team filters, add a whole team).
+
+### Plugins released in alpha.5
+
+- **Plain Words** (on by default): reading grade, long sentences, hard words and plainer swaps, worked out in the browser.
+- **AI Policy Studio**, **AI Use Register**, **Prompt Commons** and **Critical Media** are off until an org switches them on (Organisation → Plugins). Critical Media offers original media-literacy lessons, inspired by NALA's *Facts Matter* and Be Media Smart, and can suggest a lesson beside articles and charts on the org's public sites. It is on for the example STEM org.
 
 ### Podcasts and public sites, quickly
 

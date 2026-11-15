@@ -97,6 +97,8 @@ const SHAPES = {
   'm-meetings': { from: 0, to: 23, season: 0, round: 1, cumulative: true },
   'm-views': { from: 90, to: 410, season: 0.25, round: 1 },
   'm-reporting': { from: 30, to: 78, season: 0, round: 1 },
+  'm-sites': { from: 0, to: 6, season: 0, round: 1 },
+  'm-members': { from: 0, to: 12, season: 0, round: 1 },
   'm-meals': { from: 1900, to: 3600, season: -0.12, round: 10 },
   'm-boxes': { from: 120, to: 260, season: -0.1, round: 1 },
 };

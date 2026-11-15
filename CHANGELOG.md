@@ -2,6 +2,38 @@
 
 Dashi uses version numbers like `0.1.0-alpha.1`. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
+## 0.1.0-alpha.5 (strategy and work, Planning Studio, plan designer, five plugins)
+
+### Strategy & Work
+
+- **Landing page**: calmer, with a road thumbnail of the current plan (traffic lights passed and ahead) in place of the dense nested boxes.
+- **Narrower tree** on the left: titles wrap to two lines, the path to the selected item is bold, and the selected row has a bar instead of a filled box.
+- **Roadmap as a sliding road**: lights you have passed sit on the left in green, amber or red; red lights for work still ahead run out to the right. Milestones are flags, goals are road signs with their dates, and labels no longer overlap. Pick the plan, zoom by year, quarter or month, and slide with the arrows or Today.
+- **New views**: plans, objectives and goals open on **Lanes** (swimlanes from plan down to task, with a condensed Gantt that clicks through to the full Gantt). Workplans open on a **Board** of their tasks by status, topped by a strip showing progress against expected, what's due next and who is on it.
+- **Big teams**: staff show as avatar stacks, and a people picker (search, team filters, "add the whole team") replaces long lists and dropdowns, here and on Studio planning teams.
+- **Toolbox links fixed**: a PDF opens the document itself (uploaded files open in a new tab), a staff member opens their asset card, and an outside person opens the Asset manager searched for them, with "Give them a card here" if they have none yet.
+- **Example data remade**: a five-year master plan with Year 1 and Year 2 plans, plan and goal milestones, and finished, behind and missed workplans so the road shows every colour. The Partner check-in guide is now a real PDF.
+
+### Planning Studio
+
+- Opens on **Framework and plans**: mission, vision and values to edit in place, then each plan as a card (nested under its parent) with progress, time, objectives in their colours, SOAR counts, the team and buttons for SOAR, Work and Design.
+- Strategy and the Studio share one look for framework elements (level badges, progress rings, objective colours), and link to each other both ways ("Plan it with your team").
+- The **plan designer** now lives in the Studio.
+
+### Plan designer
+
+- **Text toolbar**: select text in the plan to get bold, italic, underline, strike, colour and highlight, size, links, headings, lists, quotes, alignment and clear formatting. Formatting is kept and shows on published plans.
+- **16 palettes** plus the org's own and DaisyUI's, as swatches, and custom main, second, third and paper colours.
+- **Type**: eight heading and body fonts and three text sizes.
+- **Backgrounds**: plain, tint, gradient, dots, grid, lines, corner, waves, or an image, with a strength slider.
+- **Cover layouts**: template, full bleed, split, band and type only.
+
+### Plugins
+
+- First releases (1.0.0) of **Plain Words**, **AI Policy Studio**, **AI Use Register** and **Prompt Commons**, each with a working page of its own (records stay available as tables underneath).
+- Only **Plain Words** is on by default. The others are off until an org switches them on; the platform admin sets this per plugin ("On unless the org switches it off").
+- New **Critical Media** plugin: ten original lessons for adult and youth groups, built on the approach of NALA's *Facts Matter* resource and Be Media Smart (credited on every page), plus the Stop, Think, Check toolkit. When an org switches it on, its public sites get a **Media smart** page and, beside articles and dashboards, a short tip pointing to a matching lesson. It is on for the example STEM org.
+
 ## 0.1.0-alpha.4 (header and search, org home, asset thumbnails, Library front page, Podcasts studio)
 
 ### Header and search

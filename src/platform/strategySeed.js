@@ -3,8 +3,10 @@ import { strategyOps } from './strategy.js';
 
 /**
  * Example strategy for the example org (staff and team ids match org.js).
- * A master plan holding a dated Year 1 plan, three objectives, goals,
- * workplans and twenty-odd tasks around October 2026.
+ * A master plan holding a dated Year 1 plan (three objectives, goals,
+ * workplans and thirty-odd tasks around November 2026, some workplans
+ * already finished) and a Year 2 plan that is still ahead. Plans and goals
+ * carry milestones for the roadmap.
  */
 const T = (title, start, end, status, assigneeIds, events = [], assets = []) => ({ type: 'task', title, start, end, status, assigneeIds, events, assets });
 const asset = (id, kind, label, more = {}) => ({ id, kind, label, ...more });
@@ -30,6 +32,11 @@ const TREE = {
           start: '2026-04-01',
           end: '2027-03-31',
           theme: 'Foundations',
+          milestones: [
+            { id: 'ms-y1-board', date: '2026-06-18', title: 'Board approves the Year 1 plan' },
+            { id: 'ms-y1-midyear', date: '2026-10-08', title: 'Mid-year check-in with funders' },
+            { id: 'ms-y1-review', date: '2027-03-12', title: 'Year 1 learning review' },
+          ],
           children: [
             {
               type: 'objective',
@@ -44,7 +51,21 @@ const TREE = {
                   type: 'goal',
                   title: 'Instructors are trained in culturally responsive practice',
                   measures: [{ id: 'm-trained', name: 'Instructors trained in culturally responsive practice', target: '1000', unit: 'people' }],
+                  milestones: [{ id: 'ms-g-pilot', date: '2027-01-06', title: 'New modules go to pilot' }],
                   children: [
+                    {
+                      type: 'workplan',
+                      title: 'Training needs scan',
+                      start: '2026-04-15',
+                      end: '2026-07-31',
+                      staffIds: ['s-train', 's-eval'],
+                      teamIds: ['t-prog'],
+                      children: [
+                        T('Survey instructors on training needs', '2026-04-15', '2026-05-31', 'done', ['s-train', 's-eval']),
+                        T('Focus groups in three regions', '2026-05-15', '2026-06-30', 'done', ['s-train']),
+                        T('Needs scan summary', '2026-07-01', '2026-07-31', 'done', ['s-eval']),
+                      ],
+                    },
                     {
                       type: 'workplan',
                       title: 'Instructor training refresh',
@@ -82,6 +103,19 @@ const TREE = {
                   children: [
                     {
                       type: 'workplan',
+                      title: 'Spring pilot clubs',
+                      start: '2026-04-01',
+                      end: '2026-08-15',
+                      staffIds: ['s-pc1', 's-pc2'],
+                      teamIds: ['t-prog'],
+                      children: [
+                        T('Recruit pilot sites', '2026-04-01', '2026-05-15', 'done', ['s-pc1']),
+                        T('Run six pilot clubs', '2026-05-15', '2026-07-31', 'done', ['s-pc1', 's-pc2']),
+                        T('Pilot participant survey', '2026-07-15', '2026-08-15', 'active', ['s-pc2', 's-data']),
+                      ],
+                    },
+                    {
+                      type: 'workplan',
                       title: 'Girls in STEM outreach',
                       start: '2026-09-15',
                       end: '2027-03-31',
@@ -111,7 +145,20 @@ const TREE = {
                   type: 'goal',
                   title: 'Map and tend our change ecosystem',
                   measures: [{ id: 'm-checkins', name: 'Partner check-ins completed', target: '80', unit: 'conversations' }],
+                  milestones: [{ id: 'ms-g-map', date: '2026-10-10', title: 'Ecosystem map shared with staff' }],
                   children: [
+                    {
+                      type: 'workplan',
+                      title: 'Partner survey',
+                      start: '2026-05-01',
+                      end: '2026-07-15',
+                      staffIds: ['s-part', 's-data'],
+                      teamIds: ['t-part'],
+                      children: [
+                        T('Design the partner survey', '2026-05-01', '2026-05-31', 'done', ['s-part', 's-data']),
+                        T('Field the survey', '2026-06-01', '2026-07-15', 'done', ['s-part']),
+                      ],
+                    },
                     {
                       type: 'workplan',
                       title: 'Ecosystem mapping and partner check-ins',
@@ -126,7 +173,7 @@ const TREE = {
                           asset('as6', 'actor', 'University & college partners', { mapId: 'map-ecosystem', ref: 'actor-universities' }),
                           asset('as7', 'actor', 'Community organisations', { mapId: 'map-ecosystem', ref: 'actor-community-orgs' }),
                           asset('as8', 'actor', 'Industry volunteers & mentors', { mapId: 'map-ecosystem', ref: 'actor-mentors' }),
-                          asset('as9', 'document', 'Partner check-in guide.pdf', { detail: 'PDF · 240 KB' }),
+                          asset('as9', 'document', 'Partner check-in guide.pdf', { detail: 'PDF · 3 KB', url: 'media/docs/partner-check-in-guide.pdf' }),
                         ]),
                         T('Refresh map with partner feedback', '2027-01-05', '2027-01-31', 'planned', ['s-eval', 's-part']),
                       ],
@@ -174,6 +221,20 @@ const TREE = {
                   children: [
                     {
                       type: 'workplan',
+                      title: 'Youth data advisory circle',
+                      start: '2026-06-15',
+                      end: '2026-10-31',
+                      staffIds: ['s-eval', 's-indig'],
+                      teamIds: ['t-mel'],
+                      children: [
+                        T('Invite youth advisors', '2026-06-15', '2026-08-31', 'blocked', ['s-eval'], [
+                          { id: 'e8', date: '2026-08-20', kind: 'note', text: 'Honoraria policy needs board sign-off first' },
+                        ]),
+                        T('First advisory circle', '2026-09-15', '2026-10-31', 'planned', ['s-eval', 's-indig']),
+                      ],
+                    },
+                    {
+                      type: 'workplan',
                       title: 'MEL framework and dashboards',
                       start: '2026-06-01',
                       end: '2027-03-31',
@@ -187,6 +248,74 @@ const TREE = {
                         ]),
                         T('Public impact dashboard', '2027-01-05', '2027-03-15', 'planned', ['s-data', 's-comms']),
                         T('Annual learning review', '2027-03-01', '2027-03-31', 'planned', ['s-eval', 's-ed']),
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'plan',
+          title: 'Year 2 plan: Growth',
+          start: '2027-04-01',
+          end: '2028-03-31',
+          theme: 'Growth',
+          milestones: [{ id: 'ms-y2-midplan', date: '2028-03-20', title: 'Mid-plan review with the network' }],
+          children: [
+            {
+              type: 'objective',
+              id: 'obj-scale',
+              title: 'Grow what works, with partners',
+              measures: [{ id: 'm-sites', name: 'Community sites running the new model', target: '40', unit: 'sites' }],
+              children: [
+                {
+                  type: 'goal',
+                  title: 'New training reaches every member',
+                  measures: [{ id: 'm-members', name: 'Members using the new modules', target: '100', unit: '%' }],
+                  children: [
+                    {
+                      type: 'workplan',
+                      title: 'National training roll-out',
+                      start: '2027-04-01',
+                      end: '2027-12-15',
+                      staffIds: ['s-train', 's-prog'],
+                      teamIds: ['t-prog'],
+                      children: [
+                        T('Train-the-trainer cohort', '2027-04-15', '2027-06-30', 'planned', ['s-train']),
+                        T('Regional roll-out', '2027-07-01', '2027-12-15', 'planned', ['s-train', 's-pc1', 's-pc2']),
+                      ],
+                    },
+                  ],
+                },
+                {
+                  type: 'goal',
+                  title: 'Community sites co-run clubs',
+                  measures: [],
+                  children: [
+                    {
+                      type: 'workplan',
+                      title: 'Community co-delivery pilots',
+                      start: '2027-05-01',
+                      end: '2028-02-28',
+                      staffIds: ['s-part', 's-indig'],
+                      teamIds: ['t-part'],
+                      children: [
+                        T('Choose pilot communities', '2027-05-01', '2027-07-31', 'planned', ['s-part', 's-indig']),
+                        T('Co-delivery agreements', '2027-08-01', '2027-10-31', 'planned', ['s-ops', 's-part']),
+                        T('Clubs run with community leads', '2027-11-01', '2028-02-28', 'planned', ['s-indig']),
+                      ],
+                    },
+                    {
+                      type: 'workplan',
+                      title: 'Open dashboard for partners',
+                      start: '2027-06-01',
+                      end: '2027-11-30',
+                      staffIds: ['s-data'],
+                      teamIds: ['t-mel'],
+                      children: [
+                        T('Partner data views', '2027-06-01', '2027-11-30', 'planned', ['s-data']),
                       ],
                     },
                   ],

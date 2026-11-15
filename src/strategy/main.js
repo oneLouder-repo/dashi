@@ -10,7 +10,9 @@ import { childrenOf, rootOf, migrateStrategy, strategyOps } from '../platform/st
 import { Tree } from './Tree.js';
 import { Detail } from './Detail.js';
 import { Overview } from './Overview.js';
-import { StrategicData, Completion, Roadmap } from './Reports.js';
+import { StrategicData, Completion } from './Reports.js';
+import { RoadmapRoad } from './Road.js';
+import { icon } from '../ui/icons.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
 import { short } from './dates.js';
@@ -25,14 +27,15 @@ import { uiConfirm } from '../ui/dialog.js';
  *                 so a link can point straight at a plan or task.
  *   #data         every measure against its target
  *   #completion   tasks done per workplan
- *   #roadmap      the roadmap as traffic lights
+ *   #roadmap      the roadmap as a road with traffic lights, milestones and goal signs
+ *   #<id>/<view>  an item in one of its views: lanes, board, details or a full gantt
  */
 const TABS = [
   { id: 'overview', label: 'Overview', icon: 'home', render: Overview },
   { id: 'framework', label: 'Framework', icon: 'strategy' },
   { id: 'data', label: 'Strategic data', icon: 'chart', render: StrategicData },
   { id: 'completion', label: 'Workplan completion', icon: 'timeline', render: Completion },
-  { id: 'roadmap', label: 'Roadmap lights', icon: 'eye', render: Roadmap },
+  { id: 'roadmap', label: 'Roadmap', icon: 'mapTrifold', render: RoadmapRoad },
 ];
 const org = loadOrg();
 const store = new Store(loadStrategy(), applyCollectionOp);
@@ -45,18 +48,20 @@ const ctx = {
   data: loadData(),
   /** Which tab: a tab id, or 'framework' when the hash names an item. */
   get tab() {
-    const hash = decodeURIComponent(location.hash.slice(1));
+    const hash = decodeURIComponent(location.hash.slice(1)).split('/')[0];
     return TABS.some((t) => t.id === hash) ? hash : store.doc.nodes[hash] ? 'framework' : 'overview';
   },
+  /** The view of the selected item: lanes, board, details or gantt (Detail.js VIEWS). */
+  get view() { return decodeURIComponent(location.hash.slice(1)).split('/')[1] ?? null; },
   // Other tools' documents, for assets that point into them.
   docs: (() => { const maps = loadMaps(); return { org, maps, mapContents: loadAllMaps(maps), library: loadLibrary() }; })(),
   collapsed: new Set(),
   get selectedId() {
-    const id = decodeURIComponent(location.hash.slice(1));
+    const id = decodeURIComponent(location.hash.slice(1)).split('/')[0];
     return store.doc.nodes[id] ? id : rootOf(store.doc)?.id;
   },
   select(id) {
-    if (location.hash !== `#${id}`) location.hash = id;
+    if (decodeURIComponent(location.hash.slice(1)).split('/')[0] !== id) location.hash = id;
     else render();
   },
   addChild(parentId, type) {
@@ -70,9 +75,12 @@ const ctx = {
 // Start with tasks folded away under their workplans.
 for (const n of Object.values(store.doc.nodes)) if (n.type === 'workplan') ctx.collapsed.add(n.id);
 
-const treePane = h('aside', { class: 'tree-pane' });
+const OUTLINE_KEY = 'dashi.strategy.outline';
+const outlineOpen = () => { try { return localStorage.getItem(OUTLINE_KEY) !== '0'; } catch { return true; } };
+const treePane = h('aside', { class: 'tree-pane', 'aria-label': 'Outline' });
 const detailPane = h('section', { class: 'detail-pane' });
-const framework = h('div', { class: 'strategy-body' }, treePane, detailPane);
+const outlineTab = h('button', { class: 'outline-tab', title: 'Show the outline', hidden: true, onclick: () => { try { localStorage.setItem(OUTLINE_KEY, '1'); } catch { /* fine */ } if (ctx.view === 'gantt') location.hash = ctx.selectedId; else render(); } }, icon('chevronRight', 14), h('span', {}, 'Outline'));
+const framework = h('div', { class: 'strategy-body' }, treePane, outlineTab, detailPane);
 const report = h('section', { class: 'strategy-report' });
 const head = h('div', { class: 'strategy-head' });
 const tools = h('div', { class: 'plugin-header-actions' },
@@ -93,8 +101,11 @@ function drawSide(tab) {
   const plans = Object.values(store.doc.nodes).filter((n) => n.type === 'plan').sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   side = swapSide(side, SideNav({ label: 'Strategy & Work', sections: [
     { title: 'Strategy & Work', items: TABS.map((t) => ({ label: t.label, icon: t.icon, href: `#${t.id}`, on: t.id === tab && !(tab === 'framework' && plans.some((p) => p.id === ctx.selectedId)) })) },
-    { title: 'Share your plan', items: [{ label: 'Plan designer', sub: 'A designed plan document to print, PDF or publish', icon: 'doc', href: 'plandoc.html' }] },
-    plans.length && { title: 'Plans', items: plans.map((p) => ({ label: p.title, sub: [p.start, p.end].filter(Boolean).map(short).join(' – '), icon: 'doc', href: `#${p.id}`, on: tab === 'framework' && ctx.selectedId === p.id })) },
+    { title: 'Planning Studio', items: [
+      { label: 'Plan with your team', sub: 'SOAR board, results, assemble', icon: 'sec-studio', href: 'studio.html' },
+      { label: 'Plan designer', sub: 'A designed plan to print or publish', icon: 'brush', href: 'plandoc.html' },
+    ] },
+    plans.length && { title: 'Plans', items: plans.map((p) => ({ label: p.title, sub: [p.start, p.end].filter(Boolean).map(short).join(' – '), icon: 'mapTrifold', href: `#${p.id}`, on: tab === 'framework' && ctx.selectedId === p.id })) },
   ] }));
 }
 
@@ -118,7 +129,12 @@ function render() {
   }
   const scroll = detailPane.scrollTop;
   const focused = detailPane.contains(document.activeElement) ? document.activeElement.name : null;
-  treePane.replaceChildren(Tree(ctx));
+  const wide = ctx.view === 'gantt' || !outlineOpen();
+  framework.classList.toggle('outline-hidden', wide);
+  treePane.replaceChildren(
+    h('div', { class: 'tree-head' }, h('span', {}, 'Outline'), h('button', { class: 'btn btn-ghost btn-xs btn-square', title: 'Hide the outline', 'aria-label': 'Hide the outline', onclick: () => { try { localStorage.setItem(OUTLINE_KEY, '0'); } catch { /* fine */ } render(); } }, icon('chevronLeft', 14))),
+    Tree(ctx));
+  outlineTab.hidden = !wide;
   detailPane.replaceChildren(Detail(ctx));
   detailPane.scrollTop = scroll;
   // Fields carry a name so focus survives the redraw.

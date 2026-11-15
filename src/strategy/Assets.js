@@ -57,6 +57,18 @@ export function AssetsPanel(ctx, n) {
   );
 }
 
+/** Opens a file kept inline (a data: URL) in a new tab, as a real file. */
+function openInline(e, asset) {
+  if (!asset.dataUrl) return;
+  e.preventDefault();
+  fetch(asset.dataUrl).then((r) => r.blob()).then((b) => {
+    const url = URL.createObjectURL(b);
+    const w = window.open(url, '_blank', 'noopener');
+    if (!w) { const a = document.createElement('a'); a.href = url; a.download = asset.label; a.click(); }
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  });
+}
+
 /** A small icon tile; details float in a tooltip on hover or focus. */
 function tile(asset, docs, { remove, from } = {}) {
   const r = resolveAsset(asset, docs);
@@ -73,7 +85,7 @@ function tile(asset, docs, { remove, from } = {}) {
     h('span', {}, `${kindById[asset.kind]?.label ?? asset.kind} · ${r.sub}`),
     from && h('span', {}, `Used in ${from.map((f) => f.title).join(', ')}`));
   const faceEl = r.href
-    ? h('a', { ...attrs, href: r.href, target: external ? '_blank' : null, rel: external ? 'noopener' : null, download: asset.dataUrl ? asset.label : null }, face)
+    ? h('a', { ...attrs, href: r.href, target: external ? '_blank' : null, rel: external ? 'noopener' : null, onclick: r.file ? (e) => openInline(e, asset) : null }, face)
     : h('span', { ...attrs, tabindex: '0' }, face);
   const li = h('li', { class: `asset-tile${r.missing ? ' missing' : ''}` }, faceEl, tip,
     remove && h('button', { class: 'tile-remove', title: 'Remove from toolbox', 'aria-label': `Remove ${r.label}`, onclick: remove }, '×'));
@@ -111,7 +123,7 @@ function row(asset, docs, { remove, from, select } = {}) {
     icon(kindById[asset.kind]?.icon ?? 'doc', 18),
     h('div', { class: 'asset-text' },
       r.href
-        ? h('a', { class: 'asset-label', href: r.href, target: external ? '_blank' : null, rel: external ? 'noopener' : null, download: asset.dataUrl ? asset.label : null }, r.label)
+        ? h('a', { class: 'asset-label', href: r.href, target: external ? '_blank' : null, rel: external ? 'noopener' : null, onclick: r.file ? (e) => openInline(e, asset) : null }, r.label)
         : h('span', { class: 'asset-label' }, r.label),
       h('small', {}, r.sub)),
     from && h('span', { class: 'from' }, 'in ',
