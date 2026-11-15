@@ -8,7 +8,8 @@ import { autosaveDoc, onDocChange } from '../platform/storage.js';
 import { loadOrg, loadStrategy, loadData, loadDashboards, loadPodcasts } from '../platform/docs.js';
 import { pluginOn } from '../platform/org.js';
 import { migrateStrategy } from '../platform/strategy.js';
-import { dashboardFromNode } from '../platform/dashboards.js';
+import { dashboardFromNode, scorecardDashboard } from '../platform/dashboards.js';
+import { uid } from '../core/ops.js';
 import { currentUser } from '../platform/session.js';
 import { DashboardsTool } from './DashboardsTool.js';
 import { DataTool } from './DataTool.js';
@@ -77,9 +78,13 @@ const ctx = {
     else render();
   },
   /** Make a dashboard (blank, or from an objective or goal) and open it. */
-  create(nodeId) {
+  create(nodeId, { template = null, copyOf = null } = {}) {
     const me = currentUser(org)?.id ?? null;
-    const dash = nodeId
+    const dash = copyOf
+      ? (({ id, ...rest }) => ({ ...structuredClone(rest), title: `${copyOf.title} (copy)`, visibility: 'private', createdBy: me, widgets: rest.widgets.map((w) => ({ ...w, id: uid('w') })) }))(copyOf)
+      : template === 'scorecard'
+      ? scorecardDashboard(strategy, me)
+      : nodeId
       ? dashboardFromNode(strategy, nodeId, me)
       : { title: 'Untitled dashboard', description: '', visibility: 'private', siteId: null, createdBy: me, widgets: [] };
     const op = dashboards.apply(col.add('dashboards', dash));

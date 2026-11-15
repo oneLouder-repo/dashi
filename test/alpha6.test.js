@@ -138,3 +138,17 @@ test('every example site has a look, and the STEM example gains the youth site o
   delete migrated.sites['site-youth'];
   assert.equal(migrateOrg(migrated).sites['site-youth'], undefined, 'removed on purpose, it stays removed');
 });
+
+test('a strategy scorecard works for any plan: the road, headline numbers, goal lights and what is next', async () => {
+  const { scorecardDashboard } = await import('../src/platform/dashboards.js');
+  const d = docs();
+  const dash = scorecardDashboard(d.strategy, 's-ed', '2026-11-15');
+  const types = dash.widgets.map((w) => w.type);
+  assert.equal(types[0], 'road');
+  assert.ok(types.filter((t) => t === 'kpi').length >= 1 && types.filter((t) => t === 'kpi').length <= 4);
+  for (const t of ['lights', 'milestones', 'progress']) assert.ok(types.includes(t), t);
+  assert.equal(dash.visibility, 'private');
+  assert.equal(new Set(dash.widgets.map((w) => w.id)).size, dash.widgets.length);
+  const empty = scorecardDashboard({ nodes: {} });
+  assert.deepEqual(empty.widgets, []);
+});

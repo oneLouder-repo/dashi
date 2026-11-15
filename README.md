@@ -1,6 +1,6 @@
 # Dashi
 
-**Version 0.1.0-alpha.6**: the sixth tester release (the Public Portal: one entry point for every public site, dashboard and plan, with a diagram of what is live and in design; warmer public sites; a members-only board portal with governance guides, a minutes archive and finance summaries from the Library; a slicker roadmap; strategy widgets for dashboards; and first goes at feedback forms and funder reports). See [CHANGELOG.md](CHANGELOG.md) for what's in it, [TESTING.md](TESTING.md) for testing it, and [DEPLOY.md](DEPLOY.md) for running it.
+**Version 0.1.0-alpha.7**: the seventh tester release (a polish pass: every site gets its own page in the Public Portal with a live preview, a rethought Data Workbench for dashboards, publishing and podcasts, and even plugin headers; alpha.6 brought the Public Portal, the board portal, the new roadmap, feedback forms and funder reports). See [CHANGELOG.md](CHANGELOG.md) for what's in it, [TESTING.md](TESTING.md) for testing it, and [DEPLOY.md](DEPLOY.md) for running it.
 
 A small, cohesive platform for nonprofits' planning, knowledge and learning work. It holds many organisations; each picks the **plugins** it uses. Open `index.html` (via `npm start`) for the dashboard, then choose a plugin:
 
@@ -54,14 +54,14 @@ Two example organisations come built in (switch from the menu at the top left). 
 - **Dashboards**: start from an objective or goal, or blank. Each widget (headline number, line, monthly columns, work progress, text) has controls beneath it in the editor. Set visibility to Public and choose a site to publish.
 - **Play** steps a dashboard month by month through its data, in the editor and on public sites.
 - **Program data**: edit the monthly values behind each measure. Public sites open in another tab update as you type.
-- **Publishing**: which dashboards each site shows. Private sites show a sign-in message.
+- **Publishing**: everything that can go on a site (dashboards, stories, calculators, feedback forms), with a site picker and a Showing switch. Members-only sites show a sign-in message to visitors.
 - **From your strategy**: road, goal lights, next milestones and work progress widgets show where the plan stands, live from Strategy & Work.
 - **Feedback forms**: short anonymous questions under a site's dashboards or on its front page; answers come back to the Workbench.
 - **Funder reports**: pick a funder, a period and what they fund, and get a first draft from your measures, workplans and stories to edit, print or keep in the Library.
 
 ### Board portal, quickly
 
-- Open it from **Public Portal → Members only → Board portal**, or `site.html?site=site-board`. Only signed-in members see it.
+- Open it from **Public Portal → Members only → Board portal** (its page has a live preview and an Open the portal button), or `site.html?site=site-board`. Only signed-in members see it.
 - Governance guides, minutes and finance summaries are Library documents tagged `board` plus `governance`, `minutes` or `finance`. Tag a document and it appears; edit it in the Library.
 - The home page shows the **Board scorecard** dashboard (edit it in the Workbench) and a short feedback form for the board.
 

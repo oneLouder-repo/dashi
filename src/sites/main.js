@@ -73,30 +73,44 @@ function renderSide() {
     lead: h('span', { class: 'side-lead' }, h('span', { class: `status-dot ${isLive(p, now) ? 'live' : p.status}`, title: isLive(p, now) ? 'Published' : p.status === 'draft' ? 'Draft' : 'Scheduled' })),
     sub: [org.sites[p.siteId]?.name ?? 'No site', p.kind === 'article' ? short(p.publishedAt) : p.inNav ? 'in menu' : null].filter(Boolean).join(' · '),
   });
-  const portals = Object.values(org.sites).filter((x) => x.visibility === 'private');
+  const siteItem = (x) => ({ label: x.name, href: `#site/${x.id}`, on: r === `site/${x.id}`, icon: x.visibility === 'private' ? 'lock' : x.visibility === 'unlisted' ? 'eyeOff' : 'globe',
+    sub: x.visibility === 'private' ? 'Members only' : `${x.visibility === 'unlisted' ? 'Unlisted' : 'Public'} · ${propertiesOf(x).filter((q) => q.live).length} live` });
+  const byVis = (v) => Object.values(org.sites).filter((x) => (v === 'private' ? x.visibility === 'private' : x.visibility !== 'private'));
   side = swapSide(side, SideNav({ label: 'Public Portal', sections: [
     { title: 'Public Portal', items: [
-      { label: 'Overview', sub: 'Every site, and what is live', icon: 'globe', href: '#sites', on: r === 'sites' },
+      { label: 'Overview', sub: 'Every site, and what is live', icon: 'home', href: '#sites', on: r === 'sites' },
       { label: 'Dashboards', sub: 'Data Workbench', icon: 'chart', href: 'palette.html#dashboards' },
       { label: 'Feedback forms', sub: 'Data Workbench', icon: 'chats', href: 'palette.html#feedback' },
       { label: 'Strategic plan', sub: 'Plan designer', icon: 'strategy', href: 'plandoc.html' },
       pluginOn(org, 'podcasts') && { label: 'Podcast station', sub: 'Podcasts', icon: 'mic', href: 'podcasts.html#station' },
       criticalOn(org) && { label: 'Media smart', sub: 'Critical Media', icon: 'news', href: 'plugin.html?id=critical-media' },
     ].filter(Boolean) },
-    portals.length > 0 && { title: 'Members only', items: portals.map((x) => ({ label: x.name, sub: 'Board papers, minutes, scorecard', icon: 'lock', href: siteUrl(x.id), target: '_blank' })) },
+    { title: 'Sites', action: { label: 'New site', onclick: newSite }, items: byVis('public').map(siteItem) },
+    byVis('private').length > 0 && { title: 'Members only', items: byVis('private').map(siteItem) },
     { title: 'Pages', action: { label: 'New page', onclick: () => newPage('page') }, items: [...list('page').map(item), { label: 'New page', icon: 'plus', onclick: () => newPage('page') }] },
     { title: 'News articles', action: { label: 'New article', onclick: () => newPage('article') }, items: [...list('article').map(item), { label: 'New article', icon: 'plus', onclick: () => newPage('article') }] },
-  ] }));
+  ].filter(Boolean) }));
+}
+
+async function newSite() {
+  const name = await uiPrompt('Name the new site (you can change it later)', 'New site');
+  if (!name?.trim()) return;
+  const id = `site-${Math.random().toString(36).slice(2, 8)}`;
+  org.sites[id] = { id, name: name.trim(), url: '', visibility: 'unlisted', shows: '', look: { hero: 'soft', type: 'sans' } };
+  saveDoc('org', org);
+  location.hash = `site/${id}`;
 }
 
 function render() {
   renderSide();
-  const p = doc().pages[route()];
-  main.replaceChildren(p ? Editor(p) : Sites());
+  const r = route();
+  const p = doc().pages[r];
+  const site = r.startsWith('site/') && org.sites[r.slice(5)];
+  main.replaceChildren(p ? Editor(p) : site ? SitePage(site) : Sites());
 }
 
-function newPage(kind) {
-  const siteId = Object.values(org.sites).find((s) => s.visibility === 'public')?.id ?? Object.keys(org.sites)[0] ?? null;
+function newPage(kind, forSite = null) {
+  const siteId = forSite ?? Object.values(org.sites).find((s) => s.visibility === 'public')?.id ?? Object.keys(org.sites)[0] ?? null;
   const title = kind === 'article' ? 'Untitled article' : 'Untitled page';
   const op = store.apply(col.add('pages', {
     kind, title, slug: uniqueSlug(doc(), title, siteId), summary: '', body: '', cover: null, siteId,
@@ -137,8 +151,10 @@ function Sites() {
         h('span', { class: 'wv-step-num' }, x.done ? '✓' : String(i + 1)),
         h('div', {}, h('strong', {}, x.title), h('p', {}, x.text)),
         x.href ? h('a', { class: `btn btn-sm ${x.done ? 'btn-ghost' : 'btn-primary'}`, href: x.href }, x.action) : h('button', { class: `btn btn-sm ${x.done ? 'btn-ghost' : 'btn-primary'}`, onclick: x.onclick }, x.action))))),
-    h('h2', { class: 'wv-h2' }, 'Your sites, as visitors see them'),
-    h('div', { class: 'wv-sites' }, sites.map((s) => SiteView(s))));
+    h('div', { class: 'wv-sites-head' },
+      h('h2', { class: 'wv-h2' }, 'Your sites, as visitors see them'),
+      h('button', { class: 'btn btn-sm', onclick: newSite }, icon('plus', 14), 'New site')),
+    h('div', { class: 'wv-site-grid' }, sites.map((s) => SiteCard(s))));
 }
 
 /**
@@ -211,8 +227,8 @@ function PropertiesMap() {
     // Hub → site
     svg('path', { class: `pm-link${isPrivate ? ' private' : ''}`, d: `M150 ${hubY} C 200 ${hubY}, 200 ${cy}, ${siteX} ${cy}` }, el);
     // The site
-    const a = svg('a', { href: isPrivate || l.site.visibility === 'public' ? siteUrl(l.site.id) : 'org.html#sites', target: '_blank', class: `pm-site ${l.site.visibility}` }, el);
-    svg('title', {}, a).textContent = `${l.site.name} (${l.site.visibility}): open it`;
+    const a = svg('a', { href: `#site/${l.site.id}`, class: `pm-site ${l.site.visibility}` }, el);
+    svg('title', {}, a).textContent = `${l.site.name} (${l.site.visibility}): see and change what is on it`;
     svg('rect', { x: siteX, y: cy - 28, width: siteW, height: 56, rx: 14, class: 'pm-site-box' }, a);
     const ic = h('span'); ic.append(icon(isPrivate ? 'lock' : l.site.visibility === 'unlisted' ? 'eyeOff' : 'globe', 18));
     const g = svg('g', { transform: `translate(${siteX + 14} ${cy - 9})`, class: 'pm-site-icon' }, a);
@@ -242,7 +258,7 @@ function PropertiesMap() {
   }
   return h('section', { class: 'pm-panel' },
     h('div', { class: 'pm-head' },
-      h('div', {}, h('h2', {}, 'Your web properties'), h('p', { class: 'muted small' }, 'Everything you show outside, site by site. Click a site to open it, or a piece to change it.')),
+      h('div', {}, h('h2', {}, 'Your web properties'), h('p', { class: 'muted small' }, 'Everything you show outside, site by site. Click a site to manage it, or a piece to change it.')),
       h('div', { class: 'pm-legend' },
         h('span', {}, h('i', { class: 'pm-key live' }), `${live} live`),
         h('span', {}, h('i', { class: 'pm-key design' }), `${design} in design`),
@@ -250,53 +266,114 @@ function PropertiesMap() {
     h('div', { class: 'pm-scroll' }, el));
 }
 
-/** One site: a small picture of its front page in its theme, then everything on it and where to change it. */
-function SiteView(s) {
+/**
+ * The site itself, small: the real front page in a frame, scaled down, so the
+ * preview is exactly what visitors get (in the site's look, with live data).
+ */
+function SitePreview(s, { width = 1280, height = 900, scale = 0.25, page = null, phone = false } = {}) {
+  const w = phone ? 390 : width, hgt = phone ? 780 : height;
+  const src = siteUrl(s.id, { frame: '1', ...(page ? { page } : {}) });
+  const frame = h('iframe', { src, title: `${s.name}, as visitors see it`, loading: 'lazy', tabindex: '-1', 'aria-hidden': 'true',
+    style: `width:${w}px;height:${hgt}px;transform:scale(${scale})` });
+  return h('div', { class: `wv-frame${phone ? ' phone' : ''}`, style: `width:${Math.round(w * scale)}px;height:${Math.round(hgt * scale)}px` },
+    h('div', { class: 'wv-frame-bar' }, h('i'), h('i'), h('i'), h('span', {}, (s.url || `${org.name} · ${s.name}`).replace(/^https?:\/\//, ''))),
+    h('div', { class: 'wv-frame-view' }, frame));
+}
+
+const visLabel = (v) => ({ public: 'Public', unlisted: 'Unlisted', private: 'Members only' })[v] ?? v;
+const visBlurb = (v) => ({ public: 'Anyone can find it, and it is listed on your other sites.', unlisted: 'Anyone with the link can read it, but it is not listed anywhere yet.', private: 'Only signed-in staff and board members (Viewer role and up) can open it.' })[v];
+
+/** A site on the overview: its front page, small, what is on it, and the way in. */
+function SiteCard(s) {
+  const props = propertiesOf(s);
+  const live = props.filter((p) => p.live).length;
+  return h('article', { class: `wv-card ${s.visibility}` },
+    h('a', { class: 'wv-card-shot', href: `#site/${s.id}`, title: `Manage ${s.name}` }, SitePreview(s, { scale: 0.24 })),
+    h('div', { class: 'wv-card-body' },
+      h('div', { class: 'wv-card-title' },
+        h('a', { href: `#site/${s.id}` }, h('strong', {}, s.name)),
+        h('span', { class: `wv-vis ${s.visibility}` }, icon(s.visibility === 'private' ? 'lock' : s.visibility === 'unlisted' ? 'eyeOff' : 'globe', 12), visLabel(s.visibility))),
+      h('p', { class: 'muted small' }, s.shows || s.url || 'Nothing described yet.'),
+      h('div', { class: 'wv-card-kinds' }, [...new Set(props.map((p) => p.kind))].slice(0, 6).map((k) => {
+        const of = props.filter((p) => p.kind === k);
+        return h('span', { class: `wv-kind-pill ${of.some((p) => p.live) ? 'live' : 'design'}` }, `${k}${of.length > 1 ? ` · ${of.length}` : ''}`);
+      })),
+      h('div', { class: 'wv-card-foot' },
+        h('span', { class: 'muted small' }, props.length ? `${live} live, ${props.length - live} in design` : 'Nothing on it yet'),
+        h('a', { class: 'btn btn-xs btn-ghost', href: siteUrl(s.id), target: '_blank', rel: 'noopener' }, icon('share', 12), 'Open'),
+        h('a', { class: 'btn btn-xs btn-primary', href: `#site/${s.id}` }, 'Manage'))));
+}
+
+/** One site: the real thing on the left, everything on it (and its settings) on the right. */
+function SitePage(s) {
   const c = siteContent(doc(), s.id, now);
-  const dashes = Object.values(docs.dashboards.dashboards).filter((d) => d.siteId === s.id);
-  const plans = Object.values(docs.plandocs.docs).filter((d) => d.siteId === s.id);
-  const stories = Object.values(docs.dashboards.stories ?? {}).filter((x) => x.siteId === s.id);
-  const calcs = Object.values(docs.dashboards.calculators ?? {}).filter((x) => x.siteId === s.id);
-  const station = pluginOn(org, 'podcasts') && docs.podcasts.station.siteId === s.id;
+  const isPublic = s.visibility !== 'private';
   const drafts = Object.values(doc().pages).filter((p) => p.siteId === s.id && !isLive(p, now));
-  const isPublic = s.visibility === 'public';
-  const shown = (on) => h('span', { class: `wv-chip ${on ? 'on' : ''}` }, on ? 'Public' : 'Hidden');
-  const row = (ic, kind, title, on, href, editLabel = 'Edit') => h('li', {}, icon(ic, 16), h('span', { class: 'wv-kind' }, kind), h('span', { class: 'wv-title' }, title), shown(on), href && h('a', { class: 'link', href }, editLabel));
-
-  const thumb = h('div', { class: 'wv-thumb site-page' },
-    h('div', { class: 'wv-thumb-head' }, Logo(org, 18), h('b', {}, org.name),
-      h('span', { class: 'wv-thumb-nav' }, 'Home', c.nav.slice(0, 3).map((p) => h('span', {}, p.title)), plans.some(isLivePlan) && h('span', {}, 'Our plan'), station && h('span', {}, docs.podcasts.station.name))),
-    h('div', { class: 'wv-thumb-hero' }, h('b', {}, s.name), h('span', {}, org.mission ?? '')),
-    h('div', { class: 'wv-thumb-grid' }, dashes.filter((d) => d.visibility === 'public').slice(0, 1).flatMap((d) => d.widgets.slice(0, 4).map((w) => h('span', { class: `wv-thumb-w ${w.size ?? 'wide'} t-${w.type}` }))),
-      !dashes.some((d) => d.visibility === 'public') && h('span', { class: 'wv-thumb-w full t-text' })));
-  applyTheme(thumb, org.theme);
+  const props = propertiesOf(s);
   const look = siteLook(s);
-  thumb.classList.add(`look-hero-${look.hero}`, `look-type-${look.type}`);
-  const setLook = (patch) => { org.sites[s.id].look = { ...look, ...patch }; saveDoc('org', org); render(); };
-  const lookRow = h('div', { class: 'wv-look' },
-    h('span', { class: 'muted small' }, 'Look'),
-    h('div', { class: 'join' }, SITE_HEROES.map((x) => h('button', { class: `btn btn-xs join-item${look.hero === x.id ? ' btn-active' : ''}`, title: x.blurb, onclick: () => setLook({ hero: x.id }) }, x.label))),
-    h('div', { class: 'join' }, SITE_TYPES.map((x) => h('button', { class: `btn btn-xs join-item${look.type === x.id ? ' btn-active' : ''}`, title: x.blurb, onclick: () => setLook({ type: x.id }) }, x.label))));
+  const saveSite = (patch, redraw = true) => { Object.assign(org.sites[s.id], patch); saveDoc('org', org); if (redraw) render(); };
+  const setLook = (patch) => saveSite({ look: { ...look, ...patch } });
+  const phone = !!ctx.phone;
+  const groups = {};
+  for (const p of props) (groups[p.kind] ??= []).push(p);
+  const kindLabel = { Dashboard: 'Dashboards', Plan: 'Strategic plan', Station: 'Podcast station', Story: 'Data stories', Calculator: 'Impact calculators', Page: 'Pages', News: 'News', Feedback: 'Feedback forms', 'Media smart': 'Media smart', Papers: 'Board papers' };
+  const addLinks = [
+    { label: 'Page', icon: 'doc', onclick: () => newPage('page', s.id) },
+    { label: 'News article', icon: 'news', onclick: () => newPage('article', s.id) },
+    { label: 'Dashboard', icon: 'chart', href: 'palette.html#dashboards' },
+    { label: 'Feedback form', icon: 'chats', href: 'palette.html#feedback' },
+    { label: 'Data story', icon: 'story', href: 'palette.html#stories' },
+    !isPublic && { label: 'Board paper', icon: 'books', href: 'library.html#tag/board' },
+  ].filter(Boolean);
 
-  return h('article', { class: 'wv-site card' },
-    h('header', {},
-      h('div', {}, h('strong', {}, s.name), h('span', { class: `badge badge-sm ${isPublic ? 'badge-success' : 'badge-ghost'}` }, s.visibility), s.url && h('small', { class: 'muted' }, s.url)),
-      h('div', { class: 'wv-site-actions' },
-        h('a', { class: 'btn btn-sm btn-primary', href: siteUrl(s.id), target: '_blank', rel: 'noopener' }, icon(isPublic ? 'globe' : 'lock', 14), isPublic ? 'Open the site' : 'Open the portal'),
-        h('a', { class: 'btn btn-sm btn-ghost', href: 'org.html#sites' }, icon('settings', 14), 'Look and visibility'))),
-    h('div', { class: 'wv-site-body' },
-      h('div', { class: 'wv-thumb-col' }, h('a', { class: 'wv-thumb-link', href: siteUrl(s.id), target: '_blank', title: 'The front page, roughly' }, thumb), lookRow),
-      h('ul', { class: 'wv-contents' },
-        dashes.map((d) => row('chart', 'Dashboard', d.title, d.visibility === 'public', `palette.html#${d.id}`, 'Design')),
-        plans.map((d) => row('strategy', 'Strategic plan', docs.strategy.nodes[d.planId]?.title ?? d.snapshot?.plan?.title ?? 'Plan', isLivePlan(d), `plandoc.html#${d.id}`, 'Design')),
-        station && row('mic', 'Podcast station', docs.podcasts.station.name, true, 'podcasts.html#station', 'Settings'),
-        stories.map((x) => row('story', 'Data story', x.title, x.visibility === 'public', 'palette.html#stories')),
-        calcs.map((x) => row('gift', 'Impact calculator', x.title, x.visibility === 'public', 'palette.html#impact')),
-        c.nav.map((p) => row('doc', 'Page', p.title, true, `#${p.id}`)),
-        c.articles.length > 0 && row('news', 'News', `${c.articles.length} article${c.articles.length === 1 ? '' : 's'}, newest ${short(c.articles[0].publishedAt)}`, true, `#${c.articles[0].id}`),
-        drafts.length > 0 && row('doc', 'Drafts', `${drafts.length} not out yet`, false, `#${drafts[0].id}`),
-        !isPublic && propertiesOf(s).filter((p) => p.kind === 'Papers').map((p) => row(p.icon, 'Board papers', p.title.replace(/:.*/, ''), p.live, p.href, 'Library')),
-        !isPublic && h('li', { class: 'muted' }, 'Members only: signed-in staff and board members (Viewer role) see it. Board papers are Library documents tagged “board”.'))));
+  return h('div', { class: 'wv-sitepage' },
+    h('nav', { class: 'crumbs muted small' }, h('a', { href: '#sites' }, 'Public Portal'), ' / ', s.name),
+    h('header', { class: 'wv-sitepage-head' },
+      h('div', { class: 'wv-sitepage-title' },
+        h('input', { class: 'title-input', name: 'site-name', value: s.name, 'aria-label': 'Site name', onchange: (e) => saveSite({ name: e.target.value.trim() || s.name }) }),
+        h('span', { class: 'muted small' }, visBlurb(s.visibility))),
+      h('div', { class: 'wv-sitepage-actions' },
+        h('a', { class: 'btn btn-sm btn-primary', href: siteUrl(s.id), target: '_blank', rel: 'noopener' }, icon(isPublic ? 'globe' : 'lock', 14), isPublic ? 'Open the site' : 'Open the portal'))),
+    h('div', { class: 'wv-sitepage-grid' },
+      h('section', { class: 'wv-sitepage-preview' },
+        h('div', { class: 'wv-preview-bar' },
+          h('div', { class: 'seg', role: 'tablist' },
+            h('button', { role: 'tab', class: phone ? '' : 'on', onclick: () => { ctx.phone = false; render(); } }, icon('tiles', 14), 'Desktop'),
+            h('button', { role: 'tab', class: phone ? 'on' : '', onclick: () => { ctx.phone = true; render(); } }, icon('phone', 14), 'Phone')),
+          h('span', { class: 'muted small' }, 'Live: this is the site as visitors get it today.')),
+        h('div', { class: 'wv-preview-stage' }, SitePreview(s, phone ? { phone: true, scale: 0.78 } : { scale: 0.5 })),
+        h('div', { class: 'wv-look' },
+          h('span', { class: 'wv-look-label' }, 'Hero'),
+          h('div', { class: 'join' }, SITE_HEROES.map((x) => h('button', { class: `btn btn-xs join-item${look.hero === x.id ? ' btn-active' : ''}`, title: x.blurb, onclick: () => setLook({ hero: x.id }) }, x.label))),
+          h('span', { class: 'wv-look-label' }, 'Type'),
+          h('div', { class: 'join' }, SITE_TYPES.map((x) => h('button', { class: `btn btn-xs join-item${look.type === x.id ? ' btn-active' : ''}`, title: x.blurb, onclick: () => setLook({ type: x.id }) }, x.label))),
+          h('a', { class: 'link small', href: 'org.html#sites' }, 'Colours and shapes'))),
+      h('aside', { class: 'wv-sitepage-side' },
+        h('section', { class: 'wv-box' },
+          h('h3', {}, 'Settings'),
+          h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Who can see it'),
+            h('select', { class: 'select select-sm w-full', name: 'site-vis', onchange: (e) => saveSite({ visibility: e.target.value }) },
+              options([{ id: 'public', label: 'Public: listed and open to all' }, { id: 'unlisted', label: 'Unlisted: open to anyone with the link' }, { id: 'private', label: 'Members only: sign in to see it' }], s.visibility))),
+          h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Address'),
+            h('input', { class: 'input input-sm w-full', name: 'site-url', value: s.url ?? '', placeholder: 'https://…', onchange: (e) => saveSite({ url: e.target.value.trim() }) })),
+          h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'What it shows (one line)'),
+            h('input', { class: 'input input-sm w-full', name: 'site-shows', value: s.shows ?? '', onchange: (e) => saveSite({ shows: e.target.value }, false) }))),
+        h('section', { class: 'wv-box' },
+          h('h3', {}, 'On this site', h('small', { class: 'muted' }, ` ${props.filter((p) => p.live).length} live · ${props.filter((p) => !p.live).length} in design`)),
+          props.length ? Object.entries(groups).map(([k, list]) => h('div', { class: 'wv-group' },
+            h('h4', {}, kindLabel[k] ?? k),
+            h('ul', {}, list.map((p) => h('li', {},
+              icon(p.icon, 15),
+              h('a', { class: 'wv-item', href: p.href }, p.title),
+              h('span', { class: `wv-chip ${p.live ? 'on' : ''}` }, p.live ? 'Live' : 'In design')))))) : h('p', { class: 'muted small' }, 'Nothing here yet. Add something below.'),
+          drafts.length > 0 && h('p', { class: 'muted small' }, `${drafts.length} page${drafts.length === 1 ? '' : 's'} not out yet: `, drafts.map((d, i) => [i ? ', ' : '', h('a', { href: `#${d.id}` }, d.title)])),
+          c.nav.length > 0 && h('p', { class: 'muted small' }, 'Menu: Home, ', c.nav.map((p) => p.title).join(', '), '.')),
+        h('section', { class: 'wv-box' },
+          h('h3', {}, 'Add to this site'),
+          h('div', { class: 'wv-add' }, addLinks.map((x) => x.href
+            ? h('a', { class: 'btn btn-sm', href: x.href }, icon(x.icon, 14), x.label)
+            : h('button', { class: 'btn btn-sm', onclick: x.onclick }, icon(x.icon, 14), x.label)))),
+        !isPublic && h('p', { class: 'muted small wv-note' }, icon('info', 13), ' Board papers are Library documents tagged “board” plus governance, minutes or finance.'))));
 }
 
 function Editor(p) {

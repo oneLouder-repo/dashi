@@ -2,6 +2,29 @@
 
 Dashi uses version numbers like `0.1.0-alpha.1`. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
+## 0.1.0-alpha.7 (polish: Public Portal site pages, a rethought Workbench, even plugin headers)
+
+### Public Portal
+
+- **Every site has its own page** in the portal: the real front page in a live, scaled preview (desktop or phone), its settings (who can see it, address, a one-line description), everything on it grouped by kind with live or in-design chips, and buttons to add a page, article, dashboard, feedback form or story.
+- The web properties map now opens a site's page in the portal, instead of sending unlisted sites to Organisation settings.
+- **Your sites, as visitors see them** is now a grid of cards with a live preview of each front page, replacing the hand-drawn thumbnails that broke.
+- The sidebar lists every site (and the members-only ones apart), with **New site**.
+- Site look (hero and type) sits under the preview, so you see the change at once.
+
+### Data Workbench
+
+- **Dashboards** opens on three ways to start (from an objective or goal, a strategy scorecard, or blank), then groups dashboards by who they are for: on public sites, for the board and members, and staff only. Each card shows a small picture of its layout, and can be copied.
+- **Strategy scorecard** template for any org: the road, up to four headline numbers, the goal lights of the plan running today, what is coming up and the tasks.
+- **Publishing** lists everything that can go on a site (dashboards, data stories, impact calculators, feedback forms) with a site picker and a Showing switch, filters for showing and not showing, and a count per site that opens the site in the Public Portal.
+- **Podcast publishing** has a drag-and-drop upload card, numbers at a glance, and episode lists with cover art and dates.
+
+### Look and feel
+
+- Every plugin header sits the same way; the Asset manager's icon no longer hangs over the panel edge, the Organisation header has room to breathe, and plugin tabs (Critical Media) are spaced.
+- Public site footers use a deep tint of the org's colour instead of black.
+- Headline numbers keep their unit on one line.
+
 ## 0.1.0-alpha.6 (Public Portal, a board portal, a slicker roadmap, feedback forms and funder reports)
 
 ### Public Portal (was Web views)

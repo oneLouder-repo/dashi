@@ -176,12 +176,12 @@ function render() {
   document.title = `${title ?? 'Site'} · ${org.name}`;
   const navLink = (key, href, label) => h('a', { href, 'aria-current': current === key ? 'page' : null }, label);
   const look = siteLook(site);
-  document.body.classList.add(`look-hero-${look.hero}`, `look-type-${look.type}`, ...(portal ? ['site-portal'] : []));
+  document.body.classList.add(`look-hero-${look.hero}`, `look-type-${look.type}`, ...(portal ? ['site-portal'] : []), ...(params().frame === '1' ? ['site-framed'] : []));
   const board = portal && staffView ? boardDocs() : null;
 
   root.replaceChildren(
     // replaceChildren would print a bare false, so an empty string when there's no banner.
-    !staffView ? '' : h('div', { class: 'preview-banner' }, portal ? `${site.name}: members only. Board members and staff who sign in see this. ` : isHosted() ? 'You’re signed in, so this is the public site as visitors see it. ' : 'Sample public site, made by Dashi from live data. ', h('a', { href: 'pages.html' }, 'Back to Dashi')),
+    !staffView || params().frame === '1' ? '' : h('div', { class: 'preview-banner' }, portal ? `${site.name}: members only. Board members and staff who sign in see this. ` : isHosted() ? 'You’re signed in, so this is the public site as visitors see it. ' : 'Sample public site, made by Dashi from live data. ', h('a', { href: 'pages.html' }, 'Back to Dashi')),
     h('header', { class: 'site-head' },
       h('div', { class: 'inner' },
         h('a', { class: 'site-brand', href: link({}) }, Logo(org, 36), h('span', {}, h('strong', {}, org.name), portal && h('small', {}, icon('lock', 11), site.name))),
