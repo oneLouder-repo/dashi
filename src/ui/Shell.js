@@ -82,6 +82,9 @@ export function Shell(el, { current, org }) {
   wired = true;
   FeedbackButton();
   if (session()?.staging) StagingBanner();
+  if (session()?.banner) MaintenanceBanner(session().banner);
+  if (session()?.legalDue?.length) LegalPrompt(session().legalDue);
+  else if (session()?.emailVerified === false) VerifyNote();
   // A small note in the bottom-left corner when a change is saved, or when it couldn't be.
   // "Saved" shows on the save light in the header; a failure also gets a note.
   window.addEventListener('toolbox:save-failed', (e) => toast(`Not saved: ${e.detail.why}`, 'error'));
@@ -106,6 +109,33 @@ function StagingBanner() {
   document.body.prepend(h('div', { class: 'staging-banner', role: 'note' },
     h('strong', {}, 'Test server.'), ' Data here is for testing and may be reset. Please don’t put anything private in it. ',
     h('a', { href: 'help.html#alpha' }, 'Testing guide')));
+}
+
+/** The platform admin's maintenance or incident notice (Platform admin → Health). */
+function MaintenanceBanner({ text, level }) {
+  document.body.prepend(h('div', { class: `maint-banner maint-${level}`, role: 'status' }, icon(level === 'warning' ? 'alert' : 'info', 15), h('span', {}, text)));
+}
+
+/** New terms or privacy policy: ask once, with links to read them. */
+function LegalPrompt(due) {
+  const names = { terms: 'Terms of service', privacy: 'Privacy policy' };
+  const bar = h('div', { class: 'legal-prompt', role: 'dialog', 'aria-label': 'Updated terms' },
+    h('span', {}, 'We’ve updated our ', due.map((d, i) => [i ? ' and ' : '', h('a', { href: `/legal.html?doc=${d.kind}`, target: '_blank' }, names[d.kind] ?? d.kind)]), '. Please read and accept them to keep using Dashi.'),
+    h('button', { class: 'btn btn-sm btn-primary', onclick: async () => {
+      const res = await fetch('/api/legal/accept', { method: 'POST', headers: { 'content-type': 'application/json', 'x-toolbox': '1' }, body: '{}' });
+      if (res.ok) bar.remove(); else toast('That didn’t save. Try again.', 'error');
+    } }, 'I accept'));
+  document.body.append(bar);
+}
+
+/** A new account hasn't confirmed its email yet: a quiet note with a resend link. */
+function VerifyNote() {
+  const note = h('div', { class: 'verify-note', role: 'note' }, 'Please confirm your email address: we sent you a link. ',
+    h('button', { class: 'link-button', onclick: async () => {
+      await fetch('/api/auth/verify', { method: 'POST', headers: { 'content-type': 'application/json', 'x-toolbox': '1' }, body: '{}' });
+      note.replaceChildren('Sent. Check your inbox (and spam).');
+    } }, 'Send it again'));
+  document.body.prepend(note);
 }
 
 /** Someone else saved the same document: say so until the page is reloaded. */

@@ -8,13 +8,19 @@ ENV NODE_ENV=production \
     DATA_DIR=/data \
     TRUST_PROXY=true
 
+# Litestream copies the database to a bucket off the server (deploy/litestream.yml).
+ARG LITESTREAM_VERSION=0.3.13
+ARG TARGETARCH=amd64
+ADD https://github.com/benbjohnson/litestream/releases/download/v${LITESTREAM_VERSION}/litestream-v${LITESTREAM_VERSION}-linux-${TARGETARCH}.tar.gz /tmp/litestream.tar.gz
+RUN tar -C /usr/local/bin -xzf /tmp/litestream.tar.gz && rm /tmp/litestream.tar.gz && litestream version
+
 WORKDIR /app
 COPY . .
-RUN mkdir -p /data && chown node:node /data
+RUN mkdir -p /data && chown node:node /data && chmod +x deploy/start.sh
 
 EXPOSE 8080
 VOLUME /data
 
-# A host's disk is mounted over /data as root; hand it to the unprivileged
-# `node` user, then run as that user.
-CMD ["sh", "-c", "chown -R node:node /data && exec setpriv --reuid=node --regid=node --init-groups node --disable-warning=ExperimentalWarning server.js"]
+# Hands /data to the unprivileged `node` user, starts Litestream if a bucket
+# is attached, and runs Dashi as that user (deploy/start.sh).
+CMD ["/app/deploy/start.sh"]

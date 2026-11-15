@@ -398,7 +398,7 @@ test('anyone can sign up for a free org on the platform site, and asks for a big
   assert.ok(info.site.hero.title);
   assert.equal((await call('example.localhost', 'POST', '/api/signup', { body: { orgName: 'X' } })).status, 404, 'only on the platform site');
   assert.equal((await call('localhost', 'POST', '/api/signup', { body: { orgName: 'Bots', slug: 'bots', email: 'b@b.example', password: 'longenough1', website: 'spam' } })).status, 400);
-  const res = await call('localhost', 'POST', '/api/signup', { body: { orgName: 'Lakeside Arts Collective', slug: 'lakesidearts', name: 'Rosa', email: 'rosa@lakesidearts.example', password: 'a good long one', plan: 'standard' } });
+  const res = await call('localhost', 'POST', '/api/signup', { body: { orgName: 'Lakeside Arts Collective', slug: 'lakesidearts', name: 'Rosa', email: 'rosa@lakesidearts.example', password: 'a good long one', plan: 'standard', accept: true } });
   assert.equal(res.status, 201);
   assert.ok(res.headers['set-cookie'], 'signed in');
   assert.match(res.json.open, /auth\/switch/);

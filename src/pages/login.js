@@ -42,8 +42,10 @@ app.replaceChildren(h('div', { class: 'login-wrap' },
       e.preventDefault();
       message.textContent = '';
       const res = await post('/api/auth/password', { email: email.value, password: password.value });
-      if (res.ok) location.assign(safeNext);
-      else message.textContent = (await res.json().catch(() => ({}))).error ?? 'That didn’t work.';
+      const out = await res.json().catch(() => ({}));
+      if (res.ok && out.needCode) CodeStep();
+      else if (res.ok) location.assign(safeNext);
+      else message.textContent = out.error ?? 'That didn’t work.';
     } },
       h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Email'), email),
       h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Password'), password),
@@ -54,6 +56,32 @@ app.replaceChildren(h('div', { class: 'login-wrap' },
   options.dev && DevLogin(options, safeNext),
 ));
 email.focus();
+
+/**
+ * Two-step sign-in: after the password (or Google), a six-digit code from
+ * the person's authenticator app. Until it is typed, the session has no
+ * admin rights.
+ */
+function CodeStep() {
+  const code = h('input', { class: 'input w-full code-input', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6, pattern: '[0-9 ]*', required: true, placeholder: '123456', 'aria-label': 'Six-digit code' });
+  const err = h('p', { class: 'login-error', role: 'alert' });
+  document.querySelector('.login-box').replaceChildren(
+    h('p', { class: 'eyebrow' }, Wordmark(20)),
+    h('h1', {}, 'Two-step sign-in'),
+    h('p', { class: 'muted' }, 'Type the six-digit code your authenticator app shows for Dashi.'),
+    h('form', { class: 'login-form', onsubmit: async (e) => {
+      e.preventDefault();
+      err.textContent = '';
+      const res = await post('/api/auth/code', { code: code.value });
+      if (res.ok) location.assign(safeNext.startsWith('/login.html') ? '/' : safeNext);
+      else err.textContent = (await res.json().catch(() => ({}))).error ?? 'That didn’t work.';
+    } }, code, err, h('button', { class: 'btn btn-primary w-full', type: 'submit' }, 'Continue')),
+    h('p', { class: 'muted small' }, 'Lost your phone? Ask another platform admin to reset your two-step sign-in.'));
+  code.focus();
+}
+if (new URLSearchParams(location.search).get('code') === '1') {
+  fetch('/api/session').then((r) => r.json()).then((s) => { if (s.needsCode) CodeStep(); else if (s.user) location.assign(safeNext); }).catch(() => {});
+}
 
 /**
  * Test sign-in (dev and staging servers): everyone, grouped so a tester can
