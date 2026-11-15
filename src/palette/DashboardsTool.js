@@ -19,29 +19,75 @@ const siteUrl = (dash) => `site.html?site=${dash.siteId}#${dash.id}`;
 const sourceNodes = (strategy) =>
   Object.values(strategy.nodes).filter((n) => (n.type === 'objective' || n.type === 'goal') && n.measures?.length);
 
+/** Who a dashboard is for, from its visibility and its site. */
+export function audienceOf(d, sites) {
+  const site = sites[d.siteId];
+  if (site?.visibility === 'private') return { id: 'members', label: 'Members only', blurb: `For the board and staff, on ${site.name}`, icon: 'lock' };
+  if (d.visibility === 'public' && site) return { id: 'public', label: site.visibility === 'unlisted' ? 'Unlisted' : 'Public', blurb: `Live on ${site.name}`, icon: 'globe' };
+  return { id: 'staff', label: 'Staff only', blurb: d.visibility === 'public' ? 'Public, but not on a site yet' : 'Inside Dashi only', icon: 'person' };
+}
+
+/** A small picture of a dashboard's layout: one block per widget, in its size and kind. */
+export function DashThumb(d) {
+  return h('div', { class: 'dg-thumb', 'aria-hidden': 'true' },
+    h('i', { class: 'dg-thumb-title' }),
+    h('div', { class: 'dg-thumb-grid' }, d.widgets.slice(0, 10).map((w) => h('span', { class: `dg-w ${w.size ?? 'wide'} t-${w.type}` }, h('b')))),
+    !d.widgets.length && h('span', { class: 'dg-thumb-empty' }, 'Empty'));
+}
+
 function Gallery(ctx) {
-  const list = Object.values(ctx.dashboards.doc.dashboards);
-  const from = h('select', { name: 'from-node', 'aria-label': 'Objective or goal' },
-    sourceNodes(ctx.strategy).map((n) => h('option', { value: n.id }, `${NODE_TYPES[n.type].glyph} ${n.title}`)));
-  return h('div', {},
+  const { org } = ctx;
+  const list = Object.values(ctx.dashboards.doc.dashboards).sort((a, b) => a.title.localeCompare(b.title));
+  const nodes = sourceNodes(ctx.strategy);
+  const from = h('select', { class: 'select select-sm w-full', name: 'from-node', 'aria-label': 'Objective or goal' },
+    nodes.map((n) => h('option', { value: n.id }, `${NODE_TYPES[n.type].glyph} ${n.title}`)));
+  const groups = [
+    { id: 'public', title: 'On your public sites', blurb: 'What visitors see.' },
+    { id: 'members', title: 'For the board and members', blurb: 'On a members-only portal.' },
+    { id: 'staff', title: 'Staff only', blurb: 'Working dashboards, inside Dashi.' },
+  ];
+  const card = (d) => {
+    const aud = audienceOf(d, org.sites);
+    const site = org.sites[d.siteId];
+    return h('article', { class: `dg-card ${aud.id}` },
+      h('a', { class: 'dg-card-shot', href: `#${d.id}`, title: `Design ${d.title}` }, DashThumb(d)),
+      h('div', { class: 'dg-card-body' },
+        h('a', { class: 'dg-card-title', href: `#${d.id}` }, d.title),
+        h('p', {}, d.description || 'No description yet.'),
+        h('div', { class: 'dg-card-meta' },
+          h('span', { class: `wv-vis ${aud.id === 'members' ? 'private' : aud.id === 'staff' ? 'unlisted' : 'public'}` }, icon(aud.icon, 12), aud.label),
+          h('span', { class: 'muted small' }, `${d.widgets.length} widget${d.widgets.length === 1 ? '' : 's'}`)),
+        h('div', { class: 'dg-card-foot' },
+          h('span', { class: 'muted small' }, aud.blurb),
+          h('button', { class: 'btn btn-xs btn-ghost', title: 'Make a private copy', onclick: () => ctx.create(null, { copyOf: d }) }, icon('copy', 12)),
+          site && (d.visibility === 'public' || site.visibility === 'private') && h('a', { class: 'btn btn-xs btn-ghost', href: siteUrl(d), target: '_blank', rel: 'noopener', title: 'See it on the site' }, icon('share', 12)),
+          h('a', { class: 'btn btn-xs btn-primary', href: `#${d.id}` }, 'Design'))));
+  };
+  return h('div', { class: 'dg' },
     h('h1', {}, 'Dashboards'),
-    h('p', { class: 'lede' }, 'Design dashboards from your strategy measures and program data. Keep them private for staff and the board, or publish them to a public site.'),
-    h('div', { class: 'editor-bar' },
-      h('label', {}, 'Start from', from),
-      h('button', { class: 'btn btn-sm btn-primary', onclick: () => ctx.create(from.value) }, 'Create dashboard'),
-      h('span', { class: 'muted' }, 'or'),
-      h('button', { class: 'btn btn-sm', onclick: () => ctx.create() }, 'Blank dashboard')),
-    list.length
-      ? h('div', { class: 'cards' }, list.map((d) => {
-          const site = ctx.org.sites[d.siteId];
-          return h('a', { class: 'card', href: `#${d.id}` },
-            h('h3', {}, icon('chart', 22), d.title),
-            h('p', {}, d.description || 'No description yet.'),
-            h('div', { class: 'stat-line' },
-              h('span', { class: `badge ${d.visibility}` }, d.visibility), ' ',
-              `${d.widgets.length} widgets`, site ? ` · on ${site.name}` : ''));
-        }))
-      : h('p', { class: 'empty' }, 'No dashboards yet. Create one from an objective or goal above.'));
+    h('p', { class: 'lede' }, 'Design dashboards from your strategy and program data: working views for staff, a scorecard for the board, or live numbers on a public site. Everything stays live as the data and the plan move.'),
+    h('section', { class: 'dg-start' },
+      h('div', { class: 'dg-start-card' },
+        h('span', { class: 'dg-start-icon' }, icon('target', 20)),
+        h('strong', {}, 'From an objective or goal'),
+        h('p', {}, 'A headline number and a chart for every measure on it, then the work.'),
+        nodes.length ? [from, h('button', { class: 'btn btn-sm btn-primary', onclick: () => ctx.create(from.value) }, 'Create')] : h('p', { class: 'muted small' }, 'Add measures to an objective or goal in Strategy & Work first.')),
+      h('div', { class: 'dg-start-card' },
+        h('span', { class: 'dg-start-icon road' }, icon('flag', 20)),
+        h('strong', {}, 'Strategy scorecard'),
+        h('p', {}, 'The road so far, four headline numbers, the goal lights and what is coming up. Made for a board pack.'),
+        h('button', { class: 'btn btn-sm', onclick: () => ctx.create(null, { template: 'scorecard' }) }, 'Create')),
+      h('div', { class: 'dg-start-card' },
+        h('span', { class: 'dg-start-icon blank' }, icon('plus', 20)),
+        h('strong', {}, 'Blank'),
+        h('p', {}, 'Start empty and add widgets from your measures and your plan.'),
+        h('button', { class: 'btn btn-sm', onclick: () => ctx.create() }, 'Create'))),
+    list.length ? groups.map((g) => {
+      const mine = list.filter((d) => audienceOf(d, org.sites).id === g.id);
+      return mine.length > 0 && h('section', { class: 'dg-group' },
+        h('header', {}, h('h2', {}, g.title, h('span', { class: 'dg-count' }, String(mine.length))), h('span', { class: 'muted small' }, g.blurb)),
+        h('div', { class: 'dg-grid' }, mine.map(card)));
+    }) : h('p', { class: 'empty' }, 'No dashboards yet. Start one above.'));
 }
 
 /**

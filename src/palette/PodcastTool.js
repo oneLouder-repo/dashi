@@ -3,7 +3,7 @@ import { icon } from '../ui/icons.js';
 import { col } from '../core/collections.js';
 import { isAudioFile, slugify, published, seasonsOf, showsInOrder, nextNumber } from '../platform/podcasts.js';
 import { putMedia, audioDuration, maxUploadMb } from '../platform/media.js';
-import { fmtDuration } from '../site/station.js';
+import { fmtDuration, Cover, EpisodeArt } from '../site/station.js';
 import { today, short } from '../strategy/dates.js';
 import { uiAlert } from '../ui/dialog.js';
 
@@ -24,29 +24,40 @@ export function PodcastTool(ctx) {
   const waiting = Object.values(doc.episodes).filter((e) => !published(e, now) && showOf(e)).sort((a, b) => a.publishedAt.localeCompare(b.publishedAt));
   const latest = Object.values(doc.episodes).filter((e) => published(e, now) && showOf(e)).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)).slice(0, 5);
   const publishNow = (e) => store.apply(col.update('episodes', e.id, { status: 'published', publishedAt: now }));
-  const row = (e, action) => h('li', { class: 'quick-episode' },
-    h('div', {},
+  const next = waiting.find((e) => e.status !== 'draft');
+  const row = (e, action) => h('li', { class: 'pq-ep' },
+    EpisodeArt(e, showOf(e), 44),
+    h('div', { class: 'pq-ep-text' },
       h('strong', {}, e.title),
-      h('small', { class: 'muted' }, [showOf(e).title, `Season ${e.season}`, e.status === 'draft' ? 'draft' : e.publishedAt > now ? `out ${short(e.publishedAt)}` : short(e.publishedAt), fmtDuration(e.audio?.duration)].filter(Boolean).join(' · '))),
+      h('small', { class: 'muted' }, [showOf(e).title, `S${e.season} · E${e.number ?? '?'}`, fmtDuration(e.audio?.duration)].filter(Boolean).join(' · '))),
+    h('span', { class: `pq-when ${e.status === 'draft' ? 'draft' : e.publishedAt > now ? 'soon' : 'out'}` }, e.status === 'draft' ? 'Draft' : e.publishedAt > now ? `Out ${short(e.publishedAt)}` : short(e.publishedAt)),
     action,
-    h('a', { class: 'btn btn-xs btn-ghost', href: `podcasts.html#${e.podcastId}` }, 'Edit'));
+    h('a', { class: 'btn btn-xs btn-ghost', href: `podcasts.html#${e.podcastId}`, title: 'Show notes, guests and chapters' }, 'Edit'));
 
-  return h('div', {},
-    h('h1', {}, 'Podcast publishing'),
-    h('p', { class: 'lede' }, 'Put an episode out in one step, or send a draft live. Shows, seasons and how the station looks are in ', h('a', { href: 'podcasts.html' }, 'Podcasts'), '.'),
-    h('div', { class: 'editor-bar' },
-      site ? h('a', { class: 'btn btn-sm', href: stationUrl, target: '_blank', rel: 'noopener' }, icon('globe', 14), 'Station page') : h('span', { class: 'muted' }, 'The station isn’t on a site yet.'),
-      h('a', { class: 'btn btn-sm', href: 'podcasts.html' }, icon('mic', 14), 'Open Podcasts')),
-    shows.length ? QuickPublish(ctx, shows, now) : h('p', { class: 'empty' }, 'No shows yet. Make one in ', h('a', { href: 'podcasts.html' }, 'Podcasts'), ' first.'),
-    h('div', { class: 'station-columns' },
-      h('section', {},
-        h('h2', {}, 'Waiting to go out'),
-        waiting.length
-          ? h('ul', { class: 'quick-episodes' }, waiting.map((e) => row(e, h('button', { class: 'btn btn-xs btn-primary', onclick: () => publishNow(e) }, 'Publish now'))))
-          : h('p', { class: 'empty' }, 'No drafts or scheduled episodes.')),
-      h('section', {},
-        h('h2', {}, 'Out now'),
-        latest.length ? h('ul', { class: 'quick-episodes' }, latest.map((e) => row(e, null))) : h('p', { class: 'empty' }, 'Nothing published yet.'))));
+  return h('div', { class: 'pq' },
+    h('div', { class: 'pq-head' },
+      h('div', {},
+        h('h1', {}, 'Podcast publishing'),
+        h('p', { class: 'lede' }, 'Drop an episode in and put it out, or send a draft live. Shows, seasons and how the station looks are in ', h('a', { href: 'podcasts.html' }, 'Podcasts'), '.')),
+      h('div', { class: 'pq-head-actions' },
+        site ? h('a', { class: 'btn btn-sm', href: stationUrl, target: '_blank', rel: 'noopener' }, icon('globe', 14), 'Station page') : h('span', { class: 'muted small' }, 'The station isn’t on a site yet.'),
+        h('a', { class: 'btn btn-sm btn-ghost', href: 'podcasts.html' }, icon('mic', 14), 'Open Podcasts'))),
+    h('div', { class: 'pq-stats' },
+      h('div', {}, h('strong', {}, String(shows.length)), h('small', {}, shows.length === 1 ? 'show' : 'shows')),
+      h('div', {}, h('strong', {}, String(Object.values(doc.episodes).filter((e) => published(e, now)).length)), h('small', {}, 'episodes out')),
+      h('div', {}, h('strong', {}, String(waiting.length)), h('small', {}, 'waiting')),
+      h('div', {}, h('strong', {}, next ? short(next.publishedAt) : '—'), h('small', {}, next ? `next: ${next.title}` : 'nothing scheduled'))),
+    h('div', { class: 'pq-grid' },
+      shows.length ? QuickPublish(ctx, shows, now) : h('p', { class: 'empty' }, 'No shows yet. Make one in ', h('a', { href: 'podcasts.html' }, 'Podcasts'), ' first.'),
+      h('div', { class: 'pq-lists' },
+        h('section', { class: 'pq-box' },
+          h('h2', {}, 'Waiting to go out', h('span', { class: 'dg-count' }, String(waiting.length))),
+          waiting.length
+            ? h('ul', { class: 'pq-eps' }, waiting.map((e) => row(e, h('button', { class: 'btn btn-xs btn-primary', onclick: () => publishNow(e) }, 'Publish now'))))
+            : h('p', { class: 'muted small' }, 'No drafts or scheduled episodes. Anything you save as a draft or schedule shows here.')),
+        h('section', { class: 'pq-box' },
+          h('h2', {}, 'Out now'),
+          latest.length ? h('ul', { class: 'pq-eps' }, latest.map((e) => row(e, null))) : h('p', { class: 'muted small' }, 'Nothing published yet.')))));
 }
 
 function QuickPublish(ctx, shows, now) {
@@ -59,7 +70,7 @@ function QuickPublish(ctx, shows, now) {
       options(shows.map((s) => ({ id: s.id, label: s.title })), ctx.quickShow)),
     season: h('select', { class: 'select select-sm', name: 'q-season', 'aria-label': 'Season' },
       options([...seasons.map((s) => ({ id: String(s.number), label: s.title || `Season ${s.number}` })), { id: 'new', label: `New season (${last + 1})` }], String(last))),
-    file: h('input', { class: 'file-input file-input-sm', type: 'file', name: 'q-file', accept: '.mp3,.wav,audio/mpeg,audio/wav', required: true, 'aria-label': 'Audio file (.mp3 or .wav)' }),
+    file: h('input', { class: 'sr-only', type: 'file', name: 'q-file', accept: '.mp3,.wav,audio/mpeg,audio/wav', 'aria-label': 'Audio file (.mp3 or .wav)' }),
     title: h('input', { class: 'input input-sm', name: 'q-title', placeholder: 'Episode title', required: true }),
     description: h('input', { class: 'input input-sm', name: 'q-description', placeholder: 'One line on what it is about' }),
     when: h('select', { class: 'select select-sm', name: 'q-when', 'aria-label': 'When' },
@@ -72,11 +83,21 @@ function QuickPublish(ctx, shows, now) {
     if (file && !isAudioFile(file)) { uiAlert('Choose an .mp3 or .wav file.'); f.file.value = ''; return; }
     if (file && !f.title.value) f.title.value = file.name.replace(/\.(mp3|wav)$/i, '').replace(/[-_]+/g, ' ');
   });
-  const submit = h('button', { class: 'btn btn-sm btn-primary', type: 'submit' }, icon('upload', 14), 'Upload');
+  const submit = h('button', { class: 'btn btn-primary w-full', type: 'submit' }, icon('upload', 16), 'Upload and publish');
+  const dropLabel = h('span', { class: 'pq-drop-name' }, 'Drop an .mp3 or .wav here, or click to choose');
+  const showFile = () => { const file = f.file.files[0]; dropLabel.textContent = file ? `${file.name} · ${(file.size / 1048576).toFixed(1)} MB` : 'Drop an .mp3 or .wav here, or click to choose'; drop.classList.toggle('has-file', !!file); };
+  f.file.addEventListener('change', showFile);
+  f.when.addEventListener('change', () => { submit.lastChild.textContent = f.when.value === 'draft' ? 'Upload as a draft' : f.when.value === 'later' ? 'Upload and schedule' : 'Upload and publish'; });
+  const drop = h('label', { class: 'pq-drop',
+    ondragover: (e) => { e.preventDefault(); drop.classList.add('over'); },
+    ondragleave: () => drop.classList.remove('over'),
+    ondrop: (e) => { e.preventDefault(); drop.classList.remove('over'); const dt = new DataTransfer(); const file = e.dataTransfer.files[0]; if (!file) return; dt.items.add(file); f.file.files = dt.files; f.file.dispatchEvent(new Event('change')); } },
+    h('span', { class: 'pq-drop-icon' }, icon('cloudUpload', 28)), dropLabel, h('small', { class: 'muted' }, `Up to ${maxUploadMb()} MB`), f.file);
 
-  return h('form', { class: 'panel quick-publish', onsubmit: async (ev) => {
+  return h('form', { class: 'pq-form', onsubmit: async (ev) => {
     ev.preventDefault();
     const file = f.file.files[0];
+    if (!file) return uiAlert('Choose an .mp3 or .wav file first.');
     if (file.size > maxUploadMb() * 1048576) return uiAlert(`Audio files can be up to ${maxUploadMb()} MB.`);
     submit.disabled = true;
     submit.textContent = 'Uploading…';
@@ -86,7 +107,7 @@ function QuickPublish(ctx, shows, now) {
     } catch (err) {
       uiAlert(err.message);
       submit.disabled = false;
-      submit.textContent = 'Upload';
+      submit.textContent = 'Upload and publish';
       return;
     }
     const show = store.doc.podcasts[f.show.value];
@@ -101,14 +122,14 @@ function QuickPublish(ctx, shows, now) {
     }));
     store.apply(ops.length > 1 ? col.batch(ops) : ops[0]);
   } },
-    h('h2', {}, 'Quick publish'),
-    h('div', { class: 'quick-grid' },
+    h('div', { class: 'pq-form-head' }, Cover(store.doc.podcasts[ctx.quickShow], 52), h('div', {}, h('h2', {}, 'New episode'), h('small', { class: 'muted' }, 'The show’s hosts are credited. Add notes and guests afterwards in Podcasts.'))),
+    drop,
+    h('div', { class: 'pq-fields' },
       h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Show'), f.show),
       h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Season'), f.season),
-      h('label', { class: 'fieldset span-2' }, h('span', { class: 'fieldset-legend' }, 'Audio (.mp3 or .wav)'), f.file),
       h('label', { class: 'fieldset span-2' }, h('span', { class: 'fieldset-legend' }, 'Title'), f.title),
       h('label', { class: 'fieldset span-2' }, h('span', { class: 'fieldset-legend' }, 'Summary'), f.description),
-      h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'When'), f.when, f.date),
-      h('div', { class: 'fieldset quick-submit' }, submit)),
-    h('p', { class: 'muted small' }, 'The show’s hosts are credited. Add show notes and guests afterwards in Podcasts.'));
+      h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'When'), f.when),
+      h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, f.when.value === 'later' ? 'Date' : ' '), f.date)),
+    submit);
 }

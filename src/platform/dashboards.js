@@ -107,6 +107,29 @@ export function seedDashboards(strategy) {
   return { id: 'dashboards', dashboards, ...seedExtras(strategy) };
 }
 
+/**
+ * A strategy scorecard for any org: the road of the plan that holds the most
+ * work, up to four headline numbers, the goal lights of the plan running
+ * today, what is coming up, and the tasks. Good for a board pack.
+ */
+export function scorecardDashboard(strategy, createdBy = null, today = new Date().toISOString().slice(0, 10)) {
+  const plans = Object.values(strategy.nodes).filter((n) => n.type === 'plan');
+  const root = rootOf(strategy);
+  const master = root?.type === 'plan' ? root : childrenOf(strategy, root?.id).find((n) => n.type === 'plan') ?? plans[0];
+  const current = plans.find((n) => n !== master && n.start && n.end && n.start <= today && today <= n.end) ?? master;
+  const from = master?.id ?? root?.id;
+  const measures = from ? measuresUnder(strategy, from).slice(0, 4) : [];
+  const widgets = [];
+  if (master) widgets.push(widget('road', { nodeId: master.id, title: 'The road so far' }));
+  for (const m of measures) widgets.push(widget('kpi', { measureId: m.id }));
+  if (current) {
+    widgets.push(widget('lights', { nodeId: current.id, title: `Goals in ${current.title}` }));
+    widgets.push(widget('milestones', { nodeId: master.id, title: 'Coming up', size: 'wide' }));
+    widgets.push(widget('progress', { nodeId: current.id, title: 'Tasks', size: 'full' }));
+  }
+  return { title: 'Strategy scorecard', description: 'Where the plan stands: live from the roadmap and our program data.', visibility: 'private', siteId: null, sourceNodeId: master?.id ?? null, createdBy, widgets };
+}
+
 /** The STEM example's board scorecard: the road, the headline numbers, the goal lights, and what is next. */
 function boardDashboards(strategy) {
   const plan = Object.values(strategy.nodes).find((n) => n.type === 'plan' && n.start && n.end && n.start <= '2026-11-15' && '2026-11-15' <= n.end && n.parentId && strategy.nodes[n.parentId]?.type === 'plan') ?? Object.values(strategy.nodes).find((n) => n.type === 'plan');

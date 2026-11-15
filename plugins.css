@@ -123,5 +123,6 @@
 .cm-prompt-preview p { margin: 4px 0 0; }
 .cm-hide { list-style: none; padding: 0; margin: 0; columns: 2; font-size: 13px; }
 @media print { .cm-page .panel-head, .cm-credit, .pv-tabs, header#shell, .plugin-records, .plugin-generic-side { display: none !important; } }
-.pv-tabs .tab { gap: 6px; }
+.pv-tabs { gap: 4px; }
+.pv-tabs .tab { gap: 6px; padding-inline: 12px; }
 .pw-grade span { font-size: 8.5px; line-height: 1.1; max-width: 58px; }
