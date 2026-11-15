@@ -10,7 +10,8 @@ import { ROLES } from '../platform/org.js';
 import { currentUser } from '../platform/session.js';
 import { statusById, taskSummary, ancestors, NODE_TYPES } from '../platform/strategy.js';
 import { mapsFor } from '../platform/maps.js';
-import { short, today } from '../strategy/dates.js';
+import { short, today, addDays } from '../strategy/dates.js';
+import { uiAlert, uiForm, uiPanel } from '../ui/dialog.js';
 
 /**
  * My profile: the signed-in person's picture and details, the strategic
@@ -29,99 +30,156 @@ function render() {
   const me = currentUser(org);
   if (!me) return app.replaceChildren(h('div', { class: 'page' }, h('p', { class: 'empty' }, 'This org has no staff yet.')));
   const update = (patch) => store.apply(col.update('staff', me.id, patch));
+  const role = ROLES.find((r) => r.id === me.roleId);
+  const hostedNotAdmin = !!session() && !session().canAdmin;
   const nodes = Object.values(docs.strategy.nodes);
-  const myTasks = nodes.filter((n) => n.type === 'task' && (n.assigneeIds ?? []).includes(me.id)).sort((a, b) => (a.end ?? '').localeCompare(b.end ?? ''));
+  const myTasks = nodes.filter((n) => n.type === 'task' && (n.assigneeIds ?? []).includes(me.id)).sort((a, b) => (a.end ?? '9999').localeCompare(b.end ?? '9999'));
   const myWorkplans = nodes.filter((n) => n.type === 'workplan' && ((n.staffIds ?? []).includes(me.id) || (n.teamIds ?? []).some((t) => (me.teamIds ?? []).includes(t))));
   const areas = nodes.filter((n) => n.type === 'objective' || n.type === 'goal');
+  const followed = areas.filter((n) => (me.interests ?? []).includes(n.id));
   const myDashboards = Object.values(docs.dashboards.dashboards).filter((d) => d.createdBy === me.id);
   const myMaps = mapsFor(docs.maps, me.id);
   const myShows = Object.values(docs.podcasts.podcasts).filter((p) => (p.hostIds ?? []).includes(me.id));
   const open = myTasks.filter((t) => t.status !== 'done');
+  const soon = addDays(now, 14);
+  const groups = [
+    { id: 'overdue', label: 'Overdue', tasks: open.filter((t) => t.end && t.end < now) },
+    { id: 'soon', label: 'Next two weeks', tasks: open.filter((t) => t.end && t.end >= now && t.end <= soon) },
+    { id: 'later', label: 'Later', tasks: open.filter((t) => !t.end || t.end > soon) },
+    { id: 'done', label: 'Done', tasks: myTasks.filter((t) => t.status === 'done') },
+  ];
 
-  const section = (title, count, body) => h('section', { class: 'panel' }, h('div', { class: 'panel-head' }, h('h2', {}, title), count != null && h('span', { class: 'badge badge-ghost' }, String(count))), body);
-  const empty = (text) => h('p', { class: 'muted' }, text);
+  const card = (title, count, body, extra = {}) => h('section', { class: `me-card ${extra.cls ?? ''}` },
+    h('div', { class: 'me-card-head' }, extra.icon && icon(extra.icon, 18), h('h2', {}, title), count != null && h('span', { class: 'me-count' }, String(count)), h('span', { class: 'spacer' }), extra.action),
+    body);
+  const empty = (text) => h('p', { class: 'me-empty' }, text);
+  const contact = [
+    me.email && [icon('mail', 15), h('a', { href: `mailto:${me.email}` }, me.email)],
+    me.phone && [icon('phone', 15), h('a', { href: `tel:${me.phone.replace(/[^\d+]/g, '')}` }, me.phone)],
+    me.location && [icon('pin', 15), h('span', {}, me.location)],
+  ].filter(Boolean).map((bits) => h('span', { class: 'me-contact-item' }, bits));
 
-  app.replaceChildren(h('div', { class: 'page' },
-    h('div', { class: 'profile-head' },
-      h('label', { class: 'avatar-upload', title: 'Change your picture' },
-        Avatar(me, 96),
-        h('span', { class: 'avatar-edit' }, 'Change'),
-        h('input', { type: 'file', accept: 'image/*', class: 'sr-only', onchange: async (e) => {
-          try { update({ avatar: await readImage(e.target.files[0], 192) }); } catch (err) { alert(err.message); }
-        } })),
-      h('div', { class: 'profile-fields' },
-        h('input', { class: 'title-input profile-name', name: 'name', value: me.name, 'aria-label': 'Your name', onchange: (e) => e.target.value.trim() && update({ name: e.target.value.trim() }) }),
-        h('input', { class: 'title-input', name: 'title', value: me.title, placeholder: 'Your title', 'aria-label': 'Your title', onchange: (e) => update({ title: e.target.value.trim() }) }),
-        h('input', { class: 'title-input muted', name: 'email', value: me.email, placeholder: 'Email', 'aria-label': 'Your email', type: 'email', readonly: !!session() && !session().canAdmin, title: session() && !session().canAdmin ? 'Your sign-in email. Your organisation’s admin can change it.' : null, onchange: (e) => update({ email: e.target.value.trim() }) }),
-        h('div', { class: 'chips' },
-          h('span', { class: 'badge badge-primary' }, ROLES.find((r) => r.id === me.roleId)?.label ?? me.roleId),
-          (me.teamIds ?? []).map((id) => org.teams[id] && h('span', { class: 'chip' }, h('span', { class: 'swatch', style: `background:${org.teams[id].color}` }), org.teams[id].name)),
-          me.avatar && h('button', { class: 'btn btn-xs btn-ghost', onclick: () => update({ avatar: null }) }, 'Remove picture'))),
-      h('div', { class: 'profile-stats' },
-        stat(open.length, 'open tasks'),
-        stat(open.filter((t) => t.end && t.end < now).length, 'overdue'),
-        stat(myDashboards.length, 'dashboards'),
-        stat(myMaps.length, 'maps'))),
+  app.replaceChildren(h('div', { class: 'page me-page' },
+    h('section', { class: 'me-hero' },
+      h('div', { class: 'me-hero-main' },
+        h('label', { class: 'me-avatar', title: 'Change your picture' },
+          Avatar(me, 104),
+          h('span', { class: 'me-avatar-edit' }, icon('upload', 16), 'Change'),
+          h('input', { type: 'file', accept: 'image/*', class: 'sr-only', onchange: async (e) => {
+            try { update({ avatar: await readImage(e.target.files[0], 192) }); } catch (err) { uiAlert(err.message, { title: 'That picture didn’t work', kind: 'error' }); }
+          } })),
+        h('div', { class: 'me-id' },
+          h('p', { class: 'me-greet' }, greeting()),
+          h('h1', {}, me.name, me.pronouns && h('span', { class: 'me-pronouns' }, me.pronouns)),
+          h('p', { class: 'me-title' }, [me.title || 'Add your title', role?.label].filter(Boolean).join(' · ')),
+          contact.length > 0 && h('div', { class: 'me-contact' }, contact),
+          h('div', { class: 'me-chips' },
+            (me.teamIds ?? []).map((tid) => org.teams[tid] && h('span', { class: 'me-team', style: `--team:${org.teams[tid].color}` }, org.teams[tid].name)))),
+        h('div', { class: 'me-hero-actions' },
+          h('button', { class: 'btn btn-sm btn-primary', onclick: () => editProfile(me, update, hostedNotAdmin) }, icon('pencil', 14), 'Edit profile'),
+          me.avatar && h('button', { class: 'btn btn-sm btn-ghost', onclick: () => update({ avatar: null }) }, 'Remove picture'))),
+      h('div', { class: 'me-stats' },
+        stat(open.length, 'open tasks', 'features'),
+        stat(groups[0].tasks.length, 'overdue', 'warn', groups[0].tasks.length ? 'alert' : ''),
+        stat(groups[1].tasks.length, 'due in 2 weeks', 'calendar'),
+        stat(myWorkplans.length, 'workplans', 'sec-strategy'),
+        stat(myMaps.length, 'maps', 'sec-mapper'),
+        stat(myDashboards.length, 'dashboards', 'sec-data'))),
 
-    h('div', { class: 'profile-grid' },
-      section('My tasks', open.length, myTasks.length
-        ? h('ul', { class: 'upcoming' }, myTasks.map((t) =>
-            h('li', { class: t.status === 'done' ? 'done' : '' },
-              h('span', { class: 'when' }, t.end ? (t.status !== 'done' && t.end < now ? `Overdue · ${short(t.end)}` : short(t.end)) : '—'),
-              h('span', { class: 'dot', style: `background:${statusById[t.status].color}`, title: statusById[t.status].label }),
-              h('a', { href: `strategy.html#${t.id}` }, t.title),
-              h('span', { class: 'muted' }, docs.strategy.nodes[t.parentId]?.title ?? ''))))
-        : empty('No tasks assigned to you.')),
+    h('div', { class: 'me-layout' },
+      h('div', { class: 'me-main' },
+        card('My tasks', open.length, myTasks.length
+          ? h('div', { class: 'me-taskgroups' }, groups.filter((g) => g.tasks.length).map((g) =>
+              h('details', { class: `me-taskgroup ${g.id}`, open: g.id !== 'done' },
+                h('summary', {}, h('span', {}, g.label), h('span', { class: 'me-count' }, String(g.tasks.length))),
+                h('ul', { class: 'me-tasks' }, g.tasks.map((t) => h('li', { class: t.status === 'done' ? 'done' : '' },
+                  h('span', { class: 'me-dot', style: `background:${statusById[t.status].color}`, title: statusById[t.status].label }),
+                  h('div', { class: 'me-task-text' },
+                    h('a', { href: `strategy.html#${t.id}` }, t.title),
+                    h('small', {}, docs.strategy.nodes[t.parentId]?.title ?? '')),
+                  h('span', { class: `me-when ${g.id}` }, t.end ? short(t.end) : 'No date')))))))
+          : empty('No tasks assigned to you. When someone assigns you one in Strategy & Work, it shows here.'),
+          { icon: 'features', cls: 'tasks' }),
+        card('My workplans', myWorkplans.length, myWorkplans.length
+          ? h('ul', { class: 'me-workplans' }, myWorkplans.map((w) => {
+              const s = taskSummary(docs.strategy, w.id);
+              const pct = s.total ? Math.round((s.done / s.total) * 100) : 0;
+              return h('li', {},
+                h('a', { href: `strategy.html#${w.id}`, class: 'me-wp-title' }, w.title),
+                h('small', { class: 'muted' }, ancestors(docs.strategy, w.id).filter((a) => a.type === 'goal' || a.type === 'objective').map((a) => a.title).join(' › ')),
+                h('div', { class: 'me-wp-bar' }, h('progress', { class: 'progress progress-primary', value: s.done, max: s.total || 1, 'aria-label': `${s.done} of ${s.total} tasks done` }), h('span', {}, `${s.done}/${s.total} · ${pct}%`)));
+            }))
+          : empty('You aren’t on any workplans yet.'), { icon: 'sec-strategy' })),
 
-      section('My strategic areas', (me.interests ?? []).length, h('div', {},
-        h('p', { class: 'muted' }, 'Follow the objectives and goals you care about. They show here with their progress.'),
-        h('ul', { class: 'interest-list' }, areas.map((n) => {
-          const s = taskSummary(docs.strategy, n.id);
-          const on = (me.interests ?? []).includes(n.id);
-          return h('li', { class: on ? 'on' : '' },
-            h('input', { type: 'checkbox', class: 'checkbox checkbox-sm checkbox-primary', checked: on, 'aria-label': `Follow ${n.title}`,
-              onchange: (e) => update({ interests: e.target.checked ? [...(me.interests ?? []), n.id] : (me.interests ?? []).filter((id) => id !== n.id) }) }),
-            h('span', { class: 'glyph' }, NODE_TYPES[n.type].glyph),
-            h('a', { href: `strategy.html#${n.id}` }, n.title),
-            on && h('span', { class: 'interest-progress' },
-              h('progress', { class: 'progress progress-primary', value: s.done, max: s.total || 1, 'aria-label': `${s.done} of ${s.total} tasks done` }),
-              h('small', {}, `${s.done}/${s.total} tasks done`)));
-        })))),
-
-      section('My workplans', myWorkplans.length, myWorkplans.length
-        ? h('ul', { class: 'asset-list' }, myWorkplans.map((w) => {
-            const s = taskSummary(docs.strategy, w.id);
-            return h('li', { class: 'asset' }, icon('strategy', 18),
-              h('div', { class: 'asset-text' }, h('a', { href: `strategy.html#${w.id}` }, w.title),
-                h('small', {}, ancestors(docs.strategy, w.id).filter((a) => a.type === 'goal' || a.type === 'objective').map((a) => a.title).join(' › '))),
-              h('span', { class: 'from' }, `${s.done}/${s.total} done`));
-          }))
-        : empty('You are not on any workplans yet.')),
-
-      section('Dashboards I made', myDashboards.length, myDashboards.length
-        ? h('ul', { class: 'asset-list' }, myDashboards.map((d) =>
-            h('li', { class: 'asset' }, icon('chart', 18),
-              h('div', { class: 'asset-text' }, h('a', { href: `palette.html#${d.id}` }, d.title), h('small', {}, `${d.widgets.length} widgets`)),
-              h('span', { class: `badge ${d.visibility}` }, d.visibility))))
-        : empty('Make one from an objective in Strategy & Work, or in the Data Workbench.')),
-
-      section('My ecosystem maps', myMaps.length, myMaps.length
-        ? h('ul', { class: 'asset-list' }, myMaps.map((m) =>
-            h('li', { class: 'asset' }, icon('mapper', 18),
-              h('div', { class: 'asset-text' }, h('a', { href: `mapper.html#${m.id}` }, m.title),
-                h('small', {}, `${Object.keys(docs.mapContents[m.id]?.actors ?? {}).length} actors · ${m.memberIds.length + 1} people`)),
-              h('span', { class: 'badge badge-ghost' }, m.ownerId === me.id ? 'Owner' : 'Member'))))
-        : empty('You don’t own or belong to any maps yet.')),
-
-      myShows.length > 0 && section('Shows I host', myShows.length,
-        h('ul', { class: 'asset-list' }, myShows.map((p) =>
-          h('li', { class: 'asset' }, icon('mic', 18), h('div', { class: 'asset-text' }, h('a', { href: `podcasts.html#${p.id}` }, p.title), h('small', {}, p.category)))))),
-    ),
-    h('p', { class: 'note' }, session() ? 'Your name, title, picture and the areas you follow are yours to change. Your role, teams and email are set by your organisation’s admin.' : 'Accounts are mocked for now: use the menu under your picture (top right) to see the platform as anyone in the org.'),
+      h('aside', { class: 'me-side' },
+        card('About me', null, h('div', { class: 'me-about' },
+          me.bio ? h('p', {}, me.bio) : h('p', { class: 'muted' }, 'A line or two about you and your work helps colleagues and partners know who to ask.'),
+          h('button', { class: 'btn btn-xs btn-ghost', onclick: () => editProfile(me, update, hostedNotAdmin) }, me.bio ? 'Edit' : 'Write a short bio')),
+          { icon: 'userCircle' }),
+        card('Areas I follow', followed.length, h('div', {},
+          followed.length
+            ? h('ul', { class: 'me-areas' }, followed.map((n) => {
+                const s = taskSummary(docs.strategy, n.id);
+                return h('li', {},
+                  h('span', { class: 'glyph' }, NODE_TYPES[n.type].glyph),
+                  h('div', { class: 'me-area-text' }, h('a', { href: `strategy.html#${n.id}` }, n.title),
+                    h('div', { class: 'me-wp-bar' }, h('progress', { class: 'progress progress-primary', value: s.done, max: s.total || 1 }), h('span', {}, `${s.done}/${s.total}`))));
+              }))
+            : empty('Follow the objectives and goals you care about to see their progress here.')),
+          { icon: 'target', action: h('button', { class: 'btn btn-xs', onclick: () => chooseAreas(me, areas, update) }, followed.length ? 'Change' : 'Choose') }),
+        card('My ecosystem maps', myMaps.length, myMaps.length
+          ? h('ul', { class: 'me-links' }, myMaps.map((m) => h('li', {}, h('a', { href: `mapper.html#${m.id}` }, m.title),
+              h('small', {}, `${Object.keys(docs.mapContents[m.id]?.actors ?? {}).length} actors · ${m.ownerId === me.id ? 'owner' : 'member'}`))))
+          : empty('You don’t own or belong to any maps yet.'), { icon: 'sec-mapper' }),
+        card('Dashboards I made', myDashboards.length, myDashboards.length
+          ? h('ul', { class: 'me-links' }, myDashboards.map((d) => h('li', {}, h('a', { href: `palette.html#${d.id}` }, d.title), h('small', {}, `${d.widgets.length} widgets · ${d.visibility}`))))
+          : empty('Make one from an objective in Strategy & Work, or in the Data Workbench.'), { icon: 'sec-data' }),
+        myShows.length > 0 && card('Shows I host', myShows.length,
+          h('ul', { class: 'me-links' }, myShows.map((p) => h('li', {}, h('a', { href: `podcasts.html#${p.id}` }, p.title), h('small', {}, p.category)))), { icon: 'sec-podcasts' }))),
+    h('p', { class: 'note' }, session() ? 'Your name, title, picture, contact details, bio and the areas you follow are yours to change. Your role and teams are set by your organisation’s admin.' : 'Accounts are mocked for now: use the menu under your picture (top right) to see the platform as anyone in the org.'),
   ));
 }
 
-const stat = (n, label) => h('div', { class: 'stat-box' }, h('strong', {}, String(n)), h('span', {}, label));
+function greeting() {
+  const hr = new Date().getHours();
+  return hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
+}
+
+async function editProfile(me, update, emailLocked) {
+  const v = await uiForm({
+    title: 'Edit your profile', ok: 'Save profile', wide: true,
+    fields: [
+      { half: true, name: 'name', label: 'Name', value: me.name, required: true, autocomplete: 'name' },
+      { half: true, name: 'pronouns', label: 'Pronouns', value: me.pronouns ?? '', placeholder: 'e.g. she/her, they/them', help: 'Optional. Shown beside your name.' },
+      { half: true, name: 'title', label: 'Job title', value: me.title ?? '', placeholder: 'e.g. Program Manager', autocomplete: 'organization-title' },
+      { half: true, name: 'email', label: 'Email', type: 'email', value: me.email ?? '', readonly: emailLocked, help: emailLocked ? 'Your sign-in email. Your organisation’s admin can change it.' : 'Also your sign-in email.', autocomplete: 'email' },
+      { half: true, name: 'phone', label: 'Phone', type: 'tel', value: me.phone ?? '', placeholder: 'Optional', autocomplete: 'tel' },
+      { half: true, name: 'location', label: 'Where you work', value: me.location ?? '', placeholder: 'e.g. Halifax, or Remote' },
+      { name: 'bio', label: 'About you', type: 'textarea', value: me.bio ?? '', placeholder: 'A line or two about you and your work.' },
+    ],
+    validate: (x) => { if (!x.name.trim()) throw new Error('Your name can’t be empty.'); },
+  });
+  if (!v) return;
+  const patch = { name: v.name.trim(), pronouns: v.pronouns.trim(), title: v.title.trim(), phone: v.phone.trim(), location: v.location.trim(), bio: v.bio.trim() };
+  if (!emailLocked) patch.email = v.email.trim();
+  update(patch);
+}
+
+async function chooseAreas(me, areas, update) {
+  const picked = new Set(me.interests ?? []);
+  const out = await uiPanel({
+    title: 'Areas you follow', message: 'Objectives and goals from Strategy & Work. Followed ones show on your profile with their progress.', ok: 'Save', cancel: 'Cancel',
+    build: (set) => {
+      set([...picked]);
+      return h('ul', { class: 'me-pick' }, areas.map((n) => h('li', {}, h('label', {},
+        h('input', { type: 'checkbox', class: 'checkbox checkbox-sm checkbox-primary', checked: picked.has(n.id), onchange: (e) => { if (e.target.checked) picked.add(n.id); else picked.delete(n.id); set([...picked]); } }),
+        h('span', { class: 'glyph' }, NODE_TYPES[n.type].glyph), h('span', {}, n.title), h('small', { class: 'muted' }, n.type)))));
+    },
+  });
+  if (out) update({ interests: out });
+}
+
+const stat = (n, label, ic, cls = '') => h('div', { class: `me-stat ${cls}` }, icon(ic, 16), h('strong', {}, String(n)), h('span', {}, label));
 
 store.addEventListener('change', render);
 render();

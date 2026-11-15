@@ -1,0 +1,309 @@
+/**
+ * The plugin registry: every plugin the platform knows, described by a
+ * manifest the platform admin can edit, version and ship (Platform admin →
+ * Plugins). Shared by the server (which stores and enforces it) and the
+ * pages (which draw the header, dashboard and settings from it).
+ *
+ *   Manifest {
+ *     id, name, short, version ('1.2.0'), status: 'installed' | 'disabled' | 'draft',
+ *     builtIn (ships with Dashi; can be reset, not removed), core (always on),
+ *     category, blurb, href, author, homepage,
+ *     look: { tone ('#13897a'), icon (an icon name), accent ('soft' | 'solid') },
+ *     features: [{ id, label, description, enabled, plans: { free, basic, standard, custom } }],
+ *     dataModel: { docs: [{ name, label, description, collections: [{ id, label, fields: [{ id, label, type, required, options }] }] }] },
+ *     plans: { free, basic, standard, custom }   (installed plugins only; built-ins follow Platform admin → Plans)
+ *     changelog: [{ version, date, notes, by }],
+ *   }
+ *
+ * The stored registry keeps only what differs from the built-in defaults,
+ * plus whole manifests for plugins installed from a package, and a few
+ * earlier versions of each (history) so an update can be rolled back.
+ */
+import { BUILT_IN_PLUGINS } from '../plugins.js';
+
+export const STATUSES = [
+  { id: 'installed', label: 'Installed', hint: 'Available to organisations (as their plan allows).' },
+  { id: 'disabled', label: 'Switched off', hint: 'Hidden everywhere. Content is kept.' },
+  { id: 'draft', label: 'In development', hint: 'Only you see it, in the designer and its preview.' },
+];
+export const CATEGORIES = ['Mapping', 'Planning', 'Data', 'Media', 'Knowledge', 'Publishing', 'Platform', 'Other'];
+export const FIELD_TYPES = [
+  { id: 'text', label: 'Text' },
+  { id: 'longtext', label: 'Long text' },
+  { id: 'number', label: 'Number' },
+  { id: 'date', label: 'Date' },
+  { id: 'boolean', label: 'Yes / no' },
+  { id: 'select', label: 'Choice' },
+  { id: 'person', label: 'Person (staff)' },
+  { id: 'reference', label: 'Link to a record' },
+  { id: 'url', label: 'Web address' },
+  { id: 'list', label: 'List' },
+];
+export const TIERS = ['free', 'basic', 'standard', 'custom'];
+const ALL_TIERS = { free: true, basic: true, standard: true, custom: true };
+
+const f = (id, label, type = 'text', extra = {}) => ({ id, label, type, ...extra });
+const feat = (id, label, description, extra = {}) => ({ id, label, description, enabled: true, plans: { ...ALL_TIERS }, ...extra });
+
+/** What each built-in plugin offers and keeps, as the starting manifest. */
+const BUILT_IN = {
+  mapper: {
+    category: 'Mapping',
+    features: [
+      feat('lenses', 'Systems lenses', 'Five lenses under the map: Micro/Meso/Macro, Water of Systems Change, Spheres, Leverage Points, Theory of System Change.'),
+      feat('dataviz', 'Data view', 'Size and colour actors by their connections; focus on one actor’s network.'),
+      feat('groups', 'Groups and layers', 'Cluster actors, and show, hide or lock layers.'),
+      feat('members', 'Map members', 'Share a map with named colleagues.'),
+      feat('exchange', 'Export and import', 'Maps as JSON files.'),
+    ],
+    dataModel: { docs: [
+      { name: 'maps', label: 'Map index', description: 'Which maps exist and who can open them.', collections: [
+        { id: 'maps', label: 'Maps', fields: [f('title', 'Title', 'text', { required: true }), f('ownerId', 'Owner', 'person'), f('memberIds', 'Members', 'list'), f('lensId', 'Lens', 'select')] }] },
+      { name: 'map/<id>', label: 'One map', description: 'The board itself.', collections: [
+        { id: 'actors', label: 'Actors and agents', fields: [f('label', 'Name', 'text', { required: true }), f('kind', 'Actor or agent', 'select', { options: ['actor', 'agent'] }), f('category', 'Category', 'select'), f('place', 'Place on the lens', 'list')] },
+        { id: 'connectors', label: 'Connectors', fields: [f('from', 'From', 'reference'), f('to', 'To', 'reference'), f('type', 'Type', 'select', { options: ['relationship', 'feedback', 'learning'] }), f('strength', 'Strength', 'number')] },
+        { id: 'groups', label: 'Groups', fields: [f('label', 'Name'), f('memberIds', 'Actors', 'list')] }] }] },
+  },
+  strategy: {
+    category: 'Planning',
+    features: [
+      feat('gantt', 'Gantt charts', 'Workplans under any plan, objective or goal, with draggable task bars.'),
+      feat('timelines', 'Task timelines', 'Each task’s status over time, notes and milestones.'),
+      feat('measures', 'Measures', 'Targets on objectives and goals, feeding dashboards.'),
+      feat('assets', 'Task toolboxes', 'Actors, people, documents and media attached to work.'),
+      feat('reports', 'Reports', 'Progress reports and the plan document.', { plans: { free: false, basic: true, standard: true, custom: true } }),
+    ],
+    dataModel: { docs: [{ name: 'strategy', label: 'Strategy', description: 'The whole tree, framework to task.', collections: [
+      { id: 'nodes', label: 'Strategy items', fields: [f('type', 'Level', 'select', { required: true, options: ['framework', 'plan', 'objective', 'goal', 'workplan', 'task'] }), f('title', 'Title', 'text', { required: true }), f('parentId', 'Parent', 'reference'), f('start', 'Start', 'date'), f('end', 'End', 'date'), f('status', 'Status', 'select'), f('assigneeIds', 'Assignees', 'list'), f('measures', 'Measures', 'list')] }] }] },
+  },
+  studio: {
+    category: 'Planning',
+    features: [
+      feat('soar', 'SOAR whiteboard', 'Strengths, opportunities, aspirations and results, with dot voting.'),
+      feat('results', 'Results framework', 'Outcomes and indicators for the plan.'),
+      feat('assemble', 'Assembly canvas', 'Wire ideas into objectives and goals, and send them to Strategy.'),
+    ],
+    dataModel: { docs: [{ name: 'studio', label: 'Planning studio', collections: [
+      { id: 'plans', label: 'Plans in the studio', fields: [f('title', 'Title', 'text', { required: true }), f('context', 'Context', 'longtext'), f('teamIds', 'Team', 'list')] },
+      { id: 'cards', label: 'SOAR cards', fields: [f('quadrant', 'Quadrant', 'select', { options: ['strengths', 'opportunities', 'aspirations', 'results'] }), f('text', 'Text', 'longtext'), f('dots', 'Dots', 'number')] },
+      { id: 'results', label: 'Results', fields: [f('title', 'Result'), f('indicator', 'Indicator')] }] }] },
+  },
+  palette: {
+    category: 'Data',
+    features: [
+      feat('dashboards', 'Dashboard designer', 'Widgets from strategy measures, with play-through.'),
+      feat('programData', 'Program data', 'A spreadsheet of monthly values, with calculated measures.'),
+      feat('calculators', 'Impact calculators', 'What a gift does, for public sites.'),
+      feat('stories', 'Data stories', 'Step-by-step stories with audio.'),
+      feat('postcards', 'Data postcards', 'One chart, one sentence, to share.'),
+    ],
+    dataModel: { docs: [
+      { name: 'dashboards', label: 'Dashboards', collections: [
+        { id: 'dashboards', label: 'Dashboards', fields: [f('title', 'Title', 'text', { required: true }), f('visibility', 'Visibility', 'select', { options: ['private', 'public'] }), f('siteId', 'Site', 'reference'), f('widgets', 'Widgets', 'list')] },
+        { id: 'calculators', label: 'Calculators', fields: [f('title', 'Title'), f('budget', 'Budget', 'number')] },
+        { id: 'stories', label: 'Stories', fields: [f('title', 'Title'), f('steps', 'Steps', 'list')] }] },
+      { name: 'data', label: 'Program data', collections: [
+        { id: 'series', label: 'Data series', fields: [f('measureId', 'Measure', 'reference'), f('values', 'Monthly values', 'list'), f('formula', 'Formula')] }] }] },
+  },
+  podcasts: {
+    category: 'Media',
+    features: [
+      feat('seasons', 'Shows and seasons', 'Episodes organised by season.'),
+      feat('uploads', 'Audio uploads', '.mp3 and .wav, sent in chunks.'),
+      feat('rss', 'RSS feeds', 'For podcast apps.'),
+      feat('station', 'Station page', 'A public station skinned to the org’s look.'),
+    ],
+    dataModel: { docs: [{ name: 'podcasts', label: 'Podcasts', collections: [
+      { id: 'podcasts', label: 'Shows', fields: [f('title', 'Title', 'text', { required: true }), f('category', 'Category'), f('featured', 'Featured', 'boolean'), f('hostIds', 'Hosts', 'list')] },
+      { id: 'episodes', label: 'Episodes', fields: [f('podcastId', 'Show', 'reference', { required: true }), f('title', 'Title', 'text', { required: true }), f('season', 'Season', 'number'), f('status', 'Status', 'select', { options: ['draft', 'scheduled', 'published'] }), f('publishAt', 'Publish on', 'date'), f('mediaId', 'Audio', 'reference')] }] }] },
+  },
+  library: {
+    category: 'Knowledge',
+    features: [
+      feat('files', 'Files and references', 'Uploads with full citation metadata.'),
+      feat('docs', 'Dashi docs', 'Write here; export to Word or PDF.'),
+      feat('bibliographies', 'Annotated bibliographies', 'Groups of sources with annotations.', { plans: { free: false, basic: false, standard: true, custom: true } }),
+      feat('weekly', 'Weekly briefs', 'Policy, state of play and recommendations, each week.', { plans: { free: false, basic: false, standard: true, custom: true } }),
+      feat('lexicon', 'Lexicon', 'Shared terms and facets.'),
+    ],
+    dataModel: { docs: [{ name: 'library', label: 'Library', collections: [
+      { id: 'items', label: 'Documents', fields: [f('kind', 'Kind', 'select', { options: ['file', 'doc', 'link', 'gdoc', 'ref'] }), f('meta', 'Citation (CSL)', 'list'), f('folderId', 'Folder', 'reference'), f('tags', 'Tags', 'list')] },
+      { id: 'folders', label: 'Folders', fields: [f('name', 'Name', 'text', { required: true })] },
+      { id: 'bibs', label: 'Bibliographies', fields: [f('title', 'Title', 'text', { required: true }), f('description', 'Description'), f('entries', 'Entries', 'list')] }] }] },
+  },
+  pages: {
+    category: 'Publishing',
+    features: [
+      feat('pages', 'Information pages', 'In each site’s menu.'),
+      feat('articles', 'News articles', 'Dated, with covers.'),
+      feat('embeds', 'Live embeds', 'Dashboards and episodes inside a page.'),
+    ],
+    dataModel: { docs: [{ name: 'pages', label: 'Pages and news', collections: [
+      { id: 'pages', label: 'Pages and articles', fields: [f('kind', 'Kind', 'select', { options: ['page', 'article'] }), f('title', 'Title', 'text', { required: true }), f('slug', 'Address'), f('siteId', 'Site', 'reference'), f('status', 'Status', 'select', { options: ['draft', 'published'] }), f('body', 'Body', 'longtext')] }] }] },
+  },
+  org: {
+    category: 'Platform',
+    features: [feat('people', 'People and teams', 'Staff, roles and teams.'), feat('sites', 'Public sites', 'Sites and their theme.'), feat('domains', 'Own domains', 'yourorg.org', { plans: { free: false, basic: false, standard: false, custom: true } })],
+    dataModel: { docs: [{ name: 'org', label: 'Organisation', collections: [
+      { id: 'staff', label: 'Staff', fields: [f('name', 'Name', 'text', { required: true }), f('email', 'Email'), f('roleId', 'Role', 'select'), f('title', 'Title'), f('teamIds', 'Teams', 'list')] },
+      { id: 'teams', label: 'Teams', fields: [f('name', 'Name', 'text', { required: true }), f('color', 'Colour')] },
+      { id: 'sites', label: 'Sites', fields: [f('name', 'Name', 'text', { required: true }), f('visibility', 'Visibility', 'select', { options: ['public', 'private'] })] }] }] },
+  },
+  help: {
+    category: 'Platform',
+    features: [feat('guides', 'Guides', 'The user guide, editable by the platform admin.'), feat('diagrams', 'Diagrams', 'How the lenses and the data model line up.')],
+    dataModel: { docs: [{ name: 'help (platform)', label: 'Help library', collections: [{ id: 'sections', label: 'Sections', fields: [f('title', 'Title'), f('pages', 'Pages', 'list')] }] }] },
+  },
+};
+
+/** The manifest a built-in plugin starts from. */
+export function builtInManifest(p) {
+  const extra = BUILT_IN[p.id] ?? { category: 'Other', features: [], dataModel: { docs: [] } };
+  return {
+    id: p.id, name: p.name, short: p.short ?? p.name, version: '1.0.0', status: 'installed',
+    builtIn: true, core: !!p.core, category: extra.category, blurb: p.blurb, href: p.href, author: 'Dashi', homepage: '',
+    look: { tone: p.tone, icon: p.icon, accent: 'soft' },
+    features: structuredClone(extra.features), dataModel: structuredClone(extra.dataModel),
+    plans: null,
+    changelog: [{ version: '1.0.0', date: '2026-11-15', notes: 'Ships with Dashi.', by: 'Dashi' }],
+  };
+}
+
+// The built-in plugins as they first shipped (PLUGINS is changed in place by applyRegistry).
+const ORIGINAL = BUILT_IN_PLUGINS;
+export const builtInIds = () => ORIGINAL.map((p) => p.id);
+export const defaultManifest = (id) => {
+  const p = ORIGINAL.find((x) => x.id === id);
+  return p ? builtInManifest(p) : null;
+};
+
+/** A blank manifest for a plugin started in the designer. */
+export function blankManifest({ id, name }) {
+  return {
+    id, name, short: name.split(/\s+/)[0], version: '0.1.0', status: 'draft', builtIn: false, core: false,
+    category: 'Other', blurb: '', href: `plugin.html?id=${id}`, author: '', homepage: '',
+    look: { tone: '#56657f', icon: 'sec-plugins', accent: 'soft' },
+    features: [feat('records', 'Records', 'Keep a list of records, as set out under Data model.')],
+    dataModel: { docs: [{ name: `plugin/${id}`, label: name, description: '', collections: [{ id: 'items', label: 'Items', fields: [f('title', 'Title', 'text', { required: true }), f('notes', 'Notes', 'longtext')] }] }] },
+    plans: { ...ALL_TIERS },
+    changelog: [],
+  };
+}
+
+/* ---------------------------------------------------------------- versions */
+
+export const parseVersion = (v) => {
+  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(v ?? '').trim());
+  return m ? m.slice(1).map(Number) : null;
+};
+export function compareVersions(a, b) {
+  const x = parseVersion(a) ?? [0, 0, 0];
+  const y = parseVersion(b) ?? [0, 0, 0];
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] < y[i] ? -1 : 1;
+  return 0;
+}
+export function bumpVersion(v, part = 'patch') {
+  const [M, m, p] = parseVersion(v) ?? [0, 1, 0];
+  return part === 'major' ? `${M + 1}.0.0` : part === 'minor' ? `${M}.${m + 1}.0` : `${M}.${m}.${p + 1}`;
+}
+
+/* ---------------------------------------------------------------- checking */
+
+const ID = /^[a-z][a-z0-9-]{1,39}$/;
+const RESERVED = new Set(['home', 'me', 'platform', 'login', 'site', 'api', 'auth', 'media', 'vendor', 'src']);
+
+/** What is wrong with a manifest, as sentences (empty when it is fine). */
+export function manifestProblems(m, { installing = false } = {}) {
+  const out = [];
+  if (!m || typeof m !== 'object') return ['That isn’t a plugin manifest (expected a JSON object).'];
+  if (!ID.test(m.id ?? '')) out.push('The id must be 2–40 lowercase letters, digits or dashes, starting with a letter.');
+  if (installing && RESERVED.has(m.id)) out.push(`“${m.id}” is reserved.`);
+  if (!String(m.name ?? '').trim()) out.push('Give the plugin a name.');
+  if (!parseVersion(m.version)) out.push('The version must look like 1.0.0.');
+  if (m.status && !STATUSES.some((s) => s.id === m.status)) out.push('Unknown status.');
+  if (m.look?.tone && !/^#[0-9a-f]{6}$/i.test(m.look.tone)) out.push('The tone must be a colour like #13897a.');
+  if (m.features && !Array.isArray(m.features)) out.push('Features must be a list.');
+  for (const x of m.features ?? []) if (!ID.test(x.id ?? '') && !/^[a-zA-Z][\w-]{0,39}$/.test(x.id ?? '')) out.push(`Feature “${x.label ?? x.id}” needs an id.`);
+  const featIds = (m.features ?? []).map((x) => x.id);
+  if (new Set(featIds).size !== featIds.length) out.push('Two features share an id.');
+  for (const d of m.dataModel?.docs ?? []) {
+    if (!String(d.name ?? '').trim()) out.push('Every document in the data model needs a name.');
+    for (const c of d.collections ?? []) {
+      if (!/^[a-zA-Z][\w-]{0,39}$/.test(c.id ?? '')) out.push(`Collection “${c.label ?? '?'}” needs an id (letters, digits, dashes).`);
+      const ids = (c.fields ?? []).map((x) => x.id);
+      if (new Set(ids).size !== ids.length) out.push(`Two fields in “${c.label ?? c.id}” share an id.`);
+      for (const x of c.fields ?? []) {
+        if (!/^[a-zA-Z][\w-]{0,39}$/.test(x.id ?? '')) out.push(`A field in “${c.label ?? c.id}” needs an id.`);
+        if (!FIELD_TYPES.some((t) => t.id === x.type)) out.push(`Field “${x.label ?? x.id}” has an unknown type.`);
+      }
+    }
+  }
+  if (JSON.stringify(m).length > 200_000) out.push('The manifest is too big (200 KB at most).');
+  return out;
+}
+
+/** A manifest with only the fields Dashi knows, so packages can't smuggle anything else in. */
+export function cleanManifest(m) {
+  const str = (v, n = 200) => String(v ?? '').slice(0, n);
+  const tiers = (p) => (p && typeof p === 'object' ? Object.fromEntries(TIERS.map((t) => [t, p[t] !== false])) : null);
+  return {
+    id: str(m.id, 40), name: str(m.name, 80), short: str(m.short || m.name, 24), version: str(m.version, 20),
+    status: STATUSES.some((s) => s.id === m.status) ? m.status : 'draft',
+    builtIn: !!m.builtIn, core: !!m.core, category: CATEGORIES.includes(m.category) ? m.category : 'Other',
+    blurb: str(m.blurb, 600), href: m.builtIn ? str(m.href, 80) : `plugin.html?id=${str(m.id, 40)}`, author: str(m.author, 80), homepage: /^https:\/\//.test(m.homepage ?? '') ? str(m.homepage, 300) : '',
+    look: { tone: /^#[0-9a-f]{6}$/i.test(m.look?.tone ?? '') ? m.look.tone : '#56657f', icon: str(m.look?.icon || 'sec-plugins', 40), accent: m.look?.accent === 'solid' ? 'solid' : 'soft' },
+    features: (Array.isArray(m.features) ? m.features : []).slice(0, 60).map((x) => ({ id: str(x.id, 40), label: str(x.label, 80), description: str(x.description, 400), enabled: x.enabled !== false, plans: tiers(x.plans) ?? { ...ALL_TIERS } })),
+    dataModel: { docs: (m.dataModel?.docs ?? []).slice(0, 20).map((d) => ({
+      name: str(d.name, 64), label: str(d.label, 80), description: str(d.description, 400),
+      collections: (d.collections ?? []).slice(0, 30).map((c) => ({
+        id: str(c.id, 40), label: str(c.label, 80),
+        fields: (c.fields ?? []).slice(0, 60).map((x) => ({ id: str(x.id, 40), label: str(x.label, 80), type: FIELD_TYPES.some((t) => t.id === x.type) ? x.type : 'text', required: !!x.required, options: Array.isArray(x.options) ? x.options.slice(0, 40).map((o) => str(o, 60)) : undefined })),
+      })),
+    })) },
+    plans: m.builtIn ? null : tiers(m.plans) ?? { ...ALL_TIERS },
+    changelog: (Array.isArray(m.changelog) ? m.changelog : []).slice(0, 100).map((c) => ({ version: str(c.version, 20), date: str(c.date, 10), notes: str(c.notes, 2000), by: str(c.by, 80) })),
+  };
+}
+
+/* ---------------------------------------------------------------- the registry */
+
+/**
+ * The full registry from what is stored: built-ins (with the admin's
+ * changes) then installed plugins. stored = { plugins: { id: manifest }, history: { id: [manifest...] } }.
+ */
+export function mergeRegistry(stored = {}) {
+  const plugins = {};
+  for (const p of ORIGINAL) plugins[p.id] = stored.plugins?.[p.id] ? { ...builtInManifest(p), ...stored.plugins[p.id], builtIn: true, core: !!p.core, id: p.id, href: p.href } : builtInManifest(p);
+  for (const [id, m] of Object.entries(stored.plugins ?? {})) if (!plugins[id]) plugins[id] = { ...m, builtIn: false, core: false };
+  return { plugins, history: stored.history ?? {} };
+}
+
+/** What pages need to know (the session carries it): the look, status and switches of each plugin. */
+export function registryView(registry, { includeDrafts = false } = {}) {
+  return Object.fromEntries(Object.values(registry.plugins)
+    .filter((m) => includeDrafts || m.status !== 'draft')
+    .map((m) => [m.id, {
+      id: m.id, name: m.name, short: m.short, blurb: m.blurb, version: m.version, status: m.status, builtIn: m.builtIn, core: m.core,
+      category: m.category, href: m.href, tone: m.look?.tone, icon: m.look?.icon,
+      features: Object.fromEntries((m.features ?? []).map((x) => [x.id, x.enabled !== false])),
+      featurePlans: Object.fromEntries((m.features ?? []).map((x) => [x.id, x.plans ?? ALL_TIERS])),
+      featureList: (m.features ?? []).map((x) => ({ id: x.id, label: x.label, description: x.description })),
+      plans: m.plans, dataModel: m.builtIn ? undefined : m.dataModel,
+    }]));
+}
+
+/** Plugins an org's plan leaves out, beyond the built-ins (Platform admin → Plans covers those). */
+export function pausedByRegistry(registry, tier) {
+  const out = {};
+  for (const m of Object.values(registry.plugins)) {
+    if (m.core) continue;
+    if (m.status !== 'installed') out[m.id] = true;
+    else if (!m.builtIn && m.plans && m.plans[tier] === false) out[m.id] = true;
+  }
+  return out;
+}
+
+/** A package: the manifest plus where it came from, ready to save as a .json file. */
+export const packageOf = (m) => ({ dashiPlugin: 1, exportedAt: new Date().toISOString(), manifest: m });
+/** The manifest inside a package (or a bare manifest). */
+export const manifestFromPackage = (x) => (x && x.dashiPlugin && x.manifest ? x.manifest : x);

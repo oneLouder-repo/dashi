@@ -21,6 +21,7 @@ import { readImage } from '../ui/images.js';
 import { EpisodeCard, ShowCard, Player } from '../site/station.js';
 import { today, short } from '../strategy/dates.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
+import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
 
 /**
  * Web views (formerly Sites & Pages): the org's public face in one place.
@@ -226,8 +227,8 @@ function Editor(p) {
     drawPreview();
     body.focus();
   };
-  const linkIt = () => {
-    const url = prompt('Link to (https://…, mailto:…, or a page like site.html?site=site-main&view=station)');
+  const linkIt = async () => {
+    const url = await uiPrompt('Link to (https://…, mailto:…, or a page like site.html?site=site-main&view=station)');
     if (!url) return;
     const [a, b] = [body.selectionStart, body.selectionEnd];
     body.setRangeText(`[${body.value.slice(a, b) || 'link text'}](${url.trim()})`, a, b, 'end');
@@ -277,7 +278,7 @@ function Editor(p) {
       h('span', { class: `badge ${live ? 'badge-success' : p.status === 'draft' ? 'badge-ghost' : 'badge-warning'}` }, live ? 'Published' : p.status === 'draft' ? 'Draft' : `Goes live ${short(p.publishedAt)}`),
       live && org.sites[p.siteId]?.visibility === 'public' && h('a', { class: 'btn btn-sm', href: viewHref, target: '_blank', rel: 'noopener' }, icon('globe', 14), 'View on site'),
       p.status === 'draft' && h('button', { class: 'btn btn-sm btn-primary', onclick: () => { save({ status: 'published' }); render(); } }, 'Publish'),
-      h('button', { class: 'btn btn-sm btn-ghost btn-error', onclick: () => { if (confirm(`Delete “${p.title}”?`)) { store.apply(col.remove('pages', p.id)); location.hash = 'sites'; } } }, 'Delete')),
+      h('button', { class: 'btn btn-sm btn-ghost btn-error', onclick: async () => { if (await uiConfirm(`Delete “${p.title}”?`)) { store.apply(col.remove('pages', p.id)); location.hash = 'sites'; } } }, 'Delete')),
     fields,
     h('div', { class: 'page-columns' },
       h('div', { class: 'page-write' },
@@ -285,7 +286,7 @@ function Editor(p) {
           h('input', { class: 'input input-sm', name: 'page-summary', value: p.summary, onchange: (e) => { save({ summary: e.target.value }); drawPreview(); } })),
         h('div', { class: 'cover-row' },
           h('label', { class: 'btn btn-sm' }, icon('media', 14), p.cover ? 'Change cover image' : 'Add a cover image',
-            h('input', { type: 'file', accept: 'image/*', class: 'sr-only', onchange: async (e) => { try { save({ cover: await readImage(e.target.files[0], 1200) }); render(); } catch (err) { alert(err.message); } } })),
+            h('input', { type: 'file', accept: 'image/*', class: 'sr-only', onchange: async (e) => { try { save({ cover: await readImage(e.target.files[0], 1200) }); render(); } catch (err) { uiAlert(err.message); } } })),
           p.cover && h('button', { class: 'btn btn-sm btn-ghost', onclick: () => { save({ cover: null }); render(); } }, 'Remove cover')),
         h('div', { class: 'md-toolbar', role: 'toolbar', 'aria-label': 'Formatting' },
           h('button', { class: 'btn btn-xs', title: 'Bold', onclick: () => wrap('**', 'bold text') }, h('strong', {}, 'B')),

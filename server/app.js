@@ -42,6 +42,7 @@ import { showArchive } from '../src/platform/showArchive.js';
 import { blankOrg, migrateOrg } from '../src/platform/org.js';
 import { planFor, allPlans, overLimit, usageOf, PLAN_IDS } from '../src/platform/plans.js';
 import { siteContent } from '../src/platform/salesSite.js';
+import { mergeRegistry, registryView, pausedByRegistry, manifestProblems, cleanManifest, compareVersions, bumpVersion, defaultManifest, manifestFromPackage, blankManifest } from '../src/platform/pluginRegistry.js';
 import { blankStrategy } from '../src/platform/strategySeed.js';
 
 const scrypt = promisify(scryptCb);
@@ -87,6 +88,14 @@ export function createApp(db, options = {}) {
   const planOverrides = () => JSON.parse(q("SELECT json FROM platform_docs WHERE name = 'plans'").get()?.json ?? '{}');
   /** An org's plan: its tier, the admin's changes to it, and its own limits. */
   const orgPlan = (o) => planFor(o?.plan, planOverrides(), JSON.parse(o?.limits || '{}'));
+  /** The plugin registry (Platform admin → Plugins): what is stored, and the whole of it with the built-ins. */
+  const storedRegistry = () => JSON.parse(q("SELECT json FROM platform_docs WHERE name = 'plugins'").get()?.json ?? '{}');
+  const registry = () => mergeRegistry(storedRegistry());
+  const saveRegistry = (doc, by) => {
+    q(`INSERT INTO platform_docs (name, json, updated_at, updated_by) VALUES ('plugins', ?, ?, ?)
+       ON CONFLICT (name) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at, updated_by = excluded.updated_by`).run(JSON.stringify(doc), now(), by ?? null);
+    for (const o of q('SELECT id FROM orgs').all()) announce(o.id, 'org', null);
+  };
   /** What the platform admin decides for an org, carried on its org document (read only for the org). */
   const platformPart = (orgId) => {
     const o = orgById(orgId);
@@ -94,6 +103,8 @@ export function createApp(db, options = {}) {
     // A plugin the plan doesn't include is paused, as if the admin had paused it.
     const paused = { ...JSON.parse(o?.paused_plugins || '{}') };
     for (const [id, on] of Object.entries(plan.plugins)) if (!on) paused[id] = true;
+    // So is one the platform has switched off, or (installed from a package) left out of this tier.
+    Object.assign(paused, pausedByRegistry(registry(), plan.id));
     return { tier: plan.id, plan, paused };
   };
   const withPlatform = (orgId, name, doc) => (name === 'org' && doc ? { ...doc, platform: platformPart(orgId) } : doc);
@@ -122,7 +133,7 @@ export function createApp(db, options = {}) {
    * without being the org's admin. Everything else in the org document is
    * the admin's.
    */
-  const OWN_PROFILE_FIELDS = ['name', 'title', 'avatar', 'interests', 'bio', 'pronouns', 'phone'];
+  const OWN_PROFILE_FIELDS = ['name', 'title', 'avatar', 'interests', 'bio', 'pronouns', 'phone', 'location'];
   function ownProfileOnly(current, doc, staffId) {
     if (!staffId || !current?.staff?.[staffId] || !doc?.staff?.[staffId]) return null;
     const strip = (d) => { const c = { ...d, staff: { ...d.staff } }; delete c.platform; delete c.staff[staffId]; return JSON.stringify(c); };
@@ -356,6 +367,7 @@ export function createApp(db, options = {}) {
         staging: config.staging,
         mail: !!config.mail.apiKey,
         limits: { uploadMb: a.org ? Math.min(config.maxUploadMb, orgPlan(a.org).limits.uploadMb ?? config.maxUploadMb) : config.maxUploadMb },
+        plugins: registryView(registry(), { includeDrafts: !!a.isSuper }),
         docs,
       });
     }
@@ -741,6 +753,113 @@ export function createApp(db, options = {}) {
            ON CONFLICT (name) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at, updated_by = excluded.updated_by`).run(JSON.stringify(clean), now(), a.user.id);
         for (const o of q('SELECT id FROM orgs').all()) announce(o.id, 'org', null);
         return json(res, 200, { plans: allPlans(clean) });
+      }
+      /* Plugins: the registry, the designer's saves, releases, packages. */
+      if (path === '/api/admin/plugins' && method === 'GET') {
+        const reg = registry();
+        const orgRows = q('SELECT id, plan, paused_plugins FROM orgs').all();
+        const usage = Object.fromEntries(Object.keys(reg.plugins).map((id) => [id, orgRows.filter((o) => {
+          const paused = { ...JSON.parse(o.paused_plugins || '{}'), ...pausedByRegistry(reg, orgPlan(o).id) };
+          for (const [pid, on] of Object.entries(orgPlan(o).plugins)) if (!on) paused[pid] = true;
+          return !paused[id] && readDoc(o.id, 'org')?.plugins?.[id] !== false;
+        }).length]));
+        return json(res, 200, { plugins: reg.plugins, history: Object.fromEntries(Object.entries(reg.history).map(([id, h]) => [id, h.map((x) => ({ version: x.version, savedAt: x.savedAt }))])), usage, orgs: orgRows.length });
+      }
+      if (path === '/api/admin/plugins/install' && method === 'POST') {
+        // Install a package, or update an installed plugin to a newer version from one.
+        const body = await readJson(req, 400_000);
+        const raw = manifestFromPackage(body?.package ?? body);
+        const problems = manifestProblems(raw, { installing: true });
+        if (problems.length) throw new HttpError(400, problems.join(' '));
+        const stored = storedRegistry();
+        stored.plugins ??= {};
+        stored.history ??= {};
+        const reg = mergeRegistry(stored);
+        const current = reg.plugins[raw.id];
+        if (current && compareVersions(raw.version, current.version) <= 0 && !body.force) {
+          throw new HttpError(409, `${current.name} is already at ${current.version}. A package must carry a newer version to update it.`);
+        }
+        const next = cleanManifest({ ...raw, builtIn: !!current?.builtIn, core: !!current?.core, href: current?.href });
+        if (current) {
+          (stored.history[raw.id] ??= []).unshift({ ...current, savedAt: now() });
+          stored.history[raw.id].length = Math.min(stored.history[raw.id].length, 10);
+          next.status = body.status ?? current.status;
+        } else next.status = body.status ?? 'installed';
+        next.changelog = [{ version: next.version, date: today(), notes: current ? `Updated from ${current.version} by package.` : 'Installed from a package.', by: a.user.email }, ...(raw.changelog ?? []).filter((c) => c.version !== next.version)].slice(0, 100);
+        stored.plugins[raw.id] = next;
+        saveRegistry(stored, a.user.id);
+        return json(res, current ? 200 : 201, { plugin: next, updated: !!current, from: current?.version ?? null });
+      }
+      if (path === '/api/admin/plugins/new' && method === 'POST') {
+        const { id, name } = await readJson(req, 10_000);
+        const m = blankManifest({ id: String(id ?? '').trim(), name: String(name ?? '').trim() });
+        const problems = manifestProblems(m, { installing: true });
+        if (problems.length) throw new HttpError(400, problems.join(' '));
+        const stored = storedRegistry();
+        if (mergeRegistry(stored).plugins[m.id]) throw new HttpError(409, `There is already a plugin called ${m.id}.`);
+        (stored.plugins ??= {})[m.id] = m;
+        saveRegistry(stored, a.user.id);
+        return json(res, 201, { plugin: m });
+      }
+      if ((m = path.match(/^\/api\/admin\/plugins\/([\w-]+)(?:\/(release|rollback|reset))?$/))) {
+        const [, id, action] = m;
+        const stored = storedRegistry();
+        stored.plugins ??= {};
+        stored.history ??= {};
+        const reg = mergeRegistry(stored);
+        const current = reg.plugins[id];
+        if (!current) throw new HttpError(404, 'No such plugin');
+        if (!action && method === 'GET') return json(res, 200, { plugin: current, history: reg.history[id] ?? [] });
+        if (!action && method === 'PUT') {
+          // The designer saves the working copy: same version until it is released.
+          const body = await readJson(req, 400_000);
+          const asked = manifestProblems({ ...body, id, version: current.version });
+          if (asked.length) throw new HttpError(400, asked.join(' '));
+          const next = cleanManifest({ ...body, id, version: current.version, builtIn: current.builtIn, core: current.core, href: current.href, changelog: current.changelog });
+          if (current.core) next.status = 'installed';
+          const problems = manifestProblems(next);
+          if (problems.length) throw new HttpError(400, problems.join(' '));
+          stored.plugins[id] = next;
+          saveRegistry(stored, a.user.id);
+          return json(res, 200, { plugin: mergeRegistry(stored).plugins[id] });
+        }
+        if (action === 'release' && method === 'POST') {
+          const { part = 'minor', notes = '' } = await readJson(req, 20_000);
+          if (!['major', 'minor', 'patch'].includes(part)) throw new HttpError(400, 'Major, minor or patch?');
+          (stored.history[id] ??= []).unshift({ ...current, savedAt: now() });
+          stored.history[id].length = Math.min(stored.history[id].length, 10);
+          const version = bumpVersion(current.version, part);
+          stored.plugins[id] = { ...current, version, changelog: [{ version, date: today(), notes: String(notes).slice(0, 2000) || 'Changes from the designer.', by: a.user.email }, ...(current.changelog ?? [])].slice(0, 100) };
+          if (stored.plugins[id].status === 'draft' && part !== 'patch') stored.plugins[id].status = 'installed';
+          saveRegistry(stored, a.user.id);
+          return json(res, 200, { plugin: stored.plugins[id] });
+        }
+        if (action === 'rollback' && method === 'POST') {
+          const { version } = await readJson(req, 2000);
+          const list = stored.history[id] ?? [];
+          const at = list.findIndex((x) => x.version === version);
+          if (at < 0) throw new HttpError(404, 'That version isn’t kept');
+          const { savedAt, ...back } = list[at];
+          list.splice(at, 1);
+          list.unshift({ ...current, savedAt: now() });
+          stored.plugins[id] = { ...back, changelog: [{ version: back.version, date: today(), notes: `Rolled back from ${current.version}.`, by: a.user.email }, ...(back.changelog ?? [])].slice(0, 100) };
+          saveRegistry(stored, a.user.id);
+          return json(res, 200, { plugin: stored.plugins[id] });
+        }
+        if (action === 'reset' && method === 'POST') {
+          if (!current.builtIn) throw new HttpError(400, 'Only built-in plugins go back to Dashi’s defaults');
+          (stored.history[id] ??= []).unshift({ ...current, savedAt: now() });
+          delete stored.plugins[id];
+          saveRegistry(stored, a.user.id);
+          return json(res, 200, { plugin: defaultManifest(id) });
+        }
+        if (!action && method === 'DELETE') {
+          if (current.builtIn) throw new HttpError(400, 'Built-in plugins can be switched off, not removed');
+          delete stored.plugins[id];
+          delete stored.history[id];
+          saveRegistry(stored, a.user.id);
+          return json(res, 200, { ok: true });
+        }
       }
       if (path === '/api/admin/audit' && method === 'GET') return json(res, 200, runAudit(db, { req, cookieName: COOKIE }));
       if (path === '/api/admin/backups' && method === 'GET') return json(res, 200, listBackups());

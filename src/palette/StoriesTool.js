@@ -6,6 +6,7 @@ import { measureIndex } from '../platform/strategy.js';
 import { blankStory, STORY_CHARTS } from '../platform/dashboards.js';
 import { putMedia, deleteMedia } from '../platform/media.js';
 import { StoryView } from '../charts/StoryView.js';
+import { uiAlert, uiConfirm } from '../ui/dialog.js';
 
 /**
  * Data stories mini-tool: a story told in steps, each with a few words, a
@@ -57,7 +58,7 @@ export function StoriesTool(ctx) {
           h('input', { type: 'file', accept: 'audio/*', class: 'sr-only', onchange: async (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            try { setStep(st.id, { audio: { mediaId: await putMedia(file), name: file.name.replace(/\.\w+$/, '') } }); } catch (err) { alert(err.message); }
+            try { setStep(st.id, { audio: { mediaId: await putMedia(file), name: file.name.replace(/\.\w+$/, '') } }); } catch (err) { uiAlert(err.message); }
           } }))));
 
   return h('div', {},
@@ -66,7 +67,7 @@ export function StoriesTool(ctx) {
       h('select', { class: 'select select-sm', name: 'story-pick', 'aria-label': 'Story', onchange: (e) => { ctx.storyId = e.target.value; ctx.render(); } },
         options(stories.map((x) => ({ id: x.id, label: `${x.title}${x.visibility === 'public' ? '' : ' (private)'}` })), s.id)),
       h('button', { class: 'btn btn-sm', onclick: add }, icon('plus', 14), 'New story'),
-      h('button', { class: 'btn btn-sm btn-ghost btn-error', onclick: () => { if (confirm(`Delete “${s.title}”?`)) { store.apply(col.remove('stories', s.id)); ctx.storyId = null; ctx.render(); } } }, 'Delete')),
+      h('button', { class: 'btn btn-sm btn-ghost btn-error', onclick: async () => { if (await uiConfirm(`Delete “${s.title}”?`)) { store.apply(col.remove('stories', s.id)); ctx.storyId = null; ctx.render(); } } }, 'Delete')),
     h('div', { class: 'maker-layout story-maker' },
       h('div', { class: 'maker-controls' },
         field('Title', h('input', { class: 'input input-sm', name: 'story-title', value: s.title, onchange: (e) => save({ title: e.target.value.trim() || 'Untitled story' }) })),

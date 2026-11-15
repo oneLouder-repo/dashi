@@ -7,6 +7,7 @@ import { DashboardView } from '../charts/DashboardView.js';
 import { calcMeasure } from '../platform/data.js';
 import { SERIES_MAX } from '../charts/widgets.js';
 import { applyTheme } from '../platform/themes.js';
+import { uiConfirm } from '../ui/dialog.js';
 
 /** Dashboards mini-tool: a gallery of dashboards, or the designer for one (#<id>). */
 export function DashboardsTool(ctx) {
@@ -128,8 +129,8 @@ function Editor(ctx, dash) {
         ? h('button', { class: 'btn btn-sm', onclick: () => update({ visibility: 'private' }) }, 'Make private')
         : h('button', { class: 'btn btn-sm btn-primary', disabled: !site, title: site ? '' : 'Choose a site first', onclick: () => update({ visibility: 'public' }) }, 'Publish'),
       site && h('a', { href: siteUrl(dash), target: '_blank', class: 'btn btn-sm btn-ghost' }, 'View ↗'),
-      h('button', { class: 'btn btn-sm btn-ghost btn-square', title: 'Delete this dashboard', 'aria-label': 'Delete this dashboard', onclick: () => {
-        if (!confirm(`Delete “${dash.title}”? You can undo.`)) return;
+      h('button', { class: 'btn btn-sm btn-ghost btn-square', title: 'Delete this dashboard', 'aria-label': 'Delete this dashboard', onclick: async () => {
+        if (!await uiConfirm(`Delete “${dash.title}”? You can undo.`)) return;
         ctx.go('dashboards');
         dashboards.apply(col.remove('dashboards', dash.id));
       } }, icon('trash', 16))),

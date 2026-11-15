@@ -2,6 +2,7 @@ import { h, options } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { measureIndex } from '../platform/strategy.js';
 import { ofPlan } from '../platform/studio.js';
+import { uiConfirm } from '../ui/dialog.js';
 
 /**
  * Results: the beginnings of the plan's monitoring and evaluation
@@ -52,7 +53,7 @@ function ResultCard(ctx, r, measures, all) {
       icon('chart', 14), h('span', {}, 'Result'), h('span', { class: 'spacer' }),
       linked && h('span', { class: 'badge badge-xs badge-success badge-soft', title: `Uses ${linked.name} in Strategy & Work` }, 'live data'),
       h('button', { class: 'btn btn-ghost btn-xs btn-square', title: 'Remove', 'aria-label': 'Remove result', onpointerdown: (e) => e.stopPropagation(),
-        onclick: () => { if (confirm('Remove this result?')) ctx.remove('results', r.id); } }, '×')),
+        onclick: async () => { if (await uiConfirm('Remove this result?')) ctx.remove('results', r.id); } }, '×')),
     h('div', { class: 'result-body' },
       h('textarea', { class: 'result-title', name: `r-${r.id}-title`, rows: 2, 'aria-label': 'Result', onchange: (e) => set({ title: e.target.value }) }, r.title),
       h('div', { class: 'rf-grid' },

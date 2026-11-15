@@ -12,6 +12,7 @@ import { crosswalk } from '../lenses/crosswalk.js';
 import { lensAlignment, dataModelDiagram } from './diagrams.js';
 import { SupportPage } from './support.js';
 import { openFeedback } from '../ui/Support.js';
+import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
 
 /**
  * Help: a library of sections, each with pages, written in light markdown.
@@ -96,20 +97,20 @@ function EditBar() {
     h('span', { class: 'muted small' }, state.dirty ? 'Unsaved changes' : custom ? 'Saved' : 'Built-in library'),
     h('button', { class: 'btn btn-sm btn-primary', disabled: !state.dirty || state.saving, onclick: async () => {
       state.saving = true;
-      try { await saveHelp(doc); custom = true; state.dirty = false; } catch (err) { alert(`Not saved: ${err.message}`); }
+      try { await saveHelp(doc); custom = true; state.dirty = false; } catch (err) { uiAlert(`Not saved: ${err.message}`); }
       state.saving = false;
       render();
     } }, state.saving ? 'Saving…' : 'Save changes'),
     h('button', { class: 'btn btn-sm', onclick: async () => {
-      if (state.dirty && !confirm('Throw away your unsaved changes?')) return;
+      if (state.dirty && !await uiConfirm('Throw away your unsaved changes?')) return;
       ({ doc, custom } = await loadHelp());
       state.editing = false;
       state.dirty = false;
       render();
     } }, state.dirty ? 'Discard' : 'Done'),
     custom && h('button', { class: 'btn btn-sm btn-ghost', title: 'Go back to the help that comes with Dashi', onclick: async () => {
-      if (!confirm('Replace the whole help library with the one that comes with Dashi? Your edits are lost.')) return;
-      try { doc = await resetHelp(); custom = false; state.dirty = false; go(''); } catch (err) { alert(err.message); }
+      if (!await uiConfirm('Replace the whole help library with the one that comes with Dashi? Your edits are lost.')) return;
+      try { doc = await resetHelp(); custom = false; state.dirty = false; go(''); } catch (err) { uiAlert(err.message); }
     } }, 'Reset to built-in'),
   ];
 }
@@ -130,16 +131,16 @@ function Nav(current, currentPage) {
     h('ul', { class: 'help-nav' }, doc.sections.map((s, i) => h('li', {},
       h('div', { class: 'help-nav-row' },
         h('a', { href: `#${s.id}`, class: `help-nav-section${s === current && !currentPage ? ' on' : ''}` }, icon(s.icon || 'help', 16), s.title),
-        tools(doc.sections, i, s.title, () => {
-          if (!confirm(`Delete the section “${s.title}” and its ${s.pages.length} pages?`)) return;
+        tools(doc.sections, i, s.title, async () => {
+          if (!await uiConfirm(`Delete the section “${s.title}” and its ${s.pages.length} pages?`)) return;
           doc.sections.splice(i, 1);
           state.dirty = true;
           go('');
         })),
       (s === current || state.editing) && h('ul', {}, s.pages.map((p, j) => h('li', { class: 'help-nav-row' },
         h('a', { href: `#${s.id}/${p.id}`, class: p === currentPage ? 'on' : '' }, p.title),
-        tools(s.pages, j, p.title, () => {
-          if (!confirm(`Delete the page “${p.title}”?`)) return;
+        tools(s.pages, j, p.title, async () => {
+          if (!await uiConfirm(`Delete the page “${p.title}”?`)) return;
           s.pages.splice(j, 1);
           state.dirty = true;
           go(s.id);
@@ -196,8 +197,8 @@ function PageView(s, p) {
 
 /* Editing (platform admin). */
 
-function addSection() {
-  const title = prompt('Name of the new section');
+async function addSection() {
+  const title = await uiPrompt('Name of the new section');
   if (!title?.trim()) return;
   const id = helpId(title, doc.sections.map((s) => s.id));
   doc.sections.push({ id, title: title.trim(), icon: 'help', blurb: '', pages: [] });
@@ -205,8 +206,8 @@ function addSection() {
   go(id);
 }
 
-function addPage(s) {
-  const title = prompt(`Title of the new page in “${s.title}”`);
+async function addPage(s) {
+  const title = await uiPrompt(`Title of the new page in “${s.title}”`);
   if (!title?.trim()) return;
   const id = helpId(title, s.pages.map((p) => p.id));
   s.pages.push({ id, title: title.trim(), body: '' });

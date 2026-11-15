@@ -11,6 +11,7 @@ import { PlanDocument } from './render.js';
 import { ImagePicker } from './ImagePicker.js';
 import { printPlan } from './print.js';
 import { short } from '../strategy/dates.js';
+import { uiConfirm } from '../ui/dialog.js';
 
 /**
  * The Plan designer: a strategic plan document made from the org's own
@@ -126,7 +127,7 @@ function drawPanel(pd, snap) {
         h('input', { type: 'checkbox', class: 'checkbox checkbox-xs', checked: !pd.hidden?.[s.id], onchange: (e) => { const hidden = { ...pd.hidden }; if (e.target.checked) delete hidden[s.id]; else hidden[s.id] = true; touch(pd, { hidden }); } }),
         s.label))),
     changedWords > 0 && h('div', { class: 'pd-note' }, `${changedWords} piece${changedWords === 1 ? '' : 's'} of text changed from the strategy.`,
-      h('button', { class: 'btn btn-xs btn-ghost', onclick: () => { if (confirm('Go back to the words in the strategy? What you typed here is dropped.')) touch(pd, { text: {} }); } }, 'Reset the words')),
+      h('button', { class: 'btn btn-xs btn-ghost', onclick: async () => { if (await uiConfirm('Go back to the words in the strategy? What you typed here is dropped.')) touch(pd, { text: {} }); } }, 'Reset the words')),
     h('h2', {}, 'Share'),
     h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Web view on'),
       h('select', { class: 'select select-sm w-full', onchange: (e) => touch(pd, { siteId: e.target.value || null }) },
@@ -143,7 +144,7 @@ function drawPanel(pd, snap) {
         h('p', { class: 'pd-status' }, 'Draft: only staff can see it'),
         h('button', { class: 'btn btn-sm btn-primary', disabled: !pd.siteId, title: pd.siteId ? '' : 'Choose a site first', onclick: () => publish(pd, snap) }, 'Publish the web view')),
     h('p', { class: 'muted small' }, 'Visitors see the plan as it was when you last published or updated it. Link to it from emails and pages, or insert it into a Library doc.'),
-    h('button', { class: 'btn btn-xs btn-ghost text-error', onclick: () => { if (confirm('Delete this plan document?')) { delete doc.docs[pd.id]; saveDoc('plandocs', doc); location.hash = ''; render(); } } }, 'Delete this document')].filter(Boolean));
+    h('button', { class: 'btn btn-xs btn-ghost text-error', onclick: async () => { if (await uiConfirm('Delete this plan document?')) { delete doc.docs[pd.id]; saveDoc('plandocs', doc); location.hash = ''; render(); } } }, 'Delete this document')].filter(Boolean));
 }
 
 function publish(pd, snap) {

@@ -105,6 +105,11 @@ button:disabled { opacity: 0.45; cursor: default; }
 .tool.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .tool-icon { display: flex; }
 .icon { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: square; stroke-linejoin: miter; }
+/* Phosphor icons are filled shapes; Dashi's section icons (Grid) are flat-ended lines with one accent piece. */
+.icon.icon-ph, .card .icon.icon-ph { fill: currentColor; stroke: none; }
+.icon.icon-grid, .card .icon.icon-grid { stroke-width: 1.75; stroke-linecap: butt; stroke-linejoin: miter; --accent-icon: var(--tone, var(--accent, currentColor)); }
+.icon-grid .accent-stroke { stroke: var(--accent-icon); }
+.icon-grid .accent-fill { fill: var(--accent-icon); stroke: none; }
 .icon-text { display: inline-flex; align-items: center; gap: 6px; }
 .icon-button { display: inline-flex; align-items: center; }
 .tool-label { font-size: 11px; }

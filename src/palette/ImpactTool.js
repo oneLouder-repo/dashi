@@ -5,6 +5,7 @@ import { uid } from '../core/ops.js';
 import { measureIndex } from '../platform/strategy.js';
 import { blankCalculator, calculatorRates } from '../platform/dashboards.js';
 import { CalculatorView } from '../charts/CalculatorView.js';
+import { uiConfirm } from '../ui/dialog.js';
 
 /**
  * Impact calculator mini-tool: "a gift of $50 means 3 more youth in a
@@ -41,7 +42,7 @@ export function ImpactTool(ctx) {
       h('select', { class: 'select select-sm', name: 'calc-pick', 'aria-label': 'Calculator', onchange: (e) => { ctx.calcId = e.target.value; ctx.render(); } },
         options(calcs.map((x) => ({ id: x.id, label: `${x.title}${x.visibility === 'public' ? '' : ' (private)'}` })), c.id)),
       h('button', { class: 'btn btn-sm', onclick: add }, icon('plus', 14), 'New calculator'),
-      h('button', { class: 'btn btn-sm btn-ghost btn-error', onclick: () => { if (confirm(`Delete “${c.title}”?`)) { store.apply(col.remove('calculators', c.id)); ctx.calcId = null; ctx.render(); } } }, 'Delete')),
+      h('button', { class: 'btn btn-sm btn-ghost btn-error', onclick: async () => { if (await uiConfirm(`Delete “${c.title}”?`)) { store.apply(col.remove('calculators', c.id)); ctx.calcId = null; ctx.render(); } } }, 'Delete')),
     h('div', { class: 'maker-layout' },
       h('div', { class: 'maker-controls' },
         field('Title', h('input', { class: 'input input-sm', name: 'calc-title', value: c.title, onchange: (e) => save({ title: e.target.value.trim() || 'What your gift does' }) })),

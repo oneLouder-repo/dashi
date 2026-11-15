@@ -282,3 +282,4 @@ body.mapper-page > main { overflow: hidden; }
 .ticket-context pre { white-space: pre-wrap; word-break: break-word; font-size: 12px; background: var(--color-base-200); padding: 8px; border-radius: 6px; }
 .ticket-reply { display: grid; gap: 8px; }
 .invite-cell { display: grid; gap: 2px; justify-items: start; min-width: 120px; }
+
