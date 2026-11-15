@@ -13,8 +13,20 @@
  * }
  *   Staff  { name, title, roleId, teamIds: [], email, avatar, interests: [strategy node ids] }
  *   Team   { name, color }
- *   Site   { name, url, visibility: 'public' | 'unlisted' | 'private', shows }
+ *   Site   { name, url, visibility: 'public' | 'unlisted' | 'private', shows,
+ *            look: { hero: 'band' | 'soft' | 'plain', type: 'sans' | 'serif' } }   how its pages are dressed (Public Portal)
+ *   A private site is a members-only portal (the board, funders): staff and viewers who sign in see it.
  */
+export const SITE_HEROES = [
+  { id: 'band', label: 'Colour band', blurb: 'A band in your main colour behind the title' },
+  { id: 'soft', label: 'Soft wash', blurb: 'A light tint that fades into the page' },
+  { id: 'plain', label: 'Plain', blurb: 'Just the title on the page' },
+];
+export const SITE_TYPES = [
+  { id: 'sans', label: 'Clean sans', blurb: 'The same type as the rest of Dashi' },
+  { id: 'serif', label: 'Warm serif', blurb: 'Serif headings, for a bookish feel' },
+];
+export const siteLook = (site) => ({ hero: 'band', type: 'sans', ...(site?.look ?? {}) });
 export const ROLES = [
   { id: 'admin', label: 'Admin', can: 'Manage the org, people, roles and what is public' },
   { id: 'lead', label: 'Lead', can: 'Edit plans and dashboards for their teams' },
@@ -51,6 +63,9 @@ const staffRecords = (rows, domain) =>
     email: `${name.split(' ')[0].toLowerCase()}@${domain}`,
   }]));
 
+/** A microsite still in design: unlisted, with draft pages, so the Public Portal shows something in progress. */
+const YOUTH_SITE = { id: 'site-youth', name: 'Youth voices', url: 'https://example.org/youth', visibility: 'unlisted', shows: 'Stories and data chosen by the Youth data advisory circle', look: { hero: 'soft', type: 'sans' } };
+
 export function seedOrg() {
   return migrateOrg({
     id: 'org-example',
@@ -61,10 +76,12 @@ export function seedOrg() {
     theme: { palette: 'corporate', shape: 'rounded' },
     staff: staffRecords(STAFF, 'example.org'),
     teams: Object.fromEntries(TEAMS.map(([id, name, color]) => [id, { id, name, color }])),
+    youthSite: true,
     sites: {
-      'site-main': { id: 'site-main', name: 'Public website', url: 'https://example.org', visibility: 'public', shows: 'Mission, programs, annual impact dashboard' },
+      'site-main': { id: 'site-main', name: 'Public website', url: 'https://example.org', visibility: 'public', shows: 'Mission, programs, annual impact dashboard', look: { hero: 'band', type: 'serif' } },
       'site-impact': { id: 'site-impact', name: 'Impact dashboard', url: 'https://example.org/impact', visibility: 'public', shows: 'Reach, participation and equity KPIs' },
-      'site-board': { id: 'site-board', name: 'Board portal', url: 'https://example.org/board', visibility: 'private', shows: 'Strategic plan progress, finances' },
+      'site-youth': YOUTH_SITE,
+      'site-board': { id: 'site-board', name: 'Board portal', url: 'https://example.org/board', visibility: 'private', shows: 'Strategic plan progress, board documents, finances', look: { hero: 'soft', type: 'serif' } },
     },
   });
 }
@@ -115,6 +132,14 @@ export function migrateOrg(org) {
   org.staff ??= {};
   org.teams ??= {};
   org.sites ??= {};
+  if (org.id === 'org-example') {
+    if (org.sites['site-main'] && !org.sites['site-main'].look) org.sites['site-main'].look = { hero: 'band', type: 'serif' };
+    if (org.sites['site-board'] && !org.sites['site-board'].look) org.sites['site-board'].look = { hero: 'soft', type: 'serif' };
+    if (!org.youthSite) { org.sites['site-youth'] ??= { ...YOUTH_SITE }; org.youthSite = true; }
+  }
+  for (const s of Object.values(org.sites)) s.look = siteLook(s);
+  // The STEM example's board portal grew documents and a scorecard in alpha.6.
+  if (org.id === 'org-example' && org.sites['site-board'] && org.sites['site-board'].shows === 'Strategic plan progress, finances') org.sites['site-board'].shows = 'Strategic plan progress, board documents, finances';
   for (const s of Object.values(org.staff)) {
     s.teamIds ??= [];
     s.interests ??= [];

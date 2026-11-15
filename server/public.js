@@ -4,9 +4,9 @@
  * (site.html) gets these filtered documents in place of the real ones.
  *
  *   org         profile, contact, logo, theme, plugins, sites that aren't
- *               private, and the names and pictures of people the public
+ *               private (private portals by name only), and the names and pictures of people the public
  *               content mentions (hosts, authors)
- *   dashboards  public ones on a public site, and public impact calculators and data stories
+ *   dashboards  public ones on a public site, and public impact calculators, data stories and feedback forms
  *   strategy    just the items those dashboards chart (measures, and the
  *               tasks under a progress widget, with titles and status only)
  *   data        just the series those dashboards chart
@@ -29,6 +29,8 @@ export function publicDocs(docs, today = new Date().toISOString().slice(0, 10)) 
   if (!org) return {};
   const sites = Object.fromEntries(Object.entries(org.sites ?? {}).filter(([, s]) => s.visibility !== 'private'));
   const onSite = (id) => !!sites[id];
+  // Members-only portals: visitors learn only that one is there (its name), so the page can offer a sign-in.
+  const portals = Object.fromEntries(Object.entries(org.sites ?? {}).filter(([, s]) => s.visibility === 'private').map(([id, s]) => [id, { id, name: s.name, visibility: 'private', look: s.look }]));
   const out = {};
   const people = new Set();
 
@@ -41,7 +43,8 @@ export function publicDocs(docs, today = new Date().toISOString().slice(0, 10)) 
     .map(([id, d]) => [id, pick(d, keys)]));
   const calculators = shown('calculators', ['id', 'title', 'intro', 'budget', 'outcomes', 'amounts', 'visibility', 'siteId']);
   const stories = shown('stories', ['id', 'title', 'summary', 'visibility', 'siteId', 'steps']);
-  out.dashboards = { id: 'dashboards', dashboards, calculators, stories };
+  const forms = shown('forms', ['id', 'title', 'intro', 'thanks', 'visibility', 'siteId', 'place', 'questions']);
+  out.dashboards = { id: 'dashboards', dashboards, calculators, stories, forms, reports: {} };
   const measureIds = new Set();
   const nodeIds = new Set();
   for (const d of Object.values(dashboards)) for (const w of d.widgets ?? []) {
@@ -61,8 +64,9 @@ export function publicDocs(docs, today = new Date().toISOString().slice(0, 10)) 
       const n = nodes[id];
       return [id, {
         ...pick(n, ['id', 'type', 'parentId', 'order', 'title', 'status', 'start', 'end']),
+        milestones: (n.milestones ?? []).map((m) => pick(m, ['id', 'date', 'title'])),
         measures: (n.measures ?? []).filter((m) => measureIds.has(m.id)),
-        events: (n.events ?? []).filter((e) => e.kind === 'status').map((e) => pick(e, ['id', 'date', 'kind', 'text'])),
+        events: (n.events ?? []).filter((e) => e.kind === 'status' || e.kind === 'milestone').map((e) => pick(e, ['id', 'date', 'kind', 'text'])),
         notes: '',
       }];
     })),
@@ -105,7 +109,7 @@ export function publicDocs(docs, today = new Date().toISOString().slice(0, 10)) 
 
   out.org = {
     ...pick(org, ['id', 'name', 'description', 'mission', 'contact', 'logo', 'theme', 'plugins', 'platform']),
-    sites,
+    sites: { ...sites, ...portals },
     teams: {},
     staff: Object.fromEntries([...people].filter((id) => org.staff?.[id]).map((id) => [id, pick(org.staff[id], ['id', 'name', 'title', 'avatar'])])),
   };

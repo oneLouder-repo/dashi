@@ -2,6 +2,47 @@
 
 Dashi uses version numbers like `0.1.0-alpha.1`. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
+## 0.1.0-alpha.6 (Public Portal, a board portal, a slicker roadmap, feedback forms and funder reports)
+
+### Public Portal (was Web views)
+
+- **One entry point** for everything the org shows the world: sites, dashboards, the strategic plan, the podcast station, data stories, calculators, pages, news, feedback forms and Media smart. Members-only sites (the board portal) sit in their own section.
+- **What's live, at a glance**: a clickable diagram of every site and what is on it. Solid green pills are live, dashed amber pills are in design, and each pill opens where that piece is made.
+- **A look per site**: pick a hero (colour band, soft wash or plain) and type (sans or serif) for each site; the thumbnail shows it.
+- Older copies that still call the plugin "Web views" or "Sites & Pages" pick up the new name; a name the org chose itself is kept.
+
+### Warmer public sites
+
+- A sticky, softly blurred header with pill navigation, a hero with the mission and clear buttons, a strip of headline numbers lifted over it, tinted full-width bands, and dashboards in cards. Serif headings are an option. The footer carries the org and its other sites.
+- Markdown tables now render on pages and documents.
+- The STEM example gains a draft **Youth voices** site (unlisted) with two draft pages.
+
+### Board portal
+
+- The STEM example's **Board portal** is a members-only site: staff and board members who sign in see it; anyone else gets a friendly sign-in panel and a link to the public site.
+- **Home**: a welcome, quick links (latest minutes, latest finance summary, the handbook), the **Board scorecard** dashboard, and cards for governance, minutes and finance.
+- **Governance guides, minutes archive and finance summaries** come from the Library: any document tagged `board` plus `governance`, `minutes` or `finance` shows up. Minutes are grouped by year and searchable; each document has newer and older links, Print or save as PDF, and Edit in the Library.
+- The example library now holds by-laws, a board handbook, the conflict of interest policy, committee terms of reference, the reserves policy, two finance summaries and six sets of minutes. Older copies get them once.
+
+### Roadmap
+
+- **Slicker road**: a soft sky and ground, a date ruler along the top, a subtle road with the travelled stretch darker, glowing lights, milestone pennants below the road, white goal signs and a chequered finish line.
+- **Today** is a pulsing beacon with a dashed line and a dated chip, in place of the car.
+- **Scrolling is obvious**: fading edges with round arrow buttons, a minimap strip below the road with a draggable window, the mouse wheel and arrow, Page, Home and End keys all slide the road, and a hint line says so.
+
+### Data Workbench
+
+- **Strategy in dashboards**: four new widgets, *The road so far* (a compact roadmap), *Goal lights* (a light per workplan, goal by goal), *Next milestones* and *Work progress*, under "From your strategy" in the designer. Each has a table view.
+- **Board scorecard**: a private example dashboard on the board portal built from them, plus four headline measures.
+- **Feedback forms** (new): a few short questions (1 to 5 rating, yes or no, pick one, or in their words) under every dashboard on a site or at the bottom of its front page. Answers are anonymous and come back to the Workbench, summed up question by question. Visitors can answer but never read the answers. A members-only form can sit on the board portal.
+- **Funder reports** (new): pick a funder, a period, the objectives and goals they fund, the measures and the data stories, and Dashi writes a first draft: in brief, a table of the numbers, the work and its milestones, stories, what is next, and thanks. Edit the Markdown beside a live preview, then print it as a PDF, save it to the Library, or mark it as sent.
+- The Workbench overview counts feedback answers and reports, and shows your plan's road.
+
+### Under the hood
+
+- `POST /api/feedback` stores answers with a rate limit and a honeypot field; a form only takes answers if it is public on a public site, or the sender is a member.
+- Visitors never receive the library, the feedback answers, funder reports or anything on a members-only site; a private site goes out only as its name and look.
+
 ## 0.1.0-alpha.5 (strategy and work, Planning Studio, plan designer, five plugins)
 
 ### Strategy & Work

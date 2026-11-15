@@ -15,7 +15,7 @@
  *   [[calculator:<id>]]  an impact calculator (Workbench)
  *   [[story:<id>]]       a data story (Workbench)
  */
-import { loadOrSeed } from './storage.js';
+import { loadOrSeed, saveDoc } from './storage.js';
 
 export const PAGE_KINDS = [
   { id: 'page', label: 'Page', blurb: 'An information page in the site menu' },
@@ -42,6 +42,7 @@ const page = (id, kind, siteId, title, publishedAt, summary, body, more = {}) =>
 export function seedPages() {
   return migratePages({
     id: 'pages',
+    youthPages: true,
     pages: Object.fromEntries([
       page('pg-about', 'page', 'site-main', 'About us', '2025-01-15', 'Who we are and how the network works.',
         `We are a national network of university and college **STEM outreach programs**, reaching young people in every province and territory.
@@ -79,10 +80,34 @@ The share of participants from **equity-deserving groups** is up on last year. T
 [[episode:ep-sv-3]]
 
 New episodes every few weeks. Find every show on [our podcast station](site.html?site=site-main&view=station).`, { authorId: 's-comms' }),
+      ...youthPages(),
       page('pg-news-draft', 'article', 'site-main', 'Learning with the Land: what we heard', '2026-11-01',
         'Notes from the first co-design session.', 'Draft notes, not ready to share.', { status: 'draft', authorId: 's-indig' }),
     ].map((p) => [p.id, p])),
   });
+}
+
+/** The youth microsite's pages: drafts, written with the advisory circle. */
+function youthPages() {
+  return [
+    page('pg-youth-home', 'page', 'site-youth', 'Why we count', '2026-12-01', 'Young people on what the numbers should say.',
+      `We are the Youth data advisory circle. We are choosing which numbers the network shows, and how.
+
+## What we are asking
+
+- Who gets counted, and who doesn't?
+- What would make you trust a chart?
+
+_Draft: not live yet._`, { status: 'draft', authorId: 's-eval', order: 0 }),
+    page('pg-youth-how', 'page', 'site-youth', 'How to take part', '2026-12-01', 'Join a session, or send us a question.', 'Draft.', { status: 'draft', authorId: 's-indig', order: 1 }),
+  ];
+}
+/** Older copies of the STEM example get the youth microsite's draft pages, once. */
+export function addYouthPages(doc, orgId) {
+  if (orgId !== 'org-example' || doc.youthPages) return false;
+  for (const p of youthPages()) doc.pages[p.id] ??= p;
+  doc.youthPages = true;
+  return true;
 }
 
 export function seedRiverbendPages() {
@@ -116,7 +141,11 @@ export function migratePages(doc) {
 
 const SEEDS = { 'org-example': seedPages, 'org-riverbend': seedRiverbendPages };
 /** The open org's pages (see docs.js; the org id picks the example seed). */
-export const loadPages = (orgId) => migratePages(loadOrSeed('pages', SEEDS[orgId] ?? blankPages));
+export function loadPages(orgId) {
+  const doc = migratePages(loadOrSeed('pages', SEEDS[orgId] ?? blankPages));
+  if (addYouthPages(doc, orgId)) saveDoc('pages', doc, undefined, { quiet: true });
+  return doc;
+}
 
 export const isLive = (p, today) => p.status === 'published' && p.publishedAt <= today;
 
@@ -139,20 +168,34 @@ export function siteContent(doc, siteId, today) {
  *
  * Blocks:  { t: 'h', level, c } { t: 'p', c } { t: 'ul' | 'ol', items: [c] }
  *          { t: 'quote', c } { t: 'hr' } { t: 'embed', kind, id }
+ *          { t: 'table', head: [c], rows: [[c]] }  (| a | b | lines; a |---| line ends the head)
  * Inline:  { t: 'text', v } { t: 'b' | 'i', c } { t: 'code', v } { t: 'a', href, c }
  */
 export function parseMarkdown(src = '', { embeds = EMBEDS } = {}) {
   const blocks = [];
   let para = [];
   let list = null;
+  let table = null;
+  const flushTable = () => { if (table) blocks.push(table); table = null; };
   const flushPara = () => { if (para.length) blocks.push({ t: 'p', c: parseInline(para.join(' ')) }); para = []; };
   const flushList = () => { if (list) blocks.push(list); list = null; };
-  const flush = () => { flushPara(); flushList(); };
+  const flush = () => { flushPara(); flushList(); flushTable(); };
 
   for (const raw of src.replace(/\r\n?/g, '\n').split('\n')) {
     const line = raw.trim();
     let m;
     if (!line) { flush(); continue; }
+    if (/^\|.*\|$/.test(line)) {
+      flushPara(); flushList();
+      const cells = line.slice(1, -1).split('|').map((c) => c.trim());
+      if (cells.every((c) => /^:?-{2,}:?$/.test(c))) { if (table && !table.rows.length) table.head = table.pending ?? table.head; continue; }
+      table ??= { t: 'table', head: null, rows: [] };
+      if (!table.head && !table.rows.length && !table.pending) table.pending = cells.map(parseInline);
+      else if (table.pending && !table.head) { table.rows.push(table.pending); delete table.pending; table.rows.push(cells.map(parseInline)); }
+      else table.rows.push(cells.map(parseInline));
+      continue;
+    }
+    flushTable();
     if ((m = line.match(/^\[\[(\w+):([\w-]+)\]\]$/)) && embeds.includes(m[1])) { flush(); blocks.push({ t: 'embed', kind: m[1], id: m[2] }); continue; }
     if ((m = line.match(/^(#{1,3})\s+(.*)$/))) { flush(); blocks.push({ t: 'h', level: m[1].length + 1, c: parseInline(m[2]) }); continue; }
     if (/^(-{3,}|\*{3,})$/.test(line)) { flush(); blocks.push({ t: 'hr' }); continue; }
@@ -168,6 +211,7 @@ export function parseMarkdown(src = '', { embeds = EMBEDS } = {}) {
     para.push(line);
   }
   flush();
+  for (const b of blocks) if (b.t === 'table' && b.pending) { if (b.head) delete b.pending; else { b.rows.unshift(b.pending); delete b.pending; } }
   return blocks;
 }
 

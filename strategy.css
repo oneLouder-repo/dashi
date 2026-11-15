@@ -225,59 +225,7 @@ a.lane-card:hover { box-shadow: 0 6px 16px rgb(0 0 0 / 0.08); }
 .task-siblings .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .task-nav { display: flex; justify-content: space-between; }
 
-/* ---------------------------------------------------------------- the road */
-.road { display: block; user-select: none; }
-.road-sky { fill: color-mix(in oklab, #9ec5e8 22%, var(--panel)); }
-.road-hill.far { fill: color-mix(in oklab, #7fb08a 26%, var(--panel)); }
-.road-hill.near { fill: color-mix(in oklab, #5f9a6a 34%, var(--panel)); }
-.road-year-line { stroke: var(--ink); stroke-opacity: 0.12; stroke-dasharray: 2 4; }
-.road-year { font-size: 12px; font-weight: 700; fill: var(--muted); }
-.road.compact .road-year { font-size: 10px; }
-.road-edge { fill: none; stroke: #e9e4d6; stroke-width: 34; stroke-linecap: round; }
-.road-tar { fill: none; stroke: #5d6270; stroke-width: 28; stroke-linecap: round; }
-.road-done { fill: none; stroke: #3d4250; stroke-width: 28; stroke-linecap: round; }
-.road-line { fill: none; stroke: #f5d36a; stroke-width: 2.2; stroke-dasharray: 12 10; }
-.road.compact .road-edge { stroke-width: 18; }
-.road.compact .road-tar, .road.compact .road-done { stroke-width: 14; }
-.road.compact .road-line { stroke-width: 1.4; stroke-dasharray: 7 6; }
-.road-pole { stroke: #444a57; stroke-width: 2.2; }
-.road-lamp-box { fill: #22262f; }
-.road-post circle.lit { filter: drop-shadow(0 0 4px currentColor); }
-.road-post:hover .road-lamp-box { fill: #000; }
-.road-label { font-size: 11.5px; font-weight: 650; fill: #1d2230; }
-.road-label-bg { fill: #ffffff; fill-opacity: 0.92; stroke: #1d2230; stroke-opacity: 0.12; }
-.road-post:hover .road-label-bg { stroke-opacity: 0.5; }
-.road-sign-date { font-size: 10px; font-weight: 600; fill: #fff; fill-opacity: 0.85; }
-.road-cat-eye { stroke: #fff; stroke-width: 1; }
-.road-flag-pole { stroke: #444a57; stroke-width: 1.6; }
-.road-flag-cloth { fill: #7a4cc4; }
-.road-sign-board { fill: #1f7a52; }
-.road-sign-post { stroke: #7c8290; stroke-width: 3; }
-.road-sign-text { font-size: 11.5px; font-weight: 700; fill: #fff; }
-.road-sign:hover .road-sign-board { fill: #18633f; }
-.road-finish-pole { stroke: #444a57; stroke-width: 2; }
-.road-finish-text { font-size: 12px; font-weight: 700; fill: var(--ink); paint-order: stroke; stroke: color-mix(in oklab, #fff 80%, transparent); stroke-width: 3px; }
-.road-car-body { fill: #d0621b; stroke: #fff; stroke-width: 1.4; }
-.road-car-wheel { fill: #1d2230; }
-.road-today { font-size: 12px; font-weight: 800; fill: #d0621b; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
-.roadmap-road { display: grid; gap: 10px; }
-.road-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
-.road-plan { display: inline-flex; align-items: center; gap: 6px; }
-.road-plan .select { max-width: 320px; }
-.road-tally { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; }
-.road-tally .tg { color: #1f9d55; } .road-tally .ta { color: #b07d00; } .road-tally .tr { color: #c03c3c; }
-.road-scroll { overflow-x: auto; overflow-y: hidden; border-radius: 14px; border: 1px solid var(--line-soft, var(--line)); cursor: grab; scrollbar-width: thin; }
-.road-scroll.dragging { cursor: grabbing; }
-.road-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--muted); }
-.road-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.lg-light { --c: #999; display: inline-block; width: 11px; height: 11px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 2px #22262f; }
-.lg-eye { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #1f9d55; box-shadow: 0 0 0 1px #fff, 0 0 0 2px #5d6270; }
-.lg-flag { display: inline-block; width: 0; height: 0; border-left: 10px solid #7a4cc4; border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
-.lg-sign { display: inline-block; width: 18px; height: 11px; border-radius: 2px; background: #1f7a52; }
-.lg-finish { display: inline-block; width: 12px; height: 12px; background: repeating-linear-gradient(0deg, #1d2230 0 3px, #fff 3px 6px); border: 1px solid #1d2230; }
-.road-list ol { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; }
-.road-list li { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
-.road-list summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+/* The road's styles live in app.css, so dashboards on public sites can draw it too. */
 
 @media (max-width: 1100px) {
   .sw-now { grid-template-columns: 1fr; }
@@ -285,7 +233,6 @@ a.lane-card:hover { box-shadow: 0 6px 16px rgb(0 0 0 / 0.08); }
   .task-side { position: static; }
   .sw-plan { grid-template-columns: 1fr; gap: 6px; }
 }
-.road-plan .select { padding-right: 2.2rem; max-width: 380px; }
 .strategy-body.outline-hidden .detail-pane .sw-crumbs { padding-left: 74px; }
 
 /* ---------------------------------------------------------------- Planning Studio front page (shares the look above) */

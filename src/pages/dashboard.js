@@ -123,7 +123,7 @@ function Reading() {
 function Sites() {
   const sites = Object.values(org.sites ?? {});
   if (!sites.length) return null;
-  return Card('Public sites', 'globe', { more: { href: 'pages.html', label: 'Web views →' }, toneId: 'pages' },
+  return Card('Public sites', 'globe', { more: { href: 'pages.html', label: 'Public Portal →' }, toneId: 'pages' },
     h('ul', { class: 'home-sites' }, sites.map((s) => {
       const live = Object.values(dashboards.dashboards).filter((d) => d.siteId === s.id && d.visibility === 'public').length;
       return h('li', {}, h('a', { href: `site.html?site=${s.id}`, target: '_blank' }, s.name), h('span', { class: `badge badge-sm ${s.visibility}` }, s.visibility), h('small', {}, live ? `${live} live dashboard${live > 1 ? 's' : ''}` : ''));

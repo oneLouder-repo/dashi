@@ -71,7 +71,11 @@ test('visitors get only what is published', async () => {
   assert.ok(Object.values(s.docs.dashboards.dashboards).every((d) => d.visibility === 'public'));
   assert.ok(Object.keys(s.docs.org.staff).length < 12, 'only people the public content names');
   assert.ok(Object.values(s.docs.org.staff).every((p) => !('email' in p) && !('roleId' in p)));
-  assert.ok(!s.docs.org.sites['site-board'], 'private sites stay private');
+  const portal = s.docs.org.sites['site-board'];
+  assert.deepEqual(Object.keys(portal).sort(), ['id', 'look', 'name', 'visibility'], 'a private portal shows only its name, for the sign-in panel');
+  assert.ok(!s.docs.library, 'no library, so no board papers');
+  assert.ok(!s.docs.feedback, 'no feedback answers');
+  assert.ok(!Object.values(s.docs.dashboards.dashboards).some((d) => d.siteId === 'site-board'), 'no board scorecard');
   assert.ok(Object.values(s.docs.strategy.nodes).every((n) => !n.assigneeIds && !n.assets && n.notes === ''), 'strategy items carry titles and status only');
   assert.equal((await call(EX, 'GET', '/api/docs/maps')).status, 404);
 });

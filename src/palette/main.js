@@ -18,6 +18,8 @@ import { PostcardTool } from './PostcardTool.js';
 import { PodcastTool } from './PodcastTool.js';
 import { ImpactTool } from './ImpactTool.js';
 import { StoriesTool } from './StoriesTool.js';
+import { FeedbackTool } from './FeedbackTool.js';
+import { FunderReportsTool } from './FunderReportsTool.js';
 
 /**
  * The Workbench: a suite of mini-tools for bringing people into the
@@ -27,26 +29,26 @@ import { StoriesTool } from './StoriesTool.js';
  *
  * `when(org)` limits a mini-tool to orgs with what it needs (a plugin).
  * The route lives in the URL hash: #home, #dashboards, #<dashboard id>,
- * #data, #postcards, #impact, #stories, #podcast, #publish.
+ * #data, #postcards, #impact, #stories, #feedback, #reports, #podcast, #publish.
  */
 const MINI_TOOLS = [
   { id: 'home', name: 'Overview', blurb: 'Everything in the Data Workbench', icon: 'workbench', render: HomeTool },
   { id: 'dashboards', name: 'Dashboards', blurb: 'Design private and public dashboards', about: 'Build dashboards from your strategy measures: for staff, for the board, or for a public site.', icon: 'chart', render: DashboardsTool },
   { id: 'data', name: 'Program data', blurb: 'The numbers behind the measures', about: 'Keep the monthly numbers behind each measure current. Every dashboard and site using them updates.', icon: 'timeline', render: DataTool },
   { id: 'postcards', name: 'Data postcards', blurb: 'Share one number, beautifully', about: 'Turn a measure into a shareable picture in your colours, with alt text, for newsletters, social posts and slides.', icon: 'media', render: PostcardTool },
-  { id: 'impact', name: 'Impact calculator', blurb: 'What a gift makes possible', about: 'A slider for your site: “a gift of $50 means 3 more youth in a program”, worked out from your own program data.', icon: 'gift', render: ImpactTool, isNew: true },
-  { id: 'stories', name: 'Data stories', blurb: 'Words, charts and voices', about: 'Tell what the numbers mean a step at a time, with a chart that changes as readers scroll and audio clips from your programs.', icon: 'story', render: StoriesTool, isNew: true },
+  { id: 'impact', name: 'Impact calculator', blurb: 'What a gift makes possible', about: 'A slider for your site: “a gift of $50 means 3 more youth in a program”, worked out from your own program data.', icon: 'gift', render: ImpactTool },
+  { id: 'stories', name: 'Data stories', blurb: 'Words, charts and voices', about: 'Tell what the numbers mean a step at a time, with a chart that changes as readers scroll and audio clips from your programs.', icon: 'story', render: StoriesTool },
+  { id: 'feedback', name: 'Feedback forms', blurb: 'Ask readers what they make of it', about: 'A few short questions under your dashboards or on a site’s front page, so the community and the board can say what is clear and what is missing. Answers come back here.', icon: 'chats', render: FeedbackTool, isNew: true },
+  { id: 'reports', name: 'Funder reports', blurb: 'A first draft, from your data', about: 'Pick a funder, a period and the work they fund, and get a draft report from your measures, workplans, milestones and stories, ready to edit, print or keep in the Library.', icon: 'handshake', render: FunderReportsTool, isNew: true },
   { id: 'podcast', name: 'Podcast publishing', blurb: 'Upload and publish episodes fast', about: 'Upload an episode and put it out in one step, or send drafts and scheduled episodes live.', icon: 'mic', render: PodcastTool, when: (org) => pluginOn(org, 'podcasts') },
   { id: 'publish', name: 'Publishing', blurb: 'What each public site shows', about: 'Choose which dashboards each public site shows, and what stays private.', icon: 'globe', render: PublishTool },
 ];
-const COMING = [
-  { name: 'Funder reports', blurb: 'Pick a funder and a period, and get a draft report from your measures, stories and workplan, ready to edit.' },
-  { name: 'Feedback forms', blurb: 'Ask the community what they make of the data.' },
-];
+const COMING = [];
 
 const org = loadOrg();
 let strategy = loadStrategy();
 const dashboards = new Store(loadDashboards(), applyCollectionOp);
+// Strategic data (the road, goal lights, milestones) reads the whole strategy.
 const data = new Store(loadData(), applyCollectionOp);
 autosaveDoc('dashboards', dashboards, 150);
 autosaveDoc('data', data, 150);

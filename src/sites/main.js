@@ -4,8 +4,11 @@ import { Shell } from '../ui/Shell.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
 import { Store } from '../core/Store.js';
 import { applyCollectionOp, col } from '../core/collections.js';
-import { autosaveDoc } from '../platform/storage.js';
-import { loadOrg, loadStrategy, loadData, loadDashboards, loadPodcasts, loadPages, loadPlanDocs } from '../platform/docs.js';
+import { autosaveDoc, loadDoc, saveDoc } from '../platform/storage.js';
+import { loadOrg, loadStrategy, loadData, loadDashboards, loadPodcasts, loadPages, loadPlanDocs, loadLibrary } from '../platform/docs.js';
+import { svg } from '../core/svg.js';
+import { criticalOn, onSiteFor, migrateCritical, DOC as CRITICAL_DOC } from '../platform/criticalMedia.js';
+import { SITE_HEROES, SITE_TYPES, siteLook } from '../platform/org.js';
 import { isLivePlan } from '../platform/plandocs.js';
 import { applyTheme, paletteById, shapeById } from '../platform/themes.js';
 import { Logo } from '../ui/Shell.js';
@@ -24,13 +27,15 @@ import { PluginHeader } from '../ui/PluginHeader.js';
 import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
 
 /**
- * Web views (formerly Sites & Pages): the org's public face in one place.
- * The overview walks through getting the public side working (look,
- * dashboards, the plan, podcasts, pages and news), then shows each site
- * as visitors will meet it, with everything on it and where to change it.
- * Pages and news articles are written here too.
+ * Public Portal (formerly Web views, and before that Sites & Pages): one
+ * way in to everything the org shows outside, and to its members-only
+ * portals (the board's). The overview opens on a map of the org's web
+ * properties (each site, and what is live or still in design on it,
+ * every piece a link to where it is made), walks through getting the
+ * public side working, then shows each site as visitors meet it, with its
+ * look. Pages and news articles are written here too.
  *
- *   #sites        the overview: steps, then every site and what is on it
+ *   #sites        the overview: the properties map, steps, then every site
  *   #<page id>    edit a page or article, with a live preview
  *
  * Bodies are light markdown with shortcodes for live embeds
@@ -41,7 +46,7 @@ const store = new Store(loadPages(), applyCollectionOp);
 autosaveDoc('pages', store, 250);
 Shell(document.querySelector('#shell'), { current: 'pages', org });
 // Other plugins' content, for embeds and the site overview.
-const docs = { org, strategy: loadStrategy(), data: loadData(), dashboards: loadDashboards(), podcasts: loadPodcasts(), plandocs: loadPlanDocs() };
+const docs = { org, strategy: loadStrategy(), data: loadData(), dashboards: loadDashboards(), podcasts: loadPodcasts(), plandocs: loadPlanDocs(), library: loadLibrary(), critical: migrateCritical(loadDoc(CRITICAL_DOC)) };
 
 const app = document.querySelector('#app');
 app.classList.add('palette', 'sites-app', 'frame');
@@ -68,13 +73,17 @@ function renderSide() {
     lead: h('span', { class: 'side-lead' }, h('span', { class: `status-dot ${isLive(p, now) ? 'live' : p.status}`, title: isLive(p, now) ? 'Published' : p.status === 'draft' ? 'Draft' : 'Scheduled' })),
     sub: [org.sites[p.siteId]?.name ?? 'No site', p.kind === 'article' ? short(p.publishedAt) : p.inNav ? 'in menu' : null].filter(Boolean).join(' · '),
   });
-  side = swapSide(side, SideNav({ label: 'Web views', sections: [
-    { title: 'Web views', items: [
-      { label: 'Overview', sub: 'Your sites and what visitors see', icon: 'globe', href: '#sites', on: r === 'sites' },
+  const portals = Object.values(org.sites).filter((x) => x.visibility === 'private');
+  side = swapSide(side, SideNav({ label: 'Public Portal', sections: [
+    { title: 'Public Portal', items: [
+      { label: 'Overview', sub: 'Every site, and what is live', icon: 'globe', href: '#sites', on: r === 'sites' },
       { label: 'Dashboards', sub: 'Data Workbench', icon: 'chart', href: 'palette.html#dashboards' },
+      { label: 'Feedback forms', sub: 'Data Workbench', icon: 'chats', href: 'palette.html#feedback' },
       { label: 'Strategic plan', sub: 'Plan designer', icon: 'strategy', href: 'plandoc.html' },
       pluginOn(org, 'podcasts') && { label: 'Podcast station', sub: 'Podcasts', icon: 'mic', href: 'podcasts.html#station' },
-    ] },
+      criticalOn(org) && { label: 'Media smart', sub: 'Critical Media', icon: 'news', href: 'plugin.html?id=critical-media' },
+    ].filter(Boolean) },
+    portals.length > 0 && { title: 'Members only', items: portals.map((x) => ({ label: x.name, sub: 'Board papers, minutes, scorecard', icon: 'lock', href: siteUrl(x.id), target: '_blank' })) },
     { title: 'Pages', action: { label: 'New page', onclick: () => newPage('page') }, items: [...list('page').map(item), { label: 'New page', icon: 'plus', onclick: () => newPage('page') }] },
     { title: 'News articles', action: { label: 'New article', onclick: () => newPage('article') }, items: [...list('article').map(item), { label: 'New article', icon: 'plus', onclick: () => newPage('article') }] },
   ] }));
@@ -117,7 +126,8 @@ function Sites() {
   const doneCount = steps.filter((x) => x.done).length;
 
   return h('div', { class: 'wv' },
-    PluginHeader('pages'),
+    PluginHeader('pages', { blurb: 'One way in to everything you show outside: your public sites, their dashboards, plan, station, pages and news, and the members-only portals for your board.' }),
+    PropertiesMap(),
     h('section', { class: 'wv-steps' },
       h('div', { class: 'wv-steps-head' },
         h('h2', {}, 'Getting your public side working'),
@@ -129,6 +139,115 @@ function Sites() {
         x.href ? h('a', { class: `btn btn-sm ${x.done ? 'btn-ghost' : 'btn-primary'}`, href: x.href }, x.action) : h('button', { class: `btn btn-sm ${x.done ? 'btn-ghost' : 'btn-primary'}`, onclick: x.onclick }, x.action))))),
     h('h2', { class: 'wv-h2' }, 'Your sites, as visitors see them'),
     h('div', { class: 'wv-sites' }, sites.map((s) => SiteView(s))));
+}
+
+/**
+ * Every property on a site: what it is, whether it is live or still in design,
+ * and where it is made. A members-only site's pieces are live when members can see them.
+ */
+function propertiesOf(site) {
+  const out = [];
+  const isPublic = site.visibility !== 'private';
+  const add = (kind, icon, title, live, href) => out.push({ kind, icon, title, live, href });
+  for (const d of Object.values(docs.dashboards.dashboards).filter((x) => x.siteId === site.id)) add('Dashboard', 'chart', d.title, !isPublic || (d.visibility === 'public' && site.visibility === 'public'), `palette.html#${d.id}`);
+  for (const d of Object.values(docs.plandocs.docs).filter((x) => x.siteId === site.id)) add('Plan', 'strategy', docs.strategy.nodes[d.planId]?.title ?? d.snapshot?.plan?.title ?? 'Plan', isLivePlan(d), `plandoc.html#${d.id}`);
+  if (pluginOn(org, 'podcasts') && docs.podcasts.station.siteId === site.id) add('Station', 'mic', docs.podcasts.station.name, liveEpisodes().length > 0, 'podcasts.html#station');
+  for (const x of Object.values(docs.dashboards.stories ?? {}).filter((y) => y.siteId === site.id)) add('Story', 'story', x.title, x.visibility === 'public', 'palette.html#stories');
+  for (const x of Object.values(docs.dashboards.calculators ?? {}).filter((y) => y.siteId === site.id)) add('Calculator', 'gift', x.title, x.visibility === 'public', 'palette.html#impact');
+  const pages = Object.values(doc().pages).filter((p) => p.siteId === site.id);
+  for (const p of pages.filter((x) => x.kind === 'page')) add('Page', 'doc', p.title, isLive(p, now), `#${p.id}`);
+  const articles = pages.filter((x) => x.kind === 'article');
+  if (articles.length) add('News', 'news', `${articles.filter((a) => isLive(a, now)).length} articles`, articles.some((a) => isLive(a, now)), `#${articles[0].id}`);
+  for (const f of Object.values(docs.dashboards.forms ?? {}).filter((x) => x.siteId === site.id)) add('Feedback', 'chats', f.title, !isPublic || f.visibility === 'public', 'palette.html#feedback');
+  if (site.visibility === 'public' && criticalOn(org) && docs.critical.settings?.corner !== false && onSiteFor(docs.critical.settings ?? {}, site.id)) add('Media smart', 'news', 'Lessons and tips', true, 'plugin.html?id=critical-media');
+  if (!isPublic) {
+    const board = Object.values(docs.library.items ?? {}).filter((it) => (it.tags ?? []).includes('board'));
+    for (const [tag, label, icon] of [['governance', 'Governance', 'scales'], ['minutes', 'Minutes', 'notePencil'], ['finance', 'Finance', 'chart']]) {
+      const n = board.filter((it) => it.tags.includes(tag)).length;
+      add('Papers', icon, `${label}: ${n} document${n === 1 ? '' : 's'}`, n > 0, `library.html#tag/${tag}`);
+    }
+  }
+  return out;
+}
+
+/**
+ * The properties map: the portal in the middle of everything the org shows.
+ * The portal on the left, each site in the middle, and its pieces to the
+ * right as pills: solid when live, dashed while in design. Everything is a link.
+ */
+function PropertiesMap() {
+  const sites = Object.values(org.sites).sort((a, b) => ({ public: 0, unlisted: 1, private: 2 })[a.visibility] - ({ public: 0, unlisted: 1, private: 2 })[b.visibility]);
+  if (!sites.length) return null;
+  const W = 1040, siteX = 250, siteW = 210, pillX = 520, pillMax = W - pillX - 10, rowH = 30;
+  const textW = (t) => t.length * 6.3;
+  const layout = sites.map((site) => {
+    const props = propertiesOf(site);
+    const rows = [[]];
+    let x = 0;
+    for (const p of props) {
+      const label = `${p.title.length > 30 ? `${p.title.slice(0, 29)}…` : p.title}`;
+      const w = Math.min(pillMax, 34 + textW(p.kind) + textW(label) + 8);
+      if (x + w > pillMax && rows.at(-1).length) { rows.push([]); x = 0; }
+      rows.at(-1).push({ ...p, label, x, w });
+      x += w + 8;
+    }
+    return { site, props, rows, h: Math.max(64, rows.length * rowH + 20) };
+  });
+  const gap = 22;
+  const H = layout.reduce((t, l) => t + l.h, 0) + gap * (layout.length - 1) + 40;
+  const el = svg('svg', { class: 'pm', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Your public properties' });
+  const hubY = H / 2;
+  // The hub
+  const hub = svg('g', { class: 'pm-hub' }, el);
+  svg('circle', { cx: 92, cy: hubY, r: 58, class: 'pm-hub-ring' }, hub);
+  svg('circle', { cx: 92, cy: hubY, r: 46, class: 'pm-hub-core' }, hub);
+  svg('text', { x: 92, y: hubY - 4, 'text-anchor': 'middle', class: 'pm-hub-title' }, hub).textContent = 'Public';
+  svg('text', { x: 92, y: hubY + 13, 'text-anchor': 'middle', class: 'pm-hub-title' }, hub).textContent = 'Portal';
+  let y = 20;
+  let live = 0, design = 0;
+  for (const l of layout) {
+    const cy = y + l.h / 2;
+    const isPrivate = l.site.visibility === 'private';
+    // Hub → site
+    svg('path', { class: `pm-link${isPrivate ? ' private' : ''}`, d: `M150 ${hubY} C 200 ${hubY}, 200 ${cy}, ${siteX} ${cy}` }, el);
+    // The site
+    const a = svg('a', { href: isPrivate || l.site.visibility === 'public' ? siteUrl(l.site.id) : 'org.html#sites', target: '_blank', class: `pm-site ${l.site.visibility}` }, el);
+    svg('title', {}, a).textContent = `${l.site.name} (${l.site.visibility}): open it`;
+    svg('rect', { x: siteX, y: cy - 28, width: siteW, height: 56, rx: 14, class: 'pm-site-box' }, a);
+    const ic = h('span'); ic.append(icon(isPrivate ? 'lock' : l.site.visibility === 'unlisted' ? 'eyeOff' : 'globe', 18));
+    const g = svg('g', { transform: `translate(${siteX + 14} ${cy - 9})`, class: 'pm-site-icon' }, a);
+    g.innerHTML = ic.firstChild.innerHTML;
+    g.setAttribute('transform', `translate(${siteX + 14} ${cy - 9}) scale(${18 / 256})`);
+    svg('text', { x: siteX + 42, y: cy - 3, class: 'pm-site-name' }, a).textContent = l.site.name.length > 22 ? `${l.site.name.slice(0, 21)}…` : l.site.name;
+    svg('text', { x: siteX + 42, y: cy + 14, class: 'pm-site-vis' }, a).textContent = isPrivate ? 'Members only' : `${l.site.visibility === 'unlisted' ? 'Unlisted' : 'Public'} · ${l.props.filter((p) => p.live).length ? `${l.props.filter((p) => p.live).length} live` : 'in design'}`;
+    // Site → its pills
+    const top = cy - (l.rows.length * rowH) / 2;
+    if (l.props.length) svg('path', { class: 'pm-link thin', d: `M${siteX + siteW} ${cy} H ${pillX - 24} M${pillX - 24} ${top + rowH / 2 - 2} V ${top + (l.rows.length - 0.5) * rowH + 2}` }, el);
+    else svg('text', { x: pillX, y: cy + 4, class: 'pm-empty' }, el).textContent = 'Nothing here yet';
+    l.rows.forEach((row, ri) => {
+      const ry = top + ri * rowH + 3;
+      svg('path', { class: 'pm-link thin', d: `M${pillX - 24} ${ry + 12} H ${pillX - 2}` }, el);
+      for (const p of row) {
+        p.live ? live++ : design++;
+        const pa = svg('a', { href: p.href, class: `pm-pill ${p.live ? 'live' : 'design'}` }, el);
+        svg('title', {}, pa).textContent = `${p.kind}: ${p.title}. ${p.live ? 'Live' : 'In design'}. Open where it is made.`;
+        svg('rect', { x: pillX + p.x, y: ry, width: p.w, height: 24, rx: 12, class: 'pm-pill-box' }, pa);
+        svg('circle', { cx: pillX + p.x + 13, cy: ry + 12, r: 4, class: 'pm-pill-dot' }, pa);
+        const t = svg('text', { x: pillX + p.x + 24, y: ry + 16, class: 'pm-pill-text' }, pa);
+        svg('tspan', { class: 'pm-pill-kind' }, t).textContent = `${p.kind} `;
+        svg('tspan', {}, t).textContent = p.label;
+      }
+    });
+    y += l.h + gap;
+  }
+  return h('section', { class: 'pm-panel' },
+    h('div', { class: 'pm-head' },
+      h('div', {}, h('h2', {}, 'Your web properties'), h('p', { class: 'muted small' }, 'Everything you show outside, site by site. Click a site to open it, or a piece to change it.')),
+      h('div', { class: 'pm-legend' },
+        h('span', {}, h('i', { class: 'pm-key live' }), `${live} live`),
+        h('span', {}, h('i', { class: 'pm-key design' }), `${design} in design`),
+        h('span', {}, icon('lock', 13), 'Members only'))),
+    h('div', { class: 'pm-scroll' }, el));
 }
 
 /** One site: a small picture of its front page in its theme, then everything on it and where to change it. */
@@ -151,15 +270,22 @@ function SiteView(s) {
     h('div', { class: 'wv-thumb-grid' }, dashes.filter((d) => d.visibility === 'public').slice(0, 1).flatMap((d) => d.widgets.slice(0, 4).map((w) => h('span', { class: `wv-thumb-w ${w.size ?? 'wide'} t-${w.type}` }))),
       !dashes.some((d) => d.visibility === 'public') && h('span', { class: 'wv-thumb-w full t-text' })));
   applyTheme(thumb, org.theme);
+  const look = siteLook(s);
+  thumb.classList.add(`look-hero-${look.hero}`, `look-type-${look.type}`);
+  const setLook = (patch) => { org.sites[s.id].look = { ...look, ...patch }; saveDoc('org', org); render(); };
+  const lookRow = h('div', { class: 'wv-look' },
+    h('span', { class: 'muted small' }, 'Look'),
+    h('div', { class: 'join' }, SITE_HEROES.map((x) => h('button', { class: `btn btn-xs join-item${look.hero === x.id ? ' btn-active' : ''}`, title: x.blurb, onclick: () => setLook({ hero: x.id }) }, x.label))),
+    h('div', { class: 'join' }, SITE_TYPES.map((x) => h('button', { class: `btn btn-xs join-item${look.type === x.id ? ' btn-active' : ''}`, title: x.blurb, onclick: () => setLook({ type: x.id }) }, x.label))));
 
   return h('article', { class: 'wv-site card' },
     h('header', {},
       h('div', {}, h('strong', {}, s.name), h('span', { class: `badge badge-sm ${isPublic ? 'badge-success' : 'badge-ghost'}` }, s.visibility), s.url && h('small', { class: 'muted' }, s.url)),
       h('div', { class: 'wv-site-actions' },
-        isPublic && h('a', { class: 'btn btn-sm btn-primary', href: siteUrl(s.id), target: '_blank', rel: 'noopener' }, icon('globe', 14), 'Open the site'),
+        h('a', { class: 'btn btn-sm btn-primary', href: siteUrl(s.id), target: '_blank', rel: 'noopener' }, icon(isPublic ? 'globe' : 'lock', 14), isPublic ? 'Open the site' : 'Open the portal'),
         h('a', { class: 'btn btn-sm btn-ghost', href: 'org.html#sites' }, icon('settings', 14), 'Look and visibility'))),
     h('div', { class: 'wv-site-body' },
-      h('a', { class: 'wv-thumb-link', href: isPublic ? siteUrl(s.id) : 'org.html#sites', target: isPublic ? '_blank' : null, title: 'The front page, roughly' }, thumb),
+      h('div', { class: 'wv-thumb-col' }, h('a', { class: 'wv-thumb-link', href: siteUrl(s.id), target: '_blank', title: 'The front page, roughly' }, thumb), lookRow),
       h('ul', { class: 'wv-contents' },
         dashes.map((d) => row('chart', 'Dashboard', d.title, d.visibility === 'public', `palette.html#${d.id}`, 'Design')),
         plans.map((d) => row('strategy', 'Strategic plan', docs.strategy.nodes[d.planId]?.title ?? d.snapshot?.plan?.title ?? 'Plan', isLivePlan(d), `plandoc.html#${d.id}`, 'Design')),
@@ -169,7 +295,8 @@ function SiteView(s) {
         c.nav.map((p) => row('doc', 'Page', p.title, true, `#${p.id}`)),
         c.articles.length > 0 && row('news', 'News', `${c.articles.length} article${c.articles.length === 1 ? '' : 's'}, newest ${short(c.articles[0].publishedAt)}`, true, `#${c.articles[0].id}`),
         drafts.length > 0 && row('doc', 'Drafts', `${drafts.length} not out yet`, false, `#${drafts[0].id}`),
-        !isPublic && h('li', { class: 'muted' }, 'This site is private: only signed-in staff and board members see it.'))));
+        !isPublic && propertiesOf(s).filter((p) => p.kind === 'Papers').map((p) => row(p.icon, 'Board papers', p.title.replace(/:.*/, ''), p.live, p.href, 'Library')),
+        !isPublic && h('li', { class: 'muted' }, 'Members only: signed-in staff and board members (Viewer role) see it. Board papers are Library documents tagged “board”.'))));
 }
 
 function Editor(p) {

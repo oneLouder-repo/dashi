@@ -387,9 +387,16 @@ export function cleanManifest(m) {
  * The full registry from what is stored: built-ins (with the admin's
  * changes) then installed plugins. stored = { plugins: { id: manifest }, history: { id: [manifest...] } }.
  */
+/** Built-in plugins Dashi has renamed: a stored copy still carrying an old name takes the new one. */
+const RENAMED = { pages: ['Web views', 'Sites & Pages'] };
+
 export function mergeRegistry(stored = {}) {
   const plugins = {};
-  for (const p of ORIGINAL) plugins[p.id] = stored.plugins?.[p.id] ? { ...builtInManifest(p), ...stored.plugins[p.id], builtIn: true, core: !!p.core, id: p.id, href: p.href } : builtInManifest(p);
+  for (const p of ORIGINAL) {
+    let mine = stored.plugins?.[p.id];
+    if (mine && RENAMED[p.id]?.includes(mine.name)) { mine = { ...mine }; delete mine.name; delete mine.short; delete mine.blurb; }
+    plugins[p.id] = mine ? { ...builtInManifest(p), ...mine, builtIn: true, core: !!p.core, id: p.id, href: p.href } : builtInManifest(p);
+  }
   for (const [id, m] of Object.entries(stored.plugins ?? {})) if (!plugins[id]) plugins[id] = { ...m, builtIn: false, core: false };
   for (const sc of SCAFFOLDS) {
     if ((stored.dismissed ?? []).includes(sc.id)) continue;
