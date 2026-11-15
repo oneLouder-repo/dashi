@@ -1,6 +1,6 @@
 # Dashi (scratchpad)
 
-**Version 0.1.0-alpha.3**: the third tester release (a reworked Ecosystem Mapper, the new Asset manager, a literature-focused Library, and four AI plugins drafted in the designer). See [CHANGELOG.md](CHANGELOG.md) for what's in it, [TESTING.md](TESTING.md) for testing it, and [DEPLOY.md](DEPLOY.md) for running it.
+**Version 0.1.0-alpha.4**: the fourth tester release (a calmer header with org-wide search, a new org home page, thumbnails in the Asset manager, a quicker Library front page, and a reimagined Podcasts studio). See [CHANGELOG.md](CHANGELOG.md) for what's in it, [TESTING.md](TESTING.md) for testing it, and [DEPLOY.md](DEPLOY.md) for running it.
 
 A small, cohesive platform for nonprofits' planning, knowledge and learning work. It holds many organisations; each picks the **plugins** it uses. Open `index.html` (via `npm start`) for the dashboard, then choose a plugin:
 

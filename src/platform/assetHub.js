@@ -1,3 +1,5 @@
+import { coverArt } from '../ui/standIn.js';
+import { episodeHref } from './podcasts.js';
 import { uid } from '../core/ops.js';
 
 /**
@@ -159,13 +161,14 @@ export function gatherAssets(hub, docs = {}, { plugins = null } = {}) {
   }
   if (on('library')) {
     for (const li of Object.values(docs.library?.items ?? {})) {
-      add({ type: 'library', id: li.id }, { source: 'library', title: li.meta?.title || li.file?.name || 'Untitled', description: li.meta?.abstract ?? '', href: `library.html#item/${li.id}`, file: li.file ?? null, url: li.url ?? null, updatedAt: li.updatedAt ? new Date(li.updatedAt).toISOString() : null, by: li.createdBy, kindLabel: li.kind === 'doc' ? 'Dashi doc' : li.kind === 'file' ? (fileGroup(li.file)?.label.replace(/s$/, '') ?? 'File') : 'Reference', icon: li.kind === 'doc' ? 'notePencil' : li.kind === 'file' ? fileGroup(li.file)?.icon ?? 'file' : 'book', group: li.file ? fileGroup(li.file)?.id : null, abcd: 'cultural', tagsFrom: li.tags });
+      add({ type: 'library', id: li.id }, { source: 'library', title: li.meta?.title || li.file?.name || 'Untitled', description: li.meta?.abstract ?? '', href: `library.html#item/${li.id}`, file: li.file ?? null, url: li.url ?? null, updatedAt: li.updatedAt ? new Date(li.updatedAt).toISOString() : null, by: li.createdBy, kindLabel: li.kind === 'doc' ? 'Dashi doc' : li.kind === 'file' ? (fileGroup(li.file)?.label.replace(/s$/, '') ?? 'File') : 'Reference', icon: li.kind === 'doc' ? 'notePencil' : li.kind === 'file' ? fileGroup(li.file)?.icon ?? 'file' : 'book', group: li.file ? fileGroup(li.file)?.id : null, abcd: 'cultural', tagsFrom: li.tags, text: li.kind === 'doc' ? li.body ?? null : null });
     }
   }
   if (on('podcasts')) {
     for (const e of Object.values(docs.podcasts?.episodes ?? {})) {
       const show = docs.podcasts?.podcasts?.[e.podcastId];
-      add({ type: 'episode', id: e.id }, { source: 'episode', title: e.title || 'Untitled episode', description: e.summary ?? e.description ?? '', href: `podcasts.html#${e.podcastId ?? ''}`, kindLabel: 'Episode', icon: 'music', sub: show?.title, abcd: 'cultural', sensitivity: e.status === 'published' ? 'public' : 'internal' });
+      add({ type: 'episode', id: e.id }, { source: 'episode', title: e.title || 'Untitled episode', description: e.summary ?? e.description ?? '', href: episodeHref(e), kindLabel: 'Episode', icon: 'music', sub: show?.title, abcd: 'cultural', sensitivity: e.status === 'published' ? 'public' : 'internal', tagsFrom: e.tags ?? [],
+        thumb: e.cover ?? show?.cover ?? (show ? coverArt({ ...show, title: e.title || show.title }, { label: show.title, seed: `${show.id}/${e.id}` }) : null) });
     }
   }
   // Notes about things that have since been removed elsewhere: keep them, marked missing.

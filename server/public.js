@@ -74,7 +74,7 @@ export function publicDocs(docs, today = new Date().toISOString().slice(0, 10)) 
   const pods = docs.podcasts;
   if (pods && pluginOn(org, 'podcasts') && onSite(pods.station?.siteId)) {
     const episodes = Object.fromEntries(Object.entries(pods.episodes ?? {}).filter(([, e]) => published(e, today))
-      .map(([id, e]) => [id, pick(e, ['id', 'podcastId', 'season', 'number', 'title', 'slug', 'description', 'notes', 'type', 'status', 'publishedAt', 'audio', 'personIds'])]));
+      .map(([id, e]) => [id, pick(e, ['id', 'podcastId', 'season', 'number', 'title', 'slug', 'description', 'notes', 'type', 'status', 'publishedAt', 'audio', 'personIds', 'cover', 'chapters', 'transcript', 'tags', 'explicit'])]));
     const podcasts = Object.fromEntries(Object.entries(pods.podcasts ?? {}).map(([id, p]) => [id, { ...p, owner: { name: p.owner?.name ?? org.name, email: p.owner?.email ?? '' } }]));
     for (const p of Object.values(podcasts)) p.hostIds?.forEach((x) => people.add(x));
     for (const e of Object.values(episodes)) e.personIds?.forEach((x) => people.add(x));

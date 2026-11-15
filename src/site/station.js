@@ -8,6 +8,8 @@ import { showArchive, archiveBytes } from '../platform/showArchive.js';
 import { zipStream } from '../core/zip.js';
 import { stationView, seasonsOf, published, podcastRss } from '../platform/podcasts.js';
 import { short } from '../strategy/dates.js';
+import { coverArt } from '../ui/standIn.js';
+import { toClock } from '../platform/podcasts.js';
 import { uiAlert } from '../ui/dialog.js';
 
 /**
@@ -26,13 +28,16 @@ import { uiAlert } from '../ui/dialog.js';
 export const fmtDuration = (s = 0) => (s >= 3600 ? `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}` : `${Math.floor(s / 60)}`) + `:${String(s % 60).padStart(2, '0')}`;
 export const lookClasses = (look) => `look-player-${look.player} look-art-${look.art} look-hero-${look.hero}`;
 
-/** A show's cover art, or its initials on the theme colour. */
+/** A show's cover art, or generated art with its title (ui/standIn.js). */
 export function Cover(show, size = 96, extra = '') {
-  const style = `width:${size}px;height:${size}px;font-size:${Math.round(size * 0.32)}px`;
-  return show?.cover
-    ? h('img', { class: `cover ${extra}`, src: show.cover, alt: '', style })
-    : h('span', { class: `cover cover-initials ${extra}`, style, 'aria-hidden': 'true' },
-        (show?.title ?? '?').split(/\s+/).filter((w) => /^[A-Z0-9]/.test(w)).map((w) => w[0]).slice(0, 2).join('') || (show?.title ?? '?')[0].toUpperCase());
+  const style = `width:${size}px;height:${size}px`;
+  return h('img', { class: `cover ${extra}`, src: show?.cover || coverArt(show ?? { title: '?' }), alt: '', style, loading: 'lazy', draggable: 'false' });
+}
+/** An episode's own art, else its show's. */
+export function EpisodeArt(e, show, size = 56, extra = '') {
+  if (!e?.cover && show?.cover) return Cover(show, size, extra);
+  if (!e?.cover) return h('img', { class: `cover ${extra}`, src: coverArt({ ...show, title: e?.title || show?.title }, { label: show?.title ?? '', seed: e?.id ? `${show?.id}/${e.id}` : show?.id }), alt: '', style: `width:${size}px;height:${size}px`, loading: 'lazy', draggable: 'false' });
+  return h('img', { class: `cover ${extra}`, src: e.cover, alt: '', style: `width:${size}px;height:${size}px`, loading: 'lazy', draggable: 'false' });
 }
 
 const episodeLabel = (e) => (e.type === 'full' ? `S${e.season} · E${e.number}` : `S${e.season} · ${e.type}`);
@@ -46,7 +51,7 @@ function PlayButton(ctx, episodes, label, size = 'md') {
 export function EpisodeCard(ctx, e, { showShow = true, embed = false } = {}) {
   const show = ctx.doc.podcasts[e.podcastId];
   return h('article', { class: `episode-card${embed ? ' embed' : ''}` },
-    embed && Cover(show, 72),
+    h('a', { class: 'episode-card-art', href: ctx.link({ episode: e.id }), 'aria-label': e.title, tabindex: -1 }, EpisodeArt(e, show, embed ? 72 : 56)),
     PlayButton(ctx, [e], e.title),
     h('div', { class: 'episode-card-text' },
       h('a', { class: 'episode-title', href: ctx.link({ episode: e.id }) }, e.title),
@@ -170,6 +175,20 @@ export function StationHome(ctx) {
       archive));
 }
 
+const LISTEN = [['apple', 'Apple Podcasts'], ['spotify', 'Spotify'], ['youtube', 'YouTube'], ['website', 'Website']];
+/** Where else to listen: the links a show keeps. */
+function ListenLinks(show) {
+  const links = LISTEN.filter(([k]) => /^https?:\/\//.test(show.links?.[k] ?? ''));
+  return links.length ? h('div', { class: 'listen-links' }, h('small', { class: 'muted' }, 'Listen on'),
+    links.map(([k, label]) => h('a', { class: 'btn btn-xs btn-soft', href: show.links[k], target: '_blank', rel: 'noopener' }, label))) : null;
+}
+function ShareButton(label = 'Share') {
+  const b = h('button', { class: 'btn btn-sm btn-ghost', onclick: async () => {
+    try { await navigator.clipboard.writeText(location.href); b.lastChild.textContent = 'Link copied'; setTimeout(() => { b.lastChild.textContent = label; }, 1600); } catch { /* no clipboard */ }
+  } }, icon('share', 14), h('span', {}, label));
+  return b;
+}
+
 /** A show's page: about, hosts, its seasons as tabs, and the RSS feed. */
 export function ShowPage(ctx, show) {
   const seasons = seasonsOf(ctx.doc, show.id).filter((s) => Object.values(ctx.doc.episodes).some((e) => e.podcastId === show.id && e.season === s.number && published(e, ctx.today)));
@@ -201,7 +220,9 @@ export function ShowPage(ctx, show) {
         h('div', { class: 'show-actions' },
           all.length > 0 && h('button', { class: 'btn btn-primary btn-sm', onclick: () => ctx.player.play(all) }, icon('play', 14), 'Play from the start'),
           h('a', { class: 'btn btn-sm', href: '#', onclick: (e) => { e.currentTarget.href = rss(); }, download: `${show.handle}.xml` }, icon('rss', 14), 'RSS feed'),
-          show.featured && all.length > 0 && DownloadShow(ctx, show)))),
+          show.featured && all.length > 0 && DownloadShow(ctx, show),
+          ShareButton()),
+        ListenLinks(show))),
     seasons.length > 1 && tabs,
     list);
 }
@@ -212,7 +233,7 @@ export function EpisodePage(ctx, e) {
   return h('div', { class: 'station episode-page' },
     h('p', { class: 'crumbs' }, h('a', { href: ctx.link({ view: 'station' }) }, ctx.doc.station.name), ' / ', h('a', { href: ctx.link({ show: show.id }) }, show.title), ' / ', episodeLabel(e)),
     h('section', { class: 'show-hero' },
-      Cover(show, 160),
+      EpisodeArt(e, show, 160),
       h('div', {},
         h('h1', {}, e.title),
         h('p', { class: 'muted' }, meta(e, show)),
@@ -220,7 +241,13 @@ export function EpisodePage(ctx, e) {
         e.description && h('p', { class: 'show-desc' }, e.description))),
     e.personIds.length > 0 && h('div', { class: 'hosts' }, h('small', { class: 'muted' }, 'In this episode'),
       e.personIds.map((id) => ctx.org.staff[id] && h('span', { class: 'host' }, Avatar(ctx.org.staff[id], 26), ctx.org.staff[id].name))),
-    e.notes && h('section', { class: 'episode-notes' }, h('h2', {}, 'Show notes'), Markdown(e.notes)));
+    e.tags?.length > 0 && h('div', { class: 'episode-tags' }, e.tags.map((t) => h('span', { class: 'badge badge-sm badge-soft' }, `#${t}`))),
+    e.chapters?.length > 0 && h('section', { class: 'episode-chapters' }, h('h2', {}, 'Chapters'),
+      h('ol', {}, [...e.chapters].sort((a, b) => a.at - b.at).map((c) => h('li', {},
+        h('button', { class: 'chapter', onclick: () => ctx.player.play([e], { at: c.at }) }, h('span', { class: 'chapter-at' }, toClock(c.at)), h('span', {}, c.title)))))),
+    e.notes && h('section', { class: 'episode-notes' }, h('h2', {}, 'Show notes'), Markdown(e.notes)),
+    e.transcript && h('details', { class: 'episode-transcript' }, h('summary', {}, h('strong', {}, 'Transcript')), h('div', { class: 'transcript-body' }, e.transcript.split(/\n{2,}/).map((p) => h('p', {}, p)))),
+    h('div', { class: 'show-actions' }, ShareButton('Share this episode'), ListenLinks(show)));
 }
 
 /**
@@ -254,26 +281,32 @@ export function Player(getDoc) {
   seek.addEventListener('input', () => { if (audio.duration) audio.currentTime = (seek.value / 100) * audio.duration; });
   audio.addEventListener('ended', () => next());
 
+  let startAt = 0;
   async function next() {
     const e = queue.shift();
     if (!e) return;
     const show = getDoc().podcasts[e.podcastId];
-    art.replaceChildren(Cover(show, 52));
+    art.replaceChildren(EpisodeArt(e, show, 52));
     title.textContent = e.title;
     title.href = link({ episode: e.id });
     sub.textContent = show?.title ?? '';
     el.hidden = false;
     const src = await audioSrc(e.audio);
     if (!src) { sub.textContent = 'This audio file is missing.'; return; }
+    if (audio.dataset.ep === e.id && startAt) { audio.currentTime = startAt; startAt = 0; audio.play().catch(() => setIcon()); return; }
+    audio.dataset.ep = e.id;
     audio.src = src;
+    if (startAt) { const at = startAt; startAt = 0; audio.addEventListener('loadedmetadata', () => { audio.currentTime = at; }, { once: true }); }
     audio.play().catch(() => setIcon());
   }
 
   return {
     el,
     audio,
-    /** Play these episodes in order. */
-    play(episodes) { queue = [...episodes]; next(); },
+    /** Play these episodes in order, the first from `at` seconds in. */
+    play(episodes, { at = 0 } = {}) { queue = [...episodes]; startAt = at; next(); },
+    /** The episode playing now, if any. */
+    get current() { return audio.dataset.ep ?? null; },
     setLink(fn) { link = fn; },
     setLook(look) { el.className = `station-player player-${look.player}`; },
   };

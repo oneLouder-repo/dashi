@@ -2,6 +2,42 @@
 
 Dashi uses version numbers like `0.1.0-alpha.1`. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
+## 0.1.0-alpha.4 (header and search, org home, asset thumbnails, Library front page, Podcasts studio)
+
+### Header and search
+
+- **Calmer header**: the Dashi logo comes first and stays put, then the organisation's name. Search, the saved light, help and your profile sit on the right. The organisation logo spot is gone.
+- **Plugin bar** below: one icon per plugin with a tooltip. The plugin you're in shows its name.
+- **Profile menu**: your details, profile, organisation settings and sign out. Superadmins switch organisations (or open Platform admin) from here.
+- **Saved light**: the light sits on the right of a fixed-width button, so "Saving…" and "Saved" no longer make the header jump.
+- **Search everything** (Ctrl/⌘ K): one box searches titles, raw text, tags, map actors and connectors, strategy, library items (abstracts, bodies and PDF notes), assets, people, podcast shows and episodes (notes, transcripts and chapters), and pages. Results drop down by place, and "See all results" opens a full results page with a filter for each place. Narrow a search with `tag:north`, `#north` or `in:maps`. Opening an actor result opens its map with the actor selected.
+
+### Org home page
+
+- A real front page: a greeting and the mission, quick actions in each plugin's colour (map the ecosystem, add a task, add a reading, upload assets, new episode), **What needs you** (your tasks, then the team's tasks due soon), **What's moving** (maps, readings, assets, episodes), strategy progress, a miniature of your latest map, the team, your reading tags and your sites. Your plugins follow, and each plugin tile lights up in its own colour on hover.
+
+### Asset manager
+
+- Uses the same folding sidebar as every other plugin.
+- **Smaller tiles by default**, with small, medium and large sizes next to the view switcher.
+- **Thumbnails everywhere**: miniature renders of ecosystem maps, the first page of PDFs, text snippets from Dashi docs, notes and readings, sticky notes for actors and agents, show art for episodes, and calm stand-in nature scenes (hills, mountains, water, forest, fields, stones, dunes, leaves, ripples) in the ABCD colour for everything else. Stand-ins are drawn by Dashi as SVG from each asset's key: no image library to fetch or license, and the same asset always gets the same picture.
+
+### Library
+
+- Opens on an **Add a reading** bar: folded by default, but first on the page and clearly marked.
+- Tags moved into a narrow panel on the right, so the document list comes first.
+
+### Podcasts, reimagined
+
+- **Cover art everywhere**: every show and episode without art of its own gets generated art (a nature scene in the show's colour, with its title). Pick the colour, or upload your own art for a show or a single episode.
+- **Station**: shows as cover cards (star to feature, arrows to order), what's coming up and recently published, the public page, and how it looks.
+- **Shows**: a header with the cover, hosts and actions, then episodes by season with filters (season, published, scheduled, drafts) and search. Pick an episode and its details open on the right: play, status, people, chapters (click to play from there), tags, show notes, transcript, and **Related in Dashi** (maps and readings it talks about, never shown publicly). Publish now or move to drafts in one click.
+- **Editing** in the same panel: drop in the audio, then title, summary, season and type, status and date, art, people, tags, chapters, notes, transcript and related items.
+- **Settings** tab per show: art and colour, details, hosts, seasons, and where else to listen (Apple Podcasts, Spotify, YouTube, website).
+- **All episodes**: every episode of every show in one list.
+- **Public pages**: art on every episode, chapters, transcripts, tags, listen-on buttons and a share button.
+- Episodes appear in org search and in the Asset manager with their art.
+
 ## 0.1.0-alpha.3 (mapper rework, Asset manager, literature Library, AI plugin drafts)
 
 ### Ecosystem Mapper

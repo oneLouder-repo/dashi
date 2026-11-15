@@ -225,17 +225,28 @@ a.cloud-tag { text-decoration: none; }
 .tag.suggest.lexicon { border-style: solid; }
 .tag.suggest:hover { background: color-mix(in oklab, var(--color-primary) 12%, transparent); }
 .suggest-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
-.lib-cloud { margin: 12px 0; }
+.lib-body { display: grid; grid-template-columns: minmax(0, 3fr) minmax(190px, 1fr); gap: 14px; align-items: start; }
+.lib-main-col { min-width: 0; }
+.lib-cloud { margin: 0; padding: 12px 14px; position: sticky; top: 8px; }
+.lib-body .lib-cloud .tag-cloud { gap: 4px 8px; }
+.lib-body .lib-cloud .cloud-tag { font-size: 13px !important; }
+@media (max-width: 900px) { .lib-body { grid-template-columns: 1fr; } .lib-cloud { position: static; } }
 .lib-cloud h3 { display: inline-flex; align-items: center; gap: 4px; }
 .tag-items { display: grid; gap: 10px; }
 .tag-item .reference { margin: 0 0 6px; }
 .tag-note { margin: 8px 0 0; padding: 6px 10px; border-left: 3px solid color-mix(in oklab, var(--color-primary) 40%, transparent); background: var(--color-base-200); border-radius: 0 6px 6px 0; font-size: 14px; }
 
 /* Add a reading */
-.quick-add { margin: 12px 0; padding: 12px 14px; }
-.quick-add > summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
-.quick-add > summary strong { display: inline-flex; align-items: center; gap: 4px; }
-.quick-add > summary .muted:last-child { margin-left: auto; }
+.quick-add { margin: 4px 0 14px; padding: 12px 14px; }
+.quick-add { border: 1.5px solid color-mix(in oklab, var(--color-primary) 35%, var(--line)); background: color-mix(in oklab, var(--color-primary) 5%, var(--color-base-100)); }
+.quick-add > summary { cursor: pointer; display: flex; gap: 12px; align-items: center; list-style: none; }
+.quick-add > summary::-webkit-details-marker { display: none; }
+.quick-add .qa-badge { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: var(--color-primary); color: var(--color-primary-content, #fff); }
+.quick-add .qa-sum { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.quick-add .qa-sum strong { font-size: 15.5px; }
+.quick-add .qa-chev { flex: none; color: var(--muted); transition: transform 0.15s; }
+.quick-add[open] .qa-chev { transform: rotate(180deg); }
+.quick-add > summary:hover .qa-badge { filter: brightness(1.08); }
 .qa-form { display: grid; gap: 8px; margin-top: 10px; }
 .qa-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .qa-drop { display: flex; gap: 8px; align-items: center; padding: 14px; border: 1.5px dashed var(--line); border-radius: 10px; cursor: pointer; color: var(--muted); }
@@ -249,7 +260,7 @@ a.cloud-tag { text-decoration: none; }
 .lib-menu .menu-title { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; }
 
 /* ---------------------------------------------------------------- PDF reader (src/library/Reader.js) */
-.library-main.reading { padding: 0; overflow: hidden; height: calc(100vh - 84px); }
+.library-main.reading { padding: 0; overflow: hidden; height: calc(100vh - 124px); }
 .reader { height: 100%; display: flex; flex-direction: column; min-height: 0; }
 .reader-bar { flex: none; display: flex; align-items: center; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--line-soft); }
 .reader-title { max-width: 38vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 650; }

@@ -3,6 +3,10 @@ import { icon } from '../ui/icons.js';
 import { Shell, Avatar, toast } from '../ui/Shell.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
 import { Menu } from '../ui/Menu.js';
+import { SideNav, swapSide } from '../ui/SideNav.js';
+import { MiniMap } from '../ui/MiniMap.js';
+import { pdfFirstPage } from '../ui/pdfPage.js';
+import { standIn } from '../ui/standIn.js';
 import { uiConfirm, uiForm, uiPrompt } from '../ui/dialog.js';
 import { uid } from '../core/ops.js';
 import { saveDoc, onDocChange, session } from '../platform/storage.js';
@@ -48,7 +52,7 @@ function loadDocs() {
 }
 
 /* ------------------------------------------------------------------ state */
-const prefs = (() => { try { return { view: 'tiles', sort: 'recent', ...JSON.parse(localStorage.getItem('dashi.assets.prefs') ?? '{}') }; } catch { return { view: 'tiles', sort: 'recent' }; } })();
+const prefs = (() => { try { return { view: 'tiles', sort: 'recent', size: 's', ...JSON.parse(localStorage.getItem('dashi.assets.prefs') ?? '{}') }; } catch { return { view: 'tiles', sort: 'recent', size: 's' }; } })();
 const savePrefs = () => { try { localStorage.setItem('dashi.assets.prefs', JSON.stringify(prefs)); } catch { /* private window */ } };
 let query = '';
 let selection = new Set();
@@ -104,26 +108,31 @@ const ago = (iso) => {
 
 /* ------------------------------------------------------------------ layout */
 const fill = (el, ...kids) => el.replaceChildren(...kids.flat(Infinity).filter((k) => k != null && k !== false));
-const sideEl = h('aside', { class: 'ah-side', 'aria-label': 'Find assets' });
+let sideEl = h('nav');
 const mainEl = h('section', { class: 'ah-main' });
 const detailEl = h('aside', { class: 'ah-detail', 'aria-label': 'Asset details' });
 const tray = h('div', { class: 'ah-tray', hidden: true, role: 'status', 'aria-live': 'polite' });
 const dropCover = h('div', { class: 'ah-drop', hidden: true }, h('div', {}, icon('cloudUpload', 42), h('strong', {}, 'Drop to upload'), h('span', { class: 'ah-drop-where' })));
 const fileInput = h('input', { type: 'file', multiple: true, hidden: true, onchange: (e) => { upload([...e.target.files]); e.target.value = ''; } });
-app.classList.add('assets-app');
+const searchInput = h('input', { type: 'search', placeholder: 'Search assets', 'aria-label': 'Search assets',
+  oninput: (e) => { query = e.target.value; drawMain(allCards()); }, onkeydown: (e) => { if (e.key === 'Escape') { query = ''; e.target.value = ''; drawMain(allCards()); } } });
+app.classList.add('frame', 'assets-app');
 app.replaceChildren(
-  PluginHeader('assets', { actions: canEdit && [
-    h('button', { class: 'btn btn-sm btn-primary', onclick: () => fileInput.click() }, icon('cloudUpload', 16), 'Upload'),
-    Menu({ label: 'New', icon: 'plus', align: 'end', items: () => [
-      { label: 'Link', icon: 'link', hint: 'A web page, video or shared drive', onclick: newLink },
-      { label: 'Note', icon: 'note', hint: 'A story, a skill someone shared, an idea', onclick: newNote },
-      'sep',
-      { label: 'Collection', icon: 'folder', hint: 'A place to gather assets', onclick: () => newCollection() },
+  sideEl,
+  h('div', { class: 'ah-panel' },
+    PluginHeader('assets', { actions: canEdit && [
+      h('label', { class: 'ah-search' }, icon('search', 16), searchInput),
+      h('button', { class: 'btn btn-sm btn-primary', onclick: () => fileInput.click() }, icon('cloudUpload', 16), 'Upload'),
+      Menu({ label: 'New', icon: 'plus', align: 'end', items: () => [
+        { label: 'Link', icon: 'link', hint: 'A web page, video or shared drive', onclick: newLink },
+        { label: 'Note', icon: 'note', hint: 'A story, a skill someone shared, an idea', onclick: newNote },
+        'sep',
+        { label: 'Collection', icon: 'folder', hint: 'A place to gather assets', onclick: () => newCollection() },
+      ] }),
     ] }),
-  ] }),
-  h('div', { class: 'ah' }, sideEl, mainEl, detailEl),
-  tray, dropCover, fileInput,
+    h('div', { class: 'ah' }, mainEl, detailEl)),
 );
+document.body.append(tray, dropCover, fileInput);
 
 /* ------------------------------------------------------------------ render */
 function render() {
@@ -139,39 +148,52 @@ window.addEventListener('hashchange', render);
 function drawSide(cards) {
   const s = scope();
   const count = (fn) => cards.filter(fn).length;
-  const row = (label, glyph, params, n, { color, drop, on } = {}) => {
-    const active = on ?? (Object.entries(params).every(([k, v]) => s[k] === v) && Object.keys(s).filter((k) => s[k] && k !== 'key').length === Object.keys(params).length);
-    const a = h('a', { href: `#${new URLSearchParams(params)}`, class: `ah-row${active ? ' on' : ''}`, 'aria-current': active ? 'true' : null },
-      color ? h('span', { class: 'ah-dot', style: `background:${color}` }) : icon(glyph, 16),
-      h('span', { class: 'ah-row-label' }, label), n != null && h('span', { class: 'ah-count' }, String(n)));
-    if (drop) dropTarget(a, drop);
-    return a;
-  };
+  const isOn = (params) => Object.entries(params).every(([k, v]) => s[k] === v) && Object.keys(s).filter((k) => s[k] && k !== 'key').length === Object.keys(params).length;
+  const dropProps = (target) => ({
+    ondragover: (e) => { if (canEdit && e.dataTransfer.types.includes('application/x-dashi-assets')) { e.preventDefault(); e.currentTarget.classList.add('drop-on'); } },
+    ondragleave: (e) => e.currentTarget.classList.remove('drop-on'),
+    ondrop: (e) => { e.currentTarget.classList.remove('drop-on'); dropOn(e, target); },
+  });
+  const dot = (color) => h('span', { class: 'ah-dot', style: `background:${color}`, 'aria-hidden': 'true' });
   const roots = Object.values(hub.collections).filter((c) => !c.parentId || !hub.collections[c.parentId]).sort((a, b) => a.name.localeCompare(b.name));
-  const tree = (c, depth = 0) => [
-    h('div', { class: 'ah-coll', style: `--depth:${depth}` },
-      row(c.name, 'folder', { coll: c.id }, count((x) => x.collectionIds.some((id) => collectionTree(hub, c.id).has(id))), { color: c.color ?? '#999', drop: { coll: c.id } }),
-      canEdit && Menu({ title: `${c.name}: more`, className: 'btn-square ah-coll-more', align: 'end', items: () => [
-        { label: 'Rename…', icon: 'pencil', onclick: () => renameCollection(c) },
-        { label: 'New collection inside…', icon: 'folder', onclick: () => newCollection(c.id) },
-        { label: 'Delete collection', icon: 'trash', danger: true, hint: 'The assets in it stay', onclick: () => deleteCollection(c) },
-      ] })),
-    ...Object.values(hub.collections).filter((x) => x.parentId === c.id).sort((a, b) => a.name.localeCompare(b.name)).flatMap((x) => tree(x, depth + 1)),
+  const collItems = (c, depth = 0) => [
+    {
+      label: c.name, lead: dot(c.color ?? '#999'), href: `#coll=${c.id}`, on: isOn({ coll: c.id }),
+      badge: String(count((x) => x.collectionIds.some((id) => collectionTree(hub, c.id).has(id)))),
+      className: 'ah-coll-row', props: { ...dropProps({ coll: c.id }), style: `--depth:${depth}`, oncontextmenu: canEdit ? (e) => { e.preventDefault(); collectionMenu(c, e); } : null },
+    },
+    ...Object.values(hub.collections).filter((x) => x.parentId === c.id).sort((a, b) => a.name.localeCompare(b.name)).flatMap((x) => collItems(x, depth + 1)),
   ];
   const tags = tagCounts(cards).slice(0, 24);
-  fill(sideEl, 
-    h('label', { class: 'ah-search' }, icon('search', 16), h('input', { type: 'search', placeholder: 'Search assets', value: query, 'aria-label': 'Search assets',
-      oninput: (e) => { query = e.target.value; drawMain(allCards()); }, onkeydown: (e) => { if (e.key === 'Escape') { query = ''; e.target.value = ''; drawMain(allCards()); } } })),
-    h('nav', { class: 'ah-nav' },
-      row('All assets', 'dots', {}, cards.length, { on: !s.src && !s.coll && !s.tag && !s.abcd }),
-      h('p', { class: 'ah-head' }, 'Where from'),
-      SOURCES.filter((x) => !x.plugin || plugins.has(x.plugin)).map((x) => row(x.label, x.icon, { src: x.id }, count((c) => c.source === x.id))),
-      h('p', { class: 'ah-head', title: 'Asset-based community development: start from the gifts already here' }, 'ABCD lens'),
-      ABCD.map((x) => row(x.label, null, { abcd: x.id }, count((c) => c.abcd === x.id), { color: x.color, drop: { abcd: x.id } })),
-      row('Not yet sorted', 'question', { abcd: 'none' }, count((c) => !c.abcd)),
-      h('div', { class: 'ah-head ah-head-row' }, h('span', {}, 'Collections'), canEdit && h('button', { type: 'button', class: 'ah-add', title: 'New collection', 'aria-label': 'New collection', onclick: () => newCollection() }, icon('plus', 14))),
-      roots.length ? roots.flatMap((c) => tree(c)) : h('p', { class: 'ah-empty-note' }, 'Gather assets into collections: drag cards onto one.'),
-      tags.length ? [h('p', { class: 'ah-head' }, 'Tags'), h('div', { class: 'ah-tags' }, tags.map((t) => h('a', { href: `#tag=${encodeURIComponent(t.tag)}`, class: `ah-tag${s.tag === t.tag ? ' on' : ''}` }, t.tag, h('small', {}, String(t.n)))))] : null));
+  sideEl = swapSide(sideEl, SideNav({ label: 'Assets', sections: [
+    { title: 'Assets', items: [
+      { label: 'All assets', icon: 'dots', href: '#', on: !s.src && !s.coll && !s.tag && !s.abcd, badge: String(cards.length) },
+      ...SOURCES.filter((x) => !x.plugin || plugins.has(x.plugin)).map((x) => ({ label: x.label, icon: x.icon, href: `#src=${x.id}`, on: isOn({ src: x.id }), badge: String(count((c) => c.source === x.id)) })),
+    ] },
+    { title: 'ABCD lens', items: [
+      ...ABCD.map((x) => ({ label: x.label, lead: dot(x.color), href: `#abcd=${x.id}`, on: isOn({ abcd: x.id }), badge: String(count((c) => c.abcd === x.id)), title: x.hint, props: dropProps({ abcd: x.id }) })),
+      { label: 'Not yet sorted', icon: 'question', href: '#abcd=none', on: isOn({ abcd: 'none' }), badge: String(count((c) => !c.abcd)) },
+    ] },
+    { title: 'Collections', action: canEdit && { label: 'New collection', onclick: () => newCollection() },
+      items: roots.length ? roots.flatMap((c) => collItems(c)) : null,
+      body: roots.length ? (canEdit ? h('p', { class: 'ah-empty-note' }, 'Right-click a collection to rename it or add one inside.') : null) : h('p', { class: 'ah-empty-note' }, 'Gather assets into collections: drag cards onto one.') },
+    tags.length && { title: 'Tags', body: h('div', { class: 'ah-tags' }, tags.map((t) => h('a', { href: `#tag=${encodeURIComponent(t.tag)}`, class: `ah-tag${s.tag === t.tag ? ' on' : ''}` }, t.tag, h('small', {}, String(t.n))))) },
+  ] }));
+  sideEl.classList.add('ah-side');
+}
+
+/** Rename, nest or delete a collection (right-click it in the sidebar). */
+function collectionMenu(c, e) {
+  const m = Menu({ label: '', className: 'ah-ctx', items: () => [
+    { label: 'Rename…', icon: 'pencil', onclick: () => renameCollection(c) },
+    { label: 'New collection inside…', icon: 'folder', onclick: () => newCollection(c.id) },
+    { label: 'Delete collection', icon: 'trash', danger: true, hint: 'The assets in it stay', onclick: () => deleteCollection(c) },
+  ] });
+  Object.assign(m.style, { position: 'fixed', left: `${e.clientX}px`, top: `${e.clientY}px`, zIndex: 100, width: 0, height: 0, overflow: 'visible' });
+  document.body.append(m);
+  m.open?.();
+  const gone = () => setTimeout(() => m.remove(), 200);
+  document.addEventListener('pointerdown', (ev) => { if (!m.contains(ev.target)) gone(); }, { once: true, capture: true });
 }
 
 function scopeTitle() {
@@ -193,6 +215,9 @@ function drawMain(cards) {
     h('div', { class: 'ah-bar' },
       h('div', { class: 'ah-title' }, h('h2', {}, scopeTitle()), h('span', { class: 'ah-count' }, `${list.length}`), sub && h('p', {}, sub)),
       h('div', { class: 'ah-tools' },
+        prefs.view === 'tiles' && h('div', { class: 'ah-size join', role: 'group', 'aria-label': 'Tile size' }, [['s', 'Small'], ['m', 'Medium'], ['l', 'Large']].map(([id, label], i) =>
+          h('button', { type: 'button', class: `btn btn-sm join-item${prefs.size === id ? ' btn-active' : ''}`, title: `${label} tiles`, 'aria-pressed': String(prefs.size === id), onclick: () => { prefs.size = id; savePrefs(); drawMain(allCards()); } },
+            h('span', { class: `ah-size-ico s${i}`, 'aria-hidden': 'true' })))),
         prefs.view !== 'map' && h('label', { class: 'ah-sort' }, h('span', { class: 'sr-only' }, 'Sort by'), h('select', { class: 'select select-sm', onchange: (e) => { prefs.sort = e.target.value; savePrefs(); drawMain(allCards()); } },
           [['recent', 'Recently changed'], ['title', 'Title'], ['type', 'Type'], ['size', 'Size']].map(([id, label]) => h('option', { value: id, selected: prefs.sort === id }, label)))),
         h('div', { class: 'ah-views join', role: 'group', 'aria-label': 'View' }, views.map(([id, glyph, label]) =>
@@ -234,41 +259,71 @@ function dragCards(el, card) {
   el.addEventListener('dragend', () => document.body.classList.remove('ah-dragging'));
 }
 
-/** Somewhere to drop cards: a collection files them, an ABCD type sorts them. */
-function dropTarget(el, { coll, abcd }) {
-  el.addEventListener('dragover', (e) => { if (canEdit && e.dataTransfer.types.includes('application/x-dashi-assets')) { e.preventDefault(); el.classList.add('drop-on'); } });
-  el.addEventListener('dragleave', () => el.classList.remove('drop-on'));
-  el.addEventListener('drop', (e) => {
-    el.classList.remove('drop-on');
-    const raw = e.dataTransfer.getData('application/x-dashi-assets');
-    if (!raw) return;
-    e.preventDefault();
-    const keys = JSON.parse(raw);
-    const cards = allCards().filter((c) => keys.includes(c.key));
-    for (const c of cards) {
-      const it = ensureItem(hub, c, me?.id);
-      if (coll && !it.collectionIds.includes(coll)) it.collectionIds.push(coll);
-      if (abcd) it.abcd = abcd;
-      touch(hub, it, me?.id);
-    }
-    const n = cards.length;
-    toast(coll ? `${n} in “${hub.collections[coll]?.name}”` : `${n} sorted as ${abcdById[abcd]?.label}`);
-    save(coll ? `filed ${n} in “${hub.collections[coll]?.name}”` : `sorted ${n} as ${abcdById[abcd]?.label}`);
-  });
+/** Cards dropped on a collection are filed in it; on an ABCD type, sorted as it. */
+function dropOn(e, { coll, abcd }) {
+  const raw = e.dataTransfer.getData('application/x-dashi-assets');
+  if (!raw || !canEdit) return;
+  e.preventDefault();
+  const keys = JSON.parse(raw);
+  const cards = allCards().filter((c) => keys.includes(c.key));
+  for (const c of cards) {
+    const it = ensureItem(hub, c, me?.id);
+    if (coll && !it.collectionIds.includes(coll)) it.collectionIds.push(coll);
+    if (abcd) it.abcd = abcd;
+    touch(hub, it, me?.id);
+  }
+  const n = cards.length;
+  toast(coll ? `${n} in “${hub.collections[coll]?.name}”` : `${n} sorted as ${abcdById[abcd]?.label}`);
+  save(coll ? `filed ${n} in “${hub.collections[coll]?.name}”` : `sorted ${n} as ${abcdById[abcd]?.label}`);
 }
 
+/**
+ * A tile's picture: the image itself, a person's photo, a small drawing of
+ * a map, a few lines of a document or note, or a stand-in nature scene in
+ * the asset's ABCD colour.
+ */
+const plainText = (s) => String(s ?? '').replace(/[#*_>`~|[\]]/g, ' ').replace(/\s+/g, ' ').trim();
 function Thumb(card, size = 'tile') {
   const abcd = abcdById[card.abcd];
-  const el = h('div', { class: `ah-thumb ${size}`, style: abcd ? `--abcd:${abcd.color}` : '' }, icon(card.icon, size === 'tile' ? 30 : 18));
-  if (card.thumb) el.replaceChildren(h('img', { src: card.thumb, alt: '' }));
-  else if (card.file && card.group === 'image' && card.sensitivity !== 'restricted') {
-    mediaUrl(card.file.mediaId).then((url) => { if (url) el.replaceChildren(h('img', { src: url, alt: '', loading: 'lazy' })); }).catch(() => {});
+  const colour = abcd?.color ?? '#7f8ba3';
+  const el = h('div', { class: `ah-thumb t-${size}`, style: `--abcd:${colour}` }, icon(card.icon, size === 'tile' ? 30 : 18));
+  const picture = (src) => el.replaceChildren(h('img', { src, alt: '', loading: 'lazy', draggable: false }));
+  if (card.thumb) { picture(card.thumb); return el; }
+  if (card.sensitivity === 'restricted' && card.file) { el.replaceChildren(icon('lock', size === 'tile' ? 26 : 16)); return el; }
+  if (card.file && card.group === 'image') {
+    mediaUrl(card.file.mediaId).then((url) => { if (url) picture(url); }).catch(() => {});
+    return el;
   }
+  if (size !== 'tile') return el;
+  if (card.file && card.group === 'pdf') {
+    el.classList.add('pdf');
+    mediaUrl(card.file.mediaId).then((url) => url && pdfFirstPage(url, 200)).then((src) => { if (src) picture(src); }).catch(() => {});
+  }
+  if (card.source === 'map' && docs.mapContents?.[card.ref?.id]) {
+    el.classList.add('map');
+    MiniMap(docs.mapContents[card.ref.id], { width: 240, height: 150, label: card.title }).then((s) => el.replaceChildren(s)).catch(() => {});
+    return el;
+  }
+  if (card.source === 'actor') {
+    const agent = card.kindLabel === 'Agent';
+    el.classList.add('note', agent ? 'agent' : 'actor');
+    el.replaceChildren(h('div', { class: 'ah-sticky' }, h('strong', {}, card.title), card.description && h('span', {}, card.description)));
+    return el;
+  }
+  const words = plainText(card.text || card.description);
+  if (words.length > 40 && ['note', 'library', 'link', 'episode'].includes(card.source)) {
+    el.classList.add('text');
+    el.replaceChildren(h('div', { class: 'ah-page' }, h('span', {}, words.slice(0, 260))));
+    return el;
+  }
+  el.classList.add('art');
+  picture(standIn(card.key, colour));
+  el.append(h('span', { class: 'ah-thumb-badge' }, icon(card.icon, 14)));
   return el;
 }
 
 function TileView(list) {
-  return h('div', { class: 'ah-tiles', role: 'listbox', 'aria-multiselectable': 'true', 'aria-label': 'Assets' }, list.map((c) => {
+  return h('div', { class: `ah-tiles size-${prefs.size}`, role: 'listbox', 'aria-multiselectable': 'true', 'aria-label': 'Assets' }, list.map((c) => {
     const abcd = abcdById[c.abcd];
     const el = h('div', { class: `ah-tile${selection.has(c.key) ? ' on' : ''}${c.missing ? ' missing' : ''}`, role: 'option', tabindex: 0, 'aria-selected': String(selection.has(c.key)),
       onclick: (e) => select(c, e), ondblclick: () => openCard(c), onkeydown: (e) => { if (e.key === 'Enter') openCard(c); if (e.key === ' ') { e.preventDefault(); select(c, { ctrlKey: true }); } } },
@@ -550,7 +605,7 @@ function Detail(c) {
           onclick: () => change((y) => { y.abcd = abcdNow === x.id ? null : x.id; }, `sorted “${c.title}” as ${x.label}`) }, icon(x.icon, 14), x.short)))),
     h('div', { class: 'ah-field' }, h('span', {}, 'Tags'), TagEditor(c, editable, change)),
     h('div', { class: 'ah-field' }, h('span', {}, 'Collections'),
-      h('div', { class: 'ah-tile-meta' },
+      h('div', { class: 'ah-chips-wrap' },
         Object.values(hub.collections).sort((a, b) => a.name.localeCompare(b.name)).map((col) => {
           const on = c.collectionIds.includes(col.id);
           return h('button', { type: 'button', class: `ah-chip coll toggle${on ? ' on' : ''}`, style: `--c:${col.color ?? '#999'}`, disabled: !editable, 'aria-pressed': String(on),
@@ -597,7 +652,7 @@ function Preview(c) {
       if (c.group === 'image') box.replaceChildren(h('img', { src: url, alt: c.item?.meta?.alt ?? '' }));
       else if (c.group === 'audio') box.replaceChildren(h('audio', { src: url, controls: true, preload: 'metadata' }));
       else if (c.group === 'video') box.replaceChildren(h('video', { src: url, controls: true, preload: 'metadata' }));
-      else if (c.group === 'pdf') box.replaceChildren(h('iframe', { src: `${url}#view=FitH&toolbar=0`, title: `Preview of ${c.title}`, loading: 'lazy' }));
+      else if (c.group === 'pdf') pdfFirstPage(url, 320).then((src) => { if (src) { box.classList.add('page'); box.replaceChildren(h('img', { src, alt: `First page of ${c.title}` })); } });
     }).catch(() => {});
     return box;
   }
@@ -607,7 +662,13 @@ function Preview(c) {
     box.replaceChildren(h('div', { class: 'ah-preview-icon' }, icon('link', 36), h('small', {}, host)));
     return box;
   }
-  plain();
+  if (c.source === 'map' && docs.mapContents?.[c.ref?.id]) {
+    plain();
+    MiniMap(docs.mapContents[c.ref.id], { width: 300, height: 190, label: c.title }).then((s) => { box.classList.add('map'); box.replaceChildren(s); }).catch(() => {});
+    return box;
+  }
+  box.classList.add('art');
+  box.replaceChildren(h('img', { src: standIn(c.key, abcd?.color ?? '#7f8ba3'), alt: '' }), h('span', { class: 'ah-thumb-badge' }, icon(c.icon, 16)));
   return box;
 }
 
