@@ -1,4 +1,4 @@
-# Dashi (scratchpad)
+# Dashi
 
 **Version 0.1.0-alpha.4**: the fourth tester release (a calmer header with org-wide search, a new org home page, thumbnails in the Asset manager, a quicker Library front page, and a reimagined Podcasts studio). See [CHANGELOG.md](CHANGELOG.md) for what's in it, [TESTING.md](TESTING.md) for testing it, and [DEPLOY.md](DEPLOY.md) for running it.
 

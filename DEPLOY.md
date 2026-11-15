@@ -5,8 +5,8 @@ The platform is one Node app with no dependencies to install. Its database is a 
 ## On your own computer
 
 ```
-git clone https://github.com/oneLouder-repo/ecosystemMapper_scratchpad.git
-cd ecosystemMapper_scratchpad
+git clone https://github.com/oneLouder-repo/dashi.git
+cd dashi
 npm start
 ```
 
