@@ -181,8 +181,21 @@ const draft = (m) => ({
   plans: { ...ALL_TIERS }, changelog: [{ version: '0.1.0', date: '2026-11-15', notes: 'Scaffolded in alpha.3: data model and features roughed in.', by: 'Dashi' }],
   ...m,
 });
+/**
+ * A first release of a scaffold (alpha.5): installed, with its own tool view
+ * on plugin.html (src/pluginViews/), and off for each org until it switches
+ * it on, unless `defaultOff: false`.
+ */
+const release = (m, notes) => draft({
+  version: '1.0.0', status: 'installed', defaultOff: true, released: true,
+  changelog: [
+    { version: '1.0.0', date: '2026-11-15', notes, by: 'Dashi' },
+    { version: '0.1.0', date: '2026-11-15', notes: 'Scaffolded in alpha.3: data model and features roughed in.', by: 'Dashi' },
+  ],
+  ...m,
+});
 export const SCAFFOLDS = [
-  draft({
+  release({
     id: 'ai-policy', name: 'AI Policy Studio', short: 'AI policy', category: 'AI',
     blurb: 'Frame your organisation’s AI policy together: the principles you hold, which uses are fine, careful or off-limits, what data never goes in, and when you’ll look again.',
     look: { tone: '#5a54c4', icon: 'scales', accent: 'soft' },
@@ -198,8 +211,8 @@ export const SCAFFOLDS = [
       { id: 'principles', label: 'Principles', fields: [f('title', 'Principle', 'text', { required: true }), f('statement', 'What it means here', 'longtext'), f('why', 'Why it matters to us', 'longtext')] },
       { id: 'rules', label: 'Use rules', fields: [f('useCase', 'Use case', 'text', { required: true }), f('light', 'Light', 'select', { required: true, options: ['Green: go ahead', 'Amber: with care', 'Red: not here'] }), f('dataAllowed', 'Data that may go in', 'list'), f('safeguards', 'Safeguards', 'longtext'), f('owner', 'Who decides', 'person')] },
       { id: 'reviews', label: 'Reviews', fields: [f('date', 'Date', 'date', { required: true }), f('by', 'Led by', 'person'), f('changes', 'What changed', 'longtext'), f('next', 'Next review', 'date')] }] }] },
-  }),
-  draft({
+  }, 'First release: principles, a traffic-light board of uses, data rules, and the policy assembled in plain words.'),
+  release({
     id: 'ai-register', name: 'AI Use Register', short: 'AI register', category: 'AI',
     blurb: 'A simple, honest record of the AI tools your team uses: what for, what goes in, what it costs, and how risky it is, so nobody has to guess.',
     look: { tone: '#c0562f', icon: 'robot', accent: 'soft' },
@@ -213,8 +226,8 @@ export const SCAFFOLDS = [
     dataModel: { docs: [{ name: 'plugin/ai-register', label: 'AI use register', description: 'Tools and how they are used.', collections: [
       { id: 'tools', label: 'AI tools', fields: [f('name', 'Tool', 'text', { required: true }), f('vendor', 'Made by'), f('url', 'Web address', 'url'), f('cost', 'Cost a month', 'number'), f('free', 'Free to use', 'boolean'), f('dataHome', 'Where data goes', 'select', { options: ['Stays on our devices', 'Canada', 'United States', 'Elsewhere', 'Not sure'] }), f('status', 'Status', 'select', { options: ['Approved', 'Trial', 'Not approved'] })] },
       { id: 'uses', label: 'Uses', fields: [f('tool', 'Tool', 'text', { required: true }), f('purpose', 'What for', 'longtext'), f('team', 'Team'), f('data', 'Kind of data', 'select', { options: ['Public', 'Internal', 'Personal', 'Restricted'] }), f('risk', 'Risk', 'select', { options: ['Low', 'Medium', 'High'] }), f('person', 'Who', 'person'), f('date', 'When', 'date')] }] }] },
-  }),
-  draft({
+  }, 'First release: the tool list, a quick use log, and a risk view with a one-page summary for the board.'),
+  release({
     id: 'prompt-commons', name: 'Prompt Commons', short: 'Prompts', category: 'AI',
     blurb: 'Your team’s shared recipes for free and accessible AI tools: prompts that work, examples of good output, and the care each one needs.',
     look: { tone: '#2f8a5b', icon: 'chats', accent: 'soft' },
@@ -227,9 +240,9 @@ export const SCAFFOLDS = [
     dataModel: { docs: [{ name: 'plugin/prompt-commons', label: 'Prompt commons', description: 'Shared prompt recipes.', collections: [
       { id: 'prompts', label: 'Recipes', fields: [f('title', 'Name', 'text', { required: true }), f('task', 'Task', 'select', { options: ['Summarise', 'Draft', 'Plain language', 'Translate', 'Brainstorm', 'Analyse data', 'Other'] }), f('prompt', 'Prompt', 'longtext', { required: true }), f('tool', 'Tested in'), f('example', 'Example output', 'longtext'), f('tested', 'Tested by the team', 'boolean'), f('dataOk', 'Fine with', 'select', { options: ['Public data only', 'Internal data', 'No data: general use'] })] },
       { id: 'tools', label: 'Free tools', fields: [f('name', 'Tool', 'text', { required: true }), f('url', 'Web address', 'url'), f('offline', 'Runs on your own computer', 'boolean'), f('goodFor', 'Good for', 'longtext')] }] }] },
-  }),
-  draft({
-    id: 'plain-words', name: 'Plain Words', short: 'Plain words', category: 'AI',
+  }, 'First release: recipe cards to copy, tried-and-rated marks, starter recipes and a free tool guide.'),
+  release({
+    id: 'plain-words', defaultOff: false, name: 'Plain Words', short: 'Plain words', category: 'AI',
     blurb: 'An accessibility kit for everything you publish: reading-level checks, plain-language rewrites, alt text and captions, using tools that are free and work in the browser.',
     look: { tone: '#2f6fb5', icon: 'textAa', accent: 'soft' },
     features: [
@@ -241,7 +254,22 @@ export const SCAFFOLDS = [
     dataModel: { docs: [{ name: 'plugin/plain-words', label: 'Plain words', description: 'Checks and rewrites.', collections: [
       { id: 'checks', label: 'Checks', fields: [f('title', 'What it is', 'text', { required: true }), f('before', 'Original', 'longtext', { required: true }), f('after', 'Plain version', 'longtext'), f('grade', 'Reading grade', 'number'), f('status', 'Status', 'select', { options: ['To do', 'Rewritten', 'Checked by a reader'] })] },
       { id: 'alt', label: 'Alt text', fields: [f('image', 'Image', 'reference'), f('alt', 'Alt text', 'longtext', { required: true }), f('reviewed', 'Reviewed', 'boolean')] }] }] },
-  }),
+  }, 'First release: a reading-level checker that runs in the browser, plain-word suggestions, and saved checks. On by default.'),
+  release({
+    id: 'critical-media', name: 'Critical Media', short: 'Media smart', category: 'Knowledge',
+    blurb: 'Lessons in reading the media with a critical eye, after NALA’s Facts Matter, and short Stop, Think, Check prompts beside your public news and charts.',
+    look: { tone: '#b0472f', icon: 'news', accent: 'soft' },
+    features: [
+      feat('lessons', 'Ten lessons', 'Hour-long lessons for a group, from “what counts as media?” to “respect, connect, act”, each with a STEM twist.'),
+      feat('toolkit', 'Toolkit cards', 'Stop, Think, Check; six questions; tracing a claim. Print them or keep them by the phone.'),
+      feat('sitePrompts', 'Prompts on public sites', 'A lesson suggested beside news articles and charts on your public sites.'),
+      feat('corner', 'Media smart corner', 'A page on your public site with the lessons and cards.'),
+      feat('sessions', 'Sessions log', 'When you ran a lesson, with whom, and what you learned.'),
+    ],
+    dataModel: { docs: [{ name: 'plugin/critical-media', label: 'Critical media', description: 'Your own lessons, the sessions you ran, and where prompts show.', collections: [
+      { id: 'lessons', label: 'Our own lessons', fields: [f('title', 'Title', 'text', { required: true }), f('minutes', 'Minutes', 'number'), f('aims', 'Aims', 'list'), f('warmUp', 'Warm-up', 'longtext'), f('activity', 'Activity', 'longtext'), f('takeAway', 'Take away', 'longtext')] },
+      { id: 'sessions', label: 'Sessions run', fields: [f('lesson', 'Lesson', 'text', { required: true }), f('date', 'Date', 'date'), f('group', 'Group'), f('people', 'People there', 'number'), f('facilitator', 'Facilitator', 'person'), f('notes', 'What we learned', 'longtext')] }] }] },
+  }, 'First release: ten original lessons after NALA’s Facts Matter, toolkit cards, prompts beside public news and charts, and a sessions log.'),
 ];
 
 /** The manifest a built-in plugin starts from. */
@@ -337,7 +365,7 @@ export function cleanManifest(m) {
   return {
     id: str(m.id, 40), name: str(m.name, 80), short: str(m.short || m.name, 24), version: str(m.version, 20),
     status: STATUSES.some((s) => s.id === m.status) ? m.status : 'draft',
-    builtIn: !!m.builtIn, core: !!m.core, category: CATEGORIES.includes(m.category) ? m.category : 'Other',
+    builtIn: !!m.builtIn, core: !!m.core, defaultOff: !m.builtIn && !!m.defaultOff, category: CATEGORIES.includes(m.category) ? m.category : 'Other',
     blurb: str(m.blurb, 600), href: m.builtIn ? str(m.href, 80) : `plugin.html?id=${str(m.id, 40)}`, author: str(m.author, 80), homepage: /^https:\/\//.test(m.homepage ?? '') ? str(m.homepage, 300) : '',
     look: { tone: /^#[0-9a-f]{6}$/i.test(m.look?.tone ?? '') ? m.look.tone : '#56657f', icon: str(m.look?.icon || 'sec-plugins', 40), accent: m.look?.accent === 'solid' ? 'solid' : 'soft' },
     features: (Array.isArray(m.features) ? m.features : []).slice(0, 60).map((x) => ({ id: str(x.id, 40), label: str(x.label, 80), description: str(x.description, 400), enabled: x.enabled !== false, plans: tiers(x.plans) ?? { ...ALL_TIERS } })),
@@ -363,7 +391,12 @@ export function mergeRegistry(stored = {}) {
   const plugins = {};
   for (const p of ORIGINAL) plugins[p.id] = stored.plugins?.[p.id] ? { ...builtInManifest(p), ...stored.plugins[p.id], builtIn: true, core: !!p.core, id: p.id, href: p.href } : builtInManifest(p);
   for (const [id, m] of Object.entries(stored.plugins ?? {})) if (!plugins[id]) plugins[id] = { ...m, builtIn: false, core: false };
-  for (const sc of SCAFFOLDS) if (!plugins[sc.id] && !(stored.dismissed ?? []).includes(sc.id)) plugins[sc.id] = structuredClone(sc);
+  for (const sc of SCAFFOLDS) {
+    if ((stored.dismissed ?? []).includes(sc.id)) continue;
+    // A stored copy of an older Dashi draft gives way to the released version.
+    const mine = plugins[sc.id];
+    if (!mine || (sc.released && mine.author === 'Dashi' && compareVersions(mine.version, sc.version) < 0)) plugins[sc.id] = structuredClone(sc);
+  }
   return { plugins, history: stored.history ?? {} };
 }
 
@@ -373,7 +406,7 @@ export function registryView(registry, { includeDrafts = false } = {}) {
     .filter((m) => includeDrafts || m.status !== 'draft')
     .map((m) => [m.id, {
       id: m.id, name: m.name, short: m.short, blurb: m.blurb, version: m.version, status: m.status, builtIn: m.builtIn, core: m.core,
-      category: m.category, href: m.href, tone: m.look?.tone, icon: m.look?.icon,
+      category: m.category, href: m.href, tone: m.look?.tone, icon: m.look?.icon, defaultOff: !!m.defaultOff,
       features: Object.fromEntries((m.features ?? []).map((x) => [x.id, x.enabled !== false])),
       featurePlans: Object.fromEntries((m.features ?? []).map((x) => [x.id, x.plans ?? ALL_TIERS])),
       featureList: (m.features ?? []).map((x) => ({ id: x.id, label: x.label, description: x.description })),

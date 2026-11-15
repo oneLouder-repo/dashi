@@ -7,6 +7,12 @@ import { PHOSPHOR } from './phosphor.js';
  * SVG path data.
  */
 export const ICONS = {
+  listBullets: 'M9.5 6 H20 M9.5 12 H20 M9.5 18 H20 M4.6 5.4 h0.8 v0.8 h-0.8 Z M4.6 11.4 h0.8 v0.8 h-0.8 Z M4.6 17.4 h0.8 v0.8 h-0.8 Z',
+  listNumbers: 'M10 6 H20 M10 12 H20 M10 18 H20 M4 4.8 L5.4 4 V8.4 M3.8 14.6 Q5.4 13.4 6.2 14.6 Q6.6 15.6 3.8 18.8 H6.4',
+  alignLeft: 'M4 6 H20 M4 10 H14 M4 14 H20 M4 18 H14',
+  alignCenter: 'M4 6 H20 M7 10 H17 M4 14 H20 M7 18 H17',
+  alignRight: 'M4 6 H20 M10 10 H20 M4 14 H20 M10 18 H20',
+  eraser: 'M9 20 H20 M4.5 15.5 L14 6 L19.5 11.5 L11 20 H9 Z M9.2 10.8 L14.7 16.3',
   select: 'M6 3 L18 13 L12.5 13.8 L15.5 20 L13 21 L10 14.8 L6 18.5 Z',
   actor: 'M4 7 H20 V17 H4 Z',
   agent: 'M4 7 H20 V17 H4 Z M20 7 H15 L20 12 Z',

@@ -20,6 +20,7 @@ import { Logo, Avatar } from '../ui/Shell.js';
 import { Markdown } from '../ui/markdown.js';
 import { StationHome, ShowPage, EpisodePage, EpisodeCard, ShowCard, Player, lookClasses } from '../site/station.js';
 import { today, short } from '../strategy/dates.js';
+import { criticalOn, migrateCritical, onSiteFor, lessonsOf, suggestFor, STOP_THINK_CHECK, SIX_QUESTIONS, TRACE, CREDIT, DOC as CRITICAL_DOC } from '../platform/criticalMedia.js';
 
 /**
  * A sample public site: site.html?site=<id>, with its own pages:
@@ -45,7 +46,10 @@ const docs = {
   podcasts: loadPodcasts(), pages: loadPages(),
   // Visitors get only published plan documents from the server; staff previews read their own.
   plandocs: migratePlanDocs((!isHosted() || session()?.member ? loadPlanDocs() : loadDoc('plandocs')) ?? { docs: {} }),
+  critical: migrateCritical(loadDoc(CRITICAL_DOC)),
 };
+/** Critical Media prompts on this site, if the org has the plugin on: its settings, else null. */
+const media = (siteId) => (criticalOn(docs.org) && onSiteFor(docs.critical.settings, siteId) ? docs.critical.settings : null);
 const root = document.querySelector('#site');
 const now = today();
 const player = Player(() => docs.podcasts);
@@ -135,6 +139,10 @@ function render() {
     current = 'station';
     title = pod.station.name;
     body = StationHome(ctx);
+  } else if (p.view === 'media' && media(id)?.corner) {
+    current = 'media';
+    title = 'Media smart';
+    body = MediaCorner(p.lesson);
   } else if (p.view === 'news') {
     current = 'news';
     title = 'News';
@@ -155,7 +163,8 @@ function render() {
           content.nav.map((pg) => navLink(`page:${pg.slug}`, link({ page: pg.slug }), pg.title)),
           content.articles.length > 0 && navLink('news', link({ view: 'news' }), 'News'),
           plansHere.length > 0 && navLink('plan', link({ plan: plansHere[0].id }), 'Our plan'),
-          hasStation && navLink('station', link({ view: 'station' }), pod.station.name)),
+          hasStation && navLink('station', link({ view: 'station' }), pod.station.name),
+          media(id)?.corner && navLink('media', link({ view: 'media' }), 'Media smart')),
         publicSites.length > 1 && h('details', { class: 'dropdown dropdown-end site-switch' },
           h('summary', { class: 'btn btn-ghost btn-sm' }, icon('globe', 16), h('span', { class: 'sr-only' }, 'Our sites')),
           h('ul', { class: 'menu dropdown-content bg-base-100 rounded-box shadow' },
@@ -196,6 +205,7 @@ function Home(site, content, hasStation, ctx) {
         h('small', { class: 'muted' }, `${s.steps.length} steps${s.steps.some((st) => st.audio) ? ' · with audio' : ''}`),
         h('strong', {}, s.title), s.summary && h('span', {}, s.summary))))),
     shown.map(dashboard),
+    shown.length > 0 && media(site.id)?.onDashboards && ChartTip(),
     calcs.map((c) => { const v = CalculatorView(c, docs); v.id = c.id; return v; }),
     !shown.length && !calcs.length && !stories.length && !content.articles.length && !latest && h('p', { class: 'empty' }, 'Nothing is published here yet.'));
 }
@@ -228,7 +238,49 @@ function Article(pg, embed) {
       pg.kind === 'article' && h('p', { class: 'byline' }, author && Avatar(author, 24), author?.name, author && ' · ', short(pg.publishedAt)),
       pg.summary && pg.kind === 'article' && h('p', { class: 'lede' }, pg.summary)),
     pg.cover && h('img', { class: 'article-cover', src: pg.cover, alt: '' }),
-    Markdown(pg.body, { embed }));
+    Markdown(pg.body, { embed }),
+    pg.kind === 'article' && media(siteId())?.onArticles && FactCheckTip(`${pg.title} ${pg.summary ?? ''} ${pg.body ?? ''}`));
+}
+
+/* Critical Media on the public site: prompts that help visitors read what we publish. */
+function FactCheckTip(text) {
+  const lessons = lessonsOf(docs.critical);
+  const l = suggestFor(text, lessons);
+  return h('aside', { class: 'cm-site-tip' },
+    h('strong', {}, icon('news', 16), 'Read it like a fact-checker'),
+    h('ol', { class: 'cm-site-stc' }, STOP_THINK_CHECK.map((s) => h('li', {}, h('b', {}, s.label), ' ', s.text))),
+    l && media(siteId())?.corner && h('p', { class: 'small' }, 'Try the lesson: ', h('a', { href: link({ view: 'media', lesson: l.id }) }, l.title), '.'));
+}
+function ChartTip() {
+  const l = lessonsOf(docs.critical).find((x) => (x.tags ?? []).includes('charts'));
+  return h('aside', { class: 'cm-site-tip' },
+    h('strong', {}, icon('chart', 16), 'How to read a chart, ours included'),
+    h('p', {}, 'Look at the axis: does it start at zero? Check the dates and the source under the chart. Ask what is not shown. Every chart here has a table view, so you can see the numbers themselves.'),
+    l && media(siteId())?.corner && h('p', { class: 'small' }, 'More in the lesson ', h('a', { href: link({ view: 'media', lesson: l.id }) }, l.title), '.'));
+}
+function MediaCorner(lessonId) {
+  const lessons = lessonsOf(docs.critical);
+  const l = lessons.find((x) => x.id === lessonId);
+  if (l) {
+    return h('article', { class: 'site-article cm-site-lesson' },
+      h('header', {}, h('p', { class: 'crumbs' }, h('a', { href: link({ view: 'media' }) }, 'Media smart')), h('h1', {}, l.title), h('p', { class: 'lede' }, l.takeAway)),
+      h('h2', {}, 'What it is for'), h('ul', {}, (l.aims ?? []).map((a) => h('li', {}, a))),
+      h('h2', {}, 'Start here'), h('p', {}, l.warmUp),
+      h('h2', {}, 'Try this'), h('p', {}, l.activity),
+      (l.talk ?? []).length > 0 && [h('h2', {}, 'Talk about it'), h('ul', {}, l.talk.map((q) => h('li', {}, q)))],
+      l.stem && [h('h2', {}, 'For STEM learners'), h('p', {}, l.stem)],
+      h('p', { class: 'site-small' }, 'After ', h('a', { href: CREDIT.url, target: '_blank', rel: 'noopener' }, 'NALA’s Facts Matter'), '. Our own words; their guide is free and goes further.'));
+  }
+  return h('div', { class: 'cm-site-corner' },
+    h('section', { class: 'site-hero' }, h('h1', {}, 'Media smart'), h('p', {}, 'Ways to read the news, posts and charts (ours too) with a critical eye.')),
+    h('section', { class: 'cm-site-stc-big' }, STOP_THINK_CHECK.map((s, i) => h('div', { class: `s${i}` }, h('strong', {}, s.label), h('p', {}, s.text)))),
+    h('div', { class: 'section-head' }, h('h2', {}, 'Lessons')),
+    h('div', { class: 'news-list' }, lessons.map((x) => h('a', { class: 'news-card', href: link({ view: 'media', lesson: x.id }) }, h('small', { class: 'muted' }, `Lesson ${x.n} · ${x.minutes ?? 60} minutes`), h('strong', {}, x.title), h('span', {}, x.takeAway)))),
+    h('div', { class: 'section-head' }, h('h2', {}, 'Six questions to ask')),
+    h('div', { class: 'cm-site-six' }, SIX_QUESTIONS.map((q) => h('div', {}, h('b', {}, q.q), h('p', {}, q.text)))),
+    h('div', { class: 'section-head' }, h('h2', {}, 'Trace a claim')),
+    h('ol', { class: 'cm-site-trace' }, TRACE.map((t) => h('li', {}, h('b', {}, t.label), ' ', t.text))),
+    h('p', { class: 'site-small' }, 'Our lessons follow the shape of ', h('a', { href: CREDIT.url, target: '_blank', rel: 'noopener' }, CREDIT.title), ' (', CREDIT.by, ') and use ', h('a', { href: CREDIT.also.url, target: '_blank', rel: 'noopener' }, CREDIT.also.title), ' from ', CREDIT.also.by, '.'));
 }
 
 // Move between the site's pages without a reload, so the player keeps playing.
@@ -250,6 +302,7 @@ onDocChange('strategy', (doc) => { docs.strategy = migrateStrategy(doc); render(
 onDocChange('org', (doc) => { docs.org = doc; render(); });
 onDocChange('podcasts', (doc) => { docs.podcasts = migratePodcasts(doc); render(); });
 onDocChange('pages', (doc) => { docs.pages = migratePages(doc); render(); });
+onDocChange(CRITICAL_DOC, (doc) => { docs.critical = migrateCritical(doc); render(); });
 render();
 // ?plan=…&pdf=1 opens a plan ready to save as PDF.
 if (params().plan && params().pdf) setTimeout(() => document.querySelector('.site-plan-bar .btn')?.click(), 600);

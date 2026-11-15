@@ -166,6 +166,7 @@ export function applyRegistry(view) {
       name: m.name ?? p.name, short: m.short ?? p.short, blurb: m.blurb ?? p.blurb,
       tone: m.tone ?? p.tone, icon: m.icon ?? p.icon, version: m.version, category: m.category,
       platformOff: !p.core && m.status !== 'installed',
+      defaultOff: !!m.defaultOff,
       features: m.featureList ?? [],
     });
   }
@@ -180,8 +181,13 @@ export function featureOn(pluginId, featureId, tier = null) {
 
 /** Paused by the platform admin (hosted only): the org can't switch it on itself. */
 export const pausedForOrg = (org, id) => !!org.platform?.paused?.[id];
+/**
+ * Has the org chosen this plugin? Most plugins are on until switched off;
+ * a `defaultOff` plugin (the newer, optional ones) is off until switched on.
+ */
+export const chosenByOrg = (org, p) => (p.defaultOff ? org.plugins?.[p.id] === true : org.plugins?.[p.id] !== false);
 /** The plugins this org has switched on (and the platform hasn't paused). */
-export const enabledPlugins = (org) => PLUGINS.filter((p) => p.core || (!p.platformOff && !pausedForOrg(org, p.id) && org.plugins?.[p.id] !== false));
+export const enabledPlugins = (org) => PLUGINS.filter((p) => p.core || (!p.platformOff && !pausedForOrg(org, p.id) && chosenByOrg(org, p)));
 
 /** Each page's colour: a plugin's tone, or Dashi's own for the dashboard and the rest. */
 export const DASHI_TONE = '#d0621b';

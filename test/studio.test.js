@@ -16,7 +16,7 @@ test('the example studio plans the long-range plan, with a SOAR in every quadran
   assert.match(s.nodes[planId].title, /2026/);
   for (const q of ['s', 'o', 'a', 'r']) assert.ok(Object.values(doc.cards).some((c) => c.quadrant === q), q);
   assert.ok(Object.values(doc.wires).every((w) => canWire(doc.blocks[w.from], doc.blocks[w.to])), 'every example wire is allowed');
-  assert.deepEqual(plansOf(s).map((p) => p.depth), [0, 1]);
+  assert.deepEqual(plansOf(s).map((p) => p.depth), [0, 1, 1]);
 });
 
 test('merging keeps the newer of each card, and deletions stick', () => {
@@ -89,7 +89,7 @@ test('bring in the plan lays out objectives, goals and workplans, wired, and onl
   const blocks = Object.values(doc.blocks);
   const kinds = (k) => blocks.filter((b) => b.kind === k);
   assert.equal(kinds('plan').length, 1);
-  assert.equal(kinds('objective').length, 3, 'objectives from the year-one plan under it too');
+  assert.equal(kinds('objective').length, 4, 'objectives from the year-one and year-two plans under it too');
   assert.ok(kinds('workplan').length > 0, 'the example plan has workplans');
   assert.ok(Object.values(doc.wires).every((w) => canWire(doc.blocks[w.from], doc.blocks[w.to])));
   assert.equal(bringInPlan(doc, s, plan.id).length, 0, 'bringing it in again adds nothing');

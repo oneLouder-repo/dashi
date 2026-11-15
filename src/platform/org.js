@@ -8,7 +8,7 @@
  *   contact: { email, phone, website, address },
  *   logo,                                  data URL or null, shown on public sites
  *   theme: { palette, shape },             see themes.js
- *   plugins: { [pluginId]: false },        a plugin is on unless switched off
+ *   plugins: { [pluginId]: false | true }, a plugin is on unless switched off; newer optional ones are off unless switched on (true)
  *   staff: {id: Staff}, teams: {id: Team}, sites: {id: Site},
  * }
  *   Staff  { name, title, roleId, teamIds: [], email, avatar, interests: [strategy node ids] }
@@ -110,6 +110,8 @@ export function migrateOrg(org) {
   org.plugins ??= {};
   // Radio & Podcasts became Podcasts.
   if ('radio' in org.plugins) { org.plugins.podcasts ??= org.plugins.radio; delete org.plugins.radio; }
+  // Critical Media is off unless an org switches it on; the STEM example has it on.
+  if (org.id === 'org-example') org.plugins['critical-media'] ??= true;
   org.staff ??= {};
   org.teams ??= {};
   org.sites ??= {};

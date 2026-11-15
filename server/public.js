@@ -13,11 +13,13 @@
  *   podcasts    the station, its shows, and episodes that are out
  *   pages       pages and articles that are out, on public sites
  *   plandocs    published plan documents on public sites: their design and the snapshot taken when published
+ *   plugin/critical-media  if the org has Critical Media on: where its prompts show and its own lessons
  *   maps        nothing
  */
 import { published } from '../src/platform/podcasts.js';
 import { isLive } from '../src/platform/pages.js';
 import { measuresOf } from '../src/platform/dashboards.js';
+import { criticalOn, DOC as CRITICAL_DOC } from '../src/platform/criticalMedia.js';
 
 const pick = (o, keys) => Object.fromEntries(keys.filter((k) => o?.[k] !== undefined).map((k) => [k, o[k]]));
 const pluginOn = (org, id) => !org.platform?.paused?.[id] && org.plugins?.[id] !== false;
@@ -93,7 +95,13 @@ export function publicDocs(docs, today = new Date().toISOString().slice(0, 10)) 
   // Plan documents: only the published snapshot, never the live strategy.
   out.plandocs = { id: 'plandocs', docs: Object.fromEntries(Object.entries(docs.plandocs?.docs ?? {})
     .filter(([, d]) => d.status === 'published' && d.snapshot && onSite(d.siteId))
-    .map(([id, d]) => [id, pick(d, ['id', 'planId', 'template', 'palette', 'text', 'hidden', 'images', 'siteId', 'status', 'publishedAt', 'snapshot'])])) };
+    .map(([id, d]) => [id, pick(d, ['id', 'planId', 'template', 'palette', 'text', 'rich', 'hidden', 'images', 'colours', 'paper', 'fonts', 'background', 'cover', 'scale', 'siteId', 'status', 'publishedAt', 'snapshot'])])) };
+
+  // Critical Media: where its prompts show, and the org's own lessons (never the sessions log).
+  if (criticalOn(org)) {
+    const cm = docs[CRITICAL_DOC] ?? {};
+    out[CRITICAL_DOC] = { id: CRITICAL_DOC, settings: cm.settings ?? {}, collections: { lessons: cm.collections?.lessons ?? {}, sessions: {} } };
+  }
 
   out.org = {
     ...pick(org, ['id', 'name', 'description', 'mission', 'contact', 'logo', 'theme', 'plugins', 'platform']),

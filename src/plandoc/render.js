@@ -1,6 +1,7 @@
 import { h } from '../ui/dom.js';
 import { artUrl } from '../ui/art.js';
-import { textOf, headlineMeasures, defaultText } from '../platform/plandocs.js';
+import { textOf, headlineMeasures, defaultText, docPaletteById, fontById, SCALES } from '../platform/plandocs.js';
+import { cleanHtml, isPlain, textOfHtml } from './richText.js';
 
 /**
  * Draw a strategic plan document as pages, in its template and colours.
@@ -8,8 +9,20 @@ import { textOf, headlineMeasures, defaultText } from '../platform/plandocs.js';
  * words can be typed over and pictures changed), the public web view, and
  * what prints to PDF.
  *
- *   PlanDocument(pd, snapshot, { editable, onText(key, value), onImage(slot), palette })
+ *   PlanDocument(pd, snapshot, { editable, onText(key, value, html), onImage(slot), palette, toolbar })
+ *
+ * Design settings on the plan doc (all optional): colours (custom, over the
+ * palette; a palette of 'doc:<id>' is one of DOC_PALETTES), fonts, background,
+ * cover layout and text scale. See platform/plandocs.js.
  */
+
+/** The plan doc's three colours, its paper and its ink. */
+export function docColours(pd, palette) {
+  const dp = docPaletteById[String(palette ?? '').replace(/^doc:/, '')];
+  const base = dp && String(palette).startsWith('doc:') ? [...dp.c] : paletteColours(palette);
+  const c = (pd.colours ?? []).map((x, i) => x || base[i]);
+  return { c: [0, 1, 2].map((i) => c[i] ?? base[i]), paper: pd.paper || (String(palette).startsWith('doc:') ? dp?.paper : null) || '#ffffff', ink: (String(palette).startsWith('doc:') ? dp?.ink : null) || '#1c2230' };
+}
 
 /** Any CSS colour as #rrggbb (DaisyUI themes use oklch). */
 export function toHex(color) {
@@ -59,28 +72,40 @@ function rotate(c, deg) {
 const fmt = (v, unit) => (v == null || v === '' ? '' : unit === '%' ? `${Math.round(v)}%` : Number(v).toLocaleString('en-CA', { maximumFractionDigits: 1 }));
 const yearOf = (d) => (d ? String(d).slice(0, 4) : '');
 
-export function PlanDocument(pd, snap, { editable = false, onText, onImage, palette } = {}) {
-  const colours = paletteColours(palette);
+export function PlanDocument(pd, snap, { editable = false, onText, onImage, palette, toolbar = null } = {}) {
+  const look = docColours(pd, palette);
+  const colours = look.c;
   const T = (key, tag = 'span', cls = '', multiline = false) => {
     const value = textOf(pd, snap, key);
-    const el = h(tag, { class: `pd-t ${cls}`, 'data-key': key }, value);
+    const rich = pd.rich?.[key];
+    const el = h(tag, { class: `pd-t ${cls}${rich ? ' pd-rich' : ''}`, 'data-key': key });
+    if (rich) el.innerHTML = cleanHtml(rich); else el.textContent = value;
     if (editable) {
-      el.contentEditable = 'plaintext-only';
+      el.contentEditable = 'true';
       el.spellcheck = true;
-      el.title = 'Click to edit';
-      if (!value) el.dataset.placeholder = multiline ? 'Click to write…' : 'Click to add…';
-      el.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !multiline) { e.preventDefault(); el.blur(); } });
-      el.addEventListener('blur', () => {
-        const v = el.innerText.replace(/\n{3,}/g, '\n\n').trim();
-        if (v !== textOf(pd, snap, key)) onText?.(key, v === defaultText(snap, key) ? null : v);
+      el.title = 'Click to edit. Select words to format them.';
+      if (!value && !rich) el.dataset.placeholder = multiline ? 'Click to write…' : 'Click to add…';
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !multiline) { e.preventDefault(); el.blur(); }
+        if ((e.ctrlKey || e.metaKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())) { e.preventDefault(); document.execCommand({ b: 'bold', i: 'italic', u: 'underline' }[e.key.toLowerCase()]); }
       });
+      // Pasted words come in as plain text: formatting is added here, on purpose.
+      el.addEventListener('paste', (e) => { e.preventDefault(); document.execCommand('insertText', false, e.clipboardData.getData('text/plain')); });
+      el.addEventListener('blur', () => {
+        const html = cleanHtml(el.innerHTML);
+        if (isPlain(html)) {
+          const v = el.innerText.replace(/\n{3,}/g, '\n\n').trim();
+          if (v !== textOf(pd, snap, key) || rich) onText?.(key, v === defaultText(snap, key) ? null : v, null);
+        } else if (html !== rich) onText?.(key, textOfHtml(html), html);
+      });
+      toolbar?.attach(el, { multiline });
     }
     return el;
   };
-  const imageUrl = (slot, seed) => {
+  const imageUrl = (slot, seed, w, hh) => {
     const img = pd.images?.[slot];
     if (img?.kind === 'url' && img.url) return img.url;
-    return artUrl(img?.art ?? ['waves', 'hills', 'topo', 'circles', 'rays', 'mosaic'][seed % 6], colours, seed + 1);
+    return artUrl(img?.art ?? ['waves', 'hills', 'topo', 'circles', 'rays', 'mosaic'][seed % 6], colours, seed + 1, w, hh);
   };
   const Picture = (slot, seed, cls) => {
     const img = pd.images?.[slot];
@@ -174,10 +199,20 @@ export function PlanDocument(pd, snap, { editable = false, onText, onImage, pale
         h('p', { class: 'pd-made' }, `${snap.org.name} · ${textOf(pd, snap, 'title')} · Made with Dashi`))));
   }
 
-  const doc = h('div', { class: `pd-doc pd-${pd.template ?? 'modern'}`, 'data-theme': palette || 'corporate' }, pages);
+  const bg = pd.background ?? { kind: 'plain' };
+  const cover = pd.cover && pd.cover !== 'template' ? ` pd-cover-${pd.cover}` : '';
+  const doc = h('div', { class: `pd-doc pd-${pd.template ?? 'modern'} pd-bg-${bg.kind ?? 'plain'}${cover}`, 'data-theme': String(palette ?? '').startsWith('doc:') ? 'corporate' : palette || 'corporate' }, pages);
   doc.style.setProperty('--pd-c0', colours[0]);
   doc.style.setProperty('--pd-c1', colours[1]);
   doc.style.setProperty('--pd-c2', colours[2]);
+  doc.style.setProperty('--pd-paper', look.paper);
+  doc.style.setProperty('--pd-ink', look.ink);
+  doc.style.setProperty('--pd-strength', String((bg.strength ?? 50) / 100));
+  if (bg.kind === 'image') doc.style.setProperty('--pd-bg-image', `url("${imageUrl('background', 7, 816, 1056).replace(/"/g, '%22')}")`);
+  if (fontById[pd.fonts?.head]) doc.style.setProperty('--pd-head', fontById[pd.fonts.head].stack);
+  if (fontById[pd.fonts?.body]) doc.style.setProperty('--pd-text', fontById[pd.fonts.body].stack);
+  const scale = SCALES.find((x) => x.id === pd.scale)?.v ?? 1;
+  if (scale !== 1) doc.style.setProperty('--pd-scale', String(scale));
   return doc;
 
   function Measure(m) {

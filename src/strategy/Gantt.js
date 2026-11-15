@@ -3,7 +3,6 @@ import { svg, setAttrs } from '../core/svg.js';
 import { descendants, statusById, strategyOps } from '../platform/strategy.js';
 import { addDays, daysBetween, monthLabel, monthStarts, short, today } from './dates.js';
 
-const ROW = 30;
 const HEAD = 40;
 const SCALES = { weeks: 14, months: 4, quarters: 1.6 };
 let scale = 'months';
@@ -14,7 +13,8 @@ let scale = 'months';
  * click it to open the task. The drag is drawn live and saved as one
  * undoable change when you let go.
  */
-export function Gantt(ctx, nodeId) {
+export function Gantt(ctx, nodeId, { compact = false, fullHref = null } = {}) {
+  const ROW = compact ? 22 : 30;
   const { store, select } = ctx;
   const doc = store.doc;
   const node = doc.nodes[nodeId];
@@ -31,7 +31,7 @@ export function Gantt(ctx, nodeId) {
   const now = today();
   const from = addDays([...dated.map((n) => n.start), now].sort()[0], -10);
   const to = addDays([...dated.map((n) => n.end), now].sort().at(-1), 20);
-  const dayW = SCALES[scale];
+  const dayW = compact ? Math.min(SCALES[scale], 3) : SCALES[scale];
   const width = daysBetween(from, to) * dayW;
   const height = HEAD + rows.length * ROW;
   const xOf = (d) => daysBetween(from, d) * dayW;
@@ -57,12 +57,12 @@ export function Gantt(ctx, nodeId) {
     const x = xOf(n.start);
     const w = Math.max(dayW, xOf(addDays(n.end, 1)) - x);
     if (r.kind === 'workplan') {
-      svg('rect', { class: 'bar wp', x, y: y + 11, width: w, height: 8 }, g);
+      svg('rect', { class: 'bar wp', x, y: y + ROW / 2 - 4, width: w, height: 8 }, g);
       return;
     }
-    const bar = svg('rect', { class: 'bar', x, y: y + 6, width: w, height: ROW - 12, fill: statusById[n.status]?.color }, g);
-    const lh = svg('rect', { class: 'grip', x: x - 3, y: y + 6, width: 7, height: ROW - 12, 'data-edge': 'start' }, g);
-    const rh = svg('rect', { class: 'grip', x: x + w - 4, y: y + 6, width: 7, height: ROW - 12, 'data-edge': 'end' }, g);
+    const bar = svg('rect', { class: 'bar', x, y: y + (compact ? 4 : 6), width: w, height: ROW - (compact ? 8 : 12), fill: statusById[n.status]?.color }, g);
+    const lh = svg('rect', { class: 'grip', x: x - 3, y: y + (compact ? 4 : 6), width: 7, height: ROW - (compact ? 8 : 12), 'data-edge': 'start' }, g);
+    const rh = svg('rect', { class: 'grip', x: x + w - 4, y: y + (compact ? 4 : 6), width: 7, height: ROW - (compact ? 8 : 12), 'data-edge': 'end' }, g);
     if (n.id === ctx.selectedId) g.classList.add('selected');
     attachDrag(g, { bar, lh, rh, x, w, dayW, node: n, ctx });
   });
@@ -83,9 +83,10 @@ export function Gantt(ctx, nodeId) {
   // Start scrolled so today is in view.
   requestAnimationFrame(() => { scroller.scrollLeft = Math.max(0, tx - scroller.clientWidth / 3); });
 
-  return h('div', { class: 'gantt' },
+  return h('div', { class: `gantt${compact ? ' compact' : ''}` },
     h('div', { class: 'gantt-tools' },
-      h('span', { class: 'muted' }, 'Drag bars to reschedule, drag their ends to change dates.'),
+      h('span', { class: 'muted' }, compact ? 'A compact view. Drag bars to reschedule.' : 'Drag bars to reschedule, drag their ends to change dates.'),
+      fullHref && h('a', { class: 'btn btn-xs', href: fullHref }, 'Full Gantt →'),
       h('div', { class: 'segmented small' },
         Object.keys(SCALES).map((s) => h('button', { class: s === scale ? 'on' : '', onclick: () => { scale = s; ctx.render(); } }, s[0].toUpperCase() + s.slice(1)))),
     ),

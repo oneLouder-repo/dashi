@@ -11,7 +11,7 @@ import { loadOrg } from '../platform/docs.js';
 import { ROLES, staffList, teamList, membersOf } from '../platform/org.js';
 import { orgList, openOrg, createOrg, deleteOrg, renameOrg, platformUrl } from '../platform/session.js';
 import { PALETTES, SHAPES, applyTheme } from '../platform/themes.js';
-import { PLUGINS, pausedForOrg, featureOn } from '../plugins.js';
+import { PLUGINS, pausedForOrg, featureOn, chosenByOrg } from '../plugins.js';
 import { LIMITS, FEATURES, PLAN_IDS, PLAN_PLUGINS, amount } from '../platform/plans.js';
 import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
 
@@ -218,7 +218,7 @@ function Plugins(org) {
   const cats = [...new Set(PLUGINS.filter((p) => !p.platformOff).map((p) => p.category ?? 'Other'))];
   const card = (p) => {
     const paused = pausedForOrg(org, p.id);
-    const on = p.core || (!paused && org.plugins[p.id] !== false);
+    const on = p.core || (!paused && chosenByOrg(org, p));
     return h('article', { class: `org-plug${on ? ' on' : ''}${paused ? ' locked' : ''}`, style: `--tone:${p.tone}` },
       h('div', { class: 'org-plug-head' },
         h('span', { class: 'tone-tile' }, icon(p.icon, 22)),
@@ -227,7 +227,7 @@ function Plugins(org) {
           ? h('span', { class: 'badge badge-ghost badge-sm' }, 'Always on')
           : paused
           ? h('span', { class: 'badge badge-warning badge-soft badge-sm', title: 'Ask the platform admin, or change your plan under Plan' }, 'Not in your plan')
-          : h('input', { type: 'checkbox', class: 'toggle toggle-sm toggle-primary', 'aria-label': `Use ${p.name}`, checked: org.plugins[p.id] !== false,
+          : h('input', { type: 'checkbox', class: 'toggle toggle-sm toggle-primary', 'aria-label': `Use ${p.name}`, checked: chosenByOrg(org, p),
               onchange: (e) => set('plugins', { ...org.plugins, [p.id]: e.target.checked }) })),
       h('p', { class: 'org-plug-blurb' }, p.blurb),
       (p.features ?? []).length > 0 && h('ul', { class: 'org-plug-feats' }, p.features.map((f) => {

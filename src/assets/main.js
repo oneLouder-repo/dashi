@@ -55,13 +55,14 @@ function loadDocs() {
 const prefs = (() => { try { return { view: 'tiles', sort: 'recent', size: 's', ...JSON.parse(localStorage.getItem('dashi.assets.prefs') ?? '{}') }; } catch { return { view: 'tiles', sort: 'recent', size: 's' }; } })();
 const savePrefs = () => { try { localStorage.setItem('dashi.assets.prefs', JSON.stringify(prefs)); } catch { /* private window */ } };
 let query = '';
+let lastQ = null;
 let selection = new Set();
 let focusKey = null;
 const uploads = [];
 
 function scope() {
   const p = new URLSearchParams(location.hash.slice(1));
-  return { src: p.get('src'), coll: p.get('coll'), tag: p.get('tag'), abcd: p.get('abcd'), key: p.get('key') };
+  return { src: p.get('src'), coll: p.get('coll'), tag: p.get('tag'), abcd: p.get('abcd'), key: p.get('key'), q: p.get('q'), person: p.get('person'), about: p.get('about') };
 }
 const go = (params) => { location.hash = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null)).toString(); };
 
@@ -138,6 +139,8 @@ document.body.append(tray, dropCover, fileInput);
 function render() {
   const s = scope();
   if (s.key && s.key !== focusKey) { focusKey = s.key; selection = new Set([s.key]); }
+  // A link can arrive with a search already typed (#q=...), e.g. from a task's toolbox.
+  if (s.q != null && s.q !== lastQ) { lastQ = s.q; query = s.q; searchInput.value = s.q; }
   const cards = allCards();
   drawSide(cards);
   drawMain(cards);
@@ -234,7 +237,13 @@ function Empty() {
     icon(s.coll ? 'folderOpen' : 'dots', 40),
     h('h3', {}, query ? 'Nothing matches that search' : s.coll ? 'This collection is empty' : 'No assets here yet'),
     h('p', {}, query ? 'Try fewer words, or tag:, type: or abcd: to narrow.' : s.coll ? 'Drag cards onto it in the sidebar, or drop files here to upload them straight in.' : 'Drop files anywhere on the page, or add a link or a note. Maps, people, library items and episodes show up here by themselves.'),
-    canEdit && !query && h('button', { class: 'btn btn-sm btn-primary', onclick: () => fileInput.click() }, icon('cloudUpload', 16), 'Upload files'));
+    canEdit && !query && h('button', { class: 'btn btn-sm btn-primary', onclick: () => fileInput.click() }, icon('cloudUpload', 16), 'Upload files'),
+    // Arrived from a task's toolbox looking for someone with no card yet: offer one.
+    canEdit && query && s.person && h('button', { class: 'btn btn-sm btn-primary', onclick: () => {
+      const it = newItem(hub, { kind: 'note', title: s.person, text: s.about ?? '', abcd: 'individual', tags: ['person'], collectionIds: [] }, me?.id);
+      save(`added a card for “${it.title}”`, it.id);
+      select(allCards().find((c) => c.key === it.id));
+    } }, icon('person', 16), `Give “${s.person}” a card here`));
 }
 
 /* ------------------------------------------------------------------ views */

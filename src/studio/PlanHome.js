@@ -1,6 +1,7 @@
 import { h, options } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { Avatar } from '../ui/Shell.js';
+import { PeoplePicker } from '../ui/strategyLook.js';
 import { strategyOps, rootOf } from '../platform/strategy.js';
 import { staffList } from '../platform/org.js';
 import { CONTEXT_KINDS, TEAM_ROLES, QUADRANTS, ofPlan } from '../platform/studio.js';
@@ -55,15 +56,16 @@ export function PlanHome(ctx, plan) {
 
     h('section', { class: 'card card-border bg-base-100' }, h('div', { class: 'card-body' },
       h('h2', { class: 'card-title' }, 'Planning team'),
-      h('ul', { class: 'team-list' }, rec.team.map((t, i) => {
+      h('ul', { class: `team-list${rec.team.length > 8 ? ' long' : ''}` }, rec.team.map((t, i) => {
         const s = ctx.org.staff[t.staffId];
         return s && h('li', {},
           Avatar(s, 28), h('span', { class: 'team-name' }, s.name, h('small', { class: 'muted' }, s.title)),
           h('select', { class: 'select select-xs', name: `team-${t.staffId}`, 'aria-label': `${s.name}’s role`, onchange: (e) => setTeam(rec.team.map((x, j) => (j === i ? { ...x, role: e.target.value } : x))) }, options(TEAM_ROLES, t.role)),
           h('button', { class: 'btn btn-ghost btn-xs btn-square', title: 'Remove', 'aria-label': `Remove ${s.name}`, onclick: () => setTeam(rec.team.filter((_, j) => j !== i)) }, '×'));
       })),
-      h('select', { class: 'select select-sm', name: 'team-add', 'aria-label': 'Add someone to the team', onchange: (e) => { if (e.target.value) setTeam([...rec.team, { staffId: e.target.value, role: 'member' }]); } },
-        h('option', { value: '' }, 'Add someone…'), options(staffList(ctx.org).filter((s) => !inTeam.has(s.id)).map((s) => ({ id: s.id, label: s.name })))),
+      // Big teams: search and team filters in one picker, instead of a long dropdown.
+      PeoplePicker({ org: ctx.org, label: 'Planning team', selected: rec.team.map((t) => t.staffId), chips: 0,
+        onChange: (ids) => setTeam([...rec.team.filter((t) => ids.includes(t.staffId)), ...ids.filter((id) => !inTeam.has(id)).map((staffId) => ({ staffId, role: 'member' }))]) }),
       h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Facilitation notes'),
         h('textarea', { class: 'textarea textarea-sm', name: 'plan-notes', rows: 3, placeholder: 'Sessions, agreements, who is doing what', onchange: (e) => ctx.savePlan(plan.id, { notes: e.target.value }) }, rec.notes ?? '')))));
 }

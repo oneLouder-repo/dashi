@@ -157,6 +157,8 @@ export function migrateStrategy(doc) {
   for (const n of Object.values(doc.nodes)) {
     if (n.measures) for (const m of n.measures) m.id ??= uid('m');
     if (n.type === 'task' || n.type === 'workplan') n.assets ??= [];
+    // The example's check-in guide now has a real file behind it.
+    for (const a of n.assets ?? []) if (a.kind === 'document' && a.label === 'Partner check-in guide.pdf' && !a.url && !a.dataUrl) { a.url = 'media/docs/partner-check-in-guide.pdf'; a.detail = 'PDF · 3 KB'; }
   }
   return doc;
 }

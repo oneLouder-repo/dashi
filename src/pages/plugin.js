@@ -8,6 +8,7 @@ import { loadOrg } from '../platform/docs.js';
 import { loadDoc, saveDoc, session } from '../platform/storage.js';
 import { currentUser } from '../platform/session.js';
 import { uid } from '../core/ops.js';
+import { TOOL_VIEWS } from '../pluginViews/index.js';
 
 /**
  * The page of a plugin installed from a package or made in the plugin
@@ -43,7 +44,9 @@ function render() {
     !usable && h('p', { class: 'alert alert-warning alert-soft' }, m.status === 'draft'
       ? 'In development: only the platform admin sees this page until the plugin is released.'
       : 'This plugin isn’t switched on for your organisation. Its admin can switch it on under Organisation → Plugins.'),
-    h('div', { class: 'plugin-generic' },
+    TOOL_VIEWS[id] && TOOL_VIEWS[id](toolCtx()),
+    h(TOOL_VIEWS[id] ? 'details' : 'div', { class: `plugin-generic${TOOL_VIEWS[id] ? ' plugin-records' : ''}` },
+      TOOL_VIEWS[id] && h('summary', {}, icon('table', 15), 'All records, as tables'),
       h('div', { class: 'plugin-generic-main' },
         (m.dataModel?.docs ?? []).flatMap((d) => (d.collections ?? []).map((c) => Collection(d, c))),
         !(m.dataModel?.docs ?? []).some((d) => d.collections?.length) && h('p', { class: 'empty' }, 'This plugin keeps no records yet. Its data model is set in the plugin designer.')),
@@ -51,7 +54,34 @@ function render() {
         h('h2', {}, 'About'),
         h('p', { class: 'muted small' }, m.blurb || 'No description yet.'),
         h('p', { class: 'small' }, `${features} feature${features === 1 ? '' : 's'} on · ${m.category ?? 'Other'}`),
-        h('p', { class: 'muted small' }, 'This page is generated from the plugin’s data model. A plugin can ship its own page later; the records kept here stay.')))));
+        h('p', { class: 'muted small' }, TOOL_VIEWS[id] ? 'The tables show every record this plugin keeps, field by field.' : 'This page is generated from the plugin’s data model. A plugin can ship its own page later; the records kept here stay.')))));
+}
+
+/** What a plugin's own tool view works with: its first document's records, and the forms below. */
+function toolCtx() {
+  const d = m.dataModel?.docs?.[0] ?? { name: `plugin/${id}`, collections: [] };
+  const coll = (cid) => (d.collections ?? []).find((c) => c.id === cid) ?? { id: cid, label: cid, fields: [] };
+  const canEdit = !session() || session().canEdit;
+  const ctx = {
+    id, org, me, canEdit, render,
+    doc: (name) => docFor({ name }),
+    save: (name) => saveDoc(docName({ name }), docFor({ name })),
+    records: (cid) => Object.values(docFor(d).collections?.[cid] ?? {}).sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? '')),
+    put: (cid, rec, { quiet = false } = {}) => {
+      const doc = docFor(d);
+      doc.collections ??= {};
+      doc.collections[cid] ??= {};
+      const rid = rec.id ?? uid(cid.slice(0, 4));
+      const now = new Date().toISOString();
+      doc.collections[cid][rid] = { ...rec, id: rid, updatedAt: now, updatedBy: me?.id ?? null, createdAt: rec.createdAt ?? now };
+      saveDoc(docName(d), doc);
+      if (!quiet) render();
+      return rid;
+    },
+    remove: (cid, rid) => { delete docFor(d).collections?.[cid]?.[rid]; saveDoc(docName(d), docFor(d)); render(); },
+    edit: (cid, rec = null) => edit(d, coll(cid), rec?.id ? rec : rec ? { ...rec, id: undefined, _new: true } : null),
+  };
+  return ctx;
 }
 
 function Collection(d, c) {
@@ -108,14 +138,16 @@ async function edit(d, c, record) {
       default: return base;
     }
   });
-  const v = await uiForm({ title: record ? `Edit ${singular(c.label)}` : `New ${singular(c.label)}`, fields, ok: record ? 'Save' : 'Add', wide: fields.length > 4 });
+  const isNew = !record?.id;
+  const v = await uiForm({ title: isNew ? `New ${singular(c.label)}` : `Edit ${singular(c.label)}`, fields, ok: isNew ? 'Add' : 'Save', wide: fields.length > 4 });
   if (!v) return;
   for (const f of c.fields ?? []) if (f.type === 'list' && typeof v[f.id] === 'string') v[f.id] = v[f.id].split(',').map((x) => x.trim()).filter(Boolean);
   const doc = docFor(d);
   doc.collections ??= {};
   doc.collections[c.id] ??= {};
   const rid = record?.id ?? uid(c.id.slice(0, 4));
-  doc.collections[c.id][rid] = { ...(record ?? {}), ...v, id: rid, updatedAt: new Date().toISOString(), updatedBy: me?.id ?? null, createdAt: record?.createdAt ?? new Date().toISOString() };
+  const { _new, ...base } = record ?? {};
+  doc.collections[c.id][rid] = { ...base, ...v, id: rid, updatedAt: new Date().toISOString(), updatedBy: me?.id ?? null, createdAt: record?.createdAt ?? new Date().toISOString() };
   saveDoc(docName(d), doc);
   render();
 }

@@ -58,7 +58,7 @@ export function resolveAsset(asset, docs) {
     }
     case 'staff': {
       const s = docs.org?.staff[asset.ref];
-      return s ? { label: s.name, sub: s.title, href: 'org.html' } : { label: asset.label, sub: 'No longer on staff', missing: true };
+      return s ? { label: s.name, sub: s.title, href: `assets.html#key=${encodeURIComponent(`staff:${s.id}`)}` } : { label: asset.label, sub: 'No longer on staff', missing: true };
     }
     case 'plan': {
       const n = docs.strategy?.nodes[asset.ref];
@@ -74,9 +74,18 @@ export function resolveAsset(asset, docs) {
         const by = who ? (who.literal ?? who.family) + ((it.meta.creators.length > 1) ? ' et al.' : '') : '';
         return { label: it.meta.title || asset.label, sub: ['In the library', by, year].filter(Boolean).join(' · '), href: `library.html#item/${asset.libraryId}` };
       }
-      if (asset.kind === 'document') return { label: asset.label, sub: asset.detail ?? 'Document', href: asset.dataUrl ?? asset.url };
+      if (asset.kind === 'document') {
+        if (asset.assetKey) return { label: asset.label, sub: asset.detail ?? 'Document', href: `assets.html#key=${encodeURIComponent(asset.assetKey)}` };
+        // A file kept inline opens as a file (browsers block opening data: links directly).
+        if (asset.dataUrl) return { label: asset.label, sub: asset.detail ?? 'Document', href: asset.dataUrl, file: true };
+        if (asset.url) return { label: asset.label, sub: asset.detail ?? 'Document', href: asset.url };
+        return { label: asset.label, sub: `${asset.detail ?? 'Document'} · find it in the Asset manager`, href: `assets.html#q=${encodeURIComponent(asset.label.replace(/\.[a-z0-9]+$/i, ''))}` };
+      }
       return { label: asset.label, sub: ['Literature', asset.year].filter(Boolean).join(' · '), href: asset.url };
     }
+    case 'person':
+      // Someone outside the staff list: their card in the Asset manager, if they have one.
+      return { label: asset.label, sub: asset.detail ?? 'Person', href: asset.url ?? `assets.html#${new URLSearchParams({ q: asset.label.replace(/\s*\(.*\)\s*/g, ' ').trim(), person: asset.label, ...(asset.detail ? { about: asset.detail } : {}) })}` };
     default:
       return { label: asset.label, sub: asset.detail ?? kindById[asset.kind]?.label ?? asset.kind, href: asset.url };
   }
