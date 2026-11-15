@@ -39,6 +39,9 @@ Shell(document.querySelector('#shell'), { current: 'mapper', org });
 // Which map: mapper.html#<mapId>, else the first map this org has (making one if none).
 const index = loadMaps();
 let mapId = decodeURIComponent(location.hash.slice(1));
+// mapper.html#<mapId>/<actor, connector or group id>: open the map with that item chosen (search results land here).
+let focusId = null;
+if (mapId.includes('/') && !mapId.startsWith('open=')) [mapId, focusId] = mapId.split('/');
 // mapper.html#open=<library item>: open a map file kept in the library.
 const openFromLibrary = mapId.startsWith('open=') ? mapId.slice(5) : null;
 if (!index.maps[mapId]) {
@@ -338,6 +341,10 @@ setTimeout(() => document.body.classList.remove('board-pending'), 800);
 // Fonts and the panel can still shift things on the first frames: fit again once they settle.
 requestAnimationFrame(() => requestAnimationFrame(() => { if (!fittedCamera || (stage.x === fittedCamera.x && stage.y === fittedCamera.y && stage.scale === fittedCamera.scale)) fitView(); }));
 document.fonts?.ready.then(() => { if (fittedCamera && stage.x === fittedCamera.x && stage.y === fittedCamera.y && stage.scale === fittedCamera.scale) fitView(); });
+if (focusId && (store.map.actors[focusId] || store.map.connectors[focusId] || store.map.groups?.[focusId])) {
+  history.replaceState(null, '', `#${mapId}`);
+  setTimeout(() => { mapView.select([focusId]); mapView.signalActor(focusId); ctx.panel?.reveal('inspector'); }, 450);
+}
 autosaveDoc(mapDocName(mapId), store);
 // The map's name and its title in the org's list of maps stay the same.
 store.map.name = index.maps[mapId].title;

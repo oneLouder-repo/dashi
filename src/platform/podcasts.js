@@ -10,11 +10,19 @@
  *   episodes: { [id]: Episode },
  * }
  * Show    { handle, title, description, category, language, type: 'episodic' | 'serial',
- *           owner: { name, email }, cover, explicit, hostIds: [staff ids], featured, order,
- *           seasons: { [number]: { number, title, description } } }
+ *           owner: { name, email }, cover, accent, explicit, hostIds: [staff ids], featured, order,
+ *           seasons: { [number]: { number, title, description } },
+ *           links: { website, apple, spotify, youtube } }            where else to listen
  * Episode { podcastId, season, number, title, slug, description, notes,
  *           type: 'full' | 'trailer' | 'bonus', status: 'published' | 'scheduled' | 'draft', publishedAt,
- *           audio: { url | mediaId, duration, mimetype, size }, personIds: [staff ids] }
+ *           audio: { url | mediaId, duration, mimetype, size }, personIds: [staff ids],
+ *           cover,                         its own art, else the show's
+ *           chapters: [{ at, title }],     at = seconds from the start
+ *           transcript, tags: [..], explicit,
+ *           related: [asset keys] }        things in Dashi it talks about (map:…, library:…); never public
+ *
+ * Without art of its own, a show or episode gets generated cover art
+ * (ui/standIn.js coverArt) in the show's accent colour.
  *
  * Audio is an uploaded .mp3 or .wav. In the browser prototype uploads live
  * in IndexedDB (see media.js) and `audio.mediaId` names them; bundled
@@ -66,7 +74,7 @@ export function seedPodcasts() {
         id: 'pod-stem-voices', handle: 'stemvoices', title: 'STEM Voices', category: 'Education', language: 'en', type: 'episodic', explicit: false,
         description: 'Youth and instructors from across the network talk about the science they love and the barriers they break.',
         owner: { name: 'Example STEM Outreach Network', email: 'podcast@example.org' }, cover: null, hostIds: ['s-comms', 's-prog'],
-        featured: true, order: 0,
+        featured: true, order: 0, accent: '#b23a5b',
         seasons: {
           1: { number: 1, title: 'Season 1: Getting started', description: 'How young people found their way into STEM.' },
           2: { number: 2, title: 'Season 2: Staying in', description: 'What keeps them there, and what pushes them out.' },
@@ -76,23 +84,26 @@ export function seedPodcasts() {
         id: 'pod-land', handle: 'landlearning', title: 'Learning with the Land', category: 'Science', language: 'en', type: 'serial', explicit: false,
         description: 'Indigenous knowledge keepers and STEM instructors in conversation, recorded during the co-design sessions.',
         owner: { name: 'Example STEM Outreach Network', email: 'podcast@example.org' }, cover: null, hostIds: ['s-indig'],
-        featured: true, order: 1,
+        featured: true, order: 1, accent: '#3f8a52',
         seasons: { 1: { number: 1, title: 'Treaty 6 sessions', description: '' } },
       },
       'pod-instructor': {
         id: 'pod-instructor', handle: 'instructornotes', title: 'Instructor Notes', category: 'Education', language: 'en', type: 'episodic', explicit: false,
         description: 'Short, practical episodes for outreach instructors. Our first show, now resting.',
         owner: { name: 'Example STEM Outreach Network', email: 'podcast@example.org' }, cover: null, hostIds: ['s-train'],
-        featured: false, order: 2,
+        featured: false, order: 2, accent: '#2f7f9c',
         seasons: { 1: { number: 1, title: '2025 series', description: '' } },
       },
     },
     episodes: Object.fromEntries([
       ep('ep-sv-0', 'pod-stem-voices', 1, 0, 'Welcome to STEM Voices', 'media/podcasts/stem-voices-trailer.mp3', 15, '2025-08-20', 'What this show is and who you will hear.', { type: 'trailer' }),
-      ep('ep-sv-1', 'pod-stem-voices', 1, 1, 'Robots in the Arctic', 'media/podcasts/stem-voices-1.mp3', 30, '2025-09-03', 'Youth from Iqaluit on the robotics club that runs through the polar night.', { personIds: ['s-comms'], notes: 'Mentioned in this episode:\n\n- The Iqaluit robotics club\n- Our northern programs map' }),
-      ep('ep-sv-2', 'pod-stem-voices', 1, 2, 'Coding camp, in Cree', 'media/podcasts/stem-voices-2.mp3', 30, '2025-10-01', 'An instructor on teaching code in a learner’s first language.', { personIds: ['s-comms', 's-train'] }),
+      ep('ep-sv-1', 'pod-stem-voices', 1, 1, 'Robots in the Arctic', 'media/podcasts/stem-voices-1.mp3', 30, '2025-09-03', 'Youth from Iqaluit on the robotics club that runs through the polar night.', { personIds: ['s-comms'], notes: 'Mentioned in this episode:\n\n- The Iqaluit robotics club\n- Our northern programs map', tags: ['north', 'robotics', 'youth voice'],
+        chapters: [{ at: 0, title: 'Cold open' }, { at: 8, title: 'The club in the polar night' }, { at: 20, title: 'What comes next' }],
+        transcript: 'Sofia: Welcome back to STEM Voices. Today we are in Iqaluit, where the robotics club meets through the polar night…' }),
+      ep('ep-sv-2', 'pod-stem-voices', 1, 2, 'Coding camp, in Cree', 'media/podcasts/stem-voices-2.mp3', 30, '2025-10-01', 'An instructor on teaching code in a learner’s first language.', { personIds: ['s-comms', 's-train'], tags: ['language', 'coding', 'indigenous knowledge'] }),
       ep('ep-sv-3', 'pod-stem-voices', 2, 1, 'Girls who build bridges', 'media/podcasts/stem-voices-1.mp3', 30, '2026-09-24', 'Engineering challenge winners on what made them stay.', { personIds: ['s-comms'] }),
-      ep('ep-sv-4', 'pod-stem-voices', 2, 2, 'The first-year wall', 'media/podcasts/stem-voices-2.mp3', 30, '2026-10-22', 'Why so many leave STEM in first year, and what helps them through.', { personIds: ['s-comms', 's-eval'] }),
+      ep('ep-sv-4', 'pod-stem-voices', 2, 2, 'The first-year wall', 'media/podcasts/stem-voices-2.mp3', 30, '2026-10-22', 'Why so many leave STEM in first year, and what helps them through.', { personIds: ['s-comms', 's-eval'], tags: ['retention', 'post-secondary'],
+        chapters: [{ at: 0, title: 'Introductions' }, { at: 12, title: 'The numbers' }, { at: 22, title: 'What helps' }] }),
       ep('ep-sv-5', 'pod-stem-voices', 2, 3, 'Mentors who look like you', 'media/podcasts/stem-voices-1.mp3', 30, '2026-11-05', 'Coming soon.', { status: 'scheduled' }),
       ep('ep-land-1', 'pod-land', 1, 1, 'Starting with the land', 'media/podcasts/land-learning-1.mp3', 30, '2026-10-16', 'From the first co-design session in Treaty 6.', { personIds: ['s-indig'] }),
       ep('ep-in-1', 'pod-instructor', 1, 1, 'Five-minute icebreakers', 'media/podcasts/stem-voices-2.mp3', 30, '2025-03-10', 'Quick openers that work with any age group.', { personIds: ['s-train'] }),
@@ -114,11 +125,19 @@ export function migratePodcasts(doc) {
     p.order ??= 0;
     p.hostIds ??= [];
     p.seasons ??= {};
+    p.accent ??= null;
+    p.links = { website: '', apple: '', spotify: '', youtube: '', ...p.links };
   }
   for (const e of Object.values(doc.episodes)) {
     e.season ??= 1;
     e.notes ??= '';
     e.personIds ??= [];
+    e.cover ??= null;
+    e.chapters ??= [];
+    e.transcript ??= '';
+    e.tags ??= [];
+    e.related ??= [];
+    e.explicit ??= false;
     const show = doc.podcasts[e.podcastId];
     if (show && !show.seasons[e.season]) show.seasons[e.season] = { number: e.season, title: `Season ${e.season}`, description: '' };
   }
@@ -126,6 +145,20 @@ export function migratePodcasts(doc) {
 }
 
 export const slugify = (s) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_-]+/g, '-');
+
+/** Where an episode opens in the Podcasts plugin. */
+export const episodeHref = (e) => `podcasts.html#${e.podcastId ?? ''}/${e.id}`;
+
+/** "1:05" or "1:02:03" ⇄ seconds, for chapter times. */
+export const toClock = (sec = 0) => { const s = Math.max(0, Math.round(sec)); return (s >= 3600 ? `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}` : `${Math.floor(s / 60)}`) + `:${String(s % 60).padStart(2, '0')}`; };
+export function fromClock(text) {
+  const parts = String(text ?? '').trim().split(':').map((x) => x.trim());
+  if (!parts.length || parts.some((x) => !/^\d+$/.test(x)) || parts.length > 3) return null;
+  return parts.reduce((t, x) => t * 60 + Number(x), 0);
+}
+
+/** An episode's code: "S2 · E3", or "S1 · Trailer". */
+export const episodeCode = (e) => (e.type === 'full' ? `S${e.season} · E${e.number}` : `S${e.season} · ${e.type[0].toUpperCase()}${e.type.slice(1)}`);
 
 /** Live on the station: published, or scheduled for a date that has come. Drafts never are. */
 export const published = (e, today) => e.status === 'published' || (e.status === 'scheduled' && e.publishedAt <= today);

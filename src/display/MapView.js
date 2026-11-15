@@ -123,6 +123,9 @@ export class MapView extends EventDispatcher {
     }
   }
 
+  /** One actor pings (search results and links from elsewhere land on it). */
+  signalActor(id) { const v = this.#actors.get(id); if (v?.visible) v.signal(4); }
+
   /** Everything on a layer pulses a few times (its actors ping; its connectors and groups glow). */
   signalLayer(layerId) {
     const { map } = this.store;

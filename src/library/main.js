@@ -186,17 +186,21 @@ function Files(scope) {
           h('li', {}, h('button', { onclick: () => addReference(folder?.id) }, icon('book', 15), 'A reference (no file)')),
           h('li', {}, ImportButton(folder?.id, null, status)))),
       folder && h('button', { class: 'btn btn-sm btn-ghost', onclick: () => renameFolder(folder) }, 'Rename folder')) }),
+    !folder && scope === 'all' && QuickAdd(),
     h('div', { class: 'lib-toolbar' },
       h('h2', {}, title, h('span', { class: 'muted' }, ` · ${n(items.length, 'item')}`)),
       h('input', { class: 'input input-sm lib-search', type: 'search', placeholder: 'Search titles, authors, tags, abstracts', value: search, 'aria-label': 'Search the library', oninput: (e) => { search = e.target.value; draw(); } }),
       h('select', { class: 'select select-sm', 'aria-label': 'Sort by', onchange: (e) => { sort = e.target.value; draw(); } },
         options([{ id: 'updated', label: 'Newest changes' }, { id: 'title', label: 'Title' }, { id: 'author', label: 'Author' }, { id: 'year', label: 'Year' }], sort)),
       ExportRefs(() => searchItems(lib(), search).filter(inScope), title, { label: 'Export', cls: 'btn btn-sm btn-ghost' })),
-    !folder && scope === 'all' && QuickAdd(),
-    !folder && scope === 'all' && MiniCloud(),
-    limit != null && h('p', { class: 'muted small' }, `${used} of ${limit} documents on your plan · files up to ${maxUploadMb()} MB`),
-    status,
-    list);
+    (() => {
+      const cloud = !folder && scope === 'all' ? MiniCloud() : null;
+      const body = h('div', { class: 'lib-main-col' },
+        limit != null && h('p', { class: 'muted small' }, `${used} of ${limit} documents on your plan · files up to ${maxUploadMb()} MB`),
+        status,
+        list);
+      return cloud ? h('div', { class: 'lib-body' }, body, cloud) : body;
+    })());
 }
 
 function Row(item) {
@@ -1020,9 +1024,9 @@ function Cloud(tags, { max = Infinity } = {}) {
 function MiniCloud() {
   const tags = libraryTags(lib());
   if (!tags.length) return null;
-  return h('section', { class: 'card lib-cloud' },
-    h('div', { class: 'section-head' }, h('h3', {}, icon('tag', 15), ' Tags'), h('a', { class: 'small', href: '#tags' }, `All ${tags.length} tags →`)),
-    Cloud(tags, { max: 30 }));
+  return h('aside', { class: 'card lib-cloud', 'aria-label': 'Tags' },
+    h('div', { class: 'section-head' }, h('h3', {}, icon('tag', 15), ' Tags'), h('a', { class: 'small', href: '#tags' }, `All ${tags.length} →`)),
+    Cloud(tags, { max: 24 }));
 }
 
 function TagsPage() {
@@ -1172,9 +1176,14 @@ function QuickAdd() {
   };
 
   drawSource();
-  const open = qa.open ?? true;
+  // Closed until asked for, but always the first thing on the page.
+  const open = qa.open ?? false;
   return h('details', { class: 'card quick-add', open, ontoggle: (e) => { qa.open = e.target.open; } },
-    h('summary', {}, h('strong', {}, icon('plus', 15), ' Add a reading'), h('span', { class: 'muted small' }, ' Upload, link or pick it, annotate, tag, and file it in a bibliography in one go.'), weekNote),
+    h('summary', {},
+      h('span', { class: 'qa-badge' }, icon('plus', 16)),
+      h('span', { class: 'qa-sum' }, h('strong', {}, 'Add a reading'), h('span', { class: 'muted small' }, 'Upload, link or pick it, annotate, tag, and file it in a bibliography in one go.')),
+      weekNote,
+      h('span', { class: 'qa-chev', 'aria-hidden': 'true' }, icon('chevronDown', 16))),
     h('form', { class: 'qa-form', onsubmit: save },
       h('div', { class: 'qa-row' }, tabs),
       source,

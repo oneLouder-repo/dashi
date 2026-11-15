@@ -7,61 +7,76 @@ import { FeedbackButton, version } from './Support.js';
 import { NetLight } from './netlight.js';
 import { toast } from './toast.js';
 import { uiAlert, uiPrompt } from './dialog.js';
+import { SearchBox, wireSearchKey } from './SearchBox.js';
 import { session } from '../platform/storage.js';
 import { orgList, openOrg, createOrg, currentUser, signInAs, can, signOut, signedInUser, platformUrl } from '../platform/session.js';
 
 /**
- * The header shared by every page: which org is open (and a switcher), the
- * org's plugins, help, and who is signed in. Accounts are mocked: "Sign in
- * as" picks a staff record, so you can see the platform as anyone.
+ * The header shared by every page, in two rows:
+ *
+ *   top    the dashi mark, the open organisation, then search, the save
+ *          light, help and your profile (which holds the organisation
+ *          switcher, settings, "view as" and sign out)
+ *   bar    the org's plugins as icons (names on hover; the open one shows
+ *          its name)
+ *
+ * Accounts are mocked locally: "Sign in as" picks a staff record, so you
+ * can see the platform as anyone.
  */
 export function Shell(el, { current, org }) {
   const me = currentUser(org);
   const role = ROLES.find((r) => r.id === me?.roleId);
-  const link = (id, href, label, iconName, short = label) =>
-    h('a', { href, title: label, class: `shell-link${id === current ? ' active' : ''}`, style: `--tone:${toneFor(id)}`, 'aria-current': id === current ? 'page' : null },
-      icon(iconName, 18), h('span', {}, short));
   const account = signedInUser();
+  const link = (id, href, label, iconName) => {
+    const on = id === current;
+    return h('a', { href, 'aria-label': label, 'data-tip': label, class: `shell-link${on ? ' active' : ''}`, style: `--tone:${toneFor(id)}`, 'aria-current': on ? 'page' : null },
+      icon(iconName, 18), on ? h('span', {}, label) : null);
+  };
+  const orgs = orgList();
+  const switcher = orgs.length > 1 || can.manageOrgs();
 
   // The page takes its plugin's colour (buttons, links, highlights).
   document.body.dataset.plugin = current;
   document.body.style.setProperty('--color-primary', toneFor(current));
   el.classList.add('shell');
   el.replaceChildren(
-    h('details', { class: 'dropdown shell-org' },
-      h('summary', { class: 'shell-brand', title: 'Switch organisation' },
-        Logo(org, 26),
-        h('span', { class: 'shell-org-text' }, h('strong', { class: 'shell-dashi' }, RippleMark(14), 'dashi', StageBadge()), h('span', {}, org.name)),
-        h('span', { class: 'caret-down', 'aria-hidden': 'true' }, '▾')),
-      h('ul', { class: 'menu dropdown-content shell-menu' },
-        h('li', { class: 'menu-title' }, 'Organisations'),
-        orgList().map((o) => h('li', {}, h('button', { class: o.id === org.id ? 'menu-active' : '', onclick: () => o.id !== org.id && openOrg(o.id) }, o.name))),
-        can.manageOrgs() && (platformUrl()
-          ? h('li', {}, h('a', { href: platformUrl() }, icon('plus', 16), 'Platform admin…'))
-          : h('li', {}, h('button', { onclick: async () => {
-              const name = await uiPrompt('Name of the new organisation', '', { title: 'New organisation', ok: 'Create' });
-              if (name?.trim()) { createOrg(name.trim()); location.assign('org.html'); }
-            } }, icon('plus', 16), 'New organisation…'))),
-        h('li', {}, h('a', { href: 'org.html' }, icon('settings', 16), 'Organisation settings')))),
-    h('nav', { class: 'shell-nav', 'aria-label': 'Plugins' },
-      link('home', 'index.html', 'Dashboard', 'sec-home', 'Home'),
-      enabledPlugins(org).filter((p) => p.nav !== false).map((p) => link(p.id, p.href, p.name, p.icon, p.short)),
-    ),
-    netLight ??= NetLight(),
-    link('help', 'help.html', 'Help', 'sec-help'),
-    h('details', { class: 'dropdown dropdown-end shell-user' },
-      h('summary', { title: 'Your profile' }, Avatar(me, 28), h('span', { class: 'shell-user-name' }, me ? `${me.name} · ${role?.label}` : 'Not signed in')),
-      h('ul', { class: 'menu dropdown-content shell-menu' },
-        account && h('li', { class: 'menu-title' }, `Signed in as ${account.email}${account.isSuper ? ' (platform admin)' : ''}`),
-        h('li', {}, h('a', { href: 'me.html' }, icon('person', 16), 'My profile and work')),
-        can.signOut() && h('li', {}, h('button', { onclick: signOut }, icon('swap', 16), 'Sign out')),
-        can.viewAs() && [
-          h('li', { class: 'menu-title' }, account ? 'View as (to see what they see)' : 'Sign in as (mock accounts)'),
-          Object.values(org.staff).sort((a, b) => a.name.localeCompare(b.name)).map((s) =>
-            h('li', {}, h('button', { class: s.id === me?.id ? 'menu-active' : '', onclick: async () => {
-              try { await signInAs(org.id, s.id); location.reload(); } catch (err) { uiAlert(err.message, { title: 'Couldn’t switch' }); }
-            } }, Avatar(s, 20), s.name)))])),
+    h('div', { class: 'shell-top' },
+      h('a', { class: 'shell-home', href: 'index.html', title: 'Dashi home' }, RippleMark(26), h('span', { class: 'shell-word' }, 'dashi'), StageBadge()),
+      h('span', { class: 'shell-slash', 'aria-hidden': 'true' }, '/'),
+      h('a', { class: 'shell-orgname', href: 'org.html', title: `${org.name}: organisation settings` }, org.name),
+      h('span', { class: 'shell-gap' }),
+      SearchBox(org),
+      netLight ??= NetLight(),
+      h('a', { class: `shell-icon${current === 'help' ? ' active' : ''}`, href: 'help.html', 'aria-label': 'Help', 'data-tip': 'Help' }, icon('question', 19)),
+      h('details', { class: 'dropdown dropdown-end shell-user' },
+        h('summary', { title: 'Your profile', 'aria-label': 'Your profile and organisations' }, Avatar(me, 30)),
+        h('ul', { class: 'menu dropdown-content shell-menu' },
+          h('li', { class: 'shell-me' }, h('div', {}, Avatar(me, 36), h('span', {}, h('strong', {}, me?.name ?? 'Not signed in'), h('small', {}, [role?.label, account?.email].filter(Boolean).join(' · '))))),
+          h('li', {}, h('a', { href: 'me.html' }, icon('person', 16), 'My profile and work')),
+          h('li', {}, h('a', { href: 'org.html' }, icon('settings', 16), 'Organisation settings')),
+          switcher && [
+            h('li', { class: 'menu-title' }, account?.isSuper ? 'Organisations (platform admin)' : 'Organisations'),
+            orgs.map((o) => h('li', {}, h('button', { class: o.id === org.id ? 'menu-active' : '', onclick: () => o.id !== org.id && openOrg(o.id) }, h('span', { class: 'shell-org-dot' }, initials(o.name)), o.name))),
+            can.manageOrgs() && (platformUrl()
+              ? h('li', {}, h('a', { href: platformUrl() }, icon('shield', 16), 'Platform admin'))
+              : h('li', {}, h('button', { onclick: async () => {
+                  const name = await uiPrompt('Name of the new organisation', '', { title: 'New organisation', ok: 'Create' });
+                  if (name?.trim()) { createOrg(name.trim()); location.assign('org.html'); }
+                } }, icon('plus', 16), 'New organisation…'))),
+          ],
+          can.viewAs() && [
+            h('li', { class: 'menu-title' }, account ? 'View as (to see what they see)' : 'Sign in as (mock accounts)'),
+            Object.values(org.staff).sort((a, b) => a.name.localeCompare(b.name)).map((s) =>
+              h('li', {}, h('button', { class: s.id === me?.id ? 'menu-active' : '', onclick: async () => {
+                try { await signInAs(org.id, s.id); location.reload(); } catch (err) { uiAlert(err.message, { title: 'Couldn’t switch' }); }
+              } }, Avatar(s, 20), s.name)))],
+          can.signOut() && h('li', { class: 'shell-out' }, h('button', { onclick: signOut }, icon('swap', 16), 'Sign out'))))),
+    h('nav', { class: 'shell-bar', 'aria-label': 'Plugins' },
+      link('home', 'index.html', 'Home', 'sec-home'),
+      h('span', { class: 'shell-bar-sep', 'aria-hidden': 'true' }),
+      enabledPlugins(org).filter((p) => p.nav !== false).map((p) => link(p.id, p.href, p.name, p.icon))),
   );
+  wireSearchKey();
   // Pages draw the header again on every change; the listeners below go on once.
   if (wired) return;
   wired = true;
