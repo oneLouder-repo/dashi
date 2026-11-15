@@ -51,6 +51,14 @@ Copy `.env.example` to `.env` and change what you need. The ones that matter on 
 
 ## Going live
 
+**Step-by-step guides.** Three longer guides walk through launch in order, written for Fly.io in Toronto:
+
+1. [Deploying Dashi on Fly.io](https://claude.ai/artifact/DGmDRQ2fYHGgoXLKe3XYkH): the app, the volume, secrets, domains and certificates, the first sign-in, staging and the release routine.
+2. [Dashi setup: data, email and payments](https://claude.ai/artifact/MsfzD8njVH2xKjBtvheSqe): off-site database copies with Litestream and Tigris, email DNS (SPF, DKIM, DMARC), and Stripe with prices that include HST.
+3. [Dashi security and uptime](https://claude.ai/artifact/9zL8QhVJGHYX7hCtedv2JF): an outside uptime monitor, free security scans, a yearly penetration test, and the incident, PIPEDA breach and vulnerability report protocols.
+
+Everything below is the short version. Once Dashi is running, **Platform admin → Control centre** shows whether each piece is set up and working: health, data, email, payments, security, activity and legal.
+
 Two ways, both with the files in this repository. Either way, you need a domain (say `dashi.ca`) where orgs get addresses like `riverbend.dashi.ca`.
 
 ### Option A: Fly.io (recommended, least to look after)
@@ -118,7 +126,25 @@ To start it fresh, delete `toolbox.db` from its volume (`fly ssh console --confi
 
 - **Database.** The server takes a snapshot of the database every day and keeps two weeks of them in `data/backups/` (set `BACKUP_DAYS` to change that). The platform admin can also take one at any time from **Platform admin → Security audit → Back up now**, or with `npm run backup`.
 - **Audio and the disk.** On Fly, volume snapshots cover everything, including uploaded audio. On your own server, copy `data/` somewhere else every night, for example with `rclone` to an object store.
-- **Restore.** Stop the server, copy a snapshot over `data/toolbox.db`, and start it again.
+- **Off-site copies, to the second.** With `BUCKET_NAME` set (on Fly, `fly storage create` sets it and the keys), the Docker image runs [Litestream](https://litestream.io), which copies every change to the database to the bucket within a second. If the volume is lost, the next start restores the latest copy before Dashi opens. **Control centre → Data** shows whether it's running.
+- **Restore.** From a daily snapshot: stop the server, copy the snapshot over `data/toolbox.db`, and start it again. From Litestream, to a moment: `litestream restore -o /data/restored.db -timestamp <time> /data/toolbox.db`, move it over `toolbox.db`, delete `toolbox.db-wal` and `toolbox.db-shm`, and restart.
+
+### Payments (Stripe)
+
+Org admins can pay by card on Stripe's own checkout page; card details never touch Dashi. Prices include tax: each Stripe price is created as tax-inclusive, and Stripe Tax (or one fixed tax rate) works out the HST, GST or GST + QST inside it.
+
+1. In Stripe, make a webhook endpoint for `https://dashi.ca/api/stripe/webhook` with the events `checkout.session.completed`, `customer.subscription.created`, `.updated` and `.deleted`, `invoice.paid` and `invoice.payment_failed`.
+2. `fly secrets set STRIPE_SECRET_KEY=sk_live_... STRIPE_WEBHOOK_SECRET=whsec_...` (use `sk_test_` keys on staging).
+3. In **Control centre → Payments**, add your HST number, choose the tax mode, create the prices, run the check, and switch on card payments.
+
+### Two-step sign-in
+
+Platform admins must turn on two-step sign-in (an authenticator app) before the admin pages open on a live server. Anyone can turn it on from their own account. Set `ADMIN_TWO_STEP=false` only on a server nobody else can reach. **Control centre → Security** lists every signed-in session and can sign any of them out.
+
+### Security and uptime
+
+- `/.well-known/security.txt` tells security researchers where to report a problem, and links to the security page among the legal pages. Set the address in **Control centre → Legal → Company details**.
+- Point an outside uptime monitor (Better Stack or UptimeRobot) at `/healthz`, which checks the database too. The security and uptime guide above has the full list of checks and the routine.
 
 ### The security audit
 

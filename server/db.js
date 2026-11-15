@@ -79,6 +79,33 @@ const SCHEMA = [
      purpose TEXT NOT NULL, expires_at INTEGER NOT NULL, created_at TEXT NOT NULL)`,
   // When each person last signed in, so an admin can see who hasn't yet.
   `ALTER TABLE users ADD COLUMN last_sign_in TEXT`,
+  // The control centre (alpha.8). Who changed what, for the platform admin.
+  `CREATE TABLE audit_log (
+     id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, user_id TEXT, email TEXT,
+     action TEXT NOT NULL, target TEXT, detail TEXT NOT NULL DEFAULT '{}', ip TEXT);
+   CREATE INDEX audit_log_at ON audit_log (at)`,
+  // Server errors, newest kept, so the admin sees them without reading logs.
+  `CREATE TABLE error_log (
+     id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, method TEXT, path TEXT, message TEXT NOT NULL, stack TEXT)`,
+  // Two-step sign-in (a code from an authenticator app) and checked email addresses.
+  // People who signed up before this count as checked: they already signed in by email.
+  `ALTER TABLE users ADD COLUMN totp_secret TEXT;
+   ALTER TABLE users ADD COLUMN totp_on INTEGER NOT NULL DEFAULT 0;
+   ALTER TABLE users ADD COLUMN totp_step INTEGER NOT NULL DEFAULT -1;
+   ALTER TABLE users ADD COLUMN email_verified_at TEXT;
+   UPDATE users SET email_verified_at = created_at;`,
+  // Where each session came from, so a person (or the admin) can sign it out.
+  `ALTER TABLE sessions ADD COLUMN ip TEXT;
+   ALTER TABLE sessions ADD COLUMN agent TEXT;
+   ALTER TABLE sessions ADD COLUMN two_step INTEGER NOT NULL DEFAULT 0;
+   ALTER TABLE handoffs ADD COLUMN two_step INTEGER NOT NULL DEFAULT 0;`,
+  // Payments through Stripe: an org's customer and subscription, and each event handled once.
+  `ALTER TABLE orgs ADD COLUMN billing TEXT NOT NULL DEFAULT '{}';
+   CREATE TABLE stripe_events (id TEXT PRIMARY KEY, type TEXT NOT NULL, org_id TEXT, at TEXT NOT NULL);`,
+  // Who accepted which version of the terms and privacy policy, and when.
+  `CREATE TABLE legal_acceptances (
+     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, doc TEXT NOT NULL, version INTEGER NOT NULL,
+     at TEXT NOT NULL, ip TEXT, PRIMARY KEY (user_id, doc, version))`,
 ];
 
 export function openDb(dataDir) {
@@ -86,7 +113,7 @@ export function openDb(dataDir) {
   const db = new DatabaseSync(join(dataDir, 'toolbox.db'));
   // Only the server's own account may read the data.
   try { chmodSync(dataDir, 0o700); chmodSync(join(dataDir, 'toolbox.db'), 0o600); } catch { /* not on this system */ }
-  db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
+  db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
   // Schema versions: add new statements to SCHEMA; each runs once.
   db.exec('CREATE TABLE IF NOT EXISTS schema_version (n INTEGER NOT NULL)');
   const done = db.prepare('SELECT n FROM schema_version').get()?.n ?? 0;

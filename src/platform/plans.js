@@ -138,3 +138,6 @@ export function canAdd(org, field, count) {
   const max = org.platform?.plan?.limits?.[field];
   return max == null || count < max;
 }
+
+/** The tax inside a price that includes it, to the cent: $113 with 13% HST holds $13.00. */
+export const taxInsideOf = (amount, rate) => (Math.round((amount * rate / (100 + rate)) * 100) / 100).toFixed(2);

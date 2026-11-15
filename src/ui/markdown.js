@@ -1,5 +1,5 @@
 import { h } from './dom.js';
-import { parseMarkdown } from '../platform/pages.js';
+import { parseMarkdown } from '../platform/markdownParse.js';
 
 /**
  * Turn a page body into DOM nodes. Text is always set as text (never as

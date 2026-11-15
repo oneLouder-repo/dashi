@@ -1,6 +1,6 @@
 # Dashi
 
-**Version 0.1.0-alpha.7**: the seventh tester release (a polish pass: every site gets its own page in the Public Portal with a live preview, a rethought Data Workbench for dashboards, publishing and podcasts, and even plugin headers; alpha.6 brought the Public Portal, the board portal, the new roadmap, feedback forms and funder reports). See [CHANGELOG.md](CHANGELOG.md) for what's in it, [TESTING.md](TESTING.md) for testing it, and [DEPLOY.md](DEPLOY.md) for running it.
+**Version 0.1.0-alpha.8**: the eighth tester release (the platform control centre: health, data, email, payments by card with HST included, two-step sign-in, activity and legal pages, all managed from the platform admin; alpha.7 was a polish pass: every site gets its own page in the Public Portal with a live preview, a rethought Data Workbench for dashboards, publishing and podcasts, and even plugin headers; alpha.6 brought the Public Portal, the board portal, the new roadmap, feedback forms and funder reports). See [CHANGELOG.md](CHANGELOG.md) for what's in it, [TESTING.md](TESTING.md) for testing it, and [DEPLOY.md](DEPLOY.md) for running it.
 
 A small, cohesive platform for nonprofits' planning, knowledge and learning work. It holds many organisations; each picks the **plugins** it uses. Open `index.html` (via `npm start`) for the dashboard, then choose a plugin:
 

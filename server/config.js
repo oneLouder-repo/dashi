@@ -68,6 +68,22 @@ export const config = {
   stagingCode: env.STAGING_ACCESS_CODE || '',
   /** How much media each org can keep. */
   orgStorageMb: Number(env.ORG_STORAGE_MB) || 20480,
+  /** Payments (server/billing.js). Without a key, plans are set by hand in the admin. */
+  stripe: {
+    secretKey: env.STRIPE_SECRET_KEY || '',
+    webhookSecret: env.STRIPE_WEBHOOK_SECRET || '',
+  },
+  /**
+   * Off-site copies of the database, kept by Litestream (see deploy/litestream.yml).
+   * The start script sets these when a bucket is attached (fly storage create).
+   */
+  litestream: {
+    bucket: env.BUCKET_NAME || env.LITESTREAM_BUCKET || '',
+    endpoint: env.AWS_ENDPOINT_URL_S3 || '',
+    metrics: env.LITESTREAM_METRICS || 'http://127.0.0.1:9090/metrics',
+  },
+  /** Ask platform admins for a code from an authenticator app as well as a password. */
+  adminTwoStep: env.ADMIN_TWO_STEP ? env.ADMIN_TWO_STEP === 'true' : production,
 };
 
 const portPart = (scheme) => ((scheme === 'https' && config.port === 443) || (scheme === 'http' && config.port === 80) || config.production ? '' : `:${config.port}`);

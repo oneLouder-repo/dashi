@@ -1,0 +1,23 @@
+# Litestream: copies every change to the database to a bucket off the server,
+# within a second or so, so a lost disk loses (almost) nothing.
+# deploy/start.sh runs it when BUCKET_NAME is set; on Fly.io, `fly storage create`
+# makes a Tigris bucket and sets BUCKET_NAME, AWS_ENDPOINT_URL_S3, AWS_REGION,
+# AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as secrets. Any S3-compatible
+# bucket works with the same five settings.
+#
+# Restore to a moment:  litestream restore -config /app/deploy/litestream.yml -timestamp 2026-11-15T09:00:00Z -o /data/restored.db /data/toolbox.db
+
+# Status for Platform admin → Data and backups (only on the machine itself).
+addr: "127.0.0.1:9090"
+
+dbs:
+  - path: /data/toolbox.db
+    replicas:
+      - type: s3
+        bucket: ${BUCKET_NAME}
+        path: toolbox.db
+        endpoint: ${AWS_ENDPOINT_URL_S3}
+        region: ${AWS_REGION}
+        # A fresh full copy daily; changes in between. Keep 30 days to restore from.
+        snapshot-interval: 24h
+        retention: 720h

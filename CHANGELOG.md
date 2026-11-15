@@ -2,6 +2,32 @@
 
 Dashi uses version numbers like `0.1.0-alpha.1`. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
+## 0.1.0-alpha.8 (the platform control centre: data, email, payments, security and legal in one place)
+
+### Control centre (Platform admin)
+
+- **Health**: version, uptime, memory, disk, database size, sign-ins, backups, off-site copies and the last day's errors, with the recent error list.
+- **Data**: storage per organisation, a full export of any organisation, daily snapshots, and whether Litestream is copying the database off-site, with the restore steps.
+- **Email**: whether mail can be sent, a test message, the sending domain's SPF (or Postmark's Return-Path), DKIM and DMARC read live from DNS with the exact record to add, and editable invitation, reset, verification and failed-payment emails.
+- **Payments**: Stripe by its secret key in Fly secrets (never shown), prices that include HST, Stripe Tax or one fixed rate, the business number on receipts, a trial, creating the prices in Stripe, a setup check, and every organisation's billing with free accounts.
+- **Security**: two-step sign-in, required for platform admins on a live server; every signed-in session, signing any out; resetting someone's two-step; the security audit.
+- **Activity**: every change made in the platform admin, kept a year.
+- **Legal**: terms, privacy policy, accessibility statement, data processing agreement and a new security page, written to Canadian practice (PIPEDA, CASL, AODA) for a lawyer to review; each change is a new version, and people are asked to accept new terms.
+- **Maintenance banner** on every page, set from Health.
+
+### For everyone
+
+- Two-step sign-in with an authenticator app, from your own account.
+- Email addresses are confirmed with a link; organisations' admins can pay by card, monthly or yearly, and manage the card and receipts in Stripe's billing portal.
+- Signing up asks you to accept the terms and privacy policy; the public site has the legal pages in its footer, and prices say they include HST.
+
+### Running it
+
+- The Docker image includes Litestream, which copies the database off-site within a second when `BUCKET_NAME` is set, and restores it on a new volume.
+- `/.well-known/security.txt` names the security contact and the disclosure policy, with an expiry a year ahead.
+- Dependabot watches the Docker base image.
+- DEPLOY.md links three step-by-step guides: deploying on Fly.io; data, email and payments; security and uptime.
+
 ## 0.1.0-alpha.7 (polish: Public Portal site pages, a rethought Workbench, even plugin headers)
 
 ### Public Portal

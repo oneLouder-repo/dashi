@@ -264,6 +264,7 @@ function Plan(org) {
         h('div', { class: 'usage' }, LIMITS.filter((l) => usage[l.id] != null || l.id === 'storageMb').map(bar)),
         h('p', { class: 'small' }, 'Plugins: ', PLAN_PLUGINS.filter((id) => plan.plugins[id]).map((id) => PLUGINS.find((p) => p.id === id)?.name).join(', '), '.'),
         h('ul', { class: 'plan-feats' }, FEATURES.map((f) => h('li', { class: plan.features[f.id] ? 'on' : 'off' }, icon(plan.features[f.id] ? 'check' : 'close', 14), f.label))))),
+      Billing(plans, plan),
       org.platform && h('section', { class: 'plan-ask' },
         h('h2', {}, 'Change plan'),
         h('p', { class: 'muted small' }, 'Ask for another plan and the platform admin will set it up with you. ', h('a', { href: `${location.protocol}//${location.host.split('.').slice(1).join('.')}/pricing.html`, target: '_blank' }, 'Compare plans ↗')),
@@ -272,6 +273,37 @@ function Plan(org) {
         } }, 'Ask'), sent),
         note));
   }).catch((err) => box.replaceChildren(h('p', { class: 'empty' }, err.message)));
+  return box;
+}
+
+/**
+ * Paying by card (when the platform admin has switched it on): pick a plan
+ * and monthly or yearly, then pay on Stripe's page. Afterwards, the billing
+ * portal changes the card, downloads receipts or cancels. Admins only.
+ */
+function Billing(plans, current) {
+  const box = h('div', {});
+  api('GET', '/api/billing').then((b) => {
+    const st = b.billing;
+    const paid = Object.keys(b.prices).filter((id) => b.prices[id].month || b.prices[id].year);
+    const day = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { dateStyle: 'long' }) : '');
+    const go = async (url, body) => { try { location.assign((await api('POST', url, body)).url); } catch (err) { uiAlert(err.message); } };
+    const STATUS = { active: 'Paid by card', trialing: `Free trial until ${day(st.trialEnd)}`, past_due: 'The last payment didn’t go through', canceled: 'Cancelled' };
+    if (st.comp) return box.replaceChildren(h('p', { class: 'note' }, 'Your organisation has a free account from Dashi. Thank you for helping us build it.'));
+    if (!b.online && !st.status) return;
+    box.replaceChildren(h('section', { class: 'card card-border bg-base-100 billing-card' }, h('div', { class: 'card-body' },
+      h('h2', { class: 'card-title' }, 'Billing'),
+      new URLSearchParams(location.search).get('paid') && h('p', { class: 'note' }, 'Thank you. Your plan changes as soon as Stripe confirms the payment, usually within a minute.'),
+      st.status && h('p', {}, h('strong', {}, STATUS[st.status] ?? st.status), st.periodEnd && st.status !== 'canceled' ? ` · ${st.cancelAtPeriodEnd ? 'ends' : 'renews'} ${day(st.periodEnd)}` : '',
+        st.lastInvoice ? h('span', { class: 'muted' }, ` · last payment $${st.lastInvoice.amount.toFixed(2)}, including $${st.lastInvoice.tax.toFixed(2)} ${b.taxLabel}`) : ''),
+      st.portal && h('button', { class: 'btn btn-sm', onclick: () => go('/api/billing/portal') }, 'Change card, see receipts, or cancel'),
+      b.online && !['active', 'trialing', 'past_due'].includes(st.status) && paid.length > 0 && h('div', { class: 'billing-plans' },
+        h('p', { class: 'muted small' }, `Pay by card. Prices include ${b.taxLabel}.${b.trialDays ? ` Your first ${b.trialDays} days are free, and you can cancel before you pay anything.` : ''}`),
+        paid.map((id) => h('div', { class: 'billing-plan' },
+          h('strong', {}, plans[id].label), h('span', { class: 'muted small' }, `$${plans[id].price.monthly} ${plans[id].price.note}`),
+          b.prices[id].year && h('button', { class: `btn btn-sm ${id === current.id ? '' : 'btn-primary'}`, onclick: () => go('/api/billing/checkout', { plan: id, interval: 'year' }) }, 'Pay yearly'),
+          b.prices[id].month && h('button', { class: 'btn btn-sm btn-ghost', onclick: () => go('/api/billing/checkout', { plan: id, interval: 'month' }) }, 'Pay monthly')))))));
+  }).catch(() => {});
   return box;
 }
 

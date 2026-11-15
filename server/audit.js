@@ -51,7 +51,7 @@ export function runAudit(db, { req, cookieName = 'tb_session' } = {}) {
   /* Settings */
   add('Settings', 'Production mode', prod ? 'pass' : 'warn',
     prod ? 'NODE_ENV is production.' : 'NODE_ENV isn’t production, so test conveniences may be on.', prod ? null : 'Set NODE_ENV=production on the live server.');
-  add('Settings', 'Test sign-in is off', !config.devLogin ? 'pass' : prod ? 'fail' : 'warn',
+  add('Settings', config.devLogin ? 'Test sign-in is on' : 'Test sign-in is off', !config.devLogin ? 'pass' : prod ? 'fail' : 'warn',
     config.devLogin ? 'Anyone who opens the sign-in page can sign in as anyone.' : 'The one-click test sign-in is off.',
     config.devLogin ? 'Remove DEV_LOGIN=true (it is off by default in production).' : null);
   add('Settings', 'HTTPS', config.https ? 'pass' : prod ? 'fail' : 'warn',
@@ -128,6 +128,10 @@ export function runAudit(db, { req, cookieName = 'tb_session' } = {}) {
     supers.length > 3 ? 'Keep platform admins to the few who need it.' : null);
   const weakPw = q("SELECT COUNT(*) AS n FROM users WHERE is_super = 1 AND password_hash IS NULL AND id NOT IN (SELECT user_id FROM identities)").get().n;
   if (weakPw && prod) add('Sign-in', 'Every platform admin can sign in', 'warn', `${weakPw} platform admin${weakPw > 1 ? 's have' : ' has'} no password or linked account yet.`);
+  const noCode = q('SELECT COUNT(*) AS n FROM users WHERE is_super = 1 AND totp_on = 0').get().n;
+  add('Sign-in', 'Two-step sign-in for admins', !noCode ? 'pass' : prod ? 'fail' : 'warn',
+    noCode ? `${noCode} platform admin${noCode > 1 ? 's don’t' : ' doesn’t'} use a code from an authenticator app yet.` : 'Every platform admin signs in with a password and a code from their phone.',
+    noCode ? `Platform admin → Security → Set up two-step sign-in.${config.adminTwoStep ? '' : ' ADMIN_TWO_STEP=true makes it required (the default in production).'}` : null);
 
   /* Public content */
   const leaks = [];
@@ -165,6 +169,17 @@ export function runAudit(db, { req, cookieName = 'tb_session' } = {}) {
       free > 0.15 ? null : 'Grow the volume, or remove old episodes.');
   } catch { /* not available */ }
 
+  add('Running', 'Off-site copies', config.litestream.bucket ? 'pass' : prod ? 'fail' : 'info',
+    config.litestream.bucket ? `Litestream copies every change to the bucket ${config.litestream.bucket}.` : 'The database is only on this server’s disk (and its daily snapshots).',
+    config.litestream.bucket ? null : 'Attach a bucket: fly storage create (see the data guide).');
+  add('Running', 'Email', config.mail.apiKey ? 'pass' : prod ? 'fail' : 'info',
+    config.mail.apiKey ? `Sent through ${config.mail.provider} from ${config.mail.from}.` : 'No email key: password resets and invitations only reach the server log.',
+    config.mail.apiKey ? null : 'Set MAIL_PROVIDER, MAIL_API_KEY and MAIL_FROM.');
+  if (config.stripe.secretKey) {
+    add('Running', 'Payments', config.stripe.webhookSecret ? 'pass' : 'fail',
+      config.stripe.webhookSecret ? `Stripe is connected in ${config.stripe.secretKey.includes('_live_') ? 'live' : 'test'} mode and its webhook is signed.` : 'Stripe is connected, but without STRIPE_WEBHOOK_SECRET payments can’t change plans (and unsigned calls are refused).',
+      config.stripe.webhookSecret ? null : 'Add the webhook in Stripe and set STRIPE_WEBHOOK_SECRET.');
+  }
   out.sort((a, b) => AREAS.indexOf(a.area) - AREAS.indexOf(b.area));
   const count = (s) => out.filter((c) => c.status === s).length;
   return { at: new Date().toISOString(), checks: out, summary: { pass: count('pass'), warn: count('warn'), fail: count('fail'), info: count('info') } };

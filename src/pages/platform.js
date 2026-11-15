@@ -10,13 +10,15 @@ import { salesPage } from './sales.js';
 import { PLAN_IDS, PLAN_PLUGINS, LIMITS, FEATURES, amount } from '../platform/plans.js';
 import { statusBadge, when, KIND_LABEL, TicketThread } from '../help/support.js';
 import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
+import { Health, Data, Email, Payments, TwoStep, Sessions, Activity, Legal } from './controlCentre.js';
 
 /**
  * The platform's own site (the root domain): the organisations you can
  * open and, for the platform admin, the console to add organisations,
  * set their plan, suspend or remove them, and manage people's sign-in.
  * The console uses the same sidebar as the plugins, one section at a time:
- * #orgs (default), #add, #people, #plans, #requests, #support (tickets; #support/<id> one), #site (the sales site's words), #security (the audit and backups).
+ * #orgs (default), #add, #people, #plans, #requests, #support (tickets; #support/<id> one), #site (the sales site's words),
+ * and the control centre (controlCentre.js): #health, #data, #email, #payments, #security (two-step sign-in, sessions, the audit), #activity, #legal.
  */
 const app = document.querySelector('#app');
 const call = async (method, url, body) => {
@@ -37,6 +39,8 @@ try {
   throw new Error('No server');
 }
 applyRegistry(session.plugins);
+// Signed in, but two-step sign-in still wants its code.
+if (session.needsCode) { location.replace('/login.html?code=1&next=/'); throw new Error('Two-step sign-in'); }
 
 async function render() {
   const { user } = session;
@@ -61,6 +65,14 @@ async function render() {
       : h('p', { class: 'empty' }, 'You aren’t in any organisation yet. Ask its admin to add your email to the staff list.'));
 
   if (!user.isSuper) return app.replaceChildren(head, h('div', { class: 'page-main' }, h('div', { class: 'page' }, yours)));
+
+  // A live server asks platform admins to switch on two-step sign-in before anything else.
+  const twoStep = await call('GET', '/api/auth/two-step');
+  if (twoStep.required && !twoStep.on) {
+    return app.replaceChildren(head, h('div', { class: 'page-main' }, h('div', { class: 'page cc-gate' },
+      h('h2', {}, 'One step before the admin'), h('p', { class: 'muted' }, 'This server asks platform admins to use two-step sign-in, so a stolen password isn’t enough to run the platform.'),
+      TwoStep({ call, onDone: () => location.reload() }))));
+  }
 
   const [orgs, users, requests, queue] = await Promise.all([call('GET', '/api/admin/orgs'), call('GET', '/api/admin/users'), call('GET', '/api/admin/requests'), call('GET', '/api/tickets?all=1&status=active')]);
   const waitingOnUs = queue.tickets.filter((t) => t.status === 'new' || (t.status === 'open' && !t.lastFromAdmin)).length;
@@ -102,7 +114,8 @@ async function render() {
   const act = async (fn) => { try { await fn(); await reload(); } catch (err) { uiAlert(err.message); } };
 
   const hash = decodeURIComponent(location.hash.slice(1));
-  const route = hash.startsWith('support') ? 'support' : hash.startsWith('plugins') ? 'plugins' : ['orgs', 'add', 'people', 'plans', 'requests', 'site', 'security'].includes(hash) ? hash : 'orgs';
+  const route = hash.startsWith('support') ? 'support' : hash.startsWith('plugins') ? 'plugins' : hash.startsWith('legal') ? 'legal' : hash.startsWith('health') ? 'health'
+    : ['orgs', 'add', 'people', 'plans', 'requests', 'site', 'security', 'data', 'email', 'payments', 'activity'].includes(hash) ? hash : 'orgs';
   const active = orgs.filter((o) => o.status === 'active').length;
   const stat = (label, value, hint) => h('div', { class: 'stat' }, h('div', { class: 'stat-title' }, label), h('div', { class: 'stat-value' }, value), hint && h('div', { class: 'stat-desc' }, hint));
   const side = SideNav({ label: 'Platform admin', sections: [
@@ -115,7 +128,15 @@ async function render() {
       { label: 'Requests', sub: 'Sign-ups, plan changes, messages', icon: 'news', href: '#requests', on: route === 'requests', badge: openRequests ? String(openRequests) : null, badgeClass: 'badge-primary' },
       { label: 'Support', sub: `${queue.tickets.length} open ticket${queue.tickets.length === 1 ? '' : 's'}`, icon: 'ticket', href: '#support', on: route === 'support', badge: waitingOnUs ? String(waitingOnUs) : null, badgeClass: 'badge-primary' },
       { label: 'Sales site', sub: 'The words on Dashi’s own site', icon: 'globe', href: '#site', on: route === 'site' },
-      { label: 'Security audit', sub: 'Checks and backups', icon: 'lock', href: '#security', on: route === 'security' },
+    ] },
+    { title: 'Control centre', items: [
+      { label: 'Health', sub: 'The server at a glance', icon: 'gauge', href: '#health', on: route === 'health' },
+      { label: 'Data and backups', sub: 'Storage, exports, restores', icon: 'database', href: '#data', on: route === 'data' },
+      { label: 'Email', sub: 'Sending, DNS, the words', icon: 'mail', href: '#email', on: route === 'email' },
+      { label: 'Payments', sub: 'Stripe, prices with tax', icon: 'tag', href: '#payments', on: route === 'payments' },
+      { label: 'Security', sub: 'Two-step, sessions, audit', icon: 'shield', href: '#security', on: route === 'security' },
+      { label: 'Activity', sub: 'Who changed what', icon: 'history', href: '#activity', on: route === 'activity' },
+      { label: 'Legal', sub: 'Terms, privacy, versions', icon: 'scales', href: '#legal', on: route === 'legal' },
     ] },
     { title: 'Open an organisation', items: session.orgs.map((o) => ({ label: o.name, sub: o.url.replace(/^https?:\/\//, ''), lead: h('span', { class: 'logo-initials', style: 'width:20px;height:20px;font-size:9px' }, initials(o.name)), href: open(o) })) },
   ] });
@@ -129,7 +150,13 @@ async function render() {
     allOrgs);
   sections.add = () => addOrg;
   sections.people = () => people;
-  sections.security = () => Security();
+  sections.security = () => h('div', {}, h('h2', {}, 'Security'), h('p', { class: 'muted small cc-lede' }, 'Your two-step sign-in, everyone signed in now, and the security audit.'), h('div', { class: 'cc-grid cc-security' }, TwoStep({ call }), Sessions({ call })), Security());
+  sections.health = () => Health({ call });
+  sections.data = () => Data({ call, orgs });
+  sections.email = () => Email({ call });
+  sections.payments = () => Payments({ call });
+  sections.activity = () => Activity({ call });
+  sections.legal = () => Legal({ call, sub: hash.split('/')[1] ?? null });
   sections.plans = () => Plans();
   sections.requests = () => Requests(requests, act);
   sections.site = () => SalesSite();
@@ -178,13 +205,16 @@ async function render() {
         h('thead', {}, h('tr', {}, ['Name', 'Email', 'Organisations', 'Sign-in', ''].map((t) => h('th', {}, t)))),
         h('tbody', {}, users.map((x) => h('tr', {},
           h('td', {}, h('strong', {}, x.name), x.is_super ? h('span', { class: 'badge badge-sm badge-primary', style: 'margin-left:6px' }, 'platform admin') : null),
-          h('td', {}, x.email),
+          h('td', {}, x.email, x.email_verified ? null : h('div', { class: 'muted small' }, 'email not confirmed yet')),
           h('td', {}, x.memberships.map((m) => `${m.name} (${m.role})`).join(', ') || '—'),
-          h('td', {}, [...(x.providers ?? (x.google ? ['Google'] : [])), x.has_password && 'password'].filter(Boolean).join(', ') || 'not yet'),
-          h('td', {}, h('button', { class: 'btn btn-xs', onclick: async () => {
+          h('td', {}, [...(x.providers ?? (x.google ? ['Google'] : [])), x.has_password && 'password', x.totp_on && 'two-step'].filter(Boolean).join(', ') || 'not yet'),
+          h('td', {}, h('div', { class: 'row-actions' }, h('button', { class: 'btn btn-xs', onclick: async () => {
             const pw = await uiPrompt('New password (at least 10 characters)', '', { title: `Set a password for ${x.email}`, type: 'password', help: 'Share it with them safely.', ok: 'Set password' });
             if (pw) act(() => call('POST', `/api/admin/users/${x.id}/password`, { password: pw }));
-          } }, 'Set password'))))))),
+          } }, 'Set password'),
+          x.totp_on && x.id !== user.id ? h('button', { class: 'btn btn-xs btn-ghost', title: 'For a lost phone: they set it up again at their next sign-in', onclick: async () => {
+            if (await uiConfirm(`Switch off two-step sign-in for ${x.email}? They’ll be signed out, and set it up again next time.`, { ok: 'Reset two-step' })) act(() => call('DELETE', `/api/admin/users/${x.id}/two-step`));
+          } }, 'Reset two-step') : null))))))),
       h('form', { class: 'inline-form', onsubmit: (e) => { e.preventDefault(); act(() => call('POST', '/api/admin/users', { email: u.email.value, name: u.name.value, isSuper: true })); } },
         u.email, u.name, h('button', { class: 'btn btn-sm', type: 'submit' }, 'Add a platform admin')));
 

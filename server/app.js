@@ -28,7 +28,7 @@ import { pipeline } from 'node:stream/promises';
 import { Transform, Readable } from 'node:stream';
 import { config, urlFor, orgHost } from './config.js';
 import { now } from './db.js';
-import { HttpError, send, json, redirect, page, readJson, parseCookies, cookie, sendFile, clientIp, securityHeaders } from './http.js';
+import { HttpError, send, json, redirect, page, readJson, readBody, parseCookies, cookie, sendFile, clientIp, securityHeaders } from './http.js';
 import { publicDocs, mediaIsPublic } from './public.js';
 import { uploadRoutes } from './uploads.js';
 import { domainRoutes } from './domains.js';
@@ -45,6 +45,11 @@ import { siteContent } from '../src/platform/salesSite.js';
 import { mergeRegistry, registryView, pausedByRegistry, manifestProblems, cleanManifest, compareVersions, bumpVersion, defaultManifest, manifestFromPackage, blankManifest, SCAFFOLDS } from '../src/platform/pluginRegistry.js';
 import { blankStrategy } from '../src/platform/strategySeed.js';
 import { cleanResponse, migrateFeedback } from '../src/platform/feedback.js';
+import { newSecret, checkCode, otpauthUrl } from './totp.js';
+import { billingSettings, stripeReady, stripeMode, stripe, verifySignature, eventChange, checkoutParams, BILLING_DEFAULTS } from './billing.js';
+import { recordError, checkMailDns, mailDomain, litestreamStatus, serverHealth } from './ops.js';
+import { LEGAL_KINDS, COMPANY_DEFAULTS, versionsOf, currentVersion, fillLegal, publishLegal, dueFor, securityTxt } from '../src/platform/legal.js';
+import { mailEnabled } from './mail.js';
 
 const scrypt = promisify(scryptCb);
 const COOKIE = 'tb_session';
@@ -232,24 +237,51 @@ export function createApp(db, options = {}) {
     return user ? { ...s, user, viewAs: JSON.parse(s.view_as || '{}') } : null;
   }
 
-  function startSession(res, userId) {
+  /**
+   * Sign someone in on this address. `twoStep` says the session has passed
+   * the authenticator-code step; a platform admin who uses two-step sign-in
+   * has no admin rights until it has.
+   */
+  function startSession(res, userId, { req = null, twoStep = false } = {}) {
     const id = token();
-    q('INSERT INTO sessions (id, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)').run(digest(id), userId, Date.now() + config.sessionDays * 864e5, now());
+    q('INSERT INTO sessions (id, user_id, expires_at, created_at, ip, agent, two_step) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+      digest(id), userId, Date.now() + config.sessionDays * 864e5, now(), req ? clientIp(req) : null, req ? String(req.headers['user-agent'] ?? '').slice(0, 300) : null, twoStep ? 1 : 0);
     q('UPDATE users SET last_sign_in = ? WHERE id = ?').run(now(), userId);
     res.setHeader('set-cookie', cookie(COOKIE, id, { maxAge: config.sessionDays * 86400, secure: config.https }));
   }
+
+  /**
+   * Who changed what: admin actions, sign-ins to admin accounts, and
+   * security changes. Kept for a year.
+   */
+  function audit(a, action, target = null, detail = {}, req = null) {
+    try {
+      q('INSERT INTO audit_log (at, user_id, email, action, target, detail, ip) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+        now(), a?.user?.id ?? null, a?.user?.email ?? null, String(action).slice(0, 120), target == null ? null : String(target).slice(0, 200), JSON.stringify(detail).slice(0, 4000), req ? clientIp(req) : null);
+    } catch (err) { console.error('Audit log:', err.message); }
+  }
+  setInterval(() => q('DELETE FROM audit_log WHERE at < ?').run(new Date(Date.now() - 365 * 864e5).toISOString()), 864e5).unref();
+
+  const platformDocOf = (name) => JSON.parse(q('SELECT json FROM platform_docs WHERE name = ?').get(name)?.json ?? 'null');
+  const billing = () => billingSettings(platformDocOf('billing') ?? {});
+  const legalDoc = () => platformDocOf('legal') ?? {};
+  const opsDoc = () => platformDocOf('ops') ?? {};
+  /** The maintenance banner, when the admin has switched it on. */
+  const banner = () => { const b = opsDoc().banner; return b?.on && b.text ? { text: b.text, level: b.level ?? 'info' } : null; };
 
   /** Everything a request may do, worked out once. */
   function access(req) {
     const t = tenant(req);
     const s = sessionOf(req);
     const user = s?.user ?? null;
-    const isSuper = !!user?.is_super;
+    // A platform admin who uses two-step sign-in is an ordinary user until this session has passed it.
+    const needsCode = !!(user?.totp_on && !s.two_step);
+    const isSuper = !!user?.is_super && !needsCode;
     const org = t.org && (t.org.status === 'active' || isSuper) ? t.org : null;
     const m = user && org ? membership(user.id, org.id) : null;
     const role = isSuper ? 'admin' : m?.role ?? null;
     return {
-      t, s, user, isSuper, org, role,
+      t, s, user, isSuper, org, role, needsCode,
       member: !!(org && (m || isSuper)),
       canEdit: !!(org && (isSuper || (m && m.role !== 'viewer'))),
       canAdmin: !!(org && (isSuper || m?.role === 'admin')),
@@ -268,9 +300,9 @@ export function createApp(db, options = {}) {
   }
 
   /** Hand a sign-in to another host: a one-time token, good for a minute. */
-  function handoff(res, userId, host, next = '/') {
+  function handoff(res, userId, host, next = '/', twoStep = false) {
     const t = token();
-    q('INSERT INTO handoffs (token, user_id, host, expires_at) VALUES (?, ?, ?, ?)').run(digest(t), userId, host, Date.now() + 60_000);
+    q('INSERT INTO handoffs (token, user_id, host, expires_at, two_step) VALUES (?, ?, ?, ?, ?)').run(digest(t), userId, host, Date.now() + 60_000, twoStep ? 1 : 0);
     redirect(res, urlFor(host, `/auth/handoff?${new URLSearchParams({ token: t, next })}`));
   }
   const knownHost = (host) => host === config.baseDomain || !!q("SELECT 1 FROM domains WHERE host = ? AND status = 'active'").get(host)
@@ -304,13 +336,65 @@ export function createApp(db, options = {}) {
   /** Email someone an invitation to an org: who added them, and a link to set their password. */
   function invite(user, org, by) {
     const link = passwordLink(user, 'invite', hostOf(org));
-    return sendMail({ to: user.email, subject: `You’re invited to ${org.name} on Dashi`, ...letter({
-      greeting: `Hi ${user.name || ''},`.replace(' ,', ','),
-      lines: [`${by?.name || 'Your organisation’s admin'} added you to ${org.name} on Dashi, where the team keeps its plans, maps, data and documents.`,
-        'Set a password to sign in. The link works for a week.'],
-      link, linkLabel: 'Set your password',
-      footer: `You can also sign in at ${urlFor(hostOf(org), '/login.html')}${config.providers.google ? ' with Google, if your Google account uses this email' : ''}.`,
+    return sendTemplate('invite', user.email, { name: user.name, org: org.name, by: by?.name || 'Your organisation’s admin' }, {
+      link, footer: `You can also sign in at ${urlFor(hostOf(org), '/login.html')}${config.providers.google ? ' with Google, if your Google account uses this email' : ''}.`,
+    });
+  }
+
+  /**
+   * Emails the platform sends, each with words the platform admin can change
+   * (Platform admin → Email). {name}, {org}, {by}, {amount} are filled in.
+   */
+  const MAIL_TEMPLATES = {
+    invite: { label: 'Invitation to an organisation', subject: 'You’re invited to {org} on Dashi', lines: '{by} added you to {org} on Dashi, where the team keeps its plans, maps, data and documents.\nSet a password to sign in. The link works for a week.', button: 'Set your password' },
+    reset: { label: 'Forgotten password', subject: 'Set a new Dashi password', lines: 'Someone (we hope you) asked to set a new password for Dashi. The link works for an hour, once.\nIf it wasn’t you, ignore this email; your password stays as it is.', button: 'Set a new password' },
+    verify: { label: 'Check your email address', subject: 'Check your email for Dashi', lines: 'Welcome to Dashi. Please confirm this is your email address, so we can reach you about your account.\nThe link works for two days.', button: 'Confirm my email' },
+    paymentFailed: { label: 'A payment didn’t go through', subject: 'Your Dashi payment didn’t go through', lines: 'We couldn’t take the payment of ${amount} for {org}’s Dashi plan.\nPlease update the card on file. We’ll try again over the next few days; your plan carries on meanwhile.', button: 'Update payment' },
+  };
+  const templateOf = (kind) => ({ ...MAIL_TEMPLATES[kind], ...(platformDocOf('mail')?.templates?.[kind] ?? {}) });
+  function sendTemplate(kind, to, vars = {}, { link = null, footer } = {}) {
+    const t = templateOf(kind);
+    const fill = (s) => String(s ?? '').replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m);
+    return sendMail({ to, subject: fill(t.subject), ...letter({
+      greeting: `Hi ${vars.name || ''},`.replace(' ,', ','),
+      lines: fill(t.lines).split('\n').map((l) => l.trim()).filter(Boolean),
+      link, linkLabel: fill(t.button), footer,
     }) });
+  }
+  /** A link to confirm an email address (two days). */
+  function verifyLink(user) {
+    const t = token();
+    q("DELETE FROM password_tokens WHERE user_id = ? AND purpose = 'verify'").run(user.id);
+    q('INSERT INTO password_tokens (token, user_id, purpose, expires_at, created_at) VALUES (?, ?, ?, ?, ?)').run(digest(t), user.id, 'verify', Date.now() + 2 * 864e5, now());
+    return urlFor(config.baseDomain, `/auth/verify?${new URLSearchParams({ token: t })}`);
+  }
+
+  /** Stripe's webhook: check the signature, handle each event once, set the org's plan. */
+  async function stripeWebhook(req, res) {
+    const raw = (await readBody(req, 1_000_000)).toString('utf8');
+    if (!verifySignature(raw, req.headers['stripe-signature'], config.stripe.webhookSecret)) throw new HttpError(400, 'Bad signature');
+    const event = JSON.parse(raw);
+    const fresh = q('INSERT OR IGNORE INTO stripe_events (id, type, at) VALUES (?, ?, ?)').run(String(event.id), String(event.type), now()).changes;
+    if (!fresh) return json(res, 200, { ok: true, repeat: true });
+    const settings = billing();
+    const findOrg = ({ orgId, customerId }) => (orgId && orgById(orgId))
+      || (customerId && q("SELECT * FROM orgs WHERE json_extract(billing, '$.customerId') = ?").get(customerId)) || null;
+    const change = eventChange(event, { settings, findOrg });
+    if (!change) return json(res, 200, { ok: true, ignored: true });
+    const org = orgById(change.orgId);
+    q('UPDATE stripe_events SET org_id = ? WHERE id = ?').run(org.id, String(event.id));
+    q('UPDATE orgs SET billing = ? WHERE id = ?').run(JSON.stringify(change.billing), org.id);
+    if (change.plan && change.plan !== org.plan) {
+      q('UPDATE orgs SET plan = ? WHERE id = ?').run(change.plan, org.id);
+      audit(null, 'Plan changed by a payment', org.name, { from: org.plan, to: change.plan, event: event.type });
+      announce(org.id, 'org', null);
+    }
+    if (change.notify?.kind === 'payment_failed') {
+      q('INSERT INTO requests (id, kind, org_id, data, created_at) VALUES (?, ?, ?, ?, ?)').run(newId('req'), 'payment_failed', org.id, JSON.stringify({ amount: change.notify.amount }), now());
+      const admins = q("SELECT u.* FROM users u JOIN memberships m ON m.user_id = u.id WHERE m.org_id = ? AND m.role = 'admin'").all(org.id);
+      for (const u of admins) await sendTemplate('paymentFailed', u.email, { name: u.name, org: org.name, amount: change.notify.amount.toFixed(2) }, { link: change.notify.url ?? urlFor(hostOf(org), '/org.html#plan') });
+    }
+    return json(res, 200, { ok: true });
   }
   const domains = domainRoutes({ q, planOf: orgPlan, announce: (...x) => announce(...x), resolver: options.resolver });
   setInterval(() => domains.sweep().catch(() => {}), 3600_000).unref();
@@ -347,6 +431,8 @@ export function createApp(db, options = {}) {
   async function api(req, res, a, path, url) {
     const method = req.method;
     const mutating = method !== 'GET' && method !== 'HEAD';
+    // Stripe tells us about payments here; its signature, not a header, proves it's Stripe.
+    if (path === '/api/stripe/webhook' && method === 'POST') return stripeWebhook(req, res);
     // Pages on this platform add this header; other sites' forms can't.
     if (mutating && req.headers['x-toolbox'] !== '1') throw new HttpError(403, 'Missing x-toolbox header');
     const needOrg = () => { if (!a.org) throw new HttpError(404, 'No organisation at this address'); };
@@ -367,6 +453,10 @@ export function createApp(db, options = {}) {
         version: config.version,
         staging: config.staging,
         mail: !!config.mail.apiKey,
+        needsCode: a.needsCode,
+        banner: banner(),
+        emailVerified: a.user ? !!a.user.email_verified_at : null,
+        legalDue: a.user && !a.needsCode ? dueFor(legalDoc(), q('SELECT doc, version FROM legal_acceptances WHERE user_id = ?').all(a.user.id)) : [],
         limits: { uploadMb: a.org ? Math.min(config.maxUploadMb, orgPlan(a.org).limits.uploadMb ?? config.maxUploadMb) : config.maxUploadMb },
         plugins: registryView(registry(), { includeDrafts: !!a.isSuper }),
         docs,
@@ -382,11 +472,7 @@ export function createApp(db, options = {}) {
       const user = userByEmail(String(email ?? '').trim());
       if (user) {
         const link = passwordLink(user, 'reset', a.t.host && knownHost(a.t.host) ? a.t.host : config.baseDomain);
-        await sendMail({ to: user.email, subject: 'Set a new Dashi password', ...letter({
-          greeting: `Hi ${user.name || ''},`.replace(' ,', ','),
-          lines: ['Someone (we hope you) asked to set a new password for Dashi. The link works for an hour, once.', 'If it wasn’t you, ignore this email; your password stays as it is.'],
-          link, linkLabel: 'Set a new password',
-        }) });
+        await sendTemplate('reset', user.email, { name: user.name }, { link });
       }
       return json(res, 200, { ok: true, mail: !!config.mail.apiKey });
     }
@@ -400,7 +486,9 @@ export function createApp(db, options = {}) {
       q('UPDATE users SET password_hash = ? WHERE id = ?').run(await hashPassword(String(body.password)), row.user_id);
       q('DELETE FROM password_tokens WHERE user_id = ?').run(row.user_id);
       q('DELETE FROM sessions WHERE user_id = ?').run(row.user_id); // Signed out everywhere else.
-      startSession(res, row.user_id);
+      // The emailed link proves the address is theirs.
+      q('UPDATE users SET email_verified_at = COALESCE(email_verified_at, ?) WHERE id = ?').run(now(), row.user_id);
+      startSession(res, row.user_id, { req });
       return json(res, 200, { ok: true });
     }
     // An org admin (re)sends someone on the staff list an invitation.
@@ -595,7 +683,7 @@ export function createApp(db, options = {}) {
       return id;
     };
     if (path === '/api/platform' && method === 'GET') {
-      return json(res, 200, { plans: allPlans(planOverrides()), site: siteContent(platformDoc('site')), signup: config.openSignup, baseDomain: config.baseDomain });
+      return json(res, 200, { plans: allPlans(planOverrides()), site: siteContent(platformDoc('site')), signup: config.openSignup, baseDomain: config.baseDomain, tax: { label: billing().taxLabel, rate: billing().taxRate }, banner: banner() });
     }
     if (path === '/api/signup' && method === 'POST') {
       if (!a.t.root) throw new HttpError(404, 'Sign up on the platform’s own site');
@@ -614,11 +702,18 @@ export function createApp(db, options = {}) {
         if (userByEmail(email)) throw new HttpError(409, 'There’s already an account with that email. Sign in first, then add your organisation.');
         if (String(body?.password ?? '').length < 10) throw new HttpError(400, 'Choose a password of at least 10 characters');
       }
+      if (!body?.accept) throw new HttpError(400, 'Please read and accept the terms of service and privacy policy');
       const org = createOrg({ slug: body?.slug, name: orgName, plan: 'free', admin: { email: user?.email ?? email, name: user?.name ?? name } });
       user ??= userByEmail(email);
       if (!a.user) {
-        q('UPDATE users SET password_hash = ?, name = ? WHERE id = ?').run(await hashPassword(String(body.password)), name || user.name, user.id);
-        startSession(res, user.id);
+        q('UPDATE users SET password_hash = ?, name = ?, email_verified_at = NULL WHERE id = ?').run(await hashPassword(String(body.password)), name || user.name, user.id);
+        startSession(res, user.id, { req });
+        await sendTemplate('verify', user.email, { name: name || user.name }, { link: verifyLink(user) });
+      }
+      // A record of which terms and privacy policy they accepted.
+      const legal = legalDoc();
+      for (const k of LEGAL_KINDS.filter((x) => x.accept)) {
+        q('INSERT OR IGNORE INTO legal_acceptances (user_id, doc, version, at, ip) VALUES (?, ?, ?, ?, ?)').run(user.id, k.id, currentVersion(legal, k.id).v, now(), clientIp(req));
       }
       request('signup', { orgId: org.id, email: user.email, name: user.name, data: { plan, note: String(body?.note ?? '').slice(0, 2000) } });
       return json(res, 201, { org: { id: org.id, name: org.name, url: urlFor(hostOf(org), '/') }, plan, open: `/auth/switch?org=${encodeURIComponent(org.id)}&next=/` });
@@ -679,15 +774,139 @@ export function createApp(db, options = {}) {
       throttle(req, email);
       const user = email && userByEmail(email);
       if (!user || !(await checkPassword(String(password ?? ''), user.password_hash))) throw new HttpError(401, 'That email and password don’t match.');
-      startSession(res, user.id);
+      startSession(res, user.id, { req });
+      // Two-step sign-in: the session waits for a code from their app (POST /api/auth/code).
+      if (user.totp_on) return json(res, 200, { ok: true, needCode: true });
+      if (user.is_super) audit({ user }, 'Platform admin signed in', null, {}, req);
       return json(res, 200, { ok: true });
+    }
+    // The second step: a six-digit code from an authenticator app.
+    if (path === '/api/auth/code' && method === 'POST') {
+      if (!a.user) throw new HttpError(401, 'Sign in first');
+      if (!a.needsCode) return json(res, 200, { ok: true });
+      bump(`code:${a.user.id}`, 8);
+      const { code } = await readJson(req, 1000);
+      const step = checkCode(a.user.totp_secret, code, { after: a.user.totp_step });
+      if (step == null) { audit(a, 'Wrong two-step code', null, {}, req); throw new HttpError(401, 'That code didn’t work. Use the newest one in your app.'); }
+      q('UPDATE users SET totp_step = ? WHERE id = ?').run(step, a.user.id);
+      q('UPDATE sessions SET two_step = 1 WHERE id = ?').run(a.s.id);
+      audit(a, 'Platform admin signed in with two-step', null, {}, req);
+      return json(res, 200, { ok: true });
+    }
+    /* Two-step sign-in for platform admins: set it up, switch it on, switch it off. */
+    if (path.startsWith('/api/auth/two-step')) {
+      if (!a.user?.is_super || a.needsCode) throw new HttpError(403, 'Platform admins only');
+      if (path === '/api/auth/two-step' && method === 'GET') {
+        return json(res, 200, { on: !!a.user.totp_on, required: config.adminTwoStep });
+      }
+      if (path === '/api/auth/two-step/setup' && method === 'POST') {
+        if (a.user.totp_on) throw new HttpError(409, 'Two-step sign-in is already on');
+        const secret = newSecret();
+        q('UPDATE users SET totp_secret = ?, totp_on = 0 WHERE id = ?').run(secret, a.user.id);
+        return json(res, 200, { secret, url: otpauthUrl(secret, a.user.email) });
+      }
+      if (path === '/api/auth/two-step/enable' && method === 'POST') {
+        bump(`code:${a.user.id}`, 8);
+        const { code } = await readJson(req, 1000);
+        const step = checkCode(a.user.totp_secret, code);
+        if (step == null) throw new HttpError(400, 'That code didn’t match. Check your phone’s clock is right, and use the newest code.');
+        q('UPDATE users SET totp_on = 1, totp_step = ? WHERE id = ?').run(step, a.user.id);
+        q('UPDATE sessions SET two_step = 1 WHERE id = ?').run(a.s.id);
+        audit(a, 'Two-step sign-in switched on', a.user.email, {}, req);
+        return json(res, 200, { on: true });
+      }
+      if (path === '/api/auth/two-step/disable' && method === 'POST') {
+        if (config.adminTwoStep) throw new HttpError(403, 'Two-step sign-in is required for platform admins on this server (ADMIN_TWO_STEP).');
+        const { code } = await readJson(req, 1000);
+        if (checkCode(a.user.totp_secret, code) == null) throw new HttpError(400, 'Type a current code from your app to switch it off');
+        q('UPDATE users SET totp_on = 0, totp_secret = NULL WHERE id = ?').run(a.user.id);
+        audit(a, 'Two-step sign-in switched off', a.user.email, {}, req);
+        return json(res, 200, { on: false });
+      }
+    }
+    // Send the email-checking link again.
+    if (path === '/api/auth/verify' && method === 'POST') {
+      if (!a.user) throw new HttpError(401, 'Sign in first');
+      bump(`verify:${a.user.id}`, 5);
+      if (!a.user.email_verified_at) await sendTemplate('verify', a.user.email, { name: a.user.name }, { link: verifyLink(a.user) });
+      return json(res, 200, { ok: true, mail: mailEnabled() });
+    }
+    // Every signed-in person: where they're signed in, and signing out everywhere else.
+    if (path === '/api/auth/sessions' && method === 'GET') {
+      if (!a.user) throw new HttpError(401, 'Sign in first');
+      return json(res, 200, q('SELECT id, created_at, ip, agent, two_step FROM sessions WHERE user_id = ? AND expires_at > ? ORDER BY created_at DESC').all(a.user.id, Date.now())
+        .map((x) => ({ ...x, id: x.id.slice(0, 12), current: x.id === a.s.id })));
+    }
+    if (path === '/api/auth/sessions/others' && method === 'POST') {
+      if (!a.user) throw new HttpError(401, 'Sign in first');
+      const n = q('DELETE FROM sessions WHERE user_id = ? AND id != ?').run(a.user.id, a.s.id).changes;
+      audit(a, 'Signed out everywhere else', a.user.email, { sessions: n }, req);
+      return json(res, 200, { ok: true, signedOut: n });
+    }
+
+    /* The legal pages: anyone reads them; signed-in people accept the current terms. */
+    if (path === '/api/legal' && method === 'GET') {
+      const stored = legalDoc();
+      return json(res, 200, { company: { ...COMPANY_DEFAULTS, ...(stored.company ?? {}) }, docs: LEGAL_KINDS.map((k) => { const c = currentVersion(stored, k.id); return { ...k, v: c.v, at: c.at }; }) });
+    }
+    if ((m = path.match(/^\/api\/legal\/(\w+)$/)) && method === 'GET') {
+      const kind = LEGAL_KINDS.find((k) => k.id === m[1]);
+      if (!kind) throw new HttpError(404, 'No such page');
+      const stored = legalDoc();
+      const all = versionsOf(stored, kind.id);
+      const want = Number(url.searchParams.get('v')) || all.at(-1).v;
+      const ver = all.find((x) => x.v === want) ?? all.at(-1);
+      const updated = ver.at ? new Date(ver.at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+      return json(res, 200, { ...kind, v: ver.v, at: ver.at, latest: all.at(-1).v, versions: all.map((x) => ({ v: x.v, at: x.at, note: x.note })), body: fillLegal(ver.body, stored.company, updated) });
+    }
+    if (path === '/api/legal/accept' && method === 'POST') {
+      if (!a.user) throw new HttpError(401, 'Sign in first');
+      const stored = legalDoc();
+      for (const k of LEGAL_KINDS.filter((x) => x.accept)) {
+        q('INSERT OR IGNORE INTO legal_acceptances (user_id, doc, version, at, ip) VALUES (?, ?, ?, ?, ?)').run(a.user.id, k.id, currentVersion(stored, k.id).v, now(), clientIp(req));
+      }
+      return json(res, 200, { ok: true });
+    }
+
+    /* Paying for a plan: the org's admin goes to Stripe's checkout, or its billing portal. */
+    if (path.startsWith('/api/billing')) {
+      needOrg();
+      if (!a.canAdmin) throw new HttpError(403, 'Only the organisation’s admin can see its billing');
+      const settings = billing();
+      const own = JSON.parse(a.org.billing || '{}');
+      const online = stripeReady() && settings.checkoutOn;
+      if (path === '/api/billing' && method === 'GET') {
+        const prices = Object.fromEntries(Object.entries(settings.prices).map(([plan, p]) => [plan, { month: !!p?.month, year: !!p?.year }]));
+        return json(res, 200, { online, prices, taxLabel: settings.taxLabel, taxRate: settings.taxRate, trialDays: own.hadTrial ? 0 : settings.trialDays,
+          billing: { status: own.status ?? null, plan: own.plan ?? null, interval: own.interval ?? null, periodEnd: own.periodEnd ?? null, trialEnd: own.trialEnd ?? null, cancelAtPeriodEnd: !!own.cancelAtPeriodEnd, comp: !!own.comp, failedAt: own.failedAt ?? null, lastInvoice: own.lastInvoice ?? null, portal: !!own.customerId } });
+      }
+      if (!online) throw new HttpError(409, 'Paying online isn’t switched on yet. Ask for the plan instead.');
+      const returnUrl = urlFor(hostOf(a.org), '/org.html#plan');
+      if (path === '/api/billing/checkout' && method === 'POST') {
+        bump(`checkout:${a.org.id}`, 20);
+        const { plan, interval } = await readJson(req, 1000);
+        if (!['month', 'year'].includes(interval)) throw new HttpError(400, 'Monthly or yearly?');
+        let params;
+        try { params = checkoutParams({ settings, org: a.org, billing: own, user: a.user, plan, interval, returnUrl }); } catch (err) { throw new HttpError(400, err.message); }
+        try {
+          const session = await stripe('checkout/sessions', params);
+          return json(res, 200, { url: session.url });
+        } catch (err) { throw new HttpError(502, `Stripe: ${err.message}`); }
+      }
+      if (path === '/api/billing/portal' && method === 'POST') {
+        if (!own.customerId) throw new HttpError(409, 'There’s no billing account yet');
+        try {
+          const session = await stripe('billing_portal/sessions', { customer: own.customerId, return_url: returnUrl });
+          return json(res, 200, { url: session.url });
+        } catch (err) { throw new HttpError(502, `Stripe: ${err.message}`); }
+      }
     }
     if (path === '/api/auth/dev' && method === 'POST') {
       if (!config.devLogin) throw new HttpError(404, 'Not here');
       const { userId } = await readJson(req, 10_000);
       const user = userById(userId);
       if (!user) throw new HttpError(404, 'No such user');
-      startSession(res, user.id);
+      startSession(res, user.id, { req, twoStep: true });
       return json(res, 200, { ok: true });
     }
     if (path === '/api/auth/logout' && method === 'POST') {
@@ -699,6 +918,8 @@ export function createApp(db, options = {}) {
     /* The platform admin's console. */
     if (path.startsWith('/api/admin/')) {
       needSuper();
+      // On a live server, platform admins switch on two-step sign-in before anything else.
+      if (config.adminTwoStep && !a.user.totp_on && !['/api/admin/health'].includes(path)) throw new HttpError(403, 'Switch on two-step sign-in first: Platform admin → Security.');
       if (path === '/api/admin/orgs' && method === 'GET') {
         return json(res, 200, q('SELECT o.*, (SELECT COUNT(*) FROM memberships m WHERE m.org_id = o.id) AS members FROM orgs o ORDER BY o.name').all()
           .map((o) => {
@@ -894,7 +1115,7 @@ export function createApp(db, options = {}) {
       if (path === '/api/admin/backups' && method === 'GET') return json(res, 200, listBackups());
       if (path === '/api/admin/backups' && method === 'POST') return json(res, 201, backupNow(db));
       if (path === '/api/admin/users' && method === 'GET') {
-        return json(res, 200, q('SELECT id, email, name, is_super, password_hash IS NOT NULL AS has_password, created_at FROM users ORDER BY name').all().map((u) => ({
+        return json(res, 200, q('SELECT id, email, name, is_super, password_hash IS NOT NULL AS has_password, totp_on, email_verified_at IS NOT NULL AS email_verified, created_at FROM users ORDER BY name').all().map((u) => ({
           ...u,
           memberships: q('SELECT o.id, o.name, m.role FROM memberships m JOIN orgs o ON o.id = m.org_id WHERE m.user_id = ?').all(u.id),
           google: !!q("SELECT 1 FROM identities WHERE user_id = ? AND provider = 'google'").get(u.id),
@@ -914,6 +1135,212 @@ export function createApp(db, options = {}) {
         q('UPDATE users SET password_hash = ? WHERE id = ?').run(await hashPassword(String(password)), m[1]);
         return json(res, 200, { ok: true });
       }
+
+      /* ------------------------------------------------ the control centre */
+      // Health: the server, its disk and database, backups, off-site copies, email, payments.
+      if (path === '/api/admin/health' && method === 'GET') {
+        const settings = billing();
+        const admins = q('SELECT email, totp_on FROM users WHERE is_super = 1').all();
+        return json(res, 200, {
+          ...serverHealth(db),
+          litestream: await litestreamStatus(),
+          mail: { provider: config.mail.provider || null, enabled: mailEnabled(), from: config.mail.from },
+          stripe: { connected: stripeReady(), mode: stripeMode(), webhook: !!config.stripe.webhookSecret, checkoutOn: settings.checkoutOn },
+          twoStep: { required: config.adminTwoStep, admins: admins.map((x) => ({ email: x.email, on: !!x.totp_on })), you: !!a.user.totp_on },
+          banner: opsDoc().banner ?? null,
+          https: config.https, baseDomain: config.baseDomain, openSignup: config.openSignup, devLogin: config.devLogin,
+        });
+      }
+      if (path === '/api/admin/ops' && method === 'PUT') {
+        const body = await readJson(req, 10_000);
+        const b = body?.banner ?? {};
+        savePlatformDoc('ops', { ...opsDoc(), banner: { on: !!b.on, text: String(b.text ?? '').slice(0, 300), level: ['info', 'warning'].includes(b.level) ? b.level : 'info' } });
+        return json(res, 200, { ok: true });
+      }
+      if (path === '/api/admin/errors' && method === 'GET') return json(res, 200, q('SELECT * FROM error_log ORDER BY id DESC LIMIT 100').all());
+      if (path === '/api/admin/errors' && method === 'DELETE') { q('DELETE FROM error_log').run(); return json(res, 200, { ok: true }); }
+      if (path === '/api/admin/audit-log' && method === 'GET') {
+        const before = Number(url.searchParams.get('before')) || Number.MAX_SAFE_INTEGER;
+        return json(res, 200, q('SELECT * FROM audit_log WHERE id < ? ORDER BY id DESC LIMIT 100').all(before).map((r) => ({ ...r, detail: JSON.parse(r.detail || '{}') })));
+      }
+      // Sessions on the whole platform: who is signed in where; sign one out, or someone everywhere.
+      if (path === '/api/admin/sessions' && method === 'GET') {
+        return json(res, 200, q('SELECT s.id, s.created_at, s.ip, s.agent, s.two_step, u.totp_on, u.id AS user_id, u.email, u.name, u.is_super FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.expires_at > ? ORDER BY s.created_at DESC LIMIT 300').all(Date.now())
+          .map((x) => ({ ...x, id: x.id.slice(0, 16), current: x.id === a.s.id })));
+      }
+      if ((m = path.match(/^\/api\/admin\/sessions\/([\w-]{16})$/)) && method === 'DELETE') {
+        q("DELETE FROM sessions WHERE substr(id, 1, 16) = ? AND id != ?").run(m[1], a.s.id);
+        return json(res, 200, { ok: true });
+      }
+      if ((m = path.match(/^\/api\/admin\/users\/([\w-]+)\/signout$/)) && method === 'POST') {
+        const n = q('DELETE FROM sessions WHERE user_id = ? AND id != ?').run(m[1], a.s.id).changes;
+        return json(res, 200, { ok: true, signedOut: n });
+      }
+      // Someone lost their phone: switch their two-step sign-in off so they can set it up again.
+      if ((m = path.match(/^\/api\/admin\/users\/([\w-]+)\/two-step$/)) && method === 'DELETE') {
+        if (m[1] === a.user.id) throw new HttpError(400, 'Switch your own off from your security settings');
+        q('UPDATE users SET totp_on = 0, totp_secret = NULL WHERE id = ?').run(m[1]);
+        q('DELETE FROM sessions WHERE user_id = ?').run(m[1]);
+        return json(res, 200, { ok: true });
+      }
+      // An org's everything, as one JSON file: its documents, people and the list of its files.
+      if ((m = path.match(/^\/api\/admin\/orgs\/([\w-]+)\/export$/)) && method === 'GET') {
+        const org = orgById(m[1]);
+        if (!org) throw new HttpError(404, 'No such organisation');
+        audit(a, 'Exported an organisation', org.name, {}, req);
+        res.setHeader('content-disposition', `attachment; filename="${org.slug}-dashi-export-${today()}.json"`);
+        return json(res, 200, {
+          exportedAt: now(), version: config.version,
+          org: { id: org.id, slug: org.slug, name: org.name, plan: org.plan, status: org.status, createdAt: org.created_at },
+          people: q('SELECT u.email, u.name, m.role FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.org_id = ?').all(org.id),
+          domains: q('SELECT host, status FROM domains WHERE org_id = ?').all(org.id),
+          files: q('SELECT id, filename, mimetype, size, created_at FROM media WHERE org_id = ?').all(org.id),
+          docs: readDocs(org.id),
+        });
+      }
+
+      // Email: the provider, a test message, the words of each email, and the sending domain's DNS.
+      if (path === '/api/admin/email' && method === 'GET') {
+        return json(res, 200, { provider: config.mail.provider || null, enabled: mailEnabled(), from: config.mail.from, domain: mailDomain(), support: config.supportEmail,
+          templates: Object.fromEntries(Object.keys(MAIL_TEMPLATES).map((k) => [k, templateOf(k)])), defaults: MAIL_TEMPLATES });
+      }
+      if (path === '/api/admin/email/test' && method === 'POST') {
+        const { to } = await readJson(req, 2000);
+        const address = String(to || a.user.email);
+        if (!/^[^@\s]+@[^@\s]+$/.test(address)) throw new HttpError(400, 'Give an email address');
+        const r = await sendMail({ to: address, subject: 'A test email from Dashi', ...letter({ greeting: 'Hello,', lines: ['This is a test from Platform admin → Email. If you can read it, email from Dashi is working.', `Sent ${new Date().toUTCString()} from ${config.mail.from}.`] }) });
+        return json(res, r.ok ? 200 : 502, r.ok ? { ok: true, logged: !!r.logged } : { error: r.error });
+      }
+      if (path === '/api/admin/email/dns' && method === 'GET') {
+        return json(res, 200, await checkMailDns(mailDomain(), { selector: String(url.searchParams.get('selector') ?? '').replace(/[^\w-]/g, ''), resolver: options.resolver?.resolveTxt ? options.resolver : undefined }));
+      }
+      if (path === '/api/admin/email/templates' && method === 'PUT') {
+        const body = await readJson(req, 50_000);
+        const templates = {};
+        for (const k of Object.keys(MAIL_TEMPLATES)) {
+          const t = body?.[k];
+          if (t) templates[k] = { subject: String(t.subject ?? '').slice(0, 200) || MAIL_TEMPLATES[k].subject, lines: String(t.lines ?? '').slice(0, 3000) || MAIL_TEMPLATES[k].lines, button: String(t.button ?? '').slice(0, 60) || MAIL_TEMPLATES[k].button };
+        }
+        savePlatformDoc('mail', { ...(platformDoc('mail') ?? {}), templates });
+        return json(res, 200, { ok: true });
+      }
+
+      // Payments: Stripe's connection, which price is which plan, tax, trials, and each org's billing.
+      if (path === '/api/admin/billing' && method === 'GET') {
+        const settings = billing();
+        const orgsBilling = q("SELECT id, name, slug, plan, billing FROM orgs ORDER BY name").all().map((o) => ({ id: o.id, name: o.name, slug: o.slug, plan: o.plan, billing: JSON.parse(o.billing || '{}') }));
+        return json(res, 200, { settings, defaults: BILLING_DEFAULTS, plans: allPlans(planOverrides()),
+          stripe: { connected: stripeReady(), mode: stripeMode(), webhook: !!config.stripe.webhookSecret, webhookUrl: urlFor(config.baseDomain, '/api/stripe/webhook') },
+          orgs: orgsBilling, events: q('SELECT e.*, o.name AS org FROM stripe_events e LEFT JOIN orgs o ON o.id = e.org_id ORDER BY e.at DESC LIMIT 20').all() });
+      }
+      if (path === '/api/admin/billing' && method === 'PUT') {
+        const body = await readJson(req, 20_000);
+        const cur = billing();
+        const priceId = (x) => (/^price_\w+$/.test(x ?? '') ? x : '');
+        const prices = {};
+        for (const plan of ['basic', 'standard', 'custom']) {
+          const p = body?.prices?.[plan] ?? cur.prices[plan] ?? {};
+          if (p.month || p.year) prices[plan] = { month: priceId(p.month), year: priceId(p.year) };
+        }
+        const next = {
+          ...cur,
+          taxLabel: String(body?.taxLabel ?? cur.taxLabel).slice(0, 20),
+          taxRate: Math.max(0, Math.min(30, Number(body?.taxRate ?? cur.taxRate) || 0)),
+          taxNumber: String(body?.taxNumber ?? cur.taxNumber).slice(0, 40),
+          taxMode: body?.taxMode === 'fixed' ? 'fixed' : 'automatic',
+          taxRateId: /^txr_\w+$/.test(body?.taxRateId ?? '') ? body.taxRateId : '',
+          trialDays: Math.max(0, Math.min(90, Math.round(Number(body?.trialDays ?? cur.trialDays) || 0))),
+          graceDays: Math.max(0, Math.min(60, Math.round(Number(body?.graceDays ?? cur.graceDays) || 0))),
+          checkoutOn: !!(body?.checkoutOn ?? cur.checkoutOn),
+          prices,
+        };
+        savePlatformDoc('billing', next);
+        return json(res, 200, next);
+      }
+      // Ask Stripe about each price: does it exist, is it the right amount, does it include tax?
+      if (path === '/api/admin/billing/check' && method === 'POST') {
+        const settings = billing();
+        const plans = allPlans(planOverrides());
+        const results = [];
+        for (const [plan, p] of Object.entries(settings.prices)) {
+          for (const interval of ['month', 'year']) {
+            if (!p?.[interval]) continue;
+            try {
+              const pr = await stripe(`prices/${p[interval]}`);
+              const amount = (pr.unit_amount ?? 0) / 100;
+              const problems = [];
+              if (pr.tax_behavior !== 'inclusive') problems.push(`Its tax behaviour is “${pr.tax_behavior ?? 'unspecified'}”. Prices must include tax: make a new price with “Include tax in price” set.`);
+              if (pr.recurring?.interval !== interval) problems.push(`It bills every ${pr.recurring?.interval ?? 'once'}, not every ${interval}.`);
+              if (pr.currency !== settings.currency) problems.push(`It is in ${String(pr.currency).toUpperCase()}, not ${settings.currency.toUpperCase()}.`);
+              if (!pr.active) problems.push('It is archived in Stripe.');
+              const shown = plans[plan]?.price?.monthly;
+              if (shown != null && interval === 'year' && Math.abs(amount - shown * 12) > 0.5) problems.push(`The pricing page shows $${shown} a month billed yearly ($${shown * 12} a year), but this price is $${amount}.`);
+              results.push({ plan, interval, id: p[interval], amount, ok: !problems.length, problems });
+            } catch (err) {
+              results.push({ plan, interval, id: p[interval], ok: false, problems: [err.message] });
+            }
+          }
+        }
+        return json(res, 200, { results });
+      }
+      // Make a plan's product and prices in Stripe, with tax included, and remember their ids.
+      if (path === '/api/admin/billing/create-prices' && method === 'POST') {
+        const { plan, month, year } = await readJson(req, 2000);
+        const plans = allPlans(planOverrides());
+        if (!['basic', 'standard', 'custom'].includes(plan)) throw new HttpError(400, 'Which plan?');
+        const settings = billing();
+        try {
+          const product = await stripe('products', { name: `Dashi ${plans[plan].label}`, description: plans[plan].tagline, metadata: { plan }, tax_code: 'txcd_10103001' });
+          const made = {};
+          for (const [interval, dollars] of [['month', month], ['year', year]]) {
+            const cents = Math.round(Number(dollars) * 100);
+            if (!cents) continue;
+            const price = await stripe('prices', { product: product.id, currency: settings.currency, unit_amount: cents, tax_behavior: 'inclusive', recurring: { interval }, lookup_key: `dashi_${plan}_${interval}`, transfer_lookup_key: true, metadata: { plan } });
+            made[interval] = price.id;
+          }
+          settings.prices[plan] = { ...(settings.prices[plan] ?? {}), ...made };
+          savePlatformDoc('billing', settings);
+          return json(res, 201, { product: product.id, prices: made });
+        } catch (err) { throw new HttpError(502, `Stripe: ${err.message}`); }
+      }
+      // A free account for a pilot partner, or a note: payments then never change its plan.
+      if ((m = path.match(/^\/api\/admin\/orgs\/([\w-]+)\/billing$/)) && method === 'PATCH') {
+        const org = orgById(m[1]);
+        if (!org) throw new HttpError(404, 'No such organisation');
+        const body = await readJson(req, 5000);
+        const b = JSON.parse(org.billing || '{}');
+        if ('comp' in body) b.comp = !!body.comp;
+        if ('compNote' in body) b.compNote = String(body.compNote ?? '').slice(0, 300);
+        if ('compUntil' in body) b.compUntil = /^\d{4}-\d\d-\d\d$/.test(body.compUntil ?? '') ? body.compUntil : null;
+        q('UPDATE orgs SET billing = ? WHERE id = ?').run(JSON.stringify(b), org.id);
+        return json(res, 200, b);
+      }
+
+      // Legal: the company's details, each page's versions, and who accepted which.
+      if (path === '/api/admin/legal' && method === 'GET') {
+        const stored = legalDoc();
+        const counts = q('SELECT doc, version, COUNT(*) AS n FROM legal_acceptances GROUP BY doc, version').all();
+        const users = q('SELECT COUNT(*) AS n FROM users').get().n;
+        return json(res, 200, { company: { ...COMPANY_DEFAULTS, ...(stored.company ?? {}) }, users,
+          docs: LEGAL_KINDS.map((k) => ({ ...k, versions: versionsOf(stored, k.id).map((v) => ({ ...v, accepted: counts.find((c) => c.doc === k.id && c.version === v.v)?.n ?? 0 })) })) });
+      }
+      if (path === '/api/admin/legal' && method === 'PUT') {
+        const body = await readJson(req, 10_000);
+        const c = body?.company ?? {};
+        const company = Object.fromEntries(Object.keys(COMPANY_DEFAULTS).map((k) => [k, String(c[k] ?? '').slice(0, 300)]));
+        savePlatformDoc('legal', { ...legalDoc(), company });
+        return json(res, 200, { ok: true });
+      }
+      if ((m = path.match(/^\/api\/admin\/legal\/(\w+)$/)) && method === 'POST') {
+        if (!LEGAL_KINDS.some((k) => k.id === m[1])) throw new HttpError(404, 'No such page');
+        const { body, note } = await readJson(req, 300_000);
+        if (!String(body ?? '').trim()) throw new HttpError(400, 'The page is empty');
+        const before = legalDoc();
+        const after = publishLegal(before, m[1], body, { note });
+        if (after === before) return json(res, 200, { unchanged: true });
+        savePlatformDoc('legal', after);
+        return json(res, 201, { v: currentVersion(after, m[1]).v });
+      }
     }
     throw new HttpError(404, 'Not found');
   }
@@ -925,19 +1352,26 @@ export function createApp(db, options = {}) {
       const row = q('SELECT * FROM handoffs WHERE token = ?').get(digest(p.get('token') ?? ''));
       if (row) q('DELETE FROM handoffs WHERE token = ?').run(row.token);
       if (!row || row.expires_at < Date.now() || row.host !== a.t.host) return page(res, 400, 'That sign-in link has expired', 'Sign in again.', { href: '/login.html', label: 'Sign in' });
-      startSession(res, row.user_id);
+      startSession(res, row.user_id, { req, twoStep: !!row.two_step });
       return redirect(res, safeNext(p.get('next')));
+    }
+    if (path === '/auth/verify') {
+      const row = q("SELECT * FROM password_tokens WHERE token = ? AND purpose = 'verify'").get(digest(p.get('token') ?? ''));
+      if (!row || row.expires_at < Date.now()) return page(res, 400, 'That link has expired', 'Sign in and ask for a new one from your profile.', { href: '/login.html', label: 'Sign in' });
+      q('DELETE FROM password_tokens WHERE token = ?').run(row.token);
+      q('UPDATE users SET email_verified_at = ? WHERE id = ?').run(now(), row.user_id);
+      return page(res, 200, 'Email confirmed', 'Thanks. Your email address is confirmed.', { href: '/', label: 'Go to Dashi' });
     }
     if (path === '/auth/switch') {
       if (!a.user) return redirect(res, `/login.html?next=${encodeURIComponent(`${path}${url.search}`)}`);
       const org = orgById(p.get('org') ?? '');
       if (!org || !(a.isSuper || (membership(a.user.id, org.id) && org.status === 'active'))) return page(res, 403, 'Not available', 'You aren’t a member of that organisation.');
-      return handoff(res, a.user.id, hostOf(org), safeNext(p.get('next')));
+      return handoff(res, a.user.id, hostOf(org), safeNext(p.get('next')), !!a.s?.two_step);
     }
     if (path === '/auth/root') {
       // Back to the platform's own site (the admin page), signed in.
       if (!a.user) return redirect(res, urlFor(config.baseDomain, '/login.html'));
-      return handoff(res, a.user.id, config.baseDomain, '/');
+      return handoff(res, a.user.id, config.baseDomain, '/', !!a.s?.two_step);
     }
     if ((m = path.match(/^\/auth\/(\w+)(\/callback)?$/)) && PROVIDERS[m[1]]) {
       const id = m[1];
@@ -967,7 +1401,10 @@ export function createApp(db, options = {}) {
       if (!user && info.email.toLowerCase() === config.superAdmin.email) user = ensureUser({ email: info.email, name: info.name, isSuper: true });
       if (!user) return page(res, 403, `No account for ${info.email}`, 'Ask your organisation’s admin to add you, with this email, to the staff list in Organisation settings.');
       if (!linked) q('INSERT OR IGNORE INTO identities (provider, subject, user_id) VALUES (?, ?, ?)').run(id, String(info.sub), user.id);
-      return handoff(res, user.id, knownHost(saved.host) ? saved.host : config.baseDomain, saved.next);
+      q('UPDATE users SET email_verified_at = COALESCE(email_verified_at, ?) WHERE id = ?').run(now(), user.id);
+      // Two-step sign-in still asks for the code, on the sign-in page, before admin rights.
+      const back = knownHost(saved.host) ? saved.host : config.baseDomain;
+      return handoff(res, user.id, back, user.totp_on ? `/login.html?${new URLSearchParams({ code: '1', next: saved.next })}` : saved.next);
     }
     throw new HttpError(404, 'Not found');
   }
@@ -1063,16 +1500,26 @@ export function createApp(db, options = {}) {
       return send(res, 400, 'Bad address');
     }
     try {
+      // Where to report a security problem (RFC 9116), on every address, staging included.
+      if (path === '/.well-known/security.txt' || path === '/security.txt') {
+        res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'max-age=86400' });
+        return res.end(req.method === 'HEAD' ? undefined : securityTxt(legalDoc().company, urlFor(config.baseDomain, '')));
+      }
       if (config.stagingCode && (await stagingGate(req, res, path))) return;
       const a = access(req);
       if (a.t.unknown) return page(res, 404, 'Unknown address', `This platform doesn’t serve ${a.t.host}.`);
-      if (path.startsWith('/api/')) return await api(req, res, a, path, url);
+      if (path.startsWith('/api/')) {
+        await api(req, res, a, path, url);
+        // Every change made in the platform admin goes in the audit log.
+        if (a.isSuper && path.startsWith('/api/admin/') && req.method !== 'GET' && res.statusCode < 400) audit(a, `${req.method} ${path}`, null, {}, req);
+        return;
+      }
       if (path.startsWith('/auth/')) return await auth(req, res, a, path, url);
       if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed');
       return files(req, res, a, path);
     } catch (err) {
       const status = err instanceof HttpError ? err.status : 500;
-      if (status === 500) console.error(err);
+      if (status === 500) { console.error(err); recordError(db, err, req); }
       if (res.headersSent) return res.end();
       return path.startsWith('/api/') ? json(res, status, { error: status === 500 ? 'Something went wrong' : err.message }) : page(res, status, 'Something went wrong', status === 500 ? 'Try again in a moment.' : err.message);
     }

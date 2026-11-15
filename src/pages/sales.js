@@ -4,6 +4,8 @@ import { Wordmark } from '../ui/Wordmark.js';
 import { PLUGINS } from '../plugins.js';
 import { LIMITS, FEATURES, PLAN_IDS, PLAN_PLUGINS, amount, allPlans } from '../platform/plans.js';
 import { siteContent } from '../platform/salesSite.js';
+import { Markdown } from '../ui/markdown.js';
+import { LEGAL_KINDS, LEGAL_DEFAULTS, fillLegal } from '../platform/legal.js';
 
 /**
  * Dashi's own public site, on the root domain: the home page (for anyone
@@ -11,7 +13,7 @@ import { siteContent } from '../platform/salesSite.js';
  * address for everyone: visitors find out and sign up, members sign in
  * and are sent to their org, and the platform admin runs it all.
  *
- *   salesPage(root, page)   page: 'home' | 'pricing' | 'about' | 'signup' | 'contact'
+ *   salesPage(root, page)   page: 'home' | 'pricing' | 'about' | 'signup' | 'contact' | 'legal'
  *
  * The words come from the platform document "site" (edited in Platform
  * admin → Sales site), the plans and prices from "plans".
@@ -24,7 +26,7 @@ async function platformInfo() {
     const res = await fetch('/api/platform');
     if (res.ok) return await res.json();
   } catch { /* the local prototype has no server */ }
-  return { plans: allPlans(), site: siteContent(), signup: true, baseDomain: 'dashi.ca' };
+  return { plans: allPlans(), site: siteContent(), signup: true, baseDomain: 'dashi.ca', tax: { label: 'HST' } };
 }
 
 function Header(page, user) {
@@ -43,6 +45,7 @@ function Footer(site) {
   return h('footer', { class: 'sales-foot' },
     h('div', {}, Wordmark(18), h('p', { class: 'muted small' }, 'A social enterprise. Hosted in Canada.')),
     h('nav', {}, h('a', { href: '/pricing.html' }, 'Plans and pricing'), h('a', { href: '/about.html' }, 'About'), h('a', { href: '/about.html#security' }, 'Security'), h('a', { href: '/contact.html' }, 'Contact'), h('a', { href: '/login.html?next=/' }, 'Sign in')),
+    h('nav', { class: 'sales-legal', 'aria-label': 'Legal' }, LEGAL_KINDS.map((k) => h('a', { href: `/legal.html?doc=${k.id}` }, k.short))),
     h('p', { class: 'muted small' }, site.contact.email));
 }
 
@@ -99,6 +102,7 @@ function HeroArt() {
 }
 
 /* ----------------------------------------------------------- pricing */
+let taxLabel = 'HST';
 function PlanCards(plans, { compact = false } = {}) {
   return h('div', { class: 'plan-cards' }, PLAN_IDS.map((id) => {
     const p = plans[id];
@@ -114,6 +118,7 @@ function PlanCards(plans, { compact = false } = {}) {
       id === 'standard' && h('span', { class: 'badge badge-primary badge-sm plan-flag' }, 'Most chosen'),
       h('h3', {}, p.label),
       h('p', { class: 'plan-price' }, h('strong', {}, fmtPrice(p)), p.price.monthly ? h('span', {}, ` ${p.price.note}`) : null),
+      p.price.monthly ? h('p', { class: 'plan-tax' }, `Includes ${taxLabel}`) : null,
       h('p', { class: 'plan-tag' }, p.tagline),
       !compact && h('ul', { class: 'plan-list' },
         key.map((t) => h('li', {}, icon('check', 14), t)),
@@ -179,10 +184,11 @@ function Signup({ plans, signup, baseDomain }, user) {
   f.slug.addEventListener('input', () => { edited = true; });
   const msg = h('p', { class: 'form-msg', role: 'alert' });
   const field = (label, el, hint) => h('label', { class: 'field' }, h('span', {}, label), el, hint && h('small', { class: 'muted' }, hint));
+  const accept = h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', name: 'accept', required: true });
   const form = h('form', { class: 'signup-form', onsubmit: async (e) => {
     e.preventDefault();
     msg.textContent = '';
-    const body = Object.fromEntries(Object.entries(f).map(([k, el]) => [k, el.value]));
+    const body = { ...Object.fromEntries(Object.entries(f).map(([k, el]) => [k, el.value])), accept: accept.checked };
     try {
       const res = await fetch('/api/signup', { method: 'POST', headers: { 'content-type': 'application/json', 'x-toolbox': '1' }, body: JSON.stringify(body) });
       const out = await res.json();
@@ -198,7 +204,9 @@ function Signup({ plans, signup, baseDomain }, user) {
     !user && [field('Your name', f.name), field('Email', f.email, 'You’ll sign in with this.'), field('Password', f.password, 'At least 10 characters; a short sentence works well.')],
     user && h('p', { class: 'muted' }, `You’re signed in as ${user.email}; you’ll be the new organisation’s admin.`),
     field('Plan', f.plan, 'Every organisation starts on Free. If you choose a paid plan, we’ll set it up with you.'),
-    f.website, msg,
+    f.website,
+    h('label', { class: 'check signup-accept' }, accept, h('span', {}, 'I agree to the ', h('a', { href: '/legal.html?doc=terms', target: '_blank' }, 'Terms of service'), ' and the ', h('a', { href: '/legal.html?doc=privacy', target: '_blank' }, 'Privacy policy'), '.')),
+    msg,
     h('button', { class: 'btn btn-primary', type: 'submit' }, 'Create our space'),
     h('p', { class: 'muted small' }, 'Already on Dashi? ', h('a', { href: '/login.html?next=/' }, 'Sign in'), '.'));
   return [h('section', { class: 'sales-section signup' },
@@ -231,11 +239,31 @@ function Contact({ site }) {
     form)];
 }
 
-const PAGES = { home: Home, pricing: Pricing, about: About, signup: Signup, contact: Contact };
-const TITLES = { home: 'Dashi', pricing: 'Plans and pricing · Dashi', about: 'About · Dashi', signup: 'Start free · Dashi', contact: 'Contact · Dashi' };
+/* -------------------------------------------------------------- legal */
+/** Terms, privacy, accessibility and data processing: the current version, with earlier ones a click away. */
+function Legal() {
+  const params = new URLSearchParams(location.search);
+  const kind = LEGAL_KINDS.find((k) => k.id === params.get('doc')) ?? LEGAL_KINDS[0];
+  const body = h('article', { class: 'legal-body' }, h('p', { class: 'muted' }, 'Loading…'));
+  const meta = h('p', { class: 'muted small' });
+  fetch(`/api/legal/${kind.id}${params.get('v') ? `?v=${encodeURIComponent(params.get('v'))}` : ''}`).then((r) => (r.ok ? r.json() : Promise.reject())).catch(() => ({ body: fillLegal(LEGAL_DEFAULTS[kind.id]), v: 1, latest: 1, versions: [] })).then((d) => {
+    document.title = `${kind.label} · Dashi`;
+    meta.replaceChildren(`Version ${d.v}${d.at ? `, ${new Date(d.at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })}` : ''}`,
+      d.v !== d.latest ? [' · an earlier version. ', h('a', { href: `?doc=${kind.id}` }, 'See the current one')] : '',
+      d.versions?.length > 1 ? [' · ', h('details', { class: 'legal-versions' }, h('summary', {}, 'Earlier versions'), h('ul', {}, d.versions.slice().reverse().map((x) => h('li', {}, h('a', { href: `?doc=${kind.id}&v=${x.v}` }, `Version ${x.v}`), x.at ? ` · ${x.at.slice(0, 10)}` : '', x.note ? ` · ${x.note}` : ''))))] : '');
+    body.replaceChildren(Markdown(d.body));
+  });
+  return [h('section', { class: 'sales-section legal' },
+    h('nav', { class: 'legal-tabs', 'aria-label': 'Legal pages' }, LEGAL_KINDS.map((k) => h('a', { href: `?doc=${k.id}`, class: k.id === kind.id ? 'on' : '', 'aria-current': k.id === kind.id ? 'page' : null }, k.label))),
+    h('h1', {}, kind.label), meta, body)];
+}
+
+const PAGES = { home: Home, pricing: Pricing, about: About, signup: Signup, contact: Contact, legal: Legal };
+const TITLES = { home: 'Dashi', pricing: 'Plans and pricing · Dashi', about: 'About · Dashi', signup: 'Start free · Dashi', contact: 'Contact · Dashi', legal: 'Legal · Dashi' };
 
 export async function salesPage(root, page, user = null) {
   const info = await platformInfo();
+  taxLabel = info.tax?.label ?? 'HST';
   document.body.className = 'sales-page';
   document.title = TITLES[page];
   root.replaceChildren(Header(page, user), h('main', { class: 'sales-main' }, PAGES[page](info, user)), Footer(info.site));
