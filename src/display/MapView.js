@@ -47,7 +47,9 @@ export class MapView extends EventDispatcher {
     if (this.lensView.lensId !== lens.id) this.lensView.render(lens);
 
     const actors = {};
-    for (const a of Object.values(map.actors)) actors[a.id] = { ...a, ...project(lens, a.place) };
+    // A tidied lens shows its own arrangement; otherwise each actor's own place.
+    const arranged = map.arrangements?.[lens.id] ?? {};
+    for (const a of Object.values(map.actors)) actors[a.id] = { ...a, ...project(lens, arranged[a.id] ?? a.place), shownAt: arranged[a.id] ?? a.place };
     this.world = { actors, connectors: map.connectors, groups: map.groups ?? {} };
 
     const layers = new Map(map.layers.map((l) => [l.id, l]));
@@ -111,13 +113,32 @@ export class MapView extends EventDispatcher {
     this.dispatchEvent('selection');
   }
 
-  /** Every visible actor in a lens region signals once, and the region lights up. */
+  /** Every visible actor in a lens region pulses a few times, and the region lights up. */
   signalRegion(regionId) {
     const lens = this.lens;
-    this.lensView.flash(regionId);
+    this.lensView.flash(regionId, 3300);
     for (const a of Object.values(this.store.map.actors)) {
       const view = this.#actors.get(a.id);
-      if (view?.visible && regionAt(lens, a.place)?.id === regionId) view.signal();
+      if (view?.visible && regionAt(lens, a.place)?.id === regionId) view.signal(3);
+    }
+  }
+
+  /** Everything on a layer pulses a few times (its actors ping; its connectors and groups glow). */
+  signalLayer(layerId) {
+    const { map } = this.store;
+    const base = map.layers[0]?.id;
+    const on = (item) => (item.layerId ?? base) === layerId;
+    for (const a of Object.values(map.actors)) if (on(a)) { const v = this.#actors.get(a.id); if (v?.visible) v.signal(3); }
+    for (const [list, views] of [[map.connectors, this.#connectors], [map.groups ?? {}, this.#groups]]) {
+      for (const item of Object.values(list)) {
+        const node = views.get(item.id)?.node;
+        if (!node || !on(item)) continue;
+        node.classList.remove('layer-glow');
+        void node.getBoundingClientRect();
+        node.classList.add('layer-glow');
+        clearTimeout(node.glowTimer);
+        node.glowTimer = setTimeout(() => node.classList.remove('layer-glow'), 3300);
+      }
     }
   }
 

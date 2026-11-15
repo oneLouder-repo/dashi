@@ -64,6 +64,8 @@ export default {
             x: world.actors[id].x,
             y: world.actors[id].y,
             place: map.actors[id].place,
+            // Its seat in any tidied arrangement, so undo can put it back.
+            arranged: Object.fromEntries(Object.entries(map.arrangements ?? {}).filter(([, p]) => p[id]).map(([lensId, p]) => [lensId, p[id]])),
           })),
           moved: false,
         };
@@ -90,6 +92,7 @@ export default {
       store.apply(moveOp(drag, e, ctx), { history: false });
       const lead = store.map.actors[drag.lead];
       if (lead) mapView.lensView.highlight(regionAt(mapView.lens, lead.place)?.id);
+      ctx.hoverCard?.hide();
     } else if (drag.kind === 'dock') {
       store.apply(ops.dockConnector(drag.id, drag.end, { x: e.worldX, y: e.worldY }), { history: false });
     } else if (drag.kind === 'marquee') {
@@ -109,7 +112,7 @@ export default {
       endConnect(drag.pending, e, ctx);
     } else if (drag.kind === 'move' && drag.moved) {
       store.apply(moveOp(drag, e, ctx), {
-        inverse: ops.batch(drag.start.map((a) => ops.moveActor(a.id, a.place))),
+        inverse: ops.batch(drag.start.map((a) => ({ ...ops.moveActor(a.id, a.place), arranged: a.arranged }))),
       });
       mapView.lensView.highlight(null);
     } else if (drag.kind === 'move' && !e.shiftKey && mapView.selection.size > 1) {

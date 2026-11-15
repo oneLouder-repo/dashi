@@ -25,7 +25,9 @@ export function createMap({ name = 'Untitled map', lensId = 'micro-meso-macro' }
   };
 }
 
-export const ACTOR_SIZE = { w: 150, h: 58 };
+export const ACTOR_SIZE = { w: 176, h: 108 };
+/** The size actors were before they became sticky notes (maps from before alpha.3). */
+export const OLD_ACTOR_SIZE = { w: 150, h: 58 };
 
 export const ops = {
   /**
@@ -48,7 +50,19 @@ export const ops = {
     },
   }),
   updateActor: (id, patch) => ({ op: 'updateActor', id, patch }),
+  /**
+   * Move an actor to a new place. A place you choose by hand is the actor's
+   * real place, so it also leaves any tidied arrangement (see `arrange`).
+   */
   moveActor: (id, place) => ({ op: 'moveActor', id, place }),
+  /**
+   * Tidy's result for one lens: { [actorId]: place }, or null to drop it.
+   * Kept apart from each actor's own place, so tidying in one lens never
+   * flattens the detail it has in the others: the rings' even spacing
+   * doesn't line everyone up on one row in a band, and switching back and
+   * forth keeps both.
+   */
+  arrange: (lensId, places) => ({ op: 'arrange', lensId, places }),
   removeActor: (id) => ({ op: 'removeActor', id }),
 
   /**
@@ -129,16 +143,37 @@ export const reducers = {
   removeActor(map, { id }) {
     const { id: _, ...data } = must(map.actors[id], 'Actor', id);
     delete map.actors[id];
-    return { op: 'addActor', id, data };
+    const was = {};
+    for (const [lensId, places] of Object.entries(map.arrangements ?? {})) {
+      if (places[id]) { was[lensId] = places[id]; delete places[id]; }
+    }
+    return Object.keys(was).length
+      ? ops.batch([ops.moveActor(id, data.place), { op: 'addActor', id, data }].map((o, i) => (i === 0 ? { ...o, arranged: was } : o)).reverse())
+      : { op: 'addActor', id, data };
   },
   updateActor(map, { id, patch }) {
     return ops.updateActor(id, patchInPlace(must(map.actors[id], 'Actor', id), patch));
   },
-  moveActor(map, { id, place }) {
+  moveActor(map, { id, place, arranged }) {
     const a = must(map.actors[id], 'Actor', id);
-    const inverse = ops.moveActor(id, a.place);
+    // Where it sat in each tidied arrangement, so undo can put it back there.
+    const was = {};
+    for (const [lensId, places] of Object.entries(map.arrangements ?? {})) {
+      if (places[id]) { was[lensId] = places[id]; delete places[id]; }
+    }
+    for (const [lensId, p] of Object.entries(arranged ?? {})) {
+      map.arrangements ??= {};
+      (map.arrangements[lensId] ??= {})[id] = { depth: p.depth, spread: p.spread };
+    }
+    const inverse = { ...ops.moveActor(id, a.place), ...(Object.keys(was).length ? { arranged: was } : {}) };
     a.place = { depth: place.depth, spread: place.spread };
     return inverse;
+  },
+  arrange(map, { lensId, places }) {
+    const before = map.arrangements?.[lensId] ?? null;
+    if (places) { map.arrangements ??= {}; map.arrangements[lensId] = structuredClone(places); }
+    else if (map.arrangements) delete map.arrangements[lensId];
+    return ops.arrange(lensId, before);
   },
 
   addConnector(map, { id, data }) {

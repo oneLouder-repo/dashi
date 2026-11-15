@@ -82,6 +82,7 @@ export const SECTION_ICONS = {
   'sec-sites': `<rect x="3" y="4" width="18" height="16"/><path d="M3 8 H21"/><path d="M7 20 A5 5 0 0 1 17 20" ${AC}/>`,
   'sec-org': `<rect x="9" y="3" width="6" height="6" ${AC}/><path d="M12 9 V13 M6 13 H18 M6 13 V15 M18 13 V15"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/>`,
   'sec-help': `<path d="M8 8 A4 4 0 1 1 12 12 V14"/><rect x="10.5" y="17" width="3" height="3" ${ACF}/><path d="M3 3 H7 M3 3 V7 M21 3 H17 M21 3 V7 M3 21 H7 M3 21 V17 M21 21 H17 M21 21 V17"/>`,
+  'sec-assets': `<path d="M4 8 H20 V20 H4 Z"/><path d="M6 5 H18 M8 2.5 H16"/><circle cx="12" cy="14" r="2.5" ${ACF}/>`,
   'sec-plugins': `<rect x="4" y="4" width="7" height="7"/><rect x="13" y="13" width="7" height="7"/><path d="M4 13 H11 V20 H4 Z" stroke-dasharray="2 2"/><circle cx="16.5" cy="7.5" r="3.5" ${AC}/>`,
 };
 // The section names the pages used before: they now draw the Grid icons.

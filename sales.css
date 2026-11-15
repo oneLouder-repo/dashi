@@ -80,7 +80,7 @@ body.sales-page { background: #fbfaf8; display: block; }
 .sales-main a:not(.btn), .sales-foot a { color: var(--accent); }
 .sales-foot a { color: var(--ink); text-decoration: none; } .sales-foot a:hover { color: var(--accent); }
 
-/* The hero: Dashi's ripple, with the plugins on its rings. */
+/* The hero: Dashi’s ripple on its own. */
 .hero-ripple { position: relative; width: 100%; max-width: 520px; aspect-ratio: 520 / 480; justify-self: center; }
 .hero-rings { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .hero-rings .hr { fill: none; stroke: var(--ink); stroke-width: 2; }
@@ -88,11 +88,6 @@ body.sales-page { background: #fbfaf8; display: block; }
 .hero-rings .hr1 { stroke-opacity: 0.22; }
 .hero-rings .hr2 { stroke-opacity: 0.3; }
 .hero-rings .hr-drop { fill: #d0621b; }
-.hero-node { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 6px; animation: hero-float 6s ease-in-out infinite; animation-delay: var(--d); }
-.hero-node-tile { display: grid; place-items: center; width: 54px; height: 54px; border-radius: 16px; color: var(--tone); background: color-mix(in oklab, var(--tone) 12%, #fff); border: 1px solid color-mix(in oklab, var(--tone) 26%, #fff); box-shadow: 0 6px 18px rgb(20 22 30 / 0.08); }
-.hero-node-label { white-space: nowrap; font-size: 12.5px; font-weight: 750; color: color-mix(in oklab, var(--tone) 80%, var(--ink)); background: rgb(251 250 248 / 0.85); padding: 0 6px; border-radius: 6px; }
-@keyframes hero-float { 50% { transform: translate(-50%, calc(-50% - 5px)); } }
-@media (prefers-reduced-motion: reduce) { .hero-node { animation: none; } }
 @media (max-width: 860px) { .sales-hero { grid-template-columns: 1fr; } .hero-ripple { max-width: 400px; } }
 .sales-points { display: flex; flex-wrap: wrap; justify-content: center; }
 .sales-point { flex: 1 1 240px; max-width: calc(25% - 12px); }

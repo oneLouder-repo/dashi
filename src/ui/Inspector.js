@@ -1,6 +1,7 @@
 import { h, options } from './dom.js';
 import { columnAt, regionAt } from '../lenses/index.js';
 import { STRENGTH_WIDTH } from '../display/ConnectorView.js';
+import { linksOf, groupsOf } from './mapInfo.js';
 
 /**
  * A dialog for whatever is selected on the board: an actor or agent, a
@@ -48,17 +49,36 @@ export function ItemDetails(ctx) {
       h('h2', {}, kind === 'agent' ? 'Agent' : 'Actor'),
       segmented(kind, [['actor', 'Actor'], ['agent', 'Agent']], (k) => store.apply(ops.updateActor(a.id, { kind: k }))),
       field('Name', h('input', { value: a.label, onchange: (e) => store.apply(ops.updateActor(a.id, { label: e.target.value })) })),
+      field('Description (on the sticky note)', h('textarea', { rows: 2, maxlength: 280, value: a.meta?.description ?? '', placeholder: 'A line or two: who they are, what they do',
+        onchange: (e) => store.apply(ops.updateActor(a.id, { meta: { ...a.meta, description: e.target.value.trim() } })) })),
       field('Category', h('select', { onchange: (e) => store.apply(ops.updateActor(a.id, { category: e.target.value })) }, categoryOptions(lens, a.category))),
       field('Region', h('output', {}, [region?.label, column?.label].filter(Boolean).join(' · ') || 'Outside the lens')),
       field('Depth', h('output', { class: 'muted' }, `${Math.round(a.place.depth * 100)}% from surface (explicit) to deep (implicit)`)),
       field('Layer', h('select', { onchange: (e) => store.apply(ops.batch(ctx.actions.actorsToLayerOps([a.id], e.target.value))) },
         options(store.map.layers.map((l) => ({ id: l.id, label: l.name })), a.layerId ?? store.map.layers[0]?.id))),
-      field('Notes', h('textarea', {
-        rows: 5,
+      field('Details', h('textarea', {
+        rows: 7,
         value: a.meta?.notes ?? '',
+        placeholder: 'Everything worth knowing: history, contacts, what they bring, what to watch for',
         onchange: (e) => store.apply(ops.updateActor(a.id, { meta: { ...a.meta, notes: e.target.value } })),
       })),
+      LinksList(a),
     ];
+  }
+
+  // Who this actor is linked to; click one to go to it.
+  function LinksList(a) {
+    const links = linksOf(store.map, mapView.lens, a.id);
+    const groups = groupsOf(store.map, a.id);
+    return h('div', { class: 'details-links' },
+      h('h3', {}, `Linked to (${links.length})`),
+      links.length
+        ? h('ul', {}, links.map((l) => h('li', {},
+            h('span', { class: 'dl-dir', title: l.direction === 'out' ? 'From this one' : l.direction === 'in' ? 'To this one' : 'Both ways' }, l.direction === 'out' ? '→' : l.direction === 'in' ? '←' : '↔'),
+            l.other ? h('button', { type: 'button', class: 'link-btn', onclick: () => mapView.select([l.other.id]) }, l.other.label || 'Untitled') : h('span', { class: 'muted' }, 'a floating end'),
+            h('span', { class: 'muted' }, ` · ${l.type}${l.connector.label ? ` · “${l.connector.label}”` : ''}`))))
+        : h('p', { class: 'muted' }, 'No links yet. Drag from the little box at the note’s top-left corner to another note.'),
+      groups.length ? h('p', { class: 'muted' }, `In ${groups.length === 1 ? 'the group' : 'the groups'} ${groups.map((g) => `“${g.label}”`).join(', ')}.`) : null);
   }
 
   function renderConnector(c) {
@@ -121,6 +141,7 @@ export function ItemDetails(ctx) {
     else if (sel.connectorIds.length) parts = renderConnector(store.map.connectors[sel.connectorIds[0]]);
     else parts = renderGroup(store.map.groups[sel.groupIds[0]]);
     body.replaceChildren(...parts.filter(Boolean));
+    dialog.classList.toggle('wide', sel.actorIds.length === 1 && count === 1);
   }
 
   const body = h('div', { class: 'item-details-body' });
