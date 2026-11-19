@@ -286,7 +286,7 @@ Ctrl+Z (or ⌘+Z) undoes your own last change.`,
         {
           id: 'how-sites-work',
           title: 'How a site is put together',
-          body: `An organisation can have several sites, each **public** or **private** (staff and board only). Set them up in **Organisation settings → Public sites and theme**.
+          body: `An organisation can have several sites, each **public** or **private** (staff and board only). Set them up in the **Public Portal**: add a site from the overview, and pick its colours and shapes under **Look and feel**.
 
 - **Home**: the site's public dashboards, with the latest news and the newest episode above them.
 - **Menu**: pages marked "In the menu", then News and the podcast station when the site has them.

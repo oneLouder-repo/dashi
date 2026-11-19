@@ -15,8 +15,9 @@
  * subdomains and for custom domains.
  *
  * Roles (memberships.role, from the org's staff list): admin (everything,
- * including the org's settings), lead and staff (edit), viewer (read
- * only). The platform admin (users.is_super) can open and change any org,
+ * including the org's settings), lead and staff (edit), and three that
+ * read only: board (board directors), guest (advisors, funders, partners)
+ * and viewer. The platform admin (users.is_super) can open and change any org,
  * and can "view as" any staff member.
  */
 import { randomBytes, scrypt as scryptCb, timingSafeEqual, createHash } from 'node:crypto';
@@ -53,7 +54,9 @@ import { mailEnabled } from './mail.js';
 
 const scrypt = promisify(scryptCb);
 const COOKIE = 'tb_session';
-const ROLES = ['admin', 'lead', 'staff', 'viewer'];
+const ROLES = ['admin', 'lead', 'staff', 'board', 'guest', 'viewer'];
+/** Roles that read but never change anything. */
+const READ_ONLY = new Set(['board', 'guest', 'viewer']);
 const SLUG = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const RESERVED = new Set(['www', 'api', 'admin', 'app', 'auth', 'mail', 'static', 'platform']);
 const DOC_NAME = /^[\w-]{1,64}(\/[\w-]{1,64})?$/;
@@ -283,7 +286,7 @@ export function createApp(db, options = {}) {
     return {
       t, s, user, isSuper, org, role, needsCode,
       member: !!(org && (m || isSuper)),
-      canEdit: !!(org && (isSuper || (m && m.role !== 'viewer'))),
+      canEdit: !!(org && (isSuper || (m && !READ_ONLY.has(m.role)))),
       canAdmin: !!(org && (isSuper || m?.role === 'admin')),
       staffId: (org && (s?.viewAs?.[org.id] ?? m?.staff_id)) ?? null,
       tag: s ? createHash('sha256').update(s.id).digest('base64url').slice(0, 12) : null,

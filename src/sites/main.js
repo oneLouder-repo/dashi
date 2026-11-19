@@ -10,7 +10,7 @@ import { svg } from '../core/svg.js';
 import { criticalOn, onSiteFor, migrateCritical, DOC as CRITICAL_DOC } from '../platform/criticalMedia.js';
 import { SITE_HEROES, SITE_TYPES, siteLook } from '../platform/org.js';
 import { isLivePlan } from '../platform/plandocs.js';
-import { applyTheme, paletteById, shapeById } from '../platform/themes.js';
+import { applyTheme, paletteById, shapeById, PALETTES, SHAPES } from '../platform/themes.js';
 import { Logo } from '../ui/Shell.js';
 import { PAGE_KINDS, uniqueSlug, isLive, embedsIn, siteContent } from '../platform/pages.js';
 import { published } from '../platform/podcasts.js';
@@ -24,7 +24,7 @@ import { readImage } from '../ui/images.js';
 import { EpisodeCard, ShowCard, Player } from '../site/station.js';
 import { today, short } from '../strategy/dates.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
-import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
+import { uiAlert, uiConfirm, uiPrompt, uiPanel } from '../ui/dialog.js';
 
 /**
  * Public Portal (formerly Web views, and before that Sites & Pages): one
@@ -36,6 +36,8 @@ import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
  * look. Pages and news articles are written here too.
  *
  *   #sites        the overview: the properties map, steps, then every site
+ *   #look         the look of every public site: colour palette and shapes
+ *   #site/<id>    one site: its preview, settings, hero and type
  *   #<page id>    edit a page or article, with a live preview
  *
  * Bodies are light markdown with shortcodes for live embeds
@@ -79,6 +81,7 @@ function renderSide() {
   side = swapSide(side, SideNav({ label: 'Public Portal', sections: [
     { title: 'Public Portal', items: [
       { label: 'Overview', sub: 'Every site, and what is live', icon: 'home', href: '#sites', on: r === 'sites' },
+      { label: 'Look and feel', sub: org.theme?.palette ? `${paletteById[org.theme.palette]?.label ?? 'Your'} colours, ${shapeById[org.theme.shape]?.label?.toLowerCase() ?? 'rounded'}` : 'Colours and shapes', icon: 'palette', href: '#look', on: r === 'look' },
       { label: 'Dashboards', sub: 'Data Workbench', icon: 'chart', href: 'palette.html#dashboards' },
       { label: 'Feedback forms', sub: 'Data Workbench', icon: 'chats', href: 'palette.html#feedback' },
       { label: 'Strategic plan', sub: 'Plan designer', icon: 'strategy', href: 'plandoc.html' },
@@ -106,7 +109,7 @@ function render() {
   const r = route();
   const p = doc().pages[r];
   const site = r.startsWith('site/') && org.sites[r.slice(5)];
-  main.replaceChildren(p ? Editor(p) : site ? SitePage(site) : Sites());
+  main.replaceChildren(p ? Editor(p) : site ? SitePage(site) : r === 'look' ? Look() : Sites());
 }
 
 function newPage(kind, forSite = null) {
@@ -131,7 +134,7 @@ function Sites() {
 
   // Getting the public side working, step by step.
   const steps = [
-    { done: publicSites.length > 0 && !!org.theme?.palette, title: 'Your look and your sites', text: org.theme?.palette ? `${paletteById[org.theme.palette]?.label ?? org.theme.palette} colours, ${shapeById[org.theme.shape]?.label?.toLowerCase() ?? 'rounded'} shapes, ${publicSites.length} public site${publicSites.length === 1 ? '' : 's'}.` : 'Pick your colours and shape, and name your public sites.', href: 'org.html#sites', action: 'Theme and sites' },
+    { done: publicSites.length > 0 && !!org.theme?.palette, title: 'Your look and your sites', text: org.theme?.palette ? `${paletteById[org.theme.palette]?.label ?? org.theme.palette} colours, ${shapeById[org.theme.shape]?.label?.toLowerCase() ?? 'rounded'} shapes, ${publicSites.length} public site${publicSites.length === 1 ? '' : 's'}.` : 'Pick your colours and shape, and name your public sites.', href: '#look', action: 'Look and feel' },
     { done: dashes.some((d) => d.visibility === 'public' && d.siteId), title: 'Live dashboards', text: `${dashes.filter((d) => d.visibility === 'public' && d.siteId).length} of ${dashes.length} dashboards are public. Design them as visitors will see them.`, href: 'palette.html#dashboards', action: 'Design dashboards' },
     { done: plans.some(isLivePlan), title: 'Your strategic plan', text: plans.some(isLivePlan) ? 'Your plan is online, and downloads as a PDF.' : 'Turn your strategy into a designed plan to read online or download as a PDF.', href: 'plandoc.html', action: 'Plan designer' },
     hasPods && { done: !!station, title: 'Your podcast station', text: station ? `On ${station.name}, with ${liveEpisodes().length} episodes out.` : 'Put the station on a site so listeners can find it.', href: 'podcasts.html#station', action: 'Station' },
@@ -262,7 +265,8 @@ function PropertiesMap() {
       h('div', { class: 'pm-legend' },
         h('span', {}, h('i', { class: 'pm-key live' }), `${live} live`),
         h('span', {}, h('i', { class: 'pm-key design' }), `${design} in design`),
-        h('span', {}, icon('lock', 13), 'Members only'))),
+        h('span', {}, icon('lock', 13), 'Members only'),
+        h('button', { class: 'btn btn-sm btn-primary pm-add', onclick: addProperty }, icon('plus', 14), 'Add property'))),
     h('div', { class: 'pm-scroll' }, el));
 }
 
@@ -281,7 +285,7 @@ function SitePreview(s, { width = 1280, height = 900, scale = 0.25, page = null,
 }
 
 const visLabel = (v) => ({ public: 'Public', unlisted: 'Unlisted', private: 'Members only' })[v] ?? v;
-const visBlurb = (v) => ({ public: 'Anyone can find it, and it is listed on your other sites.', unlisted: 'Anyone with the link can read it, but it is not listed anywhere yet.', private: 'Only signed-in staff and board members (Viewer role and up) can open it.' })[v];
+const visBlurb = (v) => ({ public: 'Anyone can find it, and it is listed on your other sites.', unlisted: 'Anyone with the link can read it, but it is not listed anywhere yet.', private: 'Only people signed in to your organisation can open it: staff, board directors and guests.' })[v];
 
 /** A site on the overview: its front page, small, what is on it, and the way in. */
 function SiteCard(s) {
@@ -347,7 +351,7 @@ function SitePage(s) {
           h('div', { class: 'join' }, SITE_HEROES.map((x) => h('button', { class: `btn btn-xs join-item${look.hero === x.id ? ' btn-active' : ''}`, title: x.blurb, onclick: () => setLook({ hero: x.id }) }, x.label))),
           h('span', { class: 'wv-look-label' }, 'Type'),
           h('div', { class: 'join' }, SITE_TYPES.map((x) => h('button', { class: `btn btn-xs join-item${look.type === x.id ? ' btn-active' : ''}`, title: x.blurb, onclick: () => setLook({ type: x.id }) }, x.label))),
-          h('a', { class: 'link small', href: 'org.html#sites' }, 'Colours and shapes'))),
+          h('a', { class: 'link small', href: '#look' }, icon('palette', 13), ' Colours and shapes'))),
       h('aside', { class: 'wv-sitepage-side' },
         h('section', { class: 'wv-box' },
           h('h3', {}, 'Settings'),
@@ -357,7 +361,13 @@ function SitePage(s) {
           h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Address'),
             h('input', { class: 'input input-sm w-full', name: 'site-url', value: s.url ?? '', placeholder: 'https://…', onchange: (e) => saveSite({ url: e.target.value.trim() }) })),
           h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'What it shows (one line)'),
-            h('input', { class: 'input input-sm w-full', name: 'site-shows', value: s.shows ?? '', onchange: (e) => saveSite({ shows: e.target.value }, false) }))),
+            h('input', { class: 'input input-sm w-full', name: 'site-shows', value: s.shows ?? '', onchange: (e) => saveSite({ shows: e.target.value }, false) })),
+          h('button', { class: 'btn btn-xs btn-ghost btn-error wv-remove', onclick: async () => {
+            if (!await uiConfirm(`Remove ${s.name}? What was on it (pages, dashboards, the station) is kept, and you can put it on another site.`)) return;
+            delete org.sites[s.id];
+            saveDoc('org', org);
+            location.hash = 'sites';
+          } }, icon('trash', 13), 'Remove this site')),
         h('section', { class: 'wv-box' },
           h('h3', {}, 'On this site', h('small', { class: 'muted' }, ` ${props.filter((p) => p.live).length} live · ${props.filter((p) => !p.live).length} in design`)),
           props.length ? Object.entries(groups).map(([k, list]) => h('div', { class: 'wv-group' },
@@ -374,6 +384,109 @@ function SitePage(s) {
             ? h('a', { class: 'btn btn-sm', href: x.href }, icon(x.icon, 14), x.label)
             : h('button', { class: 'btn btn-sm', onclick: x.onclick }, icon(x.icon, 14), x.label)))),
         !isPublic && h('p', { class: 'muted small wv-note' }, icon('info', 13), ' Board papers are Library documents tagged “board” plus governance, minutes or finance.'))));
+}
+
+/**
+ * The look of every public site and portal: the colour palette and the
+ * shape (corners, weight), with a live sample. Each site then picks its own
+ * hero and type on its page. Staff pages keep Dashi's own look.
+ */
+function Look() {
+  const theme = org.theme ?? {};
+  const setTheme = (patch) => { org.theme = { ...org.theme, ...patch }; saveDoc('org', org); render(); };
+  const sample = h('div', { class: 'theme-preview look-sample' },
+    h('div', { class: 'tp-head' }, Logo(org, 32), h('strong', {}, org.name), h('span', { class: 'spacer' }), h('a', { class: 'link' }, 'Impact'), h('a', { class: 'link' }, 'News'), h('a', { class: 'link' }, 'Contact')),
+    h('div', { class: 'tp-body' },
+      h('h3', {}, 'Reach and equity'),
+      h('p', {}, org.description || org.mission),
+      h('div', { class: 'tp-cards' },
+        h('div', { class: 'card card-border' }, h('div', { class: 'card-body' }, h('div', { class: 'stat-title' }, 'Youth reached'), h('div', { class: 'stat-value' }, '459K'), h('progress', { class: 'progress progress-primary', value: 92, max: 100 }))),
+        h('div', { class: 'card card-border' }, h('div', { class: 'card-body' }, h('div', { class: 'stat-title' }, 'Partners'), h('div', { class: 'stat-value' }, '103'), h('div', { class: 'badge badge-secondary' }, 'New this year')))),
+      h('div', { class: 'tp-actions' }, h('button', { class: 'btn btn-primary btn-sm', tabindex: '-1' }, '▶ Play the year'), h('button', { class: 'btn btn-outline btn-sm', tabindex: '-1' }, 'Get in touch'))));
+  applyTheme(sample, theme);
+  const sites = Object.values(org.sites);
+  return h('div', { class: 'wv look' },
+    h('nav', { class: 'crumbs muted small' }, h('a', { href: '#sites' }, 'Public Portal'), ' / Look and feel'),
+    h('header', { class: 'look-head' },
+      h('h1', {}, 'Look and feel'),
+      h('p', { class: 'muted' }, 'The colours and shapes every public site and members-only portal uses. Each site then chooses its own hero and type on its page. Staff pages keep Dashi’s look so they stay familiar.')),
+    h('div', { class: 'look-grid' },
+      h('div', { class: 'look-controls' },
+        h('section', { class: 'wv-box' },
+          h('h3', {}, 'Colour palette'),
+          h('div', { class: 'palette-grid', role: 'radiogroup', 'aria-label': 'Colour palette' }, PALETTES.map((p) => {
+            const on = theme.palette === p.id;
+            const sw = h('button', { class: `palette-option${on ? ' on' : ''}`, role: 'radio', 'aria-checked': String(on), onclick: () => setTheme({ palette: p.id }) },
+              h('span', { class: 'swatches' }, ['primary', 'secondary', 'accent', 'neutral', 'base-200'].map((c) => h('span', { style: `background:var(--color-${c})` }))),
+              h('span', {}, p.label));
+            sw.querySelector('.swatches').setAttribute('data-theme', p.id);
+            return sw;
+          }))),
+        h('section', { class: 'wv-box' },
+          h('h3', {}, 'Shape'),
+          h('div', { class: 'shape-grid', role: 'radiogroup', 'aria-label': 'Shape' }, SHAPES.map((s) =>
+            h('button', { class: `shape-option${theme.shape === s.id ? ' on' : ''}`, role: 'radio', 'aria-checked': String(theme.shape === s.id), onclick: () => setTheme({ shape: s.id }), style: `--r:${s.vars['--radius-box']}` },
+              h('span', { class: 'shape-sample' }), h('strong', {}, s.label), h('small', {}, s.blurb)))))),
+      h('div', { class: 'look-preview' },
+        h('section', { class: 'wv-box' },
+          h('h3', {}, 'How it looks'),
+          sample,
+          h('p', { class: 'muted small' }, 'A sample. Open a site to see the real thing with your content.')),
+        h('section', { class: 'wv-box' },
+          h('h3', {}, 'Each site’s hero and type'),
+          sites.length ? h('ul', { class: 'look-sites' }, sites.map((s) => {
+            const lk = siteLook(s);
+            return h('li', {},
+              icon(s.visibility === 'private' ? 'lock' : s.visibility === 'unlisted' ? 'eyeOff' : 'globe', 15),
+              h('a', { href: `#site/${s.id}` }, s.name),
+              h('span', { class: 'muted small' }, `${SITE_HEROES.find((x) => x.id === lk.hero)?.label ?? lk.hero} hero · ${SITE_TYPES.find((x) => x.id === lk.type)?.label ?? lk.type} type`),
+              h('a', { class: 'btn btn-xs btn-ghost', href: `#site/${s.id}` }, 'Change'));
+          })) : h('p', { class: 'muted small' }, 'No sites yet.')))));
+}
+
+/**
+ * Add something to the portal from the overview: pick what, and (for pages
+ * and articles) which site. Dashboards, forms, stories and the rest are made
+ * in their own tools, so those open there.
+ */
+async function addProperty() {
+  const sites = Object.values(org.sites);
+  const KINDS = [
+    { id: 'site', label: 'Site or portal', sub: 'A new public site, or a members-only portal', icon: 'globe' },
+    { id: 'page', label: 'Page', sub: 'Who you are, how to get involved', icon: 'doc', needsSite: true },
+    { id: 'article', label: 'News article', sub: 'What’s new, with a date', icon: 'news', needsSite: true },
+    { id: 'dashboard', label: 'Dashboard', sub: 'In the Data Workbench', icon: 'chart', href: 'palette.html#dashboards' },
+    { id: 'feedback', label: 'Feedback form', sub: 'In the Data Workbench', icon: 'chats', href: 'palette.html#feedback' },
+    { id: 'story', label: 'Data story', sub: 'In the Data Workbench', icon: 'story', href: 'palette.html#stories' },
+    { id: 'calculator', label: 'Impact calculator', sub: 'In the Data Workbench', icon: 'gift', href: 'palette.html#impact' },
+    { id: 'plan', label: 'Strategic plan', sub: 'In the Plan designer', icon: 'strategy', href: 'plandoc.html' },
+    pluginOn(org, 'podcasts') && { id: 'station', label: 'Podcast station', sub: 'In Podcasts', icon: 'mic', href: 'podcasts.html#station' },
+  ].filter(Boolean);
+  let pick = KINDS[1];
+  let siteId = sites.find((s) => s.visibility === 'public')?.id ?? sites[0]?.id ?? null;
+  const choice = await uiPanel({
+    title: 'Add to your portal', message: 'Choose what to add. Pages and news are written here; the rest open in the tool that makes them.', ok: 'Add', cancel: 'Cancel',
+    build: (set) => {
+      set({ kind: pick, siteId });
+      const siteRow = h('label', { class: 'dui-field ap-site' }, h('span', { class: 'dui-label' }, 'On which site'),
+        h('select', { class: 'select w-full', onchange: (e) => { siteId = e.target.value; set({ kind: pick, siteId }); } },
+          options(sites.map((s) => ({ id: s.id, label: `${s.name}${s.visibility === 'private' ? ' (members only)' : ''}` })), siteId)));
+      const grid = h('div', { class: 'ap-grid', role: 'radiogroup', 'aria-label': 'What to add' }, KINDS.map((k) =>
+        h('button', { type: 'button', role: 'radio', class: `ap-kind${k === pick ? ' on' : ''}`, 'aria-checked': String(k === pick), onclick: (e) => {
+          pick = k;
+          grid.querySelectorAll('.ap-kind').forEach((b) => { b.classList.toggle('on', b === e.currentTarget); b.setAttribute('aria-checked', String(b === e.currentTarget)); });
+          siteRow.hidden = !k.needsSite || !sites.length;
+          set({ kind: pick, siteId });
+        } }, icon(k.icon, 18), h('span', {}, h('strong', {}, k.label), h('small', {}, k.sub)))));
+      siteRow.hidden = !pick.needsSite || !sites.length;
+      return h('div', { class: 'ap' }, grid, siteRow);
+    },
+  });
+  if (!choice || choice === true) return;
+  const { kind } = choice;
+  if (kind.id === 'site') return newSite();
+  if (kind.needsSite) return newPage(kind.id, choice.siteId);
+  location.assign(kind.href);
 }
 
 function Editor(p) {

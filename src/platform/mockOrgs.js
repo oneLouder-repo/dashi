@@ -59,7 +59,7 @@ function people(r, spec, sector, existing = {}) {
     used.add(name);
     const n = Object.keys(staff).length;
     const id = `p-${spec.slug}-${++k}`;
-    const roleId = n === 0 ? 'admin' : n < 3 ? 'lead' : r.chance(0.12) ? 'viewer' : r.chance(0.2) ? 'lead' : 'staff';
+    const roleId = n === 0 ? 'admin' : n < 3 ? 'lead' : r.chance(0.12) ? ['board', 'guest', 'viewer'][n % 3] : r.chance(0.2) ? 'lead' : 'staff';
     const title = n === 0 ? (spec.sector === 'seniors' ? 'Chair' : spec.sector === 'climate' ? 'Scientific Director' : 'Executive Director') : n === 1 ? 'Director of Programs' : r.pick(sector.titles);
     const [first, last] = name.toLowerCase().normalize('NFKD').replace(/[^\w\s]/g, '').split(' ');
     staff[id] = {

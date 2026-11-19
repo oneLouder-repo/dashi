@@ -2,6 +2,28 @@
 
 Dashi uses version numbers like `0.1.0-alpha.1`. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
+## 0.1.0-alpha.9 (a rethought Organisation page, the look of your sites in the Public Portal, and two new roles)
+
+### Organisation
+
+- **People** is a directory: find someone by name, title or email, filter by role or team, and click a person to change their details, role and teams in a side drawer. Links to a person (from search, say) open their drawer.
+- **Teams** has its own page: a card for each team with its people and leads, and a drawer to rename it, pick its colour, and add or take out people.
+- **Plan** looks like the pricing page and the control centre: your plan up top, a tile for each thing you use (with how full it is), the plugins and features you have, and the other plans as cards, each with "Ask to move".
+- Two new roles: **Board director** and **Guest** (for advisors, funders and partners). Both read everything and change nothing, like Viewer, and the server enforces it.
+- The list of other organisations on the platform is gone from here: that is the platform admin's business. Public sites and their look moved to the Public Portal.
+
+### Public Portal
+
+- **Look and feel** (in the sidebar, under Overview): the colour palette and shapes every site and portal uses, with a sample, and each site's hero and type at a glance.
+- **Add property** on the overview's web properties panel: pick a site, page, news article, dashboard, feedback form, data story, calculator, plan or the station, and which site it goes on.
+- Remove a site from its own page.
+
+### Elsewhere
+
+- **Platform admin**: an organisation's own limits open in a side drawer, showing each of the plan's values beside it, instead of a long list unfolding inside the table. The left menu keeps its scroll position when you click a section, and the page stays put when you switch something on or off.
+- **Mapper**: zoom out, zoom level (click for 100%) and zoom in on the toolbar, beside Fit, for anyone without pinch or a scroll wheel.
+- **Library**: the left panel no longer has a doubled edge.
+
 ## 0.1.0-alpha.8 (the platform control centre: data, email, payments, security and legal in one place)
 
 ### Control centre (Platform admin)

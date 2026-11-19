@@ -124,7 +124,7 @@ export const PLUGINS = [
     icon: 'sec-org',
     core: true,
     nav: false,
-    blurb: 'Your profile, people, teams, public sites and their theme, and which plugins you use.',
+    blurb: 'Your profile, people and their roles, teams, plugins, plan and domain.',
     stats: ({ org }) => `${count(org.staff)} staff · ${count(org.teams)} teams · ${Object.values(org.sites).filter((s) => s.visibility === 'public').length} public sites`,
   },
   {

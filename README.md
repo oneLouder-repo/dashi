@@ -1,6 +1,6 @@
 # Dashi
 
-**Version 0.1.0-alpha.8**: the eighth tester release (the platform control centre: health, data, email, payments by card with HST included, two-step sign-in, activity and legal pages, all managed from the platform admin; alpha.7 was a polish pass: every site gets its own page in the Public Portal with a live preview, a rethought Data Workbench for dashboards, publishing and podcasts, and even plugin headers; alpha.6 brought the Public Portal, the board portal, the new roadmap, feedback forms and funder reports). See [CHANGELOG.md](CHANGELOG.md) for what's in it, [TESTING.md](TESTING.md) for testing it, and [DEPLOY.md](DEPLOY.md) for running it.
+**Version 0.1.0-alpha.9**: the ninth tester release (a rethought Organisation page with a people directory, teams and plan, Board director and Guest roles, the look of your sites in the Public Portal, and zoom buttons in the Mapper; alpha.8 was the platform control centre: health, data, email, payments by card with HST included, two-step sign-in, activity and legal pages, all managed from the platform admin; alpha.7 was a polish pass: every site gets its own page in the Public Portal with a live preview, a rethought Data Workbench for dashboards, publishing and podcasts, and even plugin headers; alpha.6 brought the Public Portal, the board portal, the new roadmap, feedback forms and funder reports). See [CHANGELOG.md](CHANGELOG.md) for what's in it, [TESTING.md](TESTING.md) for testing it, and [DEPLOY.md](DEPLOY.md) for running it.
 
 A small, cohesive platform for nonprofits' planning, knowledge and learning work. It holds many organisations; each picks the **plugins** it uses. Open `index.html` (via `npm start`) for the dashboard, then choose a plugin:
 
@@ -12,8 +12,8 @@ A small, cohesive platform for nonprofits' planning, knowledge and learning work
 | Strategy & Work | `strategy.html` | Framework → plans (nested, dated, themed) → objectives → goals → workplans → tasks, with Gantt charts and task lifetime timelines |
 | Workbench | `palette.html` | Mini-tools for the data dialogue: design dashboards, keep program data current, publish to sites |
 | Podcasts | `podcasts.html` | Your own podcast station: shows by season, uploaded .mp3/.wav episodes, featured shows, RSS feeds, and the station's look |
-| Sites & Pages | `pages.html` | What each public site shows, plus its information pages and news articles, with live dashboard and episode embeds |
-| Organisation | `org.html` | Profile, contact, logo, people and teams, public sites and their theme, plugins, and the orgs on the platform |
+| Public Portal | `pages.html` | Every site and portal, and what is live on each; add a property; the look (colours and shapes) of every site; pages and news articles, with live dashboard and episode embeds |
+| Organisation | `org.html` | Profile, contact and logo; people (a directory, with a drawer for each person) and their roles; teams; plugins; plan and usage; domain |
 | My profile | `me.html` | The signed-in person's picture, followed strategic areas, tasks, workplans, dashboards, maps and shows |
 | Help | `help.html` | User guide, how the systems lenses line up, and the data model, with diagrams |
 | Sample public site | `site.html?site=<id>` | What the public sees: dashboards, pages, news and the podcast station, in the org's theme |

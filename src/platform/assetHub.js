@@ -157,7 +157,7 @@ export function gatherAssets(hub, docs = {}, { plugins = null } = {}) {
     }
   }
   for (const s of Object.values(docs.org?.staff ?? {})) {
-    add({ type: 'staff', id: s.id }, { source: 'staff', title: s.name, description: [s.title, s.bio].filter(Boolean).join(' · '), href: 'org.html#people', kindLabel: 'Person', icon: 'person', sub: s.title, abcd: 'individual', thumb: s.avatar ?? null });
+    add({ type: 'staff', id: s.id }, { source: 'staff', title: s.name, description: [s.title, s.bio].filter(Boolean).join(' · '), href: `org.html#people/${s.id}`, kindLabel: 'Person', icon: 'person', sub: s.title, abcd: 'individual', thumb: s.avatar ?? null });
   }
   if (on('library')) {
     for (const li of Object.values(docs.library?.items ?? {})) {

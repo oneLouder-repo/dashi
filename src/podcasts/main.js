@@ -217,7 +217,7 @@ function Station() {
 
       h('section', { id: 'station-look', class: 'pc-look card' },
         h('div', { class: 'pc-section-head' }, h('h2', {}, 'How the public station looks'), site && h('a', { class: 'small', href: stationUrl(), target: '_blank', rel: 'noopener' }, 'See it →')),
-        h('p', { class: 'muted small' }, 'On top of your organisation’s colours and shape (Organisation → Public sites and theme).'),
+        h('p', { class: 'muted small' }, 'On top of your organisation’s colours and shape (Public Portal → Look and feel).'),
         h('div', { class: 'look-grid' },
           h('div', {}, h('span', { class: 'fieldset-legend' }, 'Player'), Segmented('Player', LOOKS.player, st.look.player, (p) => setLook({ player: p }))),
           h('div', {}, h('span', { class: 'fieldset-legend' }, 'Cover art'), Segmented('Cover art', LOOKS.art, st.look.art, (art) => setLook({ art }))),

@@ -6,6 +6,7 @@ import { NetLight } from '../ui/netlight.js';
 import { PluginsAdmin } from './pluginAdmin.js';
 import { Wordmark } from '../ui/Wordmark.js';
 import { SideNav } from '../ui/SideNav.js';
+import { Drawer } from '../ui/drawer.js';
 import { salesPage } from './sales.js';
 import { PLAN_IDS, PLAN_PLUGINS, LIMITS, FEATURES, amount } from '../platform/plans.js';
 import { statusBadge, when, KIND_LABEL, TicketThread } from '../help/support.js';
@@ -32,6 +33,7 @@ const slugify = (s) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, ''
 const open = (o) => `/auth/switch?org=${encodeURIComponent(o.id)}&next=/`;
 
 let session;
+let lastRoute = null;
 try {
   session = await (await fetch('/api/session')).json();
 } catch {
@@ -191,7 +193,7 @@ async function render() {
           h('td', {}, h('select', { class: 'select select-xs plan-select', 'aria-label': `Plan for ${o.name}`, onchange: (e) => act(() => call('PATCH', `/api/admin/orgs/${o.id}`, { plan: e.target.value })) }, options(PLANS, o.plan))),
           h('td', {}, pluginToggles(o)),
           h('td', { class: 'small' }, `${o.members} people`, h('br'), `${o.usage?.storageMb ?? 0} MB`,
-            h('details', { class: 'limits-edit' }, h('summary', { class: 'link-button' }, Object.keys(o.limits?.limits ?? {}).length ? 'Own limits ✓' : 'Own limits'), LimitsEditor(o, act))),
+            h('br'), h('button', { type: 'button', class: `link-button limits-open${ownCount(o) ? ' set' : ''}`, onclick: () => LimitsDrawer(o, act) }, icon('sliders', 12), ownCount(o) ? `Own limits (${ownCount(o)})` : 'Own limits')),
           h('td', {}, h('label', { class: 'feature-toggle' },
             h('input', { type: 'checkbox', class: 'toggle toggle-xs toggle-primary', checked: o.status === 'active', onchange: (e) => act(() => call('PATCH', `/api/admin/orgs/${o.id}`, { status: e.target.checked ? 'active' : 'suspended' })) }),
             o.status)),
@@ -220,8 +222,16 @@ async function render() {
 
   app.classList.add('frame');
   document.body.classList.add('app-page');
+  // Keep the sidebar where it was scrolled to, and the page too when it is the same section again
+  // (after switching a plugin on, say); a new section starts at its top.
+  const sideTop = app.querySelector(':scope > .side-nav')?.scrollTop ?? 0;
+  const mainTop = app.querySelector(':scope > .page-main')?.scrollTop ?? 0;
+  const sameRoute = lastRoute === hash;
+  lastRoute = hash;
   const main = h('section', { class: 'page-main' }, h('div', { class: 'page' }, sections[route]()));
   app.replaceChildren(side, main);
+  side.scrollTop = sideTop;
+  if (sameRoute) main.scrollTop = mainTop;
   document.querySelector('.platform-head')?.remove();
   app.before(head);
 }
@@ -284,6 +294,7 @@ function Security() {
 }
 
 /* ---------------------------------------------------------------- plans */
+const ownCount = (o) => ['limits', 'features', 'plugins'].reduce((n, k) => n + Object.keys(o.limits?.[k] ?? {}).length, 0);
 const PLAN_LABEL = (id) => id[0].toUpperCase() + id.slice(1);
 
 /** What each tier includes: plugins, limits and features, for every org on it. */
@@ -332,22 +343,57 @@ function Plans() {
     box);
 }
 
-/** A Custom (or any) org's own limits, over its tier's. */
-function LimitsEditor(o, act) {
+/**
+ * An org's own limits, over its plan's, in a side drawer: each limit shows
+ * the plan's value beside it, and features and plugins are Plan's / On / Off.
+ * Nothing is saved until Save.
+ */
+async function LimitsDrawer(o, act) {
   const own = structuredClone(o.limits ?? {});
   own.limits ??= {};
   own.features ??= {};
   own.plugins ??= {};
-  const row = (l) => h('label', { class: 'limit-row' }, h('span', {}, l.label), h('input', { class: 'input input-xs plan-num', type: 'number', min: 0, value: own.limits[l.id] ?? '', placeholder: 'plan’s',
-    onchange: (e) => { if (e.target.value === '') delete own.limits[l.id]; else own.limits[l.id] = Number(e.target.value); } }));
-  const feat = (f, part, label) => h('label', { class: 'limit-row' }, h('span', {}, label), h('select', { class: 'select select-xs', onchange: (e) => { if (e.target.value === '') delete own[part][f]; else own[part][f] = e.target.value === 'on'; } },
-    options([{ id: '', label: 'Plan’s' }, { id: 'on', label: 'On' }, { id: 'off', label: 'Off' }], own[part][f] == null ? '' : own[part][f] ? 'on' : 'off')));
-  return h('div', { class: 'limits-panel' },
-    h('p', { class: 'muted small' }, `Limits for ${o.name} alone, over the ${PLAN_LABEL(o.plan)} plan’s. Leave a field empty to use the plan’s.`),
-    LIMITS.map(row),
-    FEATURES.map((f) => feat(f.id, 'features', f.label)),
-    PLAN_PLUGINS.map((pid) => feat(pid, 'plugins', PLUGINS.find((p) => p.id === pid)?.name ?? pid)),
-    h('button', { class: 'btn btn-xs btn-primary', onclick: () => act(() => call('PATCH', `/api/admin/orgs/${o.id}`, { limits: own })) }, 'Save'));
+  let tier = null;
+  try { tier = (await call('GET', '/api/admin/plans')).plans[o.plan]; } catch { /* shown without the plan's values */ }
+  const planLimit = (l) => { const v = tier?.limits?.[l.id]; return tier ? (v == null ? 'No limit' : amount(v, l)) : 'plan’s'; };
+  const changed = () => Object.keys(own.limits).length + Object.keys(own.features).length + Object.keys(own.plugins).length;
+  const count = h('span', { class: 'muted small' });
+  const showCount = () => { const n = changed(); count.textContent = n ? `${n} of your own` : 'Using the plan’s for everything'; };
+  const seg = (part, key, planOn) => {
+    const cur = own[part][key] == null ? '' : own[part][key] ? 'on' : 'off';
+    const group = h('div', { class: 'lim-seg', role: 'radiogroup' });
+    const opts = [['', `Plan’s${tier ? (planOn ? ' (on)' : ' (off)') : ''}`], ['on', 'On'], ['off', 'Off']];
+    group.append(...opts.map(([v, label]) => h('button', { type: 'button', role: 'radio', class: cur === v ? 'on' : '', 'aria-checked': String(cur === v), onclick: (e) => {
+      if (v === '') delete own[part][key]; else own[part][key] = v === 'on';
+      group.querySelectorAll('button').forEach((b) => { b.classList.toggle('on', b === e.currentTarget); b.setAttribute('aria-checked', String(b === e.currentTarget)); });
+      e.currentTarget.closest('.lim-row').classList.toggle('own', v !== '');
+      showCount();
+    } }, label)));
+    return group;
+  };
+  const limitRow = (l) => h('label', { class: `lim-row${own.limits[l.id] != null ? ' own' : ''}` },
+    h('span', { class: 'lim-name' }, l.label, h('small', {}, `Plan: ${planLimit(l)}`)),
+    h('span', { class: 'lim-input' },
+      h('input', { class: 'input input-sm', type: 'number', min: 0, value: own.limits[l.id] ?? '', placeholder: 'Plan’s', 'aria-label': l.label,
+        oninput: (e) => { if (e.target.value === '') delete own.limits[l.id]; else own.limits[l.id] = Number(e.target.value); e.target.closest('.lim-row').classList.toggle('own', e.target.value !== ''); showCount(); } }),
+      h('small', { class: 'muted lim-unit' }, l.unit ?? '')));
+  const optRow = (part, key, label) => h('div', { class: `lim-row${own[part][key] != null ? ' own' : ''}` }, h('span', { class: 'lim-name' }, label), seg(part, key, !!tier?.[part]?.[key]));
+  showCount();
+  const d = Drawer({
+    title: 'Own limits', sub: `${o.name} · ${PLAN_LABEL(o.plan)} plan`, wide: true,
+    lead: h('span', { class: 'drawer-glyph' }, icon('sliders', 22)),
+    body: h('div', { class: 'drawer-stack' },
+      h('p', { class: 'muted small' }, `Limits for ${o.name} alone, over the ${PLAN_LABEL(o.plan)} plan’s. Leave a field empty, or on Plan’s, to use the plan’s. Highlighted rows are this organisation’s own.`),
+      h('section', { class: 'drawer-section' }, h('h3', {}, 'Limits'), h('div', { class: 'lim-list' }, LIMITS.map(limitRow))),
+      h('section', { class: 'drawer-section' }, h('h3', {}, 'Features'), h('div', { class: 'lim-list' }, FEATURES.map((f) => optRow('features', f.id, f.label)))),
+      h('section', { class: 'drawer-section' }, h('h3', {}, 'Plugins'), h('div', { class: 'lim-list' }, PLAN_PLUGINS.map((pid) => optRow('plugins', pid, PLUGINS.find((p) => p.id === pid)?.name ?? pid))))),
+    actions: [
+      count,
+      h('span', { class: 'spacer' }),
+      h('button', { class: 'btn btn-sm btn-ghost', onclick: async () => { if (await uiConfirm(`Use the ${PLAN_LABEL(o.plan)} plan’s limits for ${o.name} again?`, { ok: 'Use the plan’s' })) { d.close(); act(() => call('PATCH', `/api/admin/orgs/${o.id}`, { limits: {} })); } } }, 'Back to the plan’s'),
+      h('button', { class: 'btn btn-sm btn-primary', onclick: () => { d.close(); act(() => call('PATCH', `/api/admin/orgs/${o.id}`, { limits: own })); } }, 'Save'),
+    ],
+  });
 }
 
 /* ------------------------------------------------------------- requests */

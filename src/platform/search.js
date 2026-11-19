@@ -72,7 +72,7 @@ export function buildIndex(docs = {}, { plugins = null } = {}) {
     }
   }
   for (const s of Object.values(docs.org?.staff ?? {})) {
-    add({ id: `staff:${s.id}`, kind: 'Person', group: 'people', title: s.name, text: [s.title, s.bio, s.email].filter(Boolean).join(' · '), href: 'org.html#people', icon: 'person', sub: s.title ?? '', person: s });
+    add({ id: `staff:${s.id}`, kind: 'Person', group: 'people', title: s.name, text: [s.title, s.bio, s.email].filter(Boolean).join(' · '), href: `org.html#people/${s.id}`, icon: 'person', sub: s.title ?? '', person: s });
   }
   if (on('podcasts')) {
     for (const p of Object.values(docs.podcasts?.podcasts ?? {})) add({ id: `show:${p.id}`, kind: 'Show', group: 'podcasts', title: p.title || 'Untitled show', text: p.description ?? '', href: `podcasts.html#${p.id}`, icon: 'sec-podcasts' });
