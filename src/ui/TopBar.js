@@ -123,12 +123,21 @@ export function TopBar(el, ctx) {
     ];
   } });
 
+  // The zoom level, which also puts the board back to actual size.
+  const zoomLevel = h('button', { class: 'btn btn-sm btn-ghost tb-zoom-level', title: 'Zoom level. Click for actual size (100%).', 'aria-label': 'Actual size', onclick: () => ctx.actions.zoomReset() }, '100%');
+  const showZoom = () => { zoomLevel.textContent = `${Math.round((ctx.stage?.scale ?? 1) * 100)}%`; };
+  ctx.stage?.addEventListener('camera', showZoom);
+  requestAnimationFrame(showZoom);
   el.append(
     h('div', { class: 'tb-group tb-what' }, name, lensWrap),
     h('span', { class: 'topbar-sep' }),
     h('div', { class: 'tb-group' }, undo, redo),
     h('span', { class: 'topbar-sep' }),
     h('div', { class: 'tb-group' },
+      h('div', { class: 'tb-zoom', role: 'group', 'aria-label': 'Zoom' },
+        h('button', { class: 'btn btn-sm btn-ghost btn-square', title: 'Zoom out (−)', 'aria-label': 'Zoom out', onclick: () => ctx.actions.zoom(1 / 1.2) }, icon('zoomOut', 16)),
+        zoomLevel,
+        h('button', { class: 'btn btn-sm btn-ghost btn-square', title: 'Zoom in (+)', 'aria-label': 'Zoom in', onclick: () => ctx.actions.zoom(1.2) }, icon('zoomIn', 16))),
       h('button', { class: 'btn btn-sm btn-ghost icon-text', title: 'Fit the whole map on screen (F)', onclick: () => ctx.actions.fitView() }, icon('fit', 16), h('span', {}, 'Fit')),
       h('div', { class: 'join tidy-split', title: 'Space the notes out evenly for this map type. Undo or “Back to my layout” puts them back.' }, tidyBtn, tidyMenu)),
     h('div', { class: 'spacer' }),

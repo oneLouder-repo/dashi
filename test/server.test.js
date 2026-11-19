@@ -119,6 +119,19 @@ test('the staff list decides who can sign in, and as what', async () => {
   assert.equal(s.member, true);
   assert.equal(s.canEdit, false, 'viewers read only');
   assert.equal((await call(EX, 'PUT', '/api/docs/strategy', { body: { nodes: {} }, cookie: viewer })).status, 403);
+  // Board directors and guests read, like viewers, but change nothing.
+  const org2 = (await call(EX, 'GET', '/api/docs/org', { cookie: amara })).json;
+  org2.staff['s-board'] = { id: 's-board', name: 'Board Director', roleId: 'board', email: 'board@person.example', teamIds: [] };
+  org2.staff['s-guest'] = { id: 's-guest', name: 'Guest Person', roleId: 'guest', email: 'guest@person.example', teamIds: [] };
+  assert.equal((await call(EX, 'PUT', '/api/docs/org', { body: org2, cookie: amara })).status, 200);
+  for (const [email, role] of [['board@person.example', 'board'], ['guest@person.example', 'guest']]) {
+    const c = await signIn(email);
+    const ss = (await call(EX, 'GET', '/api/session', { cookie: c })).json;
+    assert.equal(ss.member, true, `${role} is a member`);
+    assert.equal(ss.role, role);
+    assert.equal(ss.canEdit, false, `${role} reads only`);
+    assert.equal((await call(EX, 'PUT', '/api/docs/strategy', { body: { nodes: {} }, cookie: c })).status, 403);
+  }
   const maya = await signIn('maya@riverbend.example', RB);
   const orgs = (await call(RB, 'GET', '/api/session', { cookie: maya })).json.orgs.map((o) => o.id).sort();
   assert.deepEqual(orgs, ['org-example', 'org-riverbend'], 'one person, two orgs');

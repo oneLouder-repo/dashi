@@ -89,8 +89,8 @@ if (new URLSearchParams(location.search).get('code') === '1') {
  * role, then each other org, folded. A search box narrows all of it.
  */
 function DevLogin(options, next) {
-  const ORDER = ['admin', 'lead', 'staff', 'viewer'];
-  const ROLE_LABEL = { admin: 'Admins', lead: 'Leads', staff: 'Staff', viewer: 'Viewers' };
+  const ORDER = ['admin', 'lead', 'staff', 'board', 'guest', 'viewer'];
+  const ROLE_LABEL = { admin: 'Admins', lead: 'Leads', staff: 'Staff', board: 'Board directors', guest: 'Guests', viewer: 'Viewers' };
   const here = options.org?.id;
   const person = (u, role) => h('li', { 'data-search': `${u.name} ${u.email} ${(u.orgs ?? []).join(' ')}`.toLowerCase() },
     h('button', { class: 'dev-user', onclick: async () => {

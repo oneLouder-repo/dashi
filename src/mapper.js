@@ -202,6 +202,11 @@ const ctx = {
       const r = stage.svgEl.getBoundingClientRect();
       stage.zoomAt(factor, r.left + r.width / 2, r.top + r.height / 2);
     },
+    /** Back to actual size (100%), keeping the middle of the board where it is. */
+    zoomReset() {
+      const r = stage.svgEl.getBoundingClientRect();
+      stage.zoomAt(1 / stage.scale, r.left + r.width / 2, r.top + r.height / 2);
+    },
     setView(patch) {
       Object.assign(ctx.view, patch);
       try { localStorage.setItem('dashi.mapper.view', JSON.stringify(ctx.view)); } catch { /* private window */ }

@@ -1,7 +1,8 @@
 import { h, options } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { Shell, Avatar, Logo } from '../ui/Shell.js';
-import { SideNav } from '../ui/SideNav.js';
+import { SideNav, swapSide } from '../ui/SideNav.js';
+import { Drawer } from '../ui/drawer.js';
 import { readImage } from '../ui/images.js';
 import { Store } from '../core/Store.js';
 import { applyCollectionOp, col } from '../core/collections.js';
@@ -9,8 +10,7 @@ import { autosaveDoc, isHosted, session } from '../platform/storage.js';
 import { toast } from '../ui/Shell.js';
 import { loadOrg } from '../platform/docs.js';
 import { ROLES, staffList, teamList, membersOf } from '../platform/org.js';
-import { orgList, openOrg, createOrg, deleteOrg, renameOrg, platformUrl } from '../platform/session.js';
-import { PALETTES, SHAPES, applyTheme } from '../platform/themes.js';
+import { renameOrg } from '../platform/session.js';
 import { PLUGINS, pausedForOrg, featureOn, chosenByOrg } from '../plugins.js';
 import { LIMITS, FEATURES, PLAN_IDS, PLAN_PLUGINS, amount } from '../platform/plans.js';
 import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
@@ -23,42 +23,55 @@ const api = async (method, url, body) => {
 };
 
 /**
- * Organisation settings: the org's profile, people, public sites and their
- * theme, plugins, and the orgs on this platform. The sections are listed in
- * the shared sidebar and live in the URL hash.
+ * Organisation settings: the org's profile, its people and teams, plugins,
+ * plan and domain. The sections are listed in the shared sidebar and live in
+ * the URL hash (#people/<staff id> opens that person). The public sites and
+ * their look live in the Public Portal; other organisations on the platform
+ * are the platform admin's business, so they aren't listed here.
  */
 const store = new Store(loadOrg(), applyCollectionOp);
 autosaveDoc('org', store, 150);
 const app = document.querySelector('#app');
 const TABS = [
-  ['profile', 'Profile', 'org'],
-  ['people', 'People and teams', 'person'],
-  ['sites', 'Public sites and theme', 'globe'],
-  ['plugins', 'Plugins', 'workbench'],
-  ['plan', 'Plan', 'star'],
-  ['domain', 'Domain', 'link'],
-  ['platform', 'Organisations', 'settings'],
+  ['profile', 'Profile', 'org', 'Name, contact, logo'],
+  ['people', 'People', 'person', 'Who works here, and their role'],
+  ['teams', 'Teams', 'users', 'Groups that share work'],
+  ['plugins', 'Plugins', 'workbench', 'What your org uses'],
+  ['plan', 'Plan', 'star', 'What you have, and what you use'],
+  ['domain', 'Domain', 'link', 'Your own web address'],
 ];
 app.classList.add('frame');
 const main = h('section', { class: 'page-main' });
-const tab = () => (TABS.some(([id]) => id === location.hash.slice(1)) ? location.hash.slice(1) : 'profile');
+let side = h('nav');
+const route = () => decodeURIComponent(location.hash.slice(1)).split('/');
+const tab = () => { const [t] = route(); return t === 'sites' ? 'profile' : TABS.some(([id]) => id === t) ? t : 'profile'; };
 const set = (key, value) => store.apply(col.set(key, value));
+// Sites and their look moved to the Public Portal.
+if (location.hash === '#sites') location.replace('pages.html#look');
+if (location.hash === '#platform') history.replaceState(null, '', '#profile');
 
+let lastTab = null;
 function render() {
   const org = store.doc;
   Shell(document.querySelector('#shell'), { current: 'org', org });
-  const scroll = main.scrollTop;
+  const t = tab();
+  const scroll = t === lastTab ? main.scrollTop : 0;
+  lastTab = t;
   const focused = app.contains(document.activeElement) ? document.activeElement.name : null;
-  const side = SideNav({ label: 'Organisation', sections: [
-    { title: 'Organisation', items: TABS.map(([id, label, ic]) => ({ label, icon: ic, href: `#${id}`, on: tab() === id })) },
-  ] });
+  side = swapSide(side, SideNav({ label: 'Organisation', sections: [
+    { title: 'Organisation', items: TABS.map(([id, label, ic, sub]) => ({ label, sub, icon: ic, href: `#${id}`, on: t === id })) },
+    { title: 'Elsewhere', items: [
+      { label: 'Public sites and look', sub: 'In the Public Portal', icon: 'globe', href: 'pages.html#look' },
+      { label: 'My profile', sub: 'Your own picture and details', icon: 'userCircle', href: 'me.html' },
+    ] },
+  ] }));
   main.replaceChildren(
     h('div', { class: 'page' },
       h('div', { class: 'org-head' }, Logo(org, 56), h('div', {}, h('h1', {}, org.name), h('p', { class: 'lede' }, org.description || org.mission))),
-      { profile: Profile, people: People, sites: Sites, plugins: Plugins, plan: Plan, domain: Domain, platform: Platform }[tab()](org)));
-  app.replaceChildren(side, main);
+      { profile: Profile, people: People, teams: Teams, plugins: Plugins, plan: Plan, domain: Domain }[t](org)));
+  if (!app.contains(main)) app.replaceChildren(side, main);
   main.scrollTop = scroll;
-  if (focused) app.querySelector(`[name="${focused}"]`)?.focus();
+  if (focused) app.querySelector(`[name="${focused}"]`)?.focus({ preventScroll: true });
 }
 
 const field = (label, control, hint) => h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, label), control, hint && h('span', { class: 'label' }, hint));
@@ -117,100 +130,250 @@ const signInCell = (s) => {
     h('button', { class: 'btn btn-xs', title: `Email ${s.email} a link to set a password and sign in (good for a week)`, onclick: (e) => sendInvite(s, e.currentTarget) }, st?.lastSignIn ? 'Send sign-in link' : 'Invite'));
 };
 
+/* -------------------------------------------------------------- people */
+const isAdminHere = () => !isHosted() || !!session()?.canAdmin;
+const roleOf = (id) => ROLES.find((r) => r.id === id) ?? ROLES[2];
+const view = { q: '', role: 'all', team: 'all' };
+
+/** The people directory: find someone, see their role and teams, open them to change anything. */
 function People(org) {
   loadSignInStatus();
-  const newStaff = {
-    name: h('input', { class: 'input input-sm', placeholder: 'Name', required: true }),
-    email: h('input', { class: 'input input-sm', type: 'email', placeholder: 'Email (to sign in)' }),
-    title: h('input', { class: 'input input-sm', placeholder: 'Title' }),
+  const staff = staffList(org);
+  const teams = teamList(org);
+  const count = (rid) => staff.filter((s) => s.roleId === rid).length;
+  const list = h('div', { class: 'ppl-list', role: 'list' });
+  const empty = h('p', { class: 'empty', hidden: true }, 'Nobody matches. Try another name, or clear the filters.');
+  const shown = h('span', { class: 'muted small' });
+  const draw = () => {
+    const q = view.q.trim().toLowerCase();
+    const rows = staff.filter((s) => (view.role === 'all' || s.roleId === view.role)
+      && (view.team === 'all' || (view.team === 'none' ? !s.teamIds.length : s.teamIds.includes(view.team)))
+      && (!q || [s.name, s.title, s.email].some((x) => (x ?? '').toLowerCase().includes(q))));
+    list.replaceChildren(...rows.map((s) => PersonRow(org, s)));
+    empty.hidden = rows.length > 0;
+    shown.textContent = rows.length === staff.length ? `${staff.length} people` : `${rows.length} of ${staff.length} people`;
   };
-  const newTeam = h('input', { class: 'input input-sm', placeholder: 'Team name' });
-  const teamChips = (s) => teamList(org).map((t) =>
-    h('label', { class: 'chip' },
-      h('input', { type: 'checkbox', class: 'checkbox checkbox-xs', checked: s.teamIds.includes(t.id), onchange: (e) =>
-        store.apply(col.update('staff', s.id, { teamIds: e.target.checked ? [...s.teamIds, t.id] : s.teamIds.filter((id) => id !== t.id) })) }),
-      h('span', { class: 'swatch', style: `background:${t.color}` }), t.name));
-  return h('div', {},
-    h('h2', {}, 'Staff and roles'),
-    h('table', { class: 'table table-sm list' },
-      h('thead', {}, h('tr', {}, ['', 'Name', 'Title', 'Role', 'Teams', isHosted() && session()?.canAdmin ? 'Sign-in' : '', ''].map((t) => h('th', {}, t)))),
-      h('tbody', {}, staffList(org).map((s) =>
-        h('tr', {},
-          h('td', {}, Avatar(s, 30)),
-          h('td', {}, h('strong', {}, s.name),
-            h('input', { class: 'input input-xs input-ghost staff-email', type: 'email', value: s.email, placeholder: 'Email (to sign in)', 'aria-label': `Email for ${s.name}`,
-              onchange: (e) => store.apply(col.update('staff', s.id, { email: e.target.value.trim().toLowerCase() })) })),
-          h('td', {}, s.title),
-          h('td', {}, h('select', { class: 'select select-sm', 'aria-label': `Role for ${s.name}`, onchange: (e) => store.apply(col.update('staff', s.id, { roleId: e.target.value })) },
-            options(ROLES.map((r) => ({ id: r.id, label: r.label })), s.roleId))),
-          h('td', {}, teamChips(s)),
-          h('td', {}, signInCell(s)),
-          h('td', {}, h('button', { class: 'btn btn-xs btn-ghost btn-error', onclick: async () => await uiConfirm(`Remove ${s.name}?`) && store.apply(col.remove('staff', s.id)) }, 'Remove')))))),
-    h('form', { class: 'inline-form', onsubmit: (e) => {
-      e.preventDefault();
-      if (!newStaff.name.value.trim()) return;
-      store.apply(col.add('staff', { name: newStaff.name.value.trim(), title: newStaff.title.value.trim(), roleId: 'staff', teamIds: [], interests: [], avatar: null, email: newStaff.email.value.trim().toLowerCase() }));
-    } }, newStaff.name, newStaff.email, newStaff.title, h('button', { class: 'btn btn-sm btn-primary', type: 'submit' }, 'Add person')),
-    h('p', { class: 'note' }, ROLES.map((r) => `${r.label}: ${r.can}.`).join(' '), ' People change their own picture and details in My profile. ', isHosted() ? 'Each person signs in with the email here. Someone new gets an emailed invitation to set a password when you add them; Invite sends it again. Their role decides what they can change.' : 'On the hosted platform, each person signs in with the email here.'),
-    h('h2', {}, 'Teams'),
-    h('div', { class: 'cards' }, teamList(org).map((t) =>
-      h('div', { class: 'card' },
-        h('h3', {}, h('span', { class: 'swatch-lg', style: `background:${t.color}` }), t.name),
-        h('div', { class: 'avatar-row' }, membersOf(org, t.id).map((s) => h('span', { title: s.name }, Avatar(s, 28)))),
-        h('div', { class: 'stat-line' }, `${membersOf(org, t.id).length} people`)))),
-    h('form', { class: 'inline-form', onsubmit: (e) => {
-      e.preventDefault();
-      if (newTeam.value.trim()) store.apply(col.add('teams', { name: newTeam.value.trim(), color: '#59607a' }));
-    } }, newTeam, h('button', { class: 'btn btn-sm btn-primary', type: 'submit' }, 'Add team')));
+  const roleChip = (id, label, n) => h('button', { type: 'button', class: `ppl-chip${view.role === id ? ' on' : ''}`, 'aria-pressed': String(view.role === id),
+    onclick: (e) => { view.role = id; e.currentTarget.parentElement.querySelectorAll('.ppl-chip').forEach((c) => { c.classList.toggle('on', c === e.currentTarget); c.setAttribute('aria-pressed', String(c === e.currentTarget)); }); draw(); } },
+    label, h('span', { class: 'ppl-chip-n' }, String(n)));
+  draw();
+  return h('div', { class: 'ppl' },
+    h('div', { class: 'ppl-head' },
+      h('div', {}, h('h2', {}, 'People'), h('p', { class: 'muted small' }, 'Everyone on your staff list. Click someone to change their details, role or teams. People change their own picture in My profile.')),
+      isAdminHere() && h('button', { class: 'btn btn-sm btn-primary', onclick: () => AddPerson(org) }, icon('plus', 14), 'Add person')),
+    h('div', { class: 'ppl-tools' },
+      h('label', { class: 'input input-sm ppl-search' }, icon('search', 15),
+        h('input', { type: 'search', name: 'people-search', placeholder: 'Find a name, title or email', value: view.q, 'aria-label': 'Find a person', oninput: (e) => { view.q = e.target.value; draw(); } })),
+      h('div', { class: 'ppl-chips', role: 'group', 'aria-label': 'Role' },
+        roleChip('all', 'Everyone', staff.length), ROLES.map((r) => roleChip(r.id, r.short ?? r.label, count(r.id)))),
+      h('select', { class: 'select select-sm ppl-team-filter', name: 'people-team', 'aria-label': 'Team', onchange: (e) => { view.team = e.target.value; draw(); } },
+        options([{ id: 'all', label: 'Every team' }, ...teams.map((t) => ({ id: t.id, label: t.name })), { id: 'none', label: 'In no team' }], view.team)),
+      shown),
+    list, empty,
+    h('section', { class: 'ppl-roles' },
+      h('h3', {}, 'What each role can do'),
+      h('div', { class: 'ppl-roles-grid' }, ROLES.map((r) => h('div', { class: `ppl-role role-${r.id}` }, h('span', { class: `role-badge role-${r.id}` }, r.label), h('p', {}, `${r.can}.`)))),
+      h('p', { class: 'muted small' }, isHosted() ? 'Each person signs in with the email on their record. Someone new gets an emailed invitation to set a password when you add them; Invite sends it again.' : 'On the hosted platform, each person signs in with the email on their record.')));
 }
 
-function Sites(org) {
-  const newSite = { name: h('input', { class: 'input input-sm', placeholder: 'Site name' }), url: h('input', { class: 'input input-sm', placeholder: 'https://…', type: 'url' }) };
-  const theme = (patch) => set('theme', { ...org.theme, ...patch });
-  const preview = h('div', { class: 'theme-preview' },
-    h('div', { class: 'tp-head' }, Logo(org, 32), h('strong', {}, org.name), h('span', { class: 'spacer' }), h('a', { class: 'link' }, 'Impact'), h('a', { class: 'link' }, 'Contact')),
-    h('div', { class: 'tp-body' },
-      h('h3', {}, 'Reach and equity'),
-      h('p', {}, org.description || org.mission),
-      h('div', { class: 'tp-cards' },
-        h('div', { class: 'card card-border' }, h('div', { class: 'card-body' }, h('div', { class: 'stat-title' }, 'Youth reached'), h('div', { class: 'stat-value' }, '459K'), h('progress', { class: 'progress progress-primary', value: 92, max: 100 }))),
-        h('div', { class: 'card card-border' }, h('div', { class: 'card-body' }, h('div', { class: 'stat-title' }, 'Partners'), h('div', { class: 'stat-value' }, '103'), h('div', { class: 'badge badge-secondary' }, 'New this year')))),
-      h('div', { class: 'tp-actions' }, h('button', { class: 'btn btn-primary btn-sm' }, '▶ Play the year'), h('button', { class: 'btn btn-outline btn-sm' }, 'Get in touch'))));
-  applyTheme(preview, org.theme);
+const teamDots = (org, s, max = 3) => {
+  const ts = s.teamIds.map((id) => org.teams[id]).filter(Boolean);
+  return h('span', { class: 'ppl-teams' }, ts.slice(0, max).map((t) => h('span', { class: 'ppl-team' }, h('i', { style: `background:${t.color}` }), t.name)),
+    ts.length > max && h('span', { class: 'ppl-team more' }, `+${ts.length - max}`),
+    !ts.length && h('span', { class: 'muted small' }, 'No team'));
+};
 
-  return h('div', { class: 'settings-grid wide-first' },
-    h('section', { class: 'panel' },
-      h('h2', {}, 'Colour palette'),
-      h('div', { class: 'palette-grid', role: 'radiogroup', 'aria-label': 'Colour palette' }, PALETTES.map((p) => {
-        const sw = h('button', { class: `palette-option${org.theme.palette === p.id ? ' on' : ''}`, role: 'radio', 'aria-checked': String(org.theme.palette === p.id), onclick: () => theme({ palette: p.id }) },
-          h('span', { class: 'swatches' }, ['primary', 'secondary', 'accent', 'neutral', 'base-200'].map((c) => h('span', { style: `background:var(--color-${c})` }))),
-          h('span', {}, p.label));
-        sw.querySelector('.swatches').setAttribute('data-theme', p.id);
-        return sw;
-      })),
-      h('h2', { style: 'margin-top:18px' }, 'Look and feel'),
-      h('div', { class: 'shape-grid', role: 'radiogroup', 'aria-label': 'Look and feel' }, SHAPES.map((s) =>
-        h('button', { class: `shape-option${org.theme.shape === s.id ? ' on' : ''}`, role: 'radio', 'aria-checked': String(org.theme.shape === s.id), onclick: () => theme({ shape: s.id }),
-          style: `--r:${s.vars['--radius-box']}` },
-          h('span', { class: 'shape-sample' }), h('strong', {}, s.label), h('small', {}, s.blurb))))),
-    h('section', { class: 'panel' }, h('h2', {}, 'Preview of your public sites'), preview,
-      h('p', { class: 'muted' }, 'Public sites use this theme. Staff pages keep the toolbox theme so they stay familiar.')),
-    h('section', { class: 'panel span-all' },
-      h('h2', {}, 'Sites'),
-      h('table', { class: 'table table-sm list' },
-        h('thead', {}, h('tr', {}, ['Site', 'Shows', 'Visibility', ''].map((t) => h('th', {}, t)))),
-        h('tbody', {}, Object.values(org.sites).map((site) =>
-          h('tr', {},
-            h('td', {}, h('strong', {}, site.name), h('div', { class: 'muted' }, site.url), h('a', { href: `site.html?site=${site.id}`, target: '_blank' }, 'Open site ↗')),
-            h('td', {}, h('input', { class: 'input input-sm', name: `${site.id}-shows`, value: site.shows ?? '', placeholder: 'What this site shows', style: 'width:100%',
-              onchange: (e) => store.apply(col.update('sites', site.id, { shows: e.target.value })) })),
-            h('td', {}, h('select', { class: 'select select-sm', 'aria-label': 'Visibility', onchange: (e) => store.apply(col.update('sites', site.id, { visibility: e.target.value })) },
-              options([{ id: 'public', label: 'Public' }, { id: 'unlisted', label: 'Unlisted' }, { id: 'private', label: 'Private' }], site.visibility))),
-            h('td', {}, h('button', { class: 'btn btn-xs btn-ghost btn-error', onclick: async () => await uiConfirm(`Remove ${site.name}?`) && store.apply(col.remove('sites', site.id)) }, 'Remove')))))),
-      h('form', { class: 'inline-form', onsubmit: (e) => {
-        e.preventDefault();
-        if (newSite.name.value.trim()) store.apply(col.add('sites', { name: newSite.name.value.trim(), url: newSite.url.value.trim(), visibility: 'private', shows: '' }));
-      } }, newSite.name, newSite.url, h('button', { class: 'btn btn-sm btn-primary', type: 'submit' }, 'Add site'))));
+function PersonRow(org, s) {
+  const st = signInStatus?.[s.id];
+  const seen = !isHosted() || !session()?.canAdmin || !s.email ? null : st?.lastSignIn ? `Signed in ${new Date(st.lastSignIn).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : signInStatus ? 'Not signed in yet' : '';
+  return h('button', { type: 'button', role: 'listitem', class: 'ppl-row', onclick: () => { history.replaceState(null, '', `#people/${s.id}`); PersonDrawer(s.id); } },
+    Avatar(s, 38),
+    h('span', { class: 'ppl-who' }, h('strong', {}, s.name), h('small', {}, [s.title, s.email].filter(Boolean).join(' · ') || 'No title or email yet')),
+    teamDots(org, s),
+    h('span', { class: `role-badge role-${s.roleId}` }, roleOf(s.roleId).label),
+    h('span', { class: `ppl-seen${st?.lastSignIn ? ' on' : ''}` }, seen),
+    icon('chevronRight', 16));
+}
+
+/** One person, in a drawer: their details, role and teams, and their sign-in. */
+function PersonDrawer(id) {
+  const org = store.doc;
+  const s0 = org.staff[id];
+  if (!s0) return;
+  const admin = isAdminHere();
+  const upd = (patch) => store.apply(col.update('staff', id, patch));
+  const build = () => {
+    const s = store.doc.staff[id];
+    if (!s) return h('p', { class: 'empty' }, 'This person has been removed.');
+    const st = signInStatus?.[s.id];
+    return h('div', { class: 'drawer-stack' },
+      h('section', { class: 'drawer-section' },
+        h('h3', {}, 'Details'),
+        field('Name', text('p-name', s.name, (v) => v && upd({ name: v }), { disabled: !admin })),
+        field('Title', text('p-title', s.title, (v) => upd({ title: v }), { disabled: !admin })),
+        field('Email (to sign in)', text('p-email', s.email, (v) => upd({ email: v.toLowerCase() }), { type: 'email', disabled: !admin, placeholder: 'name@yourorg.org' }))),
+      h('section', { class: 'drawer-section' },
+        h('h3', {}, 'Role'),
+        h('div', { class: 'role-pick', role: 'radiogroup', 'aria-label': 'Role' }, ROLES.map((r) =>
+          h('label', { class: `role-option${s.roleId === r.id ? ' on' : ''}` },
+            h('input', { type: 'radio', name: `role-${id}`, value: r.id, checked: s.roleId === r.id, disabled: !admin, onchange: () => { upd({ roleId: r.id }); d.setBody(build()); } }),
+            h('span', {}, h('strong', {}, r.label), h('small', {}, r.can)))))),
+      h('section', { class: 'drawer-section' },
+        h('h3', {}, 'Teams'),
+        teamList(store.doc).length ? h('div', { class: 'team-pick' }, teamList(store.doc).map((t) => {
+          const on = s.teamIds.includes(t.id);
+          return h('button', { type: 'button', class: `team-toggle${on ? ' on' : ''}`, style: `--team:${t.color}`, 'aria-pressed': String(on), disabled: !admin,
+            onclick: () => { upd({ teamIds: on ? s.teamIds.filter((x) => x !== t.id) : [...s.teamIds, t.id] }); d.setBody(build()); } },
+            h('i'), t.name, on && icon('check', 13));
+        })) : h('p', { class: 'muted small' }, 'No teams yet. Make one under Teams.')),
+      isHosted() && session()?.canAdmin && s.email && h('section', { class: 'drawer-section' },
+        h('h3', {}, 'Sign-in'),
+        h('p', { class: 'muted small' }, st?.lastSignIn ? `Last signed in ${new Date(st.lastSignIn).toLocaleDateString(undefined, { dateStyle: 'medium' })}.` : 'Hasn’t signed in yet.'),
+        h('button', { class: 'btn btn-sm', onclick: (e) => sendInvite(s, e.currentTarget) }, icon('mail', 14), st?.lastSignIn ? 'Email a sign-in link' : 'Send the invitation')));
+  };
+  const d = Drawer({
+    title: s0.name, sub: s0.title || null, lead: Avatar(s0, 44), body: build(),
+    onClose: () => { if (location.hash.startsWith('#people/')) history.replaceState(null, '', '#people'); },
+    actions: [
+      admin && h('button', { class: 'btn btn-sm btn-ghost btn-error', onclick: async () => { const s = store.doc.staff[id]; if (s && await uiConfirm(`Remove ${s.name}? They lose access to ${store.doc.name}.`)) { store.apply(col.remove('staff', id)); d.close(); } } }, icon('trash', 14), 'Remove'),
+      h('span', { class: 'spacer' }),
+      h('button', { class: 'btn btn-sm btn-primary', onclick: () => d.close() }, 'Done'),
+    ].filter(Boolean),
+  });
+  const keep = () => { const s = store.doc.staff[id]; if (s) d.setTitle(s.name, s.title || null); };
+  store.addEventListener('change', keep);
+  d.el.addEventListener('close', () => store.removeEventListener('change', keep));
+}
+
+function AddPerson(org) {
+  const f = {
+    name: h('input', { class: 'input input-sm w-full', name: 'new-name', required: true, placeholder: 'Their name' }),
+    title: h('input', { class: 'input input-sm w-full', name: 'new-title', placeholder: 'Their title' }),
+    email: h('input', { class: 'input input-sm w-full', name: 'new-email', type: 'email', placeholder: 'name@yourorg.org' }),
+  };
+  let role = 'staff';
+  const teamsOn = new Set();
+  const msg = h('p', { class: 'dui-error', hidden: true });
+  const body = h('div', { class: 'drawer-stack' },
+    h('section', { class: 'drawer-section' }, h('h3', {}, 'Details'), field('Name', f.name), field('Title', f.title), field('Email (to sign in)', f.email, isHosted() ? 'They get an invitation to set a password.' : null)),
+    h('section', { class: 'drawer-section' }, h('h3', {}, 'Role'),
+      h('div', { class: 'role-pick', role: 'radiogroup', 'aria-label': 'Role' }, ROLES.map((r) => h('label', { class: `role-option${r.id === role ? ' on' : ''}` },
+        h('input', { type: 'radio', name: 'new-role', value: r.id, checked: r.id === role, onchange: (e) => { role = r.id; e.target.closest('.role-pick').querySelectorAll('.role-option').forEach((x) => x.classList.toggle('on', x.contains(e.target))); } }),
+        h('span', {}, h('strong', {}, r.label), h('small', {}, r.can)))))),
+    teamList(org).length > 0 && h('section', { class: 'drawer-section' }, h('h3', {}, 'Teams'),
+      h('div', { class: 'team-pick' }, teamList(org).map((t) => h('button', { type: 'button', class: 'team-toggle', style: `--team:${t.color}`, 'aria-pressed': 'false',
+        onclick: (e) => { const on = !teamsOn.has(t.id); on ? teamsOn.add(t.id) : teamsOn.delete(t.id); e.currentTarget.classList.toggle('on', on); e.currentTarget.setAttribute('aria-pressed', String(on)); } }, h('i'), t.name)))),
+    msg);
+  const add = () => {
+    const name = f.name.value.trim();
+    if (!name) { msg.textContent = 'Give them a name.'; msg.hidden = false; f.name.focus(); return; }
+    const op = store.apply(col.add('staff', { name, title: f.title.value.trim(), roleId: role, teamIds: [...teamsOn], interests: [], avatar: null, email: f.email.value.trim().toLowerCase() }));
+    d.close();
+    toast(`${name} is on the staff list`);
+    if (op?.id) setTimeout(() => { history.replaceState(null, '', `#people/${op.id}`); }, 0);
+  };
+  const d = Drawer({ title: 'Add a person', sub: 'They join your staff list straight away.', lead: h('span', { class: 'drawer-glyph' }, icon('person', 22)), body,
+    actions: [h('span', { class: 'spacer' }), h('button', { class: 'btn btn-sm btn-ghost', onclick: () => d.close() }, 'Cancel'), h('button', { class: 'btn btn-sm btn-primary', onclick: add }, icon('plus', 14), 'Add person')] });
+  f.name.addEventListener('keydown', (e) => { if (e.key === 'Enter') add(); });
+}
+
+/* --------------------------------------------------------------- teams */
+const TEAM_COLOURS = ['#2a78d6', '#7a4fc9', '#c2410c', '#2a9d8f', '#b8860b', '#c4433a', '#3f8f3a', '#d0621b', '#59607a', '#c2185b'];
+
+/** Teams as cards: who is in each, and a drawer to name, colour and fill one. */
+function Teams(org) {
+  const staff = staffList(org);
+  const teams = teamList(org);
+  const loose = staff.filter((s) => !s.teamIds.length).length;
+  return h('div', { class: 'tm' },
+    h('div', { class: 'ppl-head' },
+      h('div', {}, h('h2', {}, 'Teams'), h('p', { class: 'muted small' }, 'Teams group people who share work. Strategy & Work, the Mapper and dashboards use them to assign work and filter people. Click a team to change it.')),
+      isAdminHere() && h('button', { class: 'btn btn-sm btn-primary', onclick: newTeam }, icon('plus', 14), 'New team')),
+    h('div', { class: 'tm-grid' },
+      teams.map((t) => {
+        const people = membersOf(org, t.id);
+        return h('button', { type: 'button', class: 'tm-card', style: `--team:${t.color}`, onclick: () => TeamDrawer(t.id) },
+          h('span', { class: 'tm-bar' }),
+          h('span', { class: 'tm-title' }, h('strong', {}, t.name), h('small', {}, `${people.length} ${people.length === 1 ? 'person' : 'people'}`)),
+          h('span', { class: 'tm-avatars' }, people.slice(0, 7).map((s) => h('span', { title: s.name }, Avatar(s, 30))), people.length > 7 && h('span', { class: 'tm-more' }, `+${people.length - 7}`)),
+          h('span', { class: 'tm-leads muted small' }, people.filter((s) => s.roleId === 'lead' || s.roleId === 'admin').map((s) => s.name.split(' ')[0]).slice(0, 3).join(', ') ? `Led by ${people.filter((s) => s.roleId === 'lead' || s.roleId === 'admin').map((s) => s.name.split(' ')[0]).slice(0, 3).join(', ')}` : 'No lead yet'));
+      }),
+      isAdminHere() && h('button', { type: 'button', class: 'tm-card tm-new', onclick: newTeam }, icon('plus', 22), h('strong', {}, 'New team'))),
+    loose > 0 && h('p', { class: 'muted small tm-loose' }, icon('info', 13), ` ${loose} ${loose === 1 ? 'person is' : 'people are'} in no team. `, h('a', { href: '#people', onclick: () => { view.team = 'none'; } }, 'See who')));
+}
+
+async function newTeam() {
+  const name = await uiPrompt('Name of the new team', '', { title: 'New team', ok: 'Make team', placeholder: 'e.g. Programs' });
+  if (!name?.trim()) return;
+  const used = new Set(teamList(store.doc).map((t) => t.color));
+  const op = store.apply(col.add('teams', { name: name.trim(), color: TEAM_COLOURS.find((c) => !used.has(c)) ?? '#59607a' }));
+  if (op?.id) TeamDrawer(op.id);
+}
+
+function TeamDrawer(id) {
+  const admin = isAdminHere();
+  const t0 = store.doc.teams[id];
+  if (!t0) return;
+  let q = '';
+  const upd = (patch) => store.apply(col.update('teams', id, patch));
+  const setMember = (s, on) => store.apply(col.update('staff', s.id, { teamIds: on ? [...new Set([...s.teamIds, id])] : s.teamIds.filter((x) => x !== id) }));
+  const swatch = h('span', { class: 'tm-swatch', style: `background:${t0.color}` });
+  const results = h('ul', { class: 'tm-results' });
+  const drawResults = () => {
+    const org = store.doc;
+    const ql = q.trim().toLowerCase();
+    const out = staffList(org).filter((s) => !s.teamIds.includes(id) && (!ql || [s.name, s.title].some((x) => (x ?? '').toLowerCase().includes(ql)))).slice(0, ql ? 12 : 6);
+    results.replaceChildren(...out.map((s) => h('li', {}, h('button', { type: 'button', class: 'tm-person', onclick: () => { setMember(s, true); d.setBody(build()); } },
+      Avatar(s, 28), h('span', {}, h('strong', {}, s.name), h('small', {}, s.title ?? '')), h('span', { class: 'tm-add' }, icon('plus', 14), 'Add')))),
+      out.length ? null : h('li', { class: 'muted small' }, ql ? 'Nobody else by that name.' : 'Everyone is already in this team.'));
+  };
+  const build = () => {
+    const org = store.doc;
+    const t = org.teams[id];
+    if (!t) return h('p', { class: 'empty' }, 'This team has been deleted.');
+    const people = membersOf(org, id);
+    const find = h('input', { type: 'search', name: 'team-find', placeholder: 'Find someone to add', 'aria-label': 'Find someone to add', value: q, oninput: (e) => { q = e.target.value; drawResults(); } });
+    drawResults();
+    return h('div', { class: 'drawer-stack' },
+      h('section', { class: 'drawer-section' },
+        h('h3', {}, 'Name and colour'),
+        field('Name', text('team-name', t.name, (v) => v && upd({ name: v }), { disabled: !admin })),
+        h('div', { class: 'tm-colours', role: 'radiogroup', 'aria-label': 'Colour' },
+          TEAM_COLOURS.map((c) => h('button', { type: 'button', role: 'radio', class: `tm-colour${t.color === c ? ' on' : ''}`, style: `--c:${c}`, 'aria-checked': String(t.color === c), 'aria-label': c, disabled: !admin, onclick: () => { upd({ color: c }); d.setBody(build()); } })),
+          h('label', { class: 'tm-colour custom', title: 'Another colour' }, h('input', { type: 'color', value: t.color, disabled: !admin, onchange: (e) => { upd({ color: e.target.value }); d.setBody(build()); } }), icon('palette', 14)))),
+      h('section', { class: 'drawer-section' },
+        h('h3', {}, `In this team · ${people.length}`),
+        people.length ? h('ul', { class: 'tm-members' }, people.map((s) => h('li', {},
+          Avatar(s, 30), h('span', {}, h('strong', {}, s.name), h('small', {}, [s.title, roleOf(s.roleId).label].filter(Boolean).join(' · '))),
+          admin && h('button', { type: 'button', class: 'btn btn-xs btn-ghost', 'aria-label': `Take ${s.name} out of ${t.name}`, title: 'Take out of this team', onclick: () => { setMember(s, false); d.setBody(build()); } }, icon('close', 13))))) : h('p', { class: 'muted small' }, 'Nobody yet. Add people below.')),
+      admin && h('section', { class: 'drawer-section' },
+        h('h3', {}, 'Add people'),
+        h('label', { class: 'input input-sm w-full' }, icon('search', 15), find),
+        results));
+  };
+  const d = Drawer({
+    title: t0.name, sub: 'Team', lead: swatch, body: build(),
+    actions: [
+      admin && h('button', { class: 'btn btn-sm btn-ghost btn-error', onclick: async () => {
+        const t = store.doc.teams[id];
+        if (!t || !await uiConfirm(`Delete the ${t.name} team? Its people stay on the staff list.`)) return;
+        for (const s of membersOf(store.doc, id)) setMember(s, false);
+        store.apply(col.remove('teams', id));
+        d.close();
+      } }, icon('trash', 14), 'Delete team'),
+      h('span', { class: 'spacer' }),
+      h('button', { class: 'btn btn-sm btn-primary', onclick: () => d.close() }, 'Done'),
+    ].filter(Boolean),
+  });
+  const keep = () => { const t = store.doc.teams[id]; if (t) { d.setTitle(t.name, 'Team'); swatch.style.background = t.color; } };
+  store.addEventListener('change', keep);
+  d.el.addEventListener('close', () => store.removeEventListener('change', keep));
+}
+
+/** #people/<id> opens that person (links from search and the dashboard). */
+function openFromHash() {
+  const [t, id] = route();
+  if (t === 'people' && id && store.doc.staff[id] && !document.querySelector('dialog.drawer-panel[open]')) PersonDrawer(id);
 }
 
 function Plugins(org) {
@@ -240,38 +403,74 @@ function Plugins(org) {
     h('div', { class: 'org-plug-grid' }, cats.flatMap((c) => PLUGINS.filter((p) => !p.platformOff && (p.category ?? 'Other') === c)).map(card)));
 }
 
-/** The org's plan: what it includes, how much is used, and asking for another. */
+/**
+ * The org's plan, in the look of the pricing page and the control centre's
+ * tiles: the plan you're on, how much of it you use, what it includes, and
+ * the other plans side by side, each one a click from asking to move.
+ */
 function Plan(org) {
   if (!isHosted()) return h('p', { class: 'note' }, 'Plans apply on the hosted platform. This local copy has everything switched on.');
-  const box = h('div', {}, h('p', { class: 'muted' }, 'Loading…'));
+  const box = h('div', { class: 'pl' }, h('p', { class: 'muted' }, 'Loading…'));
   api('GET', '/api/plan').then(({ plan, usage, plans }) => {
-    const bar = (l) => {
+    const price = (p) => (p.price?.monthly == null ? 'Let’s talk' : p.price.monthly === 0 ? 'Free' : `$${p.price.monthly}`);
+    const limitText = (max, l) => (max == null ? `Unlimited ${l.short}` : max === 0 ? `No ${l.short}` : l.unit ? `${amount(max, l)} of ${l.short}` : `${max} ${l.short}`);
+    const tile = (l) => {
       const max = plan.limits[l.id];
       const used = usage[l.id] ?? 0;
       const share = max ? Math.min(1, used / max) : 0;
-      return h('div', { class: 'usage-row' },
-        h('span', {}, l.label),
-        h('span', { class: 'usage-num' }, `${l.unit ? amount(used, l) : used} of ${max === 0 ? 'none' : amount(max, l)}`),
-        max ? h('div', { class: `meter ${share >= 1 ? 'full' : share > 0.8 ? 'near' : ''}`, role: 'meter', 'aria-valuenow': String(used), 'aria-valuemax': String(max), 'aria-label': l.label }, h('div', { class: 'meter-fill', style: `width:${(share * 100).toFixed(1)}%` })) : h('span'));
+      const state = max === 0 ? 'off' : share >= 1 ? 'bad' : share > 0.8 ? 'warn' : 'ok';
+      return h('div', { class: `cc-tile pl-tile cc-${state}` },
+        h('span', { class: 'cc-tile-title', title: l.label }, h('i'), l.short[0].toUpperCase() + l.short.slice(1)),
+        h('strong', {}, l.unit ? amount(used, l) : used.toLocaleString()),
+        h('small', {}, max == null ? 'No limit on your plan' : max === 0 ? 'Not in your plan' : `of ${amount(max, l)}${share >= 1 ? ': full' : share > 0.8 ? ': nearly full' : ''}`),
+        max ? h('span', { class: 'pl-meter', role: 'meter', 'aria-valuenow': String(used), 'aria-valuemax': String(max), 'aria-label': l.label }, h('span', { style: `width:${Math.max(2, share * 100).toFixed(1)}%` })) : null);
     };
-    const others = PLAN_IDS.filter((id) => id !== plan.id);
-    const note = h('textarea', { class: 'textarea textarea-sm', rows: 2, placeholder: 'Anything we should know (optional)' });
-    const choice = h('select', { class: 'select select-sm' }, others.map((id) => h('option', { value: id }, plans[id].label)));
-    const sent = h('span', { class: 'muted small', role: 'status' });
+    const ask = async (id) => {
+      const note = await uiPrompt('Anything the platform admin should know? (optional)', '', { title: `Ask to move to ${plans[id].label}`, ok: 'Send the request', required: false, multiline: true, help: 'They’ll be in touch to set it up with you. Nothing changes until then.' });
+      if (note === null) return;
+      try { await api('POST', '/api/plan/request', { plan: id, note }); toast(`Sent. The platform admin will be in touch about ${plans[id].label}.`); } catch (err) { uiAlert(err.message); }
+    };
+    const pricing = `${location.protocol}//${location.host.split('.').slice(1).join('.')}/pricing.html`;
+    const otherCard = (id) => {
+      const p = plans[id];
+      const bigger = PLAN_IDS.indexOf(id) > PLAN_IDS.indexOf(plan.id);
+      return h('article', { class: 'pl-card' },
+        h('div', { class: 'pl-card-head' }, h('h3', {}, p.label), h('span', { class: `badge badge-sm ${bigger ? 'badge-primary badge-soft' : 'badge-ghost'}` }, bigger ? 'More room' : 'Smaller')),
+        h('p', { class: 'pl-price' }, h('strong', {}, price(p)), p.price?.monthly ? h('span', { class: 'muted small' }, ` ${p.price.note}`) : null),
+        h('p', { class: 'muted small pl-tag' }, p.tagline),
+        h('ul', { class: 'pl-list' }, ['users', 'maps', 'dashboards', 'storageMb'].map((lid) => h('li', {}, icon('check', 13), limitText(p.limits[lid], LIMITS.find((x) => x.id === lid))))),
+        org.platform && h('button', { class: `btn btn-sm ${bigger ? 'btn-primary' : ''}`, onclick: () => ask(id) }, `Ask to move to ${p.label}`));
+    };
     box.replaceChildren(
-      h('div', { class: 'card card-border bg-base-100 plan-now' }, h('div', { class: 'card-body' },
-        h('h2', { class: 'card-title' }, `${plan.label} plan`), h('p', { class: 'muted' }, plan.tagline),
-        h('div', { class: 'usage' }, LIMITS.filter((l) => usage[l.id] != null || l.id === 'storageMb').map(bar)),
-        h('p', { class: 'small' }, 'Plugins: ', PLAN_PLUGINS.filter((id) => plan.plugins[id]).map((id) => PLUGINS.find((p) => p.id === id)?.name).join(', '), '.'),
-        h('ul', { class: 'plan-feats' }, FEATURES.map((f) => h('li', { class: plan.features[f.id] ? 'on' : 'off' }, icon(plan.features[f.id] ? 'check' : 'close', 14), f.label))))),
+      h('section', { class: 'pl-hero' },
+        h('div', { class: 'pl-hero-main' },
+          h('span', { class: 'pl-eyebrow' }, 'Your plan'),
+          h('h2', {}, plan.label),
+          plan.price?.monthly != null && h('p', { class: 'pl-price' }, h('strong', {}, price(plan)), plan.price.monthly ? h('span', { class: 'muted' }, ` ${plan.price.note} · includes HST`) : null),
+          h('p', { class: 'muted' }, plan.tagline)),
+        h('div', { class: 'pl-hero-side' },
+          h('a', { class: 'btn btn-sm', href: pricing, target: '_blank', rel: 'noopener' }, 'Compare every plan ↗'),
+          h('a', { class: 'btn btn-sm btn-ghost', href: 'help.html#support' }, 'Questions? Ask us'))),
+      h('h3', { class: 'pl-h3' }, 'What you use'),
+      h('div', { class: 'cc-tiles pl-tiles' }, LIMITS.filter((l) => usage[l.id] != null || l.id === 'storageMb').map(tile)),
+      h('div', { class: 'cc-grid pl-included' },
+        h('section', { class: 'cc-card' },
+          h('h3', {}, 'Plugins in your plan'),
+          h('ul', { class: 'pl-plugins' }, PLAN_PLUGINS.map((id) => {
+            const p = PLUGINS.find((x) => x.id === id);
+            if (!p) return null;
+            const on = !!plan.plugins[id];
+            return h('li', { class: on ? '' : 'off', style: `--tone:${p.tone}`, title: on ? '' : 'Not in your plan' }, h('span', { class: 'tone-tile' }, icon(p.icon, 16)), h('span', {}, p.name), icon(on ? 'check' : 'lock', 14));
+          }))),
+        h('section', { class: 'cc-card' },
+          h('h3', {}, 'Features'),
+          h('ul', { class: 'pl-feats' }, FEATURES.map((f) => h('li', { class: plan.features[f.id] ? '' : 'off' }, icon(plan.features[f.id] ? 'check' : 'lock', 14), f.label))),
+          h('p', { class: 'muted small' }, 'Organisation and Help are always on, on every plan.'))),
       Billing(plans, plan),
-      org.platform && h('section', { class: 'plan-ask' },
-        h('h2', {}, 'Change plan'),
-        h('p', { class: 'muted small' }, 'Ask for another plan and the platform admin will set it up with you. ', h('a', { href: `${location.protocol}//${location.host.split('.').slice(1).join('.')}/pricing.html`, target: '_blank' }, 'Compare plans ↗')),
-        h('div', { class: 'inline-form' }, choice, h('button', { class: 'btn btn-sm btn-primary', onclick: async () => {
-          try { await api('POST', '/api/plan/request', { plan: choice.value, note: note.value }); sent.textContent = 'Sent. The platform admin will be in touch.'; } catch (err) { sent.textContent = err.message; }
-        } }, 'Ask'), sent),
-        note));
+      h('div', { class: 'pl-others-head' },
+        h('h3', { class: 'pl-h3' }, 'Other plans'),
+        h('span', { class: 'muted small' }, 'Asking sends a note to the platform admin, who sets it up with you. Prices include HST.')),
+      h('div', { class: 'pl-cards' }, PLAN_IDS.filter((id) => id !== plan.id).map(otherCard)));
   }).catch((err) => box.replaceChildren(h('p', { class: 'empty' }, err.message)));
   return box;
 }
@@ -340,29 +539,7 @@ function Domain(org) {
   return box;
 }
 
-function Platform(org) {
-  return h('div', {},
-    h('p', { class: 'lede' }, 'This platform can hold many organisations, each with its own people, plugins and data. Open one to switch to it.'),
-    h('table', { class: 'table list' },
-      h('tbody', {}, orgList().map((o) =>
-        h('tr', {},
-          h('td', {}, h('strong', {}, o.name), o.id === org.id && h('span', { class: 'badge badge-primary badge-sm', style: 'margin-left:8px' }, 'Open now')),
-          h('td', { class: 'right' },
-            o.id !== org.id && h('button', { class: 'btn btn-sm', onclick: () => openOrg(o.id) }, 'Open'),
-            ' ',
-            !isHosted() && h('button', { class: 'btn btn-sm btn-ghost btn-error', onclick: async () => {
-              if (!await uiConfirm(`Delete ${o.name} and all its data? This can't be undone.`)) return;
-              try { deleteOrg(o.id); location.assign('org.html#platform'); } catch (err) { uiAlert(err.message); }
-            } }, 'Delete')))))),
-    isHosted()
-      ? platformUrl() && h('p', {}, 'Organisations are added and removed on the ', h('a', { href: platformUrl() }, 'platform admin page'), '.')
-      : h('div', { class: 'inline-form' },
-          h('button', { class: 'btn btn-sm btn-primary', onclick: async () => {
-            const name = await uiPrompt('Name of the new organisation');
-            if (name?.trim()) { createOrg(name.trim()); location.assign('org.html'); }
-          } }, icon('plus', 16), 'New organisation')));
-}
-
 store.addEventListener('change', render);
-window.addEventListener('hashchange', render);
+window.addEventListener('hashchange', () => { render(); openFromHash(); });
 render();
+openFromHash();

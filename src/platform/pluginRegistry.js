@@ -157,7 +157,7 @@ const BUILT_IN = {
   },
   org: {
     category: 'Platform',
-    features: [feat('people', 'People and teams', 'Staff, roles and teams.'), feat('sites', 'Public sites', 'Sites and their theme.'), feat('domains', 'Own domains', 'yourorg.org', { plans: { free: false, basic: false, standard: false, custom: true } })],
+    features: [feat('people', 'People and teams', 'Staff, roles and teams.'), feat('sites', 'Public sites', 'Sites and their look, in the Public Portal.'), feat('domains', 'Own domains', 'yourorg.org', { plans: { free: false, basic: false, standard: false, custom: true } })],
     dataModel: { docs: [{ name: 'org', label: 'Organisation', collections: [
       { id: 'staff', label: 'Staff', fields: [f('name', 'Name', 'text', { required: true }), f('email', 'Email'), f('roleId', 'Role', 'select'), f('title', 'Title'), f('teamIds', 'Teams', 'list')] },
       { id: 'teams', label: 'Teams', fields: [f('name', 'Name', 'text', { required: true }), f('color', 'Colour')] },

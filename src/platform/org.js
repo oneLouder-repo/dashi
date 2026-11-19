@@ -15,7 +15,7 @@
  *   Team   { name, color }
  *   Site   { name, url, visibility: 'public' | 'unlisted' | 'private', shows,
  *            look: { hero: 'band' | 'soft' | 'plain', type: 'sans' | 'serif' } }   how its pages are dressed (Public Portal)
- *   A private site is a members-only portal (the board, funders): staff and viewers who sign in see it.
+ *   A private site is a members-only portal (the board, funders): anyone in the org who signs in sees it, board directors and guests included.
  */
 export const SITE_HEROES = [
   { id: 'band', label: 'Colour band', blurb: 'A band in your main colour behind the title' },
@@ -31,7 +31,9 @@ export const ROLES = [
   { id: 'admin', label: 'Admin', can: 'Manage the org, people, roles and what is public' },
   { id: 'lead', label: 'Lead', can: 'Edit plans and dashboards for their teams' },
   { id: 'staff', label: 'Staff', can: 'Edit their workplans and tasks, use sandboxes' },
-  { id: 'viewer', label: 'Viewer', can: 'Read only, e.g. board members and funders' },
+  { id: 'board', label: 'Board director', short: 'Board', can: 'Read everything, including the members-only board portal' },
+  { id: 'guest', label: 'Guest', can: 'Read only, for advisors, funders and partners working with you' },
+  { id: 'viewer', label: 'Viewer', can: 'Read only, for anyone else who should follow along' },
 ];
 
 const STAFF = [

@@ -111,7 +111,7 @@ function render() {
   const ctx = { doc: pod, org, today: now, player, link };
   player.setLook(pod.station.look);
 
-  // The org's palette and look and feel (Organisation → Public sites and theme), then the station's look.
+  // The org's palette and look and feel (Public Portal → Look and feel), then the station's look.
   applyTheme(document.documentElement, org.theme);
   document.body.className = `site-page ${lookClasses(pod.station.look)}`;
 
