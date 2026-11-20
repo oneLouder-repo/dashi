@@ -5,7 +5,7 @@
  *
  * {
  *   station:  { name, tagline, description, siteId, cover,      the public station page
- *               look: { player, art, hero } },                  how the station page is skinned
+ *               look: { player, art, hero, archive, masthead } },   how the station page is skinned
  *   podcasts: { [id]: Show },
  *   episodes: { [id]: Episode },
  * }
@@ -46,11 +46,19 @@ export const LOOKS = {
     { id: 'circle', label: 'Round art' },
   ],
   hero: [
-    { id: 'split', label: 'Split', blurb: 'Station text beside the latest episode' },
-    { id: 'banner', label: 'Banner', blurb: 'A full-width banner in the theme colour' },
+    { id: 'masthead', label: 'Banner', blurb: 'The station’s name set over a wide masthead banner' },
+    { id: 'split', label: 'Split', blurb: 'Station words beside the latest episode, a slim banner above' },
+    { id: 'banner', label: 'Colour band', blurb: 'A full-width band in the theme colour' },
+  ],
+  archive: [
+    { id: 'seasons', label: 'By show and season', blurb: 'Pick a show, then a season: the clearest way into a long archive' },
+    { id: 'timeline', label: 'By month', blurb: 'Every episode, newest first, under the month it came out' },
+    { id: 'grid', label: 'Cover grid', blurb: 'Episode art in a grid, for shows with their own artwork' },
   ],
 };
-export const DEFAULT_LOOK = { player: 'card', art: 'rounded', hero: 'split' };
+/** The station's masthead: 'site' wears its site's banner; otherwise as a site's (platform/siteDesign.js). */
+export const DEFAULT_MASTHEAD = { preset: 'site', image: null, height: 'm', focus: 50 };
+export const DEFAULT_LOOK = { player: 'card', art: 'rounded', hero: 'masthead', archive: 'seasons' };
 
 const ep = (id, podcastId, season, number, title, url, duration, publishedAt, description, more = {}) => ({
   id, podcastId, season, number, title, slug: slugify(title), description, notes: '',
@@ -118,6 +126,7 @@ export const blankPodcasts = () => migratePodcasts({ id: 'podcasts', station: { 
 export function migratePodcasts(doc) {
   doc.station = { name: 'Our station', tagline: '', description: '', siteId: null, cover: null, ...doc.station };
   doc.station.look = { ...DEFAULT_LOOK, ...doc.station.look };
+  doc.station.look.masthead = { ...DEFAULT_MASTHEAD, ...doc.station.look.masthead };
   doc.podcasts ??= {};
   doc.episodes ??= {};
   for (const p of Object.values(doc.podcasts)) {

@@ -28,6 +28,7 @@ export const ICONS = {
   check: 'M5 12.5 L10 17.5 L19 7',
   download: 'M12 4 V15 M7 10.5 L12 15.5 L17 10.5 M5 20 H19',
   chevronDown: 'M6 9 L12 15 L18 9',
+  chevronUp: 'M6 15 L12 9 L18 15',
   chevronRight: 'M9 6 L15 12 L9 18',
   close: 'M6 6 L18 18 M18 6 L6 18',
   fit: 'M4 9 V4 H9 M15 4 H20 V9 M20 15 V20 H15 M9 20 H4 V15',
@@ -67,6 +68,8 @@ export const ICONS = {
   alert: 'M12 3 L22 20 H2 Z M12 9 V14 M12 17 V17.5',
   spark: 'M12 2 V7 M12 17 V22 M2 12 H7 M17 12 H22 M5 5 L8.5 8.5 M15.5 15.5 L19 19 M5 19 L8.5 15.5 M15.5 8.5 L19 5',
   tag: 'M3 12 V4 H11 L20 13 L13 20 Z M7.5 8.5 A1 1 0 1 0 7.51 8.5 Z',
+  deviceMobile: 'M7 2.5 H17 V21.5 H7 Z M11 18.5 H13',
+  deviceDesktop: 'M3 4 H21 V16 H3 Z M8 20 H16 M12 16 V20',
   ticket: 'M3 7 H21 V10 A2 2 0 0 0 21 14 V17 H3 V14 A2 2 0 0 0 3 10 Z M14 7 V17',
 };
 
@@ -84,8 +87,8 @@ export const SECTION_ICONS = {
   'sec-studio': `<rect x="4" y="4" width="16" height="16"/><path d="M12 4 V20 M4 12 H20"/><circle cx="16" cy="8" r="2" ${ACF}/>`,
   'sec-data': `<path d="M4 20 H20 M7 20 V14 M12 20 V11 M17 20 V13"/><path d="M5 9 L10 6 L14 8 L19 4" ${AC}/>`,
   'sec-podcasts': `<circle cx="12" cy="12" r="4"/><path d="M6.3 6.3 A8 8 0 0 0 6.3 17.7 M17.7 6.3 A8 8 0 0 1 17.7 17.7"/><circle cx="12" cy="12" r="1.5" ${ACF}/>`,
-  'sec-library': `<rect x="4" y="4" width="4" height="16"/><rect x="9" y="4" width="4" height="16"/><path d="M15 5 L18.8 4 L22 19 L18.2 20 Z" ${AC}/>`,
-  'sec-sites': `<rect x="3" y="4" width="18" height="16"/><path d="M3 8 H21"/><path d="M7 20 A5 5 0 0 1 17 20" ${AC}/>`,
+  'sec-library': `<rect x="3" y="5" width="3.5" height="15"/><rect x="7.5" y="3" width="3.5" height="17"/><rect x="12" y="6" width="3" height="14" ${ACF}/><path d="M16.2 7.2 L19.4 6.4 L22 19 L18.8 19.8 Z"/><path d="M2 21 H22"/>`,
+  'sec-sites': `<rect x="3" y="4" width="18" height="16"/><path d="M3 8.5 H21"/><circle cx="6" cy="6.25" r="0.4"/><path d="M7 20 A5 5 0 0 1 17 20"/><circle cx="17.5" cy="13" r="2.4" ${ACF}/>`,
   'sec-org': `<rect x="9" y="3" width="6" height="6" ${AC}/><path d="M12 9 V13 M6 13 H18 M6 13 V15 M18 13 V15"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/>`,
   'sec-help': `<path d="M8 8 A4 4 0 1 1 12 12 V14"/><rect x="10.5" y="17" width="3" height="3" ${ACF}/><path d="M3 3 H7 M3 3 V7 M21 3 H17 M21 3 V7 M3 21 H7 M3 21 V17 M21 21 H17 M21 21 V17"/>`,
   'sec-assets': `<path d="M4 8 H20 V20 H4 Z"/><path d="M6 5 H18 M8 2.5 H16"/><circle cx="12" cy="14" r="2.5" ${ACF}/>`,

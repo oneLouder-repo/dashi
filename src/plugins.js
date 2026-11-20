@@ -186,8 +186,27 @@ export const pausedForOrg = (org, id) => !!org.platform?.paused?.[id];
  * a `defaultOff` plugin (the newer, optional ones) is off until switched on.
  */
 export const chosenByOrg = (org, p) => (p.defaultOff ? org.plugins?.[p.id] === true : org.plugins?.[p.id] !== false);
-/** The plugins this org has switched on (and the platform hasn't paused). */
-export const enabledPlugins = (org) => PLUGINS.filter((p) => p.core || (!p.platformOff && !pausedForOrg(org, p.id) && chosenByOrg(org, p)));
+/** The plugins this org has switched on for everyone (and the platform hasn't paused). */
+export const orgPlugins = (org) => PLUGINS.filter((p) => p.core || (!p.platformOff && !pausedForOrg(org, p.id) && chosenByOrg(org, p)));
+
+/**
+ * Plugins by role: each role's palette of tools. `org.pluginRoles` holds
+ * the exceptions, { [pluginId]: { [roleId]: false } }; a plugin the org
+ * uses is open to every role unless switched off for that role. Core
+ * plugins (Organisation, Help) are open to everyone, and an admin always
+ * keeps Organisation so nobody can lock the org out of its settings.
+ */
+export const roleHas = (org, pluginId, roleId) => {
+  const p = PLUGINS.find((x) => x.id === pluginId);
+  if (!roleId || p?.core) return true;
+  return org.pluginRoles?.[pluginId]?.[roleId] !== false;
+};
+/** Who the page is for: set once by the session (platform/session.js), so this file needs no import of it. */
+let roleOf = () => null;
+export const setRoleResolver = (fn) => { roleOf = fn; };
+export const currentRole = (org) => roleOf(org);
+/** The plugins the signed-in person sees: the org's, less any switched off for their role. */
+export const enabledPlugins = (org, roleId = roleOf(org)) => orgPlugins(org).filter((p) => roleHas(org, p.id, roleId));
 
 /** Each page's colour: a plugin's tone, or Dashi's own for the dashboard and the rest. */
 export const DASHI_TONE = '#d0621b';

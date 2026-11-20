@@ -8,7 +8,10 @@ import { autosaveDoc, loadDoc, saveDoc } from '../platform/storage.js';
 import { loadOrg, loadStrategy, loadData, loadDashboards, loadPodcasts, loadPages, loadPlanDocs, loadLibrary } from '../platform/docs.js';
 import { svg } from '../core/svg.js';
 import { criticalOn, onSiteFor, migrateCritical, DOC as CRITICAL_DOC } from '../platform/criticalMedia.js';
-import { SITE_HEROES, SITE_TYPES, siteLook } from '../platform/org.js';
+import { siteDesign, TEMPLATES, templateById, MASTHEADS, MASTHEAD_HEIGHTS, SITE_FONTS, HEADERS } from '../platform/siteDesign.js';
+import { mastheadSvg } from '../site/mastheads.js';
+import { DevicePreview, DeviceToggle, PhoneShell, deviceMode } from '../ui/DevicePreview.js';
+import { setCrumbs } from '../ui/crumbs.js';
 import { isLivePlan } from '../platform/plandocs.js';
 import { applyTheme, paletteById, shapeById, PALETTES, SHAPES } from '../platform/themes.js';
 import { Logo } from '../ui/Shell.js';
@@ -81,7 +84,7 @@ function renderSide() {
   side = swapSide(side, SideNav({ label: 'Public Portal', sections: [
     { title: 'Public Portal', items: [
       { label: 'Overview', sub: 'Every site, and what is live', icon: 'home', href: '#sites', on: r === 'sites' },
-      { label: 'Look and feel', sub: org.theme?.palette ? `${paletteById[org.theme.palette]?.label ?? 'Your'} colours, ${shapeById[org.theme.shape]?.label?.toLowerCase() ?? 'rounded'}` : 'Colours and shapes', icon: 'palette', href: '#look', on: r === 'look' },
+      { label: 'Look and feel', sub: org.theme?.palette ? `${paletteById[org.theme.palette]?.label ?? 'Your'} colours, ${shapeById[org.theme.shape]?.label?.toLowerCase() ?? 'rounded'}` : 'Colours and shapes', icon: 'palette', href: '#look', on: r === 'look' || r.startsWith('look/') },
       { label: 'Dashboards', sub: 'Data Workbench', icon: 'chart', href: 'palette.html#dashboards' },
       { label: 'Feedback forms', sub: 'Data Workbench', icon: 'chats', href: 'palette.html#feedback' },
       { label: 'Strategic plan', sub: 'Plan designer', icon: 'strategy', href: 'plandoc.html' },
@@ -99,7 +102,7 @@ async function newSite() {
   const name = await uiPrompt('Name the new site (you can change it later)', 'New site');
   if (!name?.trim()) return;
   const id = `site-${Math.random().toString(36).slice(2, 8)}`;
-  org.sites[id] = { id, name: name.trim(), url: '', visibility: 'unlisted', shows: '', look: { hero: 'soft', type: 'sans' } };
+  org.sites[id] = { id, name: name.trim(), url: '', visibility: 'unlisted', shows: '', look: { template: 'harbour' } };
   saveDoc('org', org);
   location.hash = `site/${id}`;
 }
@@ -109,7 +112,7 @@ function render() {
   const r = route();
   const p = doc().pages[r];
   const site = r.startsWith('site/') && org.sites[r.slice(5)];
-  main.replaceChildren(p ? Editor(p) : site ? SitePage(site) : r === 'look' ? Look() : Sites());
+  main.replaceChildren(p ? Editor(p) : site ? SitePage(site) : r === 'look' || r.startsWith('look/') ? Look(r.slice(5)) : Sites());
 }
 
 function newPage(kind, forSite = null) {
@@ -156,6 +159,8 @@ function Sites() {
         x.href ? h('a', { class: `btn btn-sm ${x.done ? 'btn-ghost' : 'btn-primary'}`, href: x.href }, x.action) : h('button', { class: `btn btn-sm ${x.done ? 'btn-ghost' : 'btn-primary'}`, onclick: x.onclick }, x.action))))),
     h('div', { class: 'wv-sites-head' },
       h('h2', { class: 'wv-h2' }, 'Your sites, as visitors see them'),
+      h('span', { class: 'spacer' }),
+      DeviceToggle(() => render()),
       h('button', { class: 'btn btn-sm', onclick: newSite }, icon('plus', 14), 'New site')),
     h('div', { class: 'wv-site-grid' }, sites.map((s) => SiteCard(s))));
 }
@@ -274,14 +279,16 @@ function PropertiesMap() {
  * The site itself, small: the real front page in a frame, scaled down, so the
  * preview is exactly what visitors get (in the site's look, with live data).
  */
-function SitePreview(s, { width = 1280, height = 900, scale = 0.25, page = null, phone = false } = {}) {
-  const w = phone ? 390 : width, hgt = phone ? 780 : height;
-  const src = siteUrl(s.id, { frame: '1', ...(page ? { page } : {}) });
-  const frame = h('iframe', { src, title: `${s.name}, as visitors see it`, loading: 'lazy', tabindex: '-1', 'aria-hidden': 'true',
-    style: `width:${w}px;height:${hgt}px;transform:scale(${scale})` });
-  return h('div', { class: `wv-frame${phone ? ' phone' : ''}`, style: `width:${Math.round(w * scale)}px;height:${Math.round(hgt * scale)}px` },
-    h('div', { class: 'wv-frame-bar' }, h('i'), h('i'), h('i'), h('span', {}, (s.url || `${org.name} · ${s.name}`).replace(/^https?:\/\//, ''))),
-    h('div', { class: 'wv-frame-view' }, frame));
+function SitePreview(s, { width = 320, page = null, mode = deviceMode(), tpl = null, aspect = 0.62 } = {}) {
+  const src = siteUrl(s.id, { frame: '1', ...(page ? { page } : {}), ...(tpl ? { tpl } : {}) });
+  return DevicePreview({ src, title: `${s.name}, as visitors see it`, mode, width, aspect, url: s.url || `${org.name} · ${s.name}`, phoneHeight: 760 });
+}
+/** Tell open previews of the sites about a change, so they redraw without reloading. */
+function tellPreviews() {
+  for (const f of document.querySelectorAll('iframe')) {
+    if (!/site\.html/.test(f.getAttribute('src') ?? '')) continue;
+    try { f.contentWindow?.postMessage({ type: 'dashi:org', org: structuredClone(org) }, location.origin); } catch { /* not loaded yet: it reads the saved org */ }
+  }
 }
 
 const visLabel = (v) => ({ public: 'Public', unlisted: 'Unlisted', private: 'Members only' })[v] ?? v;
@@ -292,7 +299,7 @@ function SiteCard(s) {
   const props = propertiesOf(s);
   const live = props.filter((p) => p.live).length;
   return h('article', { class: `wv-card ${s.visibility}` },
-    h('a', { class: 'wv-card-shot', href: `#site/${s.id}`, title: `Manage ${s.name}` }, SitePreview(s, { scale: 0.24 })),
+    h('a', { class: `wv-card-shot ${deviceMode()}`, href: `#site/${s.id}`, title: `Manage ${s.name}` }, SitePreview(s, { width: 300 })),
     h('div', { class: 'wv-card-body' },
       h('div', { class: 'wv-card-title' },
         h('a', { href: `#site/${s.id}` }, h('strong', {}, s.name)),
@@ -314,10 +321,8 @@ function SitePage(s) {
   const isPublic = s.visibility !== 'private';
   const drafts = Object.values(doc().pages).filter((p) => p.siteId === s.id && !isLive(p, now));
   const props = propertiesOf(s);
-  const look = siteLook(s);
+  const look = siteDesign(s);
   const saveSite = (patch, redraw = true) => { Object.assign(org.sites[s.id], patch); saveDoc('org', org); if (redraw) render(); };
-  const setLook = (patch) => saveSite({ look: { ...look, ...patch } });
-  const phone = !!ctx.phone;
   const groups = {};
   for (const p of props) (groups[p.kind] ??= []).push(p);
   const kindLabel = { Dashboard: 'Dashboards', Plan: 'Strategic plan', Station: 'Podcast station', Story: 'Data stories', Calculator: 'Impact calculators', Page: 'Pages', News: 'News', Feedback: 'Feedback forms', 'Media smart': 'Media smart', Papers: 'Board papers' };
@@ -331,7 +336,6 @@ function SitePage(s) {
   ].filter(Boolean);
 
   return h('div', { class: 'wv-sitepage' },
-    h('nav', { class: 'crumbs muted small' }, h('a', { href: '#sites' }, 'Public Portal'), ' / ', s.name),
     h('header', { class: 'wv-sitepage-head' },
       h('div', { class: 'wv-sitepage-title' },
         h('input', { class: 'title-input', name: 'site-name', value: s.name, 'aria-label': 'Site name', onchange: (e) => saveSite({ name: e.target.value.trim() || s.name }) }),
@@ -341,17 +345,12 @@ function SitePage(s) {
     h('div', { class: 'wv-sitepage-grid' },
       h('section', { class: 'wv-sitepage-preview' },
         h('div', { class: 'wv-preview-bar' },
-          h('div', { class: 'seg', role: 'tablist' },
-            h('button', { role: 'tab', class: phone ? '' : 'on', onclick: () => { ctx.phone = false; render(); } }, icon('tiles', 14), 'Desktop'),
-            h('button', { role: 'tab', class: phone ? 'on' : '', onclick: () => { ctx.phone = true; render(); } }, icon('phone', 14), 'Phone')),
+          DeviceToggle(() => render()),
           h('span', { class: 'muted small' }, 'Live: this is the site as visitors get it today.')),
-        h('div', { class: 'wv-preview-stage' }, SitePreview(s, phone ? { phone: true, scale: 0.78 } : { scale: 0.5 })),
-        h('div', { class: 'wv-look' },
-          h('span', { class: 'wv-look-label' }, 'Hero'),
-          h('div', { class: 'join' }, SITE_HEROES.map((x) => h('button', { class: `btn btn-xs join-item${look.hero === x.id ? ' btn-active' : ''}`, title: x.blurb, onclick: () => setLook({ hero: x.id }) }, x.label))),
-          h('span', { class: 'wv-look-label' }, 'Type'),
-          h('div', { class: 'join' }, SITE_TYPES.map((x) => h('button', { class: `btn btn-xs join-item${look.type === x.id ? ' btn-active' : ''}`, title: x.blurb, onclick: () => setLook({ type: x.id }) }, x.label))),
-          h('a', { class: 'link small', href: '#look' }, icon('palette', 13), ' Colours and shapes'))),
+        h('div', { class: `wv-preview-stage ${deviceMode()}` }, SitePreview(s, { width: Math.max(420, Math.min(760, (main.clientWidth || 1100) - 460)) })),
+        h('a', { class: 'wv-look-line', href: `#look/${s.id}` },
+          h('span', { class: 'wv-look-text' }, h('strong', {}, `${templateById[look.template].label} template`), h('small', {}, [look.masthead.preset === 'none' ? 'No banner' : look.masthead.preset === 'upload' ? 'Your own banner' : `${MASTHEADS.find((m) => m.id === look.masthead.preset)?.label} banner`, SITE_FONTS.find((f) => f.id === look.type)?.label, paletteById[org.theme?.palette]?.label && `${paletteById[org.theme.palette].label} colours`].filter(Boolean).join(' · '))),
+          h('span', { class: 'btn btn-sm' }, icon('palette', 14), 'Change the look'))),
       h('aside', { class: 'wv-sitepage-side' },
         h('section', { class: 'wv-box' },
           h('h3', {}, 'Settings'),
@@ -387,61 +386,113 @@ function SitePage(s) {
 }
 
 /**
- * The look of every public site and portal: the colour palette and the
- * shape (corners, weight), with a live sample. Each site then picks its own
- * hero and type on its page. Staff pages keep Dashi's own look.
+ * Look and feel: how each public site and portal is dressed. Pick a site,
+ * then its template (shown as real renders of your own site in each one),
+ * its masthead banner (drawn in your colours, or your own picture), type
+ * and header. Colours and shapes are shared by every site. The big preview
+ * on the right is the real site, as a laptop or a phone, and follows every
+ * change without reloading. Staff pages keep Dashi's own look.
+ *
+ *   #look            the first site
+ *   #look/<site id>  that site
  */
-function Look() {
-  const theme = org.theme ?? {};
-  const setTheme = (patch) => { org.theme = { ...org.theme, ...patch }; saveDoc('org', org); render(); };
-  const sample = h('div', { class: 'theme-preview look-sample' },
-    h('div', { class: 'tp-head' }, Logo(org, 32), h('strong', {}, org.name), h('span', { class: 'spacer' }), h('a', { class: 'link' }, 'Impact'), h('a', { class: 'link' }, 'News'), h('a', { class: 'link' }, 'Contact')),
-    h('div', { class: 'tp-body' },
-      h('h3', {}, 'Reach and equity'),
-      h('p', {}, org.description || org.mission),
-      h('div', { class: 'tp-cards' },
-        h('div', { class: 'card card-border' }, h('div', { class: 'card-body' }, h('div', { class: 'stat-title' }, 'Youth reached'), h('div', { class: 'stat-value' }, '459K'), h('progress', { class: 'progress progress-primary', value: 92, max: 100 }))),
-        h('div', { class: 'card card-border' }, h('div', { class: 'card-body' }, h('div', { class: 'stat-title' }, 'Partners'), h('div', { class: 'stat-value' }, '103'), h('div', { class: 'badge badge-secondary' }, 'New this year')))),
-      h('div', { class: 'tp-actions' }, h('button', { class: 'btn btn-primary btn-sm', tabindex: '-1' }, '▶ Play the year'), h('button', { class: 'btn btn-outline btn-sm', tabindex: '-1' }, 'Get in touch'))));
-  applyTheme(sample, theme);
+function Look(siteId) {
   const sites = Object.values(org.sites);
-  return h('div', { class: 'wv look' },
-    h('nav', { class: 'crumbs muted small' }, h('a', { href: '#sites' }, 'Public Portal'), ' / Look and feel'),
-    h('header', { class: 'look-head' },
-      h('h1', {}, 'Look and feel'),
-      h('p', { class: 'muted' }, 'The colours and shapes every public site and members-only portal uses. Each site then chooses its own hero and type on its page. Staff pages keep Dashi’s look so they stay familiar.')),
-    h('div', { class: 'look-grid' },
-      h('div', { class: 'look-controls' },
-        h('section', { class: 'wv-box' },
-          h('h3', {}, 'Colour palette'),
-          h('div', { class: 'palette-grid', role: 'radiogroup', 'aria-label': 'Colour palette' }, PALETTES.map((p) => {
-            const on = theme.palette === p.id;
-            const sw = h('button', { class: `palette-option${on ? ' on' : ''}`, role: 'radio', 'aria-checked': String(on), onclick: () => setTheme({ palette: p.id }) },
-              h('span', { class: 'swatches' }, ['primary', 'secondary', 'accent', 'neutral', 'base-200'].map((c) => h('span', { style: `background:var(--color-${c})` }))),
-              h('span', {}, p.label));
-            sw.querySelector('.swatches').setAttribute('data-theme', p.id);
-            return sw;
-          }))),
-        h('section', { class: 'wv-box' },
-          h('h3', {}, 'Shape'),
-          h('div', { class: 'shape-grid', role: 'radiogroup', 'aria-label': 'Shape' }, SHAPES.map((s) =>
-            h('button', { class: `shape-option${theme.shape === s.id ? ' on' : ''}`, role: 'radio', 'aria-checked': String(theme.shape === s.id), onclick: () => setTheme({ shape: s.id }), style: `--r:${s.vars['--radius-box']}` },
-              h('span', { class: 'shape-sample' }), h('strong', {}, s.label), h('small', {}, s.blurb)))))),
-      h('div', { class: 'look-preview' },
-        h('section', { class: 'wv-box' },
-          h('h3', {}, 'How it looks'),
-          sample,
-          h('p', { class: 'muted small' }, 'A sample. Open a site to see the real thing with your content.')),
-        h('section', { class: 'wv-box' },
-          h('h3', {}, 'Each site’s hero and type'),
-          sites.length ? h('ul', { class: 'look-sites' }, sites.map((s) => {
-            const lk = siteLook(s);
-            return h('li', {},
-              icon(s.visibility === 'private' ? 'lock' : s.visibility === 'unlisted' ? 'eyeOff' : 'globe', 15),
-              h('a', { href: `#site/${s.id}` }, s.name),
-              h('span', { class: 'muted small' }, `${SITE_HEROES.find((x) => x.id === lk.hero)?.label ?? lk.hero} hero · ${SITE_TYPES.find((x) => x.id === lk.type)?.label ?? lk.type} type`),
-              h('a', { class: 'btn btn-xs btn-ghost', href: `#site/${s.id}` }, 'Change'));
-          })) : h('p', { class: 'muted small' }, 'No sites yet.')))));
+  const s = org.sites[siteId] ?? sites.find((x) => x.visibility === 'public') ?? sites[0];
+  if (!s) return h('div', { class: 'wv look' }, h('h1', {}, 'Look and feel'), h('p', { class: 'muted' }, 'Make a site first: its look is chosen here.'), h('button', { class: 'btn btn-sm btn-primary', onclick: newSite }, 'New site'));
+  setCrumbs(sites.length > 1 ? [{ label: s.name }] : []);
+  const theme = () => org.theme ?? {};
+  const design = () => siteDesign(org.sites[s.id]);
+  // A change saves, tells the previews, and redraws only the controls (so the previews never reload).
+  const commit = () => { saveDoc('org', org); tellPreviews(); drawControls(); renderSide(); };
+  const setLook = (patch) => { org.sites[s.id].look = { ...(org.sites[s.id].look ?? {}), ...design(), ...patch }; commit(); };
+  const setMast = (patch) => setLook({ masthead: { ...design().masthead, ...patch } });
+  const setTheme = (patch) => { org.theme = { ...org.theme, ...patch }; commit(); };
+
+  const choice = (on, attrs, ...kids) => h('button', { type: 'button', role: 'radio', 'aria-checked': String(on), class: `lk-choice${on ? ' on' : ''}`, ...attrs }, ...kids);
+  const themed = (el) => { applyTheme(el, theme()); return el; };
+
+  const rest = h('div', { class: 'lk-rest' });
+  const tplBox = h('section', { class: 'lk-box' });
+  const controls = h('div', { class: 'lk-controls' }, tplBox, rest);
+  // The template renders are real iframes: drawn once, so changing other things never reloads them.
+  const tplShots = Object.fromEntries(TEMPLATES.map((t) => [t.id, SitePreview(s, { width: 176, mode: 'desktop', tpl: t.id, aspect: 0.7 })]));
+  tplBox.append(
+    h('div', { class: 'lk-box-head' }, h('h2', {}, 'Template'), h('span', { class: 'muted small' }, 'How every page is laid out')),
+    h('div', { class: 'lk-tpls', role: 'radiogroup', 'aria-label': 'Template' }, TEMPLATES.map((t) =>
+      h('button', { type: 'button', role: 'radio', class: 'lk-choice lk-tpl', 'data-tpl': t.id, onclick: () => setLook({ template: t.id, header: undefined }) },
+        h('span', { class: 'lk-tpl-shot' }, tplShots[t.id]),
+        h('span', { class: 'lk-tpl-text' }, h('strong', {}, t.label), h('small', {}, t.blurb))))));
+  function drawControls() {
+    const d = design();
+    const th = theme();
+    const upload = h('input', { type: 'file', accept: 'image/*', class: 'sr-only', 'aria-label': 'Upload a banner picture', onchange: async (e) => {
+      try { setMast({ preset: 'upload', image: await readImage(e.target.files[0], 2000) }); } catch (err) { uiAlert(err.message); }
+    } });
+    for (const b of tplBox.querySelectorAll('.lk-tpl')) { const on = b.dataset.tpl === d.template; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }
+    rest.replaceChildren(
+      h('section', { class: 'lk-box' },
+        h('div', { class: 'lk-box-head' }, h('h2', {}, 'Masthead banner'), h('span', { class: 'muted small' }, 'Across the top of the site, in your colours')),
+        h('div', { class: 'lk-masts', role: 'radiogroup', 'aria-label': 'Masthead banner' },
+          MASTHEADS.map((m) => {
+            const art = themed(h('span', { class: 'lk-mast-art mh' }));
+            art.innerHTML = mastheadSvg(m.id);
+            return choice(d.masthead.preset === m.id, { class: `lk-mast${d.masthead.preset === m.id ? ' on' : ''}`, title: m.blurb, onclick: () => setMast({ preset: m.id }) }, art, h('small', {}, m.label));
+          }),
+          h('label', { class: `lk-mast lk-mast-upload${d.masthead.preset === 'upload' ? ' on' : ''}`, title: 'A wide picture, 2000 pixels across or more, works best' },
+            d.masthead.image ? h('span', { class: 'lk-mast-art' }, h('img', { src: d.masthead.image, alt: '' })) : h('span', { class: 'lk-mast-art lk-mast-add' }, icon('upload', 18)),
+            h('small', {}, d.masthead.image ? 'Your picture' : 'Upload your own'), upload),
+          choice(d.masthead.preset === 'none', { class: `lk-mast${d.masthead.preset === 'none' ? ' on' : ''}`, onclick: () => setMast({ preset: 'none' }) }, h('span', { class: 'lk-mast-art lk-mast-none' }, 'None'), h('small', {}, 'No banner'))),
+        d.masthead.preset !== 'none' && h('div', { class: 'lk-row' },
+          h('span', { class: 'lk-label' }, 'Height'),
+          h('div', { class: 'device-toggle xs', role: 'radiogroup', 'aria-label': 'Banner height' }, MASTHEAD_HEIGHTS.map((x) =>
+            h('button', { type: 'button', role: 'radio', 'aria-checked': String(d.masthead.height === x.id), class: d.masthead.height === x.id ? 'on' : '', onclick: () => setMast({ height: x.id }) }, x.label)))),
+        d.masthead.preset === 'upload' && h('div', { class: 'lk-row' },
+          h('label', { class: 'lk-label', for: 'lk-focus' }, 'Show more of the'),
+          h('input', { id: 'lk-focus', type: 'range', class: 'range range-xs', min: 0, max: 100, step: 5, value: d.masthead.focus ?? 50, 'aria-label': 'Banner focus, top to bottom', onchange: (e) => setMast({ focus: +e.target.value }) }),
+          h('span', { class: 'muted small' }, 'top · bottom'),
+          h('button', { type: 'button', class: 'btn btn-xs btn-ghost', onclick: () => setMast({ preset: 'ripples', image: null }) }, 'Remove'))),
+      h('section', { class: 'lk-box' },
+        h('div', { class: 'lk-box-head' }, h('h2', {}, 'Type and header')),
+        h('div', { class: 'lk-fonts', role: 'radiogroup', 'aria-label': 'Type' }, SITE_FONTS.map((f) =>
+          choice(d.type === f.id, { class: `lk-font f-${f.id}${d.type === f.id ? ' on' : ''}`, onclick: () => setLook({ type: f.id }) }, h('span', { class: 'lk-font-aa' }, 'Aa'), h('strong', {}, f.label), h('small', {}, f.blurb)))),
+        h('div', { class: 'lk-row' },
+          h('span', { class: 'lk-label' }, 'Header'),
+          h('div', { class: 'device-toggle xs', role: 'radiogroup', 'aria-label': 'Header' }, HEADERS.map((x) =>
+            h('button', { type: 'button', role: 'radio', title: x.blurb, 'aria-checked': String(d.header === x.id), class: d.header === x.id ? 'on' : '', onclick: () => setLook({ header: x.id }) }, x.label))))),
+      h('section', { class: 'lk-box' },
+        h('div', { class: 'lk-box-head' }, h('h2', {}, 'Colours and shape'), h('span', { class: 'lk-shared' }, icon('globe', 12), 'Shared by all your sites')),
+        h('div', { class: 'palette-grid', role: 'radiogroup', 'aria-label': 'Colour palette' }, PALETTES.map((p) => {
+          const on = th.palette === p.id;
+          const sw = h('button', { type: 'button', class: `palette-option${on ? ' on' : ''}`, role: 'radio', 'aria-checked': String(on), onclick: () => setTheme({ palette: p.id }) },
+            h('span', { class: 'swatches' }, ['primary', 'secondary', 'accent', 'neutral', 'base-200'].map((c) => h('span', { style: `background:var(--color-${c})` }))),
+            h('span', {}, p.label));
+          sw.querySelector('.swatches').setAttribute('data-theme', p.id);
+          return sw;
+        })),
+        h('div', { class: 'shape-grid', role: 'radiogroup', 'aria-label': 'Shape' }, SHAPES.map((x) =>
+          h('button', { type: 'button', class: `shape-option${th.shape === x.id ? ' on' : ''}`, role: 'radio', 'aria-checked': String(th.shape === x.id), onclick: () => setTheme({ shape: x.id }), style: `--r:${x.vars['--radius-box']}` },
+            h('span', { class: 'shape-sample' }), h('strong', {}, x.label), h('small', {}, x.blurb))))));
+  }
+  drawControls();
+
+  const room = Math.max(420, Math.min(900, (main.clientWidth || 1100) - 520));
+  return h('div', { class: 'wv look lk' },
+    h('header', { class: 'lk-head' },
+      h('div', {},
+        h('h1', {}, 'Look and feel'),
+        h('p', { class: 'muted' }, 'Dress each public site and portal: a template, a banner, type and colours. Every change is live on the site straight away. Staff pages keep Dashi’s own look.')),
+      sites.length > 1 && h('nav', { class: 'lk-sites', 'aria-label': 'Which site' }, sites.map((x) =>
+        h('a', { href: `#look/${x.id}`, class: x.id === s.id ? 'on' : '', 'aria-current': x.id === s.id ? 'page' : null }, icon(x.visibility === 'private' ? 'lock' : x.visibility === 'unlisted' ? 'eyeOff' : 'globe', 14), x.name)))),
+    h('div', { class: 'lk-grid' },
+      controls,
+      h('aside', { class: 'lk-preview', 'aria-label': 'Preview' },
+        h('div', { class: 'lk-preview-bar' },
+          DeviceToggle(() => render()),
+          h('span', { class: 'muted small' }, s.name),
+          h('span', { class: 'spacer' }),
+          h('a', { class: 'btn btn-sm btn-ghost', href: siteUrl(s.id), target: '_blank', rel: 'noopener' }, icon('share', 13), 'Open')),
+        h('div', { class: `lk-stage ${deviceMode()}` }, SitePreview(s, { width: room, aspect: 0.66 })))));
 }
 
 /**
@@ -616,7 +667,9 @@ function Editor(p) {
         body,
         h('p', { class: 'muted md-help' }, '## Heading · **bold** · _italic_ · - list · 1. numbered · > quote · [text](https://…) · a blank line starts a new paragraph.'),
         warnings),
-      h('div', { class: 'page-preview-wrap' }, h('span', { class: 'fieldset-legend' }, 'Preview'), preview)));
+      h('div', { class: `page-preview-wrap ${deviceMode()}` },
+        h('div', { class: 'page-preview-bar' }, h('span', { class: 'fieldset-legend' }, 'Preview'), DeviceToggle(() => render(), { size: 'xs' })),
+        deviceMode() === 'phone' ? h('div', { class: 'page-preview-phone' }, PhoneShell(preview, { scale: 0.8, height: 760 })) : preview)));
 }
 
 store.addEventListener('change', renderSide);

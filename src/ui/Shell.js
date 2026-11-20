@@ -1,13 +1,14 @@
 import { h } from './dom.js';
 import { icon } from './icons.js';
 import { RippleMark } from './Wordmark.js';
-import { enabledPlugins, toneFor } from '../plugins.js';
+import { enabledPlugins, orgPlugins, toneFor, PLUGINS } from '../plugins.js';
 import { ROLES, initials } from '../platform/org.js';
 import { FeedbackButton, version } from './Support.js';
 import { NetLight } from './netlight.js';
 import { toast } from './toast.js';
 import { uiAlert, uiPrompt } from './dialog.js';
 import { SearchBox, wireSearchKey } from './SearchBox.js';
+import { setPlugin } from './crumbs.js';
 import { session } from '../platform/storage.js';
 import { orgList, openOrg, createOrg, currentUser, signInAs, can, signOut, signedInUser, platformUrl } from '../platform/session.js';
 
@@ -77,6 +78,8 @@ export function Shell(el, { current, org }) {
       enabledPlugins(org).filter((p) => p.nav !== false).map((p) => link(p.id, p.href, p.name, p.icon))),
   );
   wireSearchKey();
+  RoleGate(org, current, role);
+  setPlugin(current);
   // Pages draw the header again on every change; the listeners below go on once.
   if (wired) return;
   wired = true;
@@ -97,6 +100,24 @@ export function Shell(el, { current, org }) {
 }
 let wired = false;
 let netLight = null;
+
+/**
+ * A plugin the org uses but this person's role doesn't get (Organisation →
+ * Plugins, by role): say so kindly over the page, with a way home. The
+ * server still decides what each role may change.
+ */
+function RoleGate(org, current, role) {
+  const p = PLUGINS.find((x) => x.id === current);
+  const blocked = p && !p.core && orgPlugins(org).includes(p) && !enabledPlugins(org).includes(p);
+  document.querySelector('.role-gate')?.remove();
+  if (!blocked) return;
+  document.body.append(h('div', { class: 'role-gate', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'role-gate-title' },
+    h('div', { class: 'role-gate-card', style: `--tone:${p.tone}` },
+      h('span', { class: 'role-gate-icon', 'aria-hidden': 'true' }, icon(p.icon, 26)),
+      h('h1', { id: 'role-gate-title' }, `${p.name} isn’t in your toolkit`),
+      h('p', {}, `Your organisation gives ${role?.label ? `the ${role.label} role` : 'your role'} its own set of tools, and ${p.name} isn’t one of them yet. If you need it, ask an admin: they can change it under Organisation → Plugins.`),
+      h('a', { class: 'btn btn-primary', href: 'index.html' }, 'Back to your dashboard'))));
+}
 
 /** For keyboards: the first Tab stop jumps past the header to the page's main content. */
 function SkipLink() {

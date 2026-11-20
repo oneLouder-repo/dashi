@@ -9,7 +9,9 @@ import { printPlan } from '../plandoc/print.js';
 import { migrateStrategy } from '../platform/strategy.js';
 import { migratePodcasts, published } from '../platform/podcasts.js';
 import { migratePages, siteContent } from '../platform/pages.js';
-import { pluginOn, siteLook } from '../platform/org.js';
+import { pluginOn } from '../platform/org.js';
+import { siteDesign, templateById } from '../platform/siteDesign.js';
+import { Masthead } from '../site/mastheads.js';
 import { measureIndex } from '../platform/strategy.js';
 import { measureFacts, seriesOf } from '../platform/data.js';
 import { migrateLibrary, yearOf, formatLabel } from '../platform/library.js';
@@ -87,6 +89,14 @@ const staffView = !isHosted() || !!session()?.member;
 const link = (p) => `?${new URLSearchParams({ site: siteId(), ...p })}`;
 player.setLink(link);
 
+/** The site's design; a staff preview of another template passes ?tpl= (Look and feel thumbnails). */
+function designOf(site) {
+  const d = siteDesign(site);
+  const p = params();
+  if (staffView && p.frame === '1' && templateById[p.tpl]) return siteDesign({ ...site, look: { ...(site?.look ?? {}), template: p.tpl, header: undefined, masthead: site?.look?.masthead } });
+  return d;
+}
+
 function dashboard(d) {
   const months = dashboardMonths(d, docs.data);
   // Follow new data when the reader is on the latest month.
@@ -108,7 +118,7 @@ function render() {
   const content = pluginOn(org, 'pages') ? siteContent(docs.pages, id, now) : { nav: [], articles: [], bySlug: () => null };
   const publicSites = Object.values(org.sites).filter((s) => s.visibility === 'public');
   const plansHere = Object.values(docs.plandocs.docs).filter((d) => d.siteId === id && isLivePlan(d));
-  const ctx = { doc: pod, org, today: now, player, link };
+  const ctx = { doc: pod, org, site, today: now, player, link };
   player.setLook(pod.station.look);
 
   // The org's palette and look and feel (Public Portal → Look and feel), then the station's look.
@@ -175,8 +185,11 @@ function render() {
 
   document.title = `${title ?? 'Site'} · ${org.name}`;
   const navLink = (key, href, label) => h('a', { href, 'aria-current': current === key ? 'page' : null }, label);
-  const look = siteLook(site);
-  document.body.classList.add(`look-hero-${look.hero}`, `look-type-${look.type}`, ...(portal ? ['site-portal'] : []), ...(params().frame === '1' ? ['site-framed'] : []));
+  const look = designOf(site);
+  const isHome = body?.classList?.contains('site-home') || body?.classList?.contains('portal-home');
+  document.body.classList.add(`tpl-${look.template}`, `look-hero-${look.hero}`, `look-type-${look.type}`, `head-${look.header}`, ...(isHome ? ['is-home'] : []), ...(portal ? ['site-portal'] : []), ...(params().frame === '1' ? ['site-framed'] : []));
+  // Inner pages wear a slim strip of the banner under the header.
+  const strip = !isHome && !body?.classList?.contains('station-home') && site && !(portal && !staffView) ? Masthead({ ...look.masthead, height: 's' }, { cls: 'site-strip' }) : null;
   const board = portal && staffView ? boardDocs() : null;
 
   root.replaceChildren(
@@ -197,10 +210,13 @@ function render() {
           plansHere.length > 0 && navLink('plan', link({ plan: plansHere[0].id }), 'Our plan'),
           hasStation && navLink('station', link({ view: 'station' }), pod.station.name),
           media(id)?.corner && navLink('media', link({ view: 'media' }), 'Media smart')),
-        publicSites.length > 1 && h('details', { class: 'dropdown dropdown-end site-switch' },
-          h('summary', { class: 'btn btn-ghost btn-sm' }, icon('globe', 16), h('span', { class: 'sr-only' }, 'Our sites')),
-          h('ul', { class: 'menu dropdown-content bg-base-100 rounded-box shadow' },
-            publicSites.map((s) => h('li', {}, h('a', { href: `?site=${s.id}` }, s.name))))))),
+        publicSites.length > 1 && h('details', { class: 'site-switch' },
+          h('summary', { 'aria-label': 'Our other sites', title: 'Our sites' }, icon('globe', 17), h('span', { class: 'site-switch-label' }, 'Our sites'), icon('chevronDown', 12)),
+          h('div', { class: 'site-switch-menu', role: 'menu' },
+            h('p', {}, 'Our sites'),
+            publicSites.map((s) => h('a', { role: 'menuitem', href: `?site=${s.id}`, 'aria-current': s.id === id ? 'page' : null },
+              h('strong', {}, s.name), s.shows && h('small', {}, s.shows))))))),
+    strip ?? '',
     h('main', { class: 'site-main' }, body),
     h('footer', { class: 'site-foot' },
       h('div', {}, h('a', { class: 'site-brand foot', href: link({}) }, Logo(org, 30), h('strong', {}, org.name)), org.description && h('p', {}, org.description),
@@ -223,16 +239,19 @@ function Home(site, content, hasStation, ctx) {
   const plan = Object.values(docs.plandocs.docs).find((d) => d.siteId === site.id && isLivePlan(d));
   const firstPage = content.nav[0];
   const glance = AtAGlance(shown);
+  const design = designOf(site);
   return h('div', { class: 'site-home' },
-    h('section', { class: 'site-hero home' },
-      h('p', { class: 'site-eyebrow' }, site.id === firstSite() ? site.name : docs.org.name),
-      h('h1', {}, site.id === firstSite() ? docs.org.mission || site.name : site.name),
-      h('p', {}, site.id === firstSite() ? docs.org.description || '' : docs.org.mission || '', site.shows ? ` This site shares ${site.shows.charAt(0).toLowerCase()}${site.shows.slice(1)}.` : ''),
-      h('div', { class: 'site-hero-actions' },
-        firstPage && h('a', { class: 'btn btn-primary', href: link({ page: firstPage.slug }) }, firstPage.title),
-        plan && h('a', { class: 'btn btn-ghost', href: link({ plan: plan.id }) }, 'Read our plan'),
-        hasStation && h('a', { class: 'btn btn-ghost', href: link({ view: 'station' }) }, icon('mic', 15), ctx.doc.station.name)),
-      shown.length > 0 && h('p', { class: 'live-dot' }, 'Live program data, updated as our programs report.')),
+    h('section', { class: `site-hero home${design.masthead.preset === 'none' ? ' no-media' : ''}` },
+      h('div', { class: 'site-hero-text' },
+        h('p', { class: 'site-eyebrow' }, site.id === firstSite() ? site.name : docs.org.name),
+        h('h1', {}, site.id === firstSite() ? docs.org.mission || site.name : site.name),
+        h('p', {}, site.id === firstSite() ? docs.org.description || '' : docs.org.mission || '', site.shows ? ` This site shares ${site.shows.charAt(0).toLowerCase()}${site.shows.slice(1)}.` : ''),
+        h('div', { class: 'site-hero-actions' },
+          firstPage && h('a', { class: 'btn btn-primary', href: link({ page: firstPage.slug }) }, firstPage.title),
+          plan && h('a', { class: 'btn btn-ghost', href: link({ plan: plan.id }) }, 'Read our plan'),
+          hasStation && h('a', { class: 'btn btn-ghost', href: link({ view: 'station' }) }, icon('mic', 15), ctx.doc.station.name)),
+        shown.length > 0 && h('p', { class: 'live-dot' }, 'Live program data, updated as our programs report.')),
+      Masthead(design.masthead, { cls: 'site-hero-media' })),
     glance,
     (content.articles.length > 0 || latest) && h('section', { class: 'site-band home-teasers' },
       content.articles.length > 0 && h('div', {},
@@ -341,10 +360,12 @@ function BoardHome(site) {
   const handbook = b.governance.find((it) => /handbook/i.test(it.meta.title)) ?? b.governance[0];
   const finance = b.finance.find((it) => /summary/i.test(it.meta.title)) ?? b.finance[0];
   return h('div', { class: 'portal-home' },
-    h('section', { class: 'site-hero portal' },
+    h('section', { class: 'site-hero home portal' },
+      h('div', { class: 'site-hero-text' },
       h('p', { class: 'site-eyebrow' }, icon('lock', 13), ' Members only'),
       h('h1', {}, me ? `Welcome, ${me.name.split(' ')[0]}` : `${site.name}`),
-      h('p', {}, `Everything the board needs between meetings: where the plan stands, the papers, and the record of what we decided.`),
+      h('p', {}, `Everything the board needs between meetings: where the plan stands, the papers, and the record of what we decided.`)),
+      Masthead(designOf(site).masthead, { cls: 'site-hero-media' }),
       h('div', { class: 'portal-quick' },
         latestMinutes && h('a', { href: link({ doc: latestMinutes.id }) }, h('small', {}, 'Latest minutes'), h('strong', {}, dateWords(latestMinutes.meta.issued))),
         finance && h('a', { href: link({ doc: finance.id }) }, h('small', {}, 'Latest finance summary'), h('strong', {}, finance.meta.title.replace(/^Finance summary,\s*/, ''))),
@@ -502,6 +523,20 @@ document.addEventListener('click', (e) => {
   scrollTo(0, 0);
 });
 window.addEventListener('popstate', render);
+// A see-through header turns solid once the page scrolls under it.
+addEventListener('scroll', () => document.body.classList.toggle('scrolled', scrollY > 24), { passive: true });
+// Look and feel previews send the org's design as it changes, so the preview follows without a reload.
+addEventListener('message', (e) => {
+  if (e.origin !== location.origin || e.data?.type !== 'dashi:org' || !e.data.org) return;
+  docs.org = e.data.org;
+  render();
+});
+// The station designer (Podcasts → Public station) sends the station the same way.
+addEventListener('message', (e) => {
+  if (e.origin !== location.origin || e.data?.type !== 'dashi:podcasts' || !e.data.doc) return;
+  docs.podcasts = migratePodcasts(e.data.doc);
+  render();
+});
 
 onDocChange('dashboards', (doc) => { docs.dashboards = migrateDashboards(doc); render(); });
 onDocChange('data', (doc) => { docs.data = doc; render(); });

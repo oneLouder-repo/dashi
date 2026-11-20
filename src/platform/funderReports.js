@@ -120,3 +120,54 @@ export const fundersOf = (reports) => [...new Set(Object.values(reports ?? {}).m
 
 /** Objectives and goals with measures or work under them: what a report can be about. */
 export const reportableNodes = (strategy) => Object.values(strategy.nodes).filter((n) => (n.type === 'objective' || n.type === 'goal') && (measuresUnder(strategy, n.id).length || childrenOf(strategy, n.id).length));
+
+/**
+ * How a report looks when it is printed or sent (the designer's right-hand
+ * panel), like a plan's design: a template, a palette, a typeface and a
+ * cover page. Sections can be hidden without deleting their words.
+ *
+ * design { template: 'modern' | 'bold' | 'editorial', palette (DOC_PALETTES id), font (FONTS id), cover: bool }
+ * hidden [section headings left out of the designed report]
+ */
+export const REPORT_TEMPLATES = [
+  { id: 'modern', label: 'Modern', blurb: 'A clean cover with a colour bar, crisp tables' },
+  { id: 'bold', label: 'Bold', blurb: 'A full-colour cover and coloured section heads' },
+  { id: 'editorial', label: 'Editorial', blurb: 'A quiet, bookish page with a centred title' },
+];
+export const DEFAULT_REPORT_DESIGN = { template: 'modern', palette: 'lake', font: 'serif', cover: true };
+export const reportDesign = (r) => ({ ...DEFAULT_REPORT_DESIGN, ...(r?.design ?? {}) });
+
+/**
+ * A report's Markdown in parts: the title (its first `# ` line), the words
+ * before the first section, and each `## ` section with its words.
+ */
+export function reportSections(body = '') {
+  const lines = body.replace(/\r\n/g, '\n').split('\n');
+  let title = '';
+  const intro = [];
+  const sections = [];
+  for (const line of lines) {
+    const h2 = /^##\s+(.*)$/.exec(line);
+    if (h2 && !line.startsWith('###')) { sections.push({ heading: h2[1].trim(), text: [] }); continue; }
+    if (!sections.length && !title && /^#\s+/.test(line)) { title = line.replace(/^#\s+/, '').trim(); continue; }
+    (sections.length ? sections.at(-1).text : intro).push(line);
+  }
+  const trim = (a) => a.join('\n').replace(/^\n+|\n+$/g, '');
+  return { title, intro: trim(intro), sections: sections.map((s) => ({ heading: s.heading, text: trim(s.text) })) };
+}
+
+/** Put the parts back together as Markdown. */
+export function joinSections({ title = '', intro = '', sections = [] }) {
+  const out = [];
+  if (title) out.push(`# ${title}`, '');
+  if (intro) out.push(intro, '');
+  for (const s of sections) out.push(`## ${s.heading}`, '', ...(s.text ? [s.text, ''] : []));
+  return `${out.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()}\n`;
+}
+
+/** The Markdown the funder reads: hidden sections left out, the title dropped when the cover carries it. */
+export function designedMarkdown(r) {
+  const parts = reportSections(r.body);
+  const hidden = new Set(r.hidden ?? []);
+  return joinSections({ ...parts, title: reportDesign(r).cover ? '' : parts.title, sections: parts.sections.filter((s) => !hidden.has(s.heading)) });
+}

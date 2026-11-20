@@ -122,3 +122,9 @@ Nunito (self-hosted in vendor/fonts). Hierarchy from weight and ink before size.
 | Section labels in ink-3, not accent | Colour is for identity, action and status; labels are structure. | 2026-11-20 |
 | Keep Nunito | Already the brand face; its warmth fits small nonprofits. Hierarchy now comes from weight and ink. | 2026-11-20 |
 | New layer in `interface.css` | Reviewable and reversible on its own; older stylesheets untouched. | 2026-11-20 |
+| Designers share one shape: controls left, live preview right | Look and feel, the public station and funder reports all put choices in stacked `lk-box` sheets beside a sticky preview, so one learned layout carries over. | 2026-11-20 |
+| Previews tell, never reload | Iframe previews get the changed doc by `postMessage` (`dashi:org`, `dashi:podcasts`); controls redraw, the preview keeps its place. | 2026-11-20 |
+| Desktop / Phone is one remembered choice | `ui/DevicePreview.js`: choosing phone once shows phones everywhere; the phone lays the page out at 390px and clips to its own rounded screen. | 2026-11-20 |
+| Breadcrumbs from the sidebar | `ui/crumbs.js`: plugin, then the sidebar's open item, then what the page adds; hidden on a plugin home. | 2026-11-20 |
+| Every plugin icon carries one colour element | Library gets an accent book, Public Portal an accent dot, in line with the other icons. | 2026-11-20 |
+

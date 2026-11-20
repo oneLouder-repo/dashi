@@ -9,11 +9,16 @@ import { loadOrg, loadPodcasts, loadLibrary, loadMaps } from '../platform/docs.j
 import { staffList } from '../platform/org.js';
 import {
   CATEGORIES, EPISODE_TYPES, LOOKS, isAudioFile, slugify, published, episodesOf, seasonsOf, showsInOrder, nextNumber, podcastRss,
-  toClock, fromClock, episodeCode,
+  toClock, fromClock, episodeCode, DEFAULT_LOOK, DEFAULT_MASTHEAD,
 } from '../platform/podcasts.js';
+import { MASTHEADS, MASTHEAD_HEIGHTS, siteDesign } from '../platform/siteDesign.js';
+import { mastheadSvg } from '../site/mastheads.js';
+import { applyTheme } from '../platform/themes.js';
+import { DevicePreview, DeviceToggle, deviceMode } from '../ui/DevicePreview.js';
+import { setCrumbs } from '../ui/crumbs.js';
 import { putMedia, deleteMedia, audioDuration, maxUploadMb } from '../platform/media.js';
 import { readImage } from '../ui/images.js';
-import { Cover, EpisodeArt, Player, fmtDuration } from '../site/station.js';
+import { Cover, EpisodeArt, Player, fmtDuration, stationMasthead } from '../site/station.js';
 import { COVER_TONES } from '../ui/standIn.js';
 import { Markdown } from '../ui/markdown.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
@@ -23,7 +28,8 @@ import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
 /**
  * Podcasts: the studio for an org's own podcast station.
  *
- *   #station                  the station: shows, what's coming, the public page and its look
+ *   #station                  the station: shows, what's coming, and a glimpse of the public page
+ *   #design                   the public station: where it lives and how it looks, with a live preview
  *   #episodes[/<ep>]          every episode of every show, one picked
  *   #<show>[/<ep>]            a show's episodes by season, one picked (details on the right)
  *   #<show>/<ep>/edit         editing an episode, in the right-hand panel
@@ -103,8 +109,9 @@ function render() {
   const all = Object.values(doc().episodes);
   side = swapSide(side, SideNav({ label: 'Station and shows', sections: [
     { title: 'Station', items: [
-      { label: doc().station.name, sub: 'Shows, public page and look', icon: 'radio', href: '#station', on: r.scope === 'station' },
+      { label: 'Overview', sub: doc().station.name, icon: 'radio', href: '#station', on: r.scope === 'station' },
       { label: 'All episodes', sub: [`${all.filter((e) => stateOf(e) === 'live').length} published`, all.some((e) => stateOf(e) !== 'live') && `${all.filter((e) => stateOf(e) !== 'live').length} not yet`].filter(Boolean).join(' · '), icon: 'music', href: '#episodes', on: r.scope === 'episodes' },
+      { label: 'Public station', sub: stationSite() ? `On ${stationSite().name}` : 'Not on a site yet', icon: 'globe', href: '#design', on: r.scope === 'design' },
     ] },
     { title: 'Shows', action: { label: 'New show', onclick: newShow }, items: [
       ...showsInOrder(doc()).map((p) => ({ label: p.title, sub: [countsOf(p.id).line, p.featured && 'featured'].filter(Boolean).join(' · '), lead: Cover(p, 28, 'side-cover'), href: `#${p.id}`, on: r.scope === p.id })),
@@ -115,8 +122,13 @@ function render() {
   const scroll = panel.querySelector('.pc-main')?.scrollTop ?? 0;
   const sameScope = panel.dataset.scope === r.scope;
   panel.dataset.scope = r.scope;
+  // The designer keeps its live preview: a change redraws only its controls.
+  const designer = panel.querySelector('.pc-design');
+  if (r.scope === 'design' && sameScope && designer?.refresh) { designer.refresh(); return; }
+  setCrumbs(show ? [...(r.sub === 'settings' ? [{ label: 'Settings' }] : r.sub === 'new' ? [{ label: 'New episode' }] : doc().episodes[r.sub] ? [{ label: doc().episodes[r.sub].title }] : [])] : []);
   if (show) panel.replaceChildren(ShowStudio(show, r));
   else if (r.scope === 'episodes') panel.replaceChildren(AllEpisodes(r));
+  else if (r.scope === 'design') panel.replaceChildren(StationDesign());
   else panel.replaceChildren(Station());
   if (sameScope) { const m = panel.querySelector('.pc-main'); if (m) m.scrollTop = scroll; }
 }
@@ -149,7 +161,6 @@ function Segmented(name, choices, value, onPick) {
 function Station() {
   const st = doc().station;
   const update = (patch) => store.apply(col.set('station', { ...st, ...patch }));
-  const setLook = (patch) => update({ look: { ...st.look, ...patch } });
   const shows = showsInOrder(doc());
   const eps = Object.values(doc().episodes);
   const live = eps.filter((e) => stateOf(e) === 'live').sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
@@ -178,15 +189,7 @@ function Station() {
           h('ul', { class: 'pc-stats', 'aria-label': 'The station at a glance' },
             [[shows.length, 'show', 'shows'], [live.length, 'published', 'published'], [upcoming.filter((e) => stateOf(e) === 'coming').length, 'scheduled', 'scheduled'], [upcoming.filter((e) => stateOf(e) === 'draft').length, 'draft', 'drafts'], [hostIds.size, 'host', 'hosts']]
               .map(([k, one, many]) => h('li', {}, h('strong', {}, String(k)), h('span', {}, k === 1 ? one : many))))),
-        h('div', { class: 'pc-public card' },
-          h('div', { class: 'pc-public-head' }, icon('globe', 16), h('strong', {}, 'Public station page')),
-          h('select', { class: 'select select-sm', name: 'station-site', 'aria-label': 'Site that hosts the station', onchange: (e) => update({ siteId: e.target.value || null }) },
-            h('option', { value: '' }, 'Not on a site'), options(Object.values(org.sites).map((s) => ({ id: s.id, label: `${s.name}${s.visibility === 'private' ? ' (private)' : ''}` })), st.siteId)),
-          h('span', { class: 'muted small' }, !site ? 'Pick a site to give the station a public page.'
-            : site.visibility === 'private' ? 'That site is private. Make it public in Organisation settings.' : `Live on ${site.name}, with a page for every show and episode.`),
-          site && h('div', { class: 'pc-public-links' },
-            h('a', { class: 'btn btn-xs', href: stationUrl(), target: '_blank', rel: 'noopener' }, 'Station page'),
-            h('a', { class: 'btn btn-xs btn-ghost', href: '#station-look', onclick: (e) => { e.preventDefault(); panel.querySelector('#station-look')?.scrollIntoView({ behavior: 'smooth' }); } }, 'How it looks')))),
+        PublicCard()),
 
       h('div', { class: 'pc-section-head' }, h('h2', {}, 'Shows'), h('span', { class: 'muted small' }, 'Featured shows lead the station page, in this order.')),
       h('div', { class: 'pc-show-grid' },
@@ -213,15 +216,149 @@ function Station() {
           upcoming.length ? h('div', { class: 'pc-rows' }, upcoming.slice(0, 6).map((e) => EpisodeRow(e, { showShow: true }))) : h('p', { class: 'pc-empty' }, 'Nothing scheduled. Drafts and future dates show here.')),
         h('section', {},
           h('div', { class: 'pc-section-head' }, h('h2', {}, 'Recently published')),
-          live.length ? h('div', { class: 'pc-rows' }, live.slice(0, 6).map((e) => EpisodeRow(e, { showShow: true }))) : h('p', { class: 'pc-empty' }, 'Nothing published yet.'))),
+          live.length ? h('div', { class: 'pc-rows' }, live.slice(0, 6).map((e) => EpisodeRow(e, { showShow: true }))) : h('p', { class: 'pc-empty' }, 'Nothing published yet.')))));
+}
 
-      h('section', { id: 'station-look', class: 'pc-look card' },
-        h('div', { class: 'pc-section-head' }, h('h2', {}, 'How the public station looks'), site && h('a', { class: 'small', href: stationUrl(), target: '_blank', rel: 'noopener' }, 'See it →')),
-        h('p', { class: 'muted small' }, 'On top of your organisation’s colours and shape (Public Portal → Look and feel).'),
-        h('div', { class: 'look-grid' },
-          h('div', {}, h('span', { class: 'fieldset-legend' }, 'Player'), Segmented('Player', LOOKS.player, st.look.player, (p) => setLook({ player: p }))),
-          h('div', {}, h('span', { class: 'fieldset-legend' }, 'Cover art'), Segmented('Cover art', LOOKS.art, st.look.art, (art) => setLook({ art }))),
-          h('div', {}, h('span', { class: 'fieldset-legend' }, 'Top of the page'), Segmented('Top of the page', LOOKS.hero, st.look.hero, (hero) => setLook({ hero })))))));
+/** On the overview: the public station, small, and the way into its designer. */
+function PublicCard() {
+  const site = stationSite();
+  return h('div', { class: 'pc-public' },
+    h('a', { class: 'pc-public-shot', href: '#design', title: 'Design the public station' },
+      site ? DevicePreview({ src: stationUrl({ frame: '1' }), title: 'The public station', mode: 'desktop', width: 300, aspect: 0.62, url: site.name })
+        : h('span', { class: 'pc-public-none' }, icon('globe', 22), 'Not on a site yet')),
+    h('div', { class: 'pc-public-body' },
+      h('strong', {}, 'Your public station'),
+      h('span', { class: 'muted small' }, !site ? 'Put it on one of your sites to give every show and episode a page.'
+        : site.visibility === 'private' ? `On ${site.name}, which is members only.` : `Live on ${site.name}.`),
+      h('div', { class: 'pc-public-links' },
+        h('a', { class: 'btn btn-xs btn-primary', href: '#design' }, icon('palette', 13), 'Design the station'),
+        site && h('a', { class: 'btn btn-xs btn-ghost', href: stationUrl(), target: '_blank', rel: 'noopener' }, 'Open'))));
+}
+
+/* ------------------------------------------------------------------ public station designer */
+/**
+ * Where the public station lives and how it looks: the masthead banner,
+ * the top of the page, the archive layout, the player and art, and which
+ * shows lead. The preview on the right is the real station page, told
+ * about each change so it follows without reloading.
+ */
+function StationDesign() {
+  const st = () => doc().station;
+  const look = () => ({ ...DEFAULT_LOOK, ...st().look, masthead: { ...DEFAULT_MASTHEAD, ...(st().look?.masthead ?? {}) } });
+  const update = (patch) => store.apply(col.set('station', { ...st(), ...patch }));
+  const setLook = (patch) => update({ look: { ...look(), ...patch } });
+  const setMast = (patch) => setLook({ masthead: { ...look().masthead, ...patch } });
+  const tell = () => {
+    const f = stage.querySelector('iframe');
+    try { f?.contentWindow?.postMessage({ type: 'dashi:podcasts', doc: structuredClone(doc()) }, location.origin); } catch { /* not loaded yet: it reads the saved station */ }
+  };
+  const themed = (el) => { applyTheme(el, org.theme ?? {}); return el; };
+  const choice = (on, attrs, ...kids) => h('button', { type: 'button', role: 'radio', 'aria-checked': String(on), ...attrs, class: `${attrs.class ?? ''}${on ? ' on' : ''}` }, ...kids);
+  const room = () => Math.max(380, Math.min(820, (panel.clientWidth || 1100) - 470));
+
+  const stage = h('div', { class: 'lk-stage' });
+  const drawStage = () => {
+    const site = stationSite();
+    stage.className = `lk-stage ${deviceMode()}`;
+    stage.replaceChildren(site
+      ? DevicePreview({ src: stationUrl({ frame: '1' }), title: 'The public station, as listeners see it', width: room(), aspect: 0.7, url: `${org.name} · ${site.name}`, phoneHeight: 760 })
+      : h('div', { class: 'pc-design-empty' }, icon('globe', 26), h('strong', {}, 'The station isn’t on a site yet'), h('span', { class: 'muted small' }, 'Pick a site on the left and the preview appears here.')));
+  };
+  const openLink = h('a', { class: 'btn btn-sm btn-ghost', target: '_blank', rel: 'noopener' }, icon('share', 13), 'Open');
+  const controls = h('div', { class: 'lk-controls' });
+
+  function drawControls() {
+    const L = look();
+    const site = stationSite();
+    const siteMast = site ? siteDesign(site).masthead : null;
+    openLink.href = stationUrl();
+    openLink.hidden = !site;
+    const upload = h('input', { type: 'file', accept: 'image/*', class: 'sr-only', 'aria-label': 'Upload a banner picture', onchange: async (e) => {
+      try { setMast({ preset: 'upload', image: await readImage(e.target.files[0], 2000) }); } catch (err) { uiAlert(err.message); }
+    } });
+    const mastArt = (preset) => { const art = themed(h('span', { class: 'lk-mast-art mh' })); art.innerHTML = mastheadSvg(preset); return art; };
+    const siteArt = () => (siteMast?.preset === 'upload' && siteMast.image ? h('span', { class: 'lk-mast-art' }, h('img', { src: siteMast.image, alt: '' }))
+      : mastArt(siteMast && siteMast.preset !== 'none' ? siteMast.preset : 'ripples'));
+    const shows = showsInOrder(doc());
+    const move = (show, dir) => {
+      const i = shows.indexOf(show);
+      const other = shows[i + dir];
+      if (other) store.apply(col.batch(shows.map((x, k) => col.update('podcasts', x.id, { order: x === show ? i + dir : x === other ? i : k }))));
+    };
+    const cards = (name, list, value, onPick, art) => h('div', { class: 'pd-cards', role: 'radiogroup', 'aria-label': name }, list.map((c) =>
+      choice(c.id === value, { class: 'lk-choice pd-card', onclick: () => onPick(c.id) }, art?.(c.id), h('strong', {}, c.label), c.blurb && h('small', {}, c.blurb))));
+
+    controls.replaceChildren(
+      h('section', { class: 'lk-box' },
+        h('div', { class: 'lk-box-head' }, h('h2', {}, 'Where it lives'), h('span', { class: 'muted small' }, 'A page for the station, every show and every episode')),
+        h('div', { class: 'lk-row' },
+          h('label', { class: 'lk-label', for: 'pd-site' }, 'Site'),
+          h('select', { id: 'pd-site', class: 'select select-sm', onchange: (e) => update({ siteId: e.target.value || null }) },
+            h('option', { value: '' }, 'Not on a site'), options(Object.values(org.sites).map((x) => ({ id: x.id, label: `${x.name}${x.visibility === 'private' ? ' (members only)' : ''}` })), st().siteId))),
+        site?.visibility === 'private' && h('p', { class: 'pd-note' }, icon('lock', 13), `${site.name} is members only, so listeners outside need to sign in. Pick a public site to reach everyone.`)),
+      h('section', { class: 'lk-box' },
+        h('div', { class: 'lk-box-head' }, h('h2', {}, 'Masthead banner'), h('span', { class: 'muted small' }, 'Across the top of the station page')),
+        h('div', { class: 'lk-masts', role: 'radiogroup', 'aria-label': 'Masthead banner' },
+          choice(L.masthead.preset === 'site', { class: 'lk-mast', title: 'Wears the banner of the site the station is on', onclick: () => setMast({ preset: 'site' }) }, siteArt(), h('small', {}, 'Same as the site')),
+          MASTHEADS.map((m) => choice(L.masthead.preset === m.id, { class: 'lk-mast', title: m.blurb, onclick: () => setMast({ preset: m.id }) }, mastArt(m.id), h('small', {}, m.label))),
+          h('label', { class: `lk-mast lk-mast-upload${L.masthead.preset === 'upload' ? ' on' : ''}`, title: 'A wide picture, 2000 pixels across or more, works best' },
+            L.masthead.image ? h('span', { class: 'lk-mast-art' }, h('img', { src: L.masthead.image, alt: '' })) : h('span', { class: 'lk-mast-art lk-mast-add' }, icon('upload', 18)),
+            h('small', {}, L.masthead.image ? 'Your picture' : 'Upload your own'), upload),
+          choice(L.masthead.preset === 'none', { class: 'lk-mast', onclick: () => setMast({ preset: 'none' }) }, h('span', { class: 'lk-mast-art lk-mast-none' }, 'None'), h('small', {}, 'No banner'))),
+        L.masthead.preset !== 'none' && h('div', { class: 'lk-row' },
+          h('span', { class: 'lk-label' }, 'Height'),
+          h('div', { class: 'device-toggle xs', role: 'radiogroup', 'aria-label': 'Banner height' }, MASTHEAD_HEIGHTS.map((x) =>
+            h('button', { type: 'button', role: 'radio', 'aria-checked': String(L.masthead.height === x.id), class: L.masthead.height === x.id ? 'on' : '', onclick: () => setMast({ height: x.id }) }, x.label)))),
+        L.masthead.preset === 'upload' && h('div', { class: 'lk-row' },
+          h('label', { class: 'lk-label', for: 'pd-focus' }, 'Show more of the'),
+          h('input', { id: 'pd-focus', type: 'range', class: 'range range-xs', min: 0, max: 100, step: 5, value: L.masthead.focus ?? 50, onchange: (e) => setMast({ focus: +e.target.value }) }),
+          h('span', { class: 'muted small' }, 'top · bottom'),
+          h('button', { type: 'button', class: 'btn btn-xs btn-ghost', onclick: () => setMast({ preset: 'site', image: null }) }, 'Remove'))),
+      h('section', { class: 'lk-box' },
+        h('div', { class: 'lk-box-head' }, h('h2', {}, 'Top of the page')),
+        cards('Top of the page', LOOKS.hero, L.hero, (hero) => setLook({ hero }), (id) => h('span', { class: `pd-sketch pd-hero-${id}`, 'aria-hidden': 'true' }, h('i'), h('b'), h('u')))),
+      h('section', { class: 'lk-box' },
+        h('div', { class: 'lk-box-head' }, h('h2', {}, 'The archive'), h('span', { class: 'muted small' }, 'How listeners find past episodes')),
+        cards('Archive', LOOKS.archive, L.archive, (archive) => setLook({ archive }), (id) => h('span', { class: `pd-sketch pd-arc-${id}`, 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i')))),
+      h('section', { class: 'lk-box' },
+        h('div', { class: 'lk-box-head' }, h('h2', {}, 'Player and cover art')),
+        h('div', { class: 'lk-row' }, h('span', { class: 'lk-label' }, 'Player'),
+          h('div', { class: 'device-toggle xs', role: 'radiogroup', 'aria-label': 'Player' }, LOOKS.player.map((x) =>
+            h('button', { type: 'button', role: 'radio', title: x.blurb, 'aria-checked': String(L.player === x.id), class: L.player === x.id ? 'on' : '', onclick: () => setLook({ player: x.id }) }, x.label)))),
+        h('div', { class: 'lk-row' }, h('span', { class: 'lk-label' }, 'Art'),
+          h('div', { class: 'device-toggle xs', role: 'radiogroup', 'aria-label': 'Cover art' }, LOOKS.art.map((x) =>
+            h('button', { type: 'button', role: 'radio', 'aria-checked': String(L.art === x.id), class: L.art === x.id ? 'on' : '', onclick: () => setLook({ art: x.id }) }, x.label.replace(' art', '')))))),
+      h('section', { class: 'lk-box' },
+        h('div', { class: 'lk-box-head' }, h('h2', {}, 'Featured shows'), h('span', { class: 'muted small' }, 'Starred shows lead the page, in this order')),
+        h('ol', { class: 'pd-shows' }, shows.map((x, i) => h('li', { class: x.featured ? 'on' : '' },
+          Cover(x, 32),
+          h('span', { class: 'pd-show-name' }, x.title),
+          h('button', { class: `pc-star${x.featured ? ' on' : ''}`, title: x.featured ? 'Featured. Click to stop featuring it.' : 'Feature it', 'aria-pressed': String(x.featured), onclick: () => store.apply(col.update('podcasts', x.id, { featured: !x.featured })) }, icon('star', 15)),
+          h('div', { class: 'pc-order' },
+            h('button', { disabled: i === 0, 'aria-label': `Move ${x.title} up`, onclick: () => move(x, -1) }, icon('chevronUp', 14)),
+            h('button', { disabled: i === shows.length - 1, 'aria-label': `Move ${x.title} down`, onclick: () => move(x, 1) }, icon('chevronDown', 14))))))));
+  }
+
+  let siteShown = st().siteId;
+  const view = h('div', { class: 'pc-main pc-design' },
+    h('header', { class: 'lk-head' },
+      h('div', {},
+        h('h1', {}, 'Public station'),
+        h('p', { class: 'muted' }, 'Where listeners find every show and episode. It wears your site’s colours and shape (Public Portal → Look and feel); the choices here are the station’s own.'))),
+    h('div', { class: 'lk-grid' },
+      controls,
+      h('aside', { class: 'lk-preview', 'aria-label': 'Preview' },
+        h('div', { class: 'lk-preview-bar' }, DeviceToggle(() => { drawStage(); view.refresh(); }), h('span', { class: 'muted small' }, doc().station.name), h('span', { class: 'spacer' }), openLink),
+        stage)));
+  view.refresh = () => {
+    if (st().siteId !== siteShown) { siteShown = st().siteId; drawStage(); } else tell();
+    drawControls();
+    const bar = view.querySelector('.lk-preview-bar');
+    bar.replaceChild(DeviceToggle(() => { drawStage(); view.refresh(); }), bar.firstChild);
+  };
+  drawControls();
+  drawStage();
+  return view;
 }
 
 /* ------------------------------------------------------------------ rows */
@@ -294,14 +431,24 @@ function ShowStudio(p, r) {
     eps.length === 0
       ? h('div', { class: 'pc-empty big' }, icon('mic', 30), h('strong', {}, 'No episodes yet'), h('span', {}, 'Upload an .mp3 or .wav to make the first one.'), h('a', { class: 'btn btn-sm btn-primary', href: `#${p.id}/new` }, 'New episode'))
       : bySeason.length === 0 ? h('p', { class: 'pc-empty' }, 'No episodes match.')
-        : bySeason.map(({ s, list: inSeason }) => h('section', { class: 'pc-season' },
-          h('header', {},
-            h('span', { class: 'pc-season-no' }, `S${s.number}`),
-            h('div', {}, h('strong', {}, s.title || `Season ${s.number}`), s.description && h('small', { class: 'muted' }, s.description)),
-            h('span', { class: 'spacer' }),
-            h('span', { class: 'muted small' }, n(inSeason.length, 'episode')),
-            inSeason.some((e) => stateOf(e) === 'live') && h('button', { class: 'btn btn-xs btn-ghost', onclick: () => player.play(inSeason.filter((e) => stateOf(e) === 'live').sort((a, b) => a.number - b.number)) }, icon('play', 12), 'Play season')),
-          h('div', { class: 'pc-rows' }, inSeason.map((e) => EpisodeRow(e, { on: e === picked }))))));
+        : bySeason.flatMap(({ s, list: inSeason }, k) => {
+          // The newest season stays open; past seasons fold into the archive below it, unless a filter is narrowing things down.
+          const current = k === 0;
+          const narrowed = filter.season !== 'all' || filter.q.trim() || filter.state !== 'all' || inSeason.includes(picked);
+          const playable = inSeason.filter((e) => stateOf(e) === 'live').sort((a, b) => a.number - b.number);
+          const sec = h('details', { class: 'pc-season', open: current || !!narrowed },
+            h('summary', {},
+              h('header', {},
+                h('span', { class: 'pc-season-no' }, `S${s.number}`),
+                h('div', {}, h('strong', {}, s.title || `Season ${s.number}`), s.description && h('small', { class: 'muted' }, s.description)),
+                current && seasons.length > 1 && h('span', { class: 'pc-season-now' }, 'Current'),
+                h('span', { class: 'spacer' }),
+                h('span', { class: 'muted small' }, n(inSeason.length, 'episode')),
+                playable.length > 0 && h('button', { class: 'btn btn-xs btn-ghost', onclick: (ev) => { ev.preventDefault(); player.play(playable); } }, icon('play', 12), 'Play season'),
+                h('span', { class: 'pc-fold' }, icon('chevronDown', 14)))),
+            h('div', { class: 'pc-rows' }, inSeason.map((e) => EpisodeRow(e, { on: e === picked }))));
+          return k === 1 && filter.season === 'all' ? [h('p', { class: 'pc-archive-label' }, 'Past seasons'), sec] : [sec];
+        }));
 
   let detail;
   if (r.sub === 'new') detail = EpisodeEditor(p, null, { back: `#${p.id}` });

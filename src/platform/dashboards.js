@@ -130,6 +130,31 @@ export function scorecardDashboard(strategy, createdBy = null, today = new Date(
   return { title: 'Strategy scorecard', description: 'Where the plan stands: live from the roadmap and our program data.', visibility: 'private', siteId: null, sourceNodeId: master?.id ?? null, createdBy, widgets };
 }
 
+/**
+ * The board dashboard: one page for a board meeting. A short welcome, the
+ * headline numbers, how they have moved together, the goal lights and the
+ * road, what is coming up, and a note of what the board is asked to decide.
+ * It goes on the members-only portal when there is one.
+ */
+export function boardDashboard(strategy, createdBy = null, { sites = {}, today = new Date().toISOString().slice(0, 10) } = {}) {
+  const base = scorecardDashboard(strategy, createdBy, today);
+  const plans = Object.values(strategy.nodes).filter((n) => n.type === 'plan');
+  const master = strategy.nodes[base.sourceNodeId] ?? plans[0];
+  const current = plans.find((n) => n !== master && n.start && n.end && n.start <= today && today <= n.end) ?? master;
+  const measures = base.sourceNodeId ? measuresUnder(strategy, base.sourceNodeId).slice(0, 4) : [];
+  const portal = Object.values(sites).find((x) => x.visibility === 'private');
+  const widgets = [
+    widget('text', { title: 'For the board', size: 'full', text: `Where ${master?.title ?? 'the plan'} stands this month, live from the roadmap and our program data. The numbers update on their own; the notes below are ours.` }),
+    ...measures.map((m) => widget('kpi', { measureId: m.id })),
+  ];
+  if (measures.length > 1) widgets.push(widget('compare', { measureIds: measures.map((m) => m.id), title: 'How the numbers moved together' }));
+  if (current) widgets.push(widget('lights', { nodeId: current.id, title: `Goals in ${current.title}` }));
+  if (master) widgets.push(widget('milestones', { nodeId: master.id, title: 'Coming up' }));
+  if (master) widgets.push(widget('road', { nodeId: master.id, title: 'The road so far' }));
+  widgets.push(widget('text', { title: 'What we ask of the board', size: 'full', text: 'To decide: the decisions for this meeting.\nFor advice: where the board’s view would help.\nFor information: what the board should know.' }));
+  return { title: 'Board dashboard', description: 'One page for the board meeting: the headline numbers, the goal lights, what is next, and what we ask of the board.', visibility: 'private', siteId: portal?.id ?? null, sourceNodeId: master?.id ?? null, createdBy, widgets };
+}
+
 /** The STEM example's board scorecard: the road, the headline numbers, the goal lights, and what is next. */
 function boardDashboards(strategy) {
   const plan = Object.values(strategy.nodes).find((n) => n.type === 'plan' && n.start && n.end && n.start <= '2026-11-15' && '2026-11-15' <= n.end && n.parentId && strategy.nodes[n.parentId]?.type === 'plan') ?? Object.values(strategy.nodes).find((n) => n.type === 'plan');
