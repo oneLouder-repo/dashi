@@ -62,7 +62,11 @@ function place() {
   const el = trail();
   if (!el.childNodes.length) return;
   const col = column();
-  if (col && col.firstElementChild !== el) col.prepend(el);
+  if (!col) return;
+  // A column with no gutter of its own (its content pads itself) gets the trail padded to match.
+  const pad = parseFloat(getComputedStyle(col).paddingLeft) < 8;
+  el.classList.toggle('pad', pad);
+  if (col.firstElementChild !== el) col.prepend(el);
 }
 
 // Pages redraw their main column often; put the trail back each time.

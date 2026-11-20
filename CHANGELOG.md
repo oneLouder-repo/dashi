@@ -2,6 +2,13 @@
 
 Dashi uses version numbers like `0.1.0-alpha.1`. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
+## Unreleased (alpha.10 fixes)
+
+- **Links on Look and feel no longer stall.** Each site preview on the page held its own live-update connection to the server open, and browsers allow only six at a time, so following a link had to wait for one to free up. Previews now get their updates from the page around them, and pages let go of their connection when you leave.
+- **Breadcrumbs line up** with the page on Podcasts (show settings, Public station), Organisation and everywhere else, instead of sitting in the corner.
+- **Seasons in show settings** are a shelf of cards: each season's number, name and blurb (typed in place), its episodes' art, how many are out and when it ran, and a link to its episodes. The newest is marked current, and a dashed card starts the next season.
+- **Public station designer**: the player and cover art choices are little pictures of each style, and the preview shows the player, so a change is easy to see.
+
 ## 0.1.0-alpha.10 (plugins by role, a podcast station you can design, site templates with masthead banners, and a funder report designer)
 
 ### Plugins by role
