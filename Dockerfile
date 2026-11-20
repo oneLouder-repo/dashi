@@ -1,7 +1,7 @@
 # Dashi in a container: no dependencies to install, just Node and the code.
 #   docker build -t dashi . && docker run -p 8080:8080 -v dashi-data:/data -e BASE_DOMAIN=localhost dashi
 # Fly.io builds this with `fly deploy` (see fly.toml and DEPLOY.md).
-FROM node:22-slim
+FROM node:26-slim
 
 ENV NODE_ENV=production \
     PORT=8080 \
