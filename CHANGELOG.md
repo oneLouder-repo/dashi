@@ -2,14 +2,44 @@
 
 Dashi uses version numbers like `0.1.0-alpha.1`. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
-## Unreleased (a calmer app interface)
+## 0.1.0-alpha.10 (plugins by role, a podcast station you can design, site templates with masthead banners, and a funder report designer)
 
-- **One look for every app screen**, set down in `.interface-design/system.md` and `interface.css`: warm paper for the page, white sheets for the work, ink for text, and each plugin's colour used only where it means something.
-- **The plugin bar is quiet**: plain ink icons, with the plugin's colour on hover and on the one that's open.
-- **Sidebars sit on the page**, so the work stands out; the page you're on shows as a small sheet with a dot in the plugin's colour.
-- **Cards, tables, fields and buttons** share one set of edges, corners and states. Fields look inset, buttons press in a little, and rows light up under the pointer.
+### Plugins by role
+
+- **Organisation → Plugins** is a grid: every plugin down the side, every role across the top. Untick a box and that role stops seeing that plugin in their bar, so leaders can have a different set of tools from staff, the board or guests. Core plugins stay on for everyone.
+- Two quick presets: "Same tools for everyone" and "Reading tools for the board and guests".
+- Someone who follows a link to a plugin their role doesn't have gets a friendly page saying so, with a way back. (What a person can change is still decided by their role on the server.)
+
+### Podcasts
+
+- **Public station** has its own page in the sidebar, with the station on the right as a laptop or a phone, following every change without reloading. Pick its site, its masthead banner (the site's own, one of eight, your own picture, or none) and height, the top of the page, how the archive is laid out, the player, the art, and which shows lead and in what order.
+- The overview shows a small picture of the public station and a "Design the station" button, in place of the old look settings at the bottom of the page.
+- A show's episodes: the current season is open and marked, and past seasons fold away under "Past seasons".
+- On the public station: the name sits over a wide banner with the latest episode lifted over its edge, and the archive is a row of shows, then season tabs, then the episodes. It can also be by month or a cover grid, and the search looks across everything.
+
+### Public sites
+
+- **Five templates**: Harbour (a full-width banner), Commons (split), Journal (a centred nameplate), Field (a warm paper with a rounded banner card) and Signal (a deep colour band).
+- **Masthead banners** across the top of every site, drawn in your colours (ripples, hills at dawn, canopy, river, contours, confluence, tide, prairie), or your own picture with a focus slider, in three heights. Inner pages wear a slim strip of it.
+- New type choices (including a grotesk and a rounded face) and three headers: light, solid, or see-through over the banner.
+- The top-left "Our sites" menu lists each site with what it shows, and marks the one you're on.
+
+### Public Portal
+
+- **Look and feel** is a designer: templates shown as real renders of your own site, the banner, type and header for each site, and the colours and shapes shared by all of them, with the live site on the right as a laptop or a phone.
+- **Every preview has a Desktop / Phone switch**, remembered across the app. The phone frame is redrawn: the page is laid out at a real phone width, sits centred, and nothing pokes out past the frame's corners.
+
+### Data Workbench
+
+- **Funder reports** work like the plan designer: the report as the funder will get it (a cover page, then the report) fills the canvas, and the panel on the right has two tabs. **Write** edits it section by section: rename, move, hide (the words are kept) or delete a section, or edit it all as Markdown. **Design** picks a template (Modern, Bold or Editorial), colours, type and the cover page. Print and PDF use the designed pages.
+- **Board dashboard** template, beside Strategy scorecard: a short welcome, the headline numbers, how they moved together, the goal lights, what's coming up, the road, and "What we ask of the board". It goes on the board portal when there is one.
+
+### Everywhere
+
+- A **breadcrumb trail** at the top of every plugin page (Podcasts / STEM Voices / Settings), hidden on a plugin's own home where the big header already says it.
+- New Library icon (three books on a shelf, one in the plugin's colour) and a colour dot on the Public Portal icon.
+- **One look for every app screen**, set down in `.interface-design/system.md` and `interface.css`: warm paper for the page, white sheets for the work, ink for text, and each plugin's colour used only where it means something. The plugin bar is quiet, sidebars sit on the page, and cards, tables, fields and buttons share one set of edges, corners and states.
 - **Keyboard friendly**: a "Skip to content" link, and a clear ring around whatever has focus, everywhere.
-- The Feedback button is smaller, the search box makes room on phones, and motion is short and switches off for people who ask their device for less.
 
 ## 0.1.0-alpha.9 (a rethought Organisation page, the look of your sites in the Public Portal, and two new roles)
 

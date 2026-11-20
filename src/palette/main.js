@@ -8,7 +8,7 @@ import { autosaveDoc, onDocChange } from '../platform/storage.js';
 import { loadOrg, loadStrategy, loadData, loadDashboards, loadPodcasts } from '../platform/docs.js';
 import { pluginOn } from '../platform/org.js';
 import { migrateStrategy } from '../platform/strategy.js';
-import { dashboardFromNode, scorecardDashboard } from '../platform/dashboards.js';
+import { dashboardFromNode, scorecardDashboard, boardDashboard } from '../platform/dashboards.js';
 import { uid } from '../core/ops.js';
 import { currentUser } from '../platform/session.js';
 import { DashboardsTool } from './DashboardsTool.js';
@@ -84,6 +84,8 @@ const ctx = {
       ? (({ id, ...rest }) => ({ ...structuredClone(rest), title: `${copyOf.title} (copy)`, visibility: 'private', createdBy: me, widgets: rest.widgets.map((w) => ({ ...w, id: uid('w') })) }))(copyOf)
       : template === 'scorecard'
       ? scorecardDashboard(strategy, me)
+      : template === 'board'
+      ? boardDashboard(strategy, me, { sites: org.sites })
       : nodeId
       ? dashboardFromNode(strategy, nodeId, me)
       : { title: 'Untitled dashboard', description: '', visibility: 'private', siteId: null, createdBy: me, widgets: [] };
@@ -111,10 +113,19 @@ function render() {
 
   // Keep the focused field and scroll position across the redraw.
   const scroll = main.scrollTop;
-  const focused = main.contains(document.activeElement) ? document.activeElement.name : null;
+  const active = main.contains(document.activeElement) ? document.activeElement : null;
+  const focused = active?.name ?? null;
+  const sel = active && 'selectionStart' in active ? [active.selectionStart, active.selectionEnd] : null;
+  // Inner panes that scroll on their own (data-keep-scroll="key") keep their place too.
+  const inner = Object.fromEntries([...main.querySelectorAll('[data-keep-scroll]')].map((el) => [el.dataset.keepScroll, el.scrollTop]));
   main.replaceChildren(tool.render(ctx));
   main.scrollTop = scroll;
-  if (focused) main.querySelector(`[name="${focused}"]`)?.focus();
+  for (const el of main.querySelectorAll('[data-keep-scroll]')) el.scrollTop = inner[el.dataset.keepScroll] ?? 0;
+  if (focused) {
+    const el = main.querySelector(`[name="${focused}"]`);
+    el?.focus({ preventScroll: true });
+    try { if (sel && el) el.setSelectionRange(...sel); } catch { /* not a text field */ }
+  }
 }
 
 dashboards.addEventListener('change', render);

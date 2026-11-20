@@ -2,6 +2,7 @@ import { REGISTRY_KEY, readKey, writeKey, setActiveOrg, saveDoc, clearOrg, sessi
 import { blankOrg } from './org.js';
 import { blankStrategy } from './strategySeed.js';
 import { uid } from '../core/ops.js';
+import { setRoleResolver } from '../plugins.js';
 
 /**
  * The session: which orgs this platform holds, which one is open, and who
@@ -123,6 +124,9 @@ export function currentUser(org) {
   const id = loadRegistry().signedIn[org.id];
   return org.staff[id] ?? Object.values(org.staff).find((s) => s.roleId === 'admin') ?? Object.values(org.staff)[0] ?? null;
 }
+
+// The header and dashboard show each person their role's palette of plugins.
+setRoleResolver((org) => (hosted && !hosted.staffId ? hosted.role ?? null : currentUser(org)?.roleId ?? null));
 
 /** See the platform as this staff member. Hosted, only the platform admin (or dev sign-in) can. */
 export async function signInAs(orgId, staffId) {

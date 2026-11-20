@@ -1,5 +1,6 @@
 import { h } from './dom.js';
 import { icon } from './icons.js';
+import { setSection } from './crumbs.js';
 
 /**
  * The left sidebar every plugin shares, built on DaisyUI's menu. Sections
@@ -28,6 +29,10 @@ export function SideNav({ label, sections }) {
       document.dispatchEvent(new CustomEvent('dashi:side-fold'));
     } }, h('span', { 'aria-hidden': 'true' }, '‹'));
   nav.append(toggle, ...sections.filter(Boolean).map(Section));
+  // The open item is the second step of the page's breadcrumb trail.
+  const all = sections.filter(Boolean).flatMap((s) => (s.items ?? []).filter((it) => it && !(it instanceof Node)));
+  const on = all.find((it) => it.on);
+  if (on) setSection({ label: on.label, href: on.href }, { isHome: on === all[0] });
   return nav;
 }
 

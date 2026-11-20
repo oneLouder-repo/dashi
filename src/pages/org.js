@@ -11,7 +11,7 @@ import { toast } from '../ui/Shell.js';
 import { loadOrg } from '../platform/docs.js';
 import { ROLES, staffList, teamList, membersOf } from '../platform/org.js';
 import { renameOrg } from '../platform/session.js';
-import { PLUGINS, pausedForOrg, featureOn, chosenByOrg } from '../plugins.js';
+import { PLUGINS, pausedForOrg, featureOn, chosenByOrg, roleHas } from '../plugins.js';
 import { LIMITS, FEATURES, PLAN_IDS, PLAN_PLUGINS, amount } from '../platform/plans.js';
 import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
 
@@ -376,31 +376,101 @@ function openFromHash() {
   if (t === 'people' && id && store.doc.staff[id] && !document.querySelector('dialog.drawer-panel[open]')) PersonDrawer(id);
 }
 
+/**
+ * Plugins, and each role's palette of them. The org switches a plugin on
+ * for everyone (the first column), then can take it out of a role's
+ * palette: leaders might get every tool, the board the reading ones. A
+ * plugin's features open in a drawer.
+ */
+const READING_SET = ['strategy', 'palette', 'library', 'pages'];
 function Plugins(org) {
-  const tier = org.platform?.tier ?? null;
   const cats = [...new Set(PLUGINS.filter((p) => !p.platformOff).map((p) => p.category ?? 'Other'))];
-  const card = (p) => {
+  const list = cats.flatMap((c) => PLUGINS.filter((p) => !p.platformOff && (p.category ?? 'Other') === c));
+  const optional = list.filter((p) => !p.core);
+  const inUse = (p) => p.core || (!pausedForOrg(org, p.id) && chosenByOrg(org, p));
+  const setRole = (pid, rid, on) => {
+    const next = structuredClone(org.pluginRoles ?? {});
+    const row = next[pid] ?? {};
+    if (on) delete row[rid]; else row[rid] = false;
+    if (Object.keys(row).length) next[pid] = row; else delete next[pid];
+    set('pluginRoles', next);
+  };
+  const palette = (r) => optional.filter((p) => inUse(p) && roleHas(org, p.id, r.id));
+  const preset = async (kind) => {
+    if (kind === 'all') {
+      if (!await uiConfirm('Give every role every plugin your organisation uses?', { ok: 'Same for everyone' })) return;
+      set('pluginRoles', {});
+      return;
+    }
+    if (!await uiConfirm('Board directors, guests and viewers get the reading tools (Strategy, Data Workbench, Library, Public Portal); admins, leads and staff keep everything. You can fine-tune it after.', { ok: 'Use it' })) return;
+    const next = {};
+    for (const p of optional) for (const r of ['board', 'guest', 'viewer']) if (!READING_SET.includes(p.id)) (next[p.id] ??= {})[r] = false;
+    set('pluginRoles', next);
+  };
+  const head = h('tr', {},
+    h('th', { scope: 'col', class: 'rp-plugin-col' }, 'Plugin'),
+    h('th', { scope: 'col', class: 'rp-use-col' }, h('span', {}, 'In use'), h('small', {}, 'for the org')),
+    ROLES.map((r) => {
+      const mine = palette(r);
+      return h('th', { scope: 'col', class: `rp-role role-${r.id}` },
+        h('span', { class: 'rp-role-name' }, r.short ?? r.label),
+        h('span', { class: 'rp-dots', 'aria-hidden': 'true' }, optional.filter(inUse).map((p) => h('i', { class: mine.includes(p) ? 'on' : '', style: `--tone:${p.tone}` }))),
+        h('small', { class: 'rp-count' }, `${mine.length} of ${optional.filter(inUse).length}`));
+    }));
+  const row = (p) => {
     const paused = pausedForOrg(org, p.id);
-    const on = p.core || (!paused && chosenByOrg(org, p));
-    return h('article', { class: `org-plug${on ? ' on' : ''}${paused ? ' locked' : ''}`, style: `--tone:${p.tone}` },
-      h('div', { class: 'org-plug-head' },
-        h('span', { class: 'tone-tile' }, icon(p.icon, 22)),
-        h('div', { class: 'org-plug-title' }, h('h3', {}, p.name), h('span', { class: 'muted small' }, [p.category, p.version && `v${p.version}`].filter(Boolean).join(' · '))),
-        p.core
-          ? h('span', { class: 'badge badge-ghost badge-sm' }, 'Always on')
-          : paused
-          ? h('span', { class: 'badge badge-warning badge-soft badge-sm', title: 'Ask the platform admin, or change your plan under Plan' }, 'Not in your plan')
+    const used = inUse(p);
+    return h('tr', { class: `${used ? 'on' : 'off'}${paused ? ' locked' : ''}`, style: `--tone:${p.tone}` },
+      h('th', { scope: 'row', class: 'rp-plugin' },
+        h('button', { type: 'button', class: 'rp-plugin-btn', onclick: () => PluginDrawer(p.id), 'aria-label': `${p.name}: features and who has it` },
+          h('span', { class: 'tone-tile' }, icon(p.icon, 18)),
+          h('span', { class: 'rp-plugin-text' }, h('strong', {}, p.name), h('small', {}, [p.category, `${(p.features ?? []).length || 'no'} feature${(p.features ?? []).length === 1 ? '' : 's'}`].filter(Boolean).join(' · '))))),
+      h('td', { class: 'rp-use' },
+        p.core ? h('span', { class: 'rp-always' }, 'Always')
+          : paused ? h('span', { class: 'badge badge-warning badge-soft badge-sm', title: 'Ask the platform admin, or change your plan under Plan' }, 'Not in plan')
           : h('input', { type: 'checkbox', class: 'toggle toggle-sm toggle-primary', 'aria-label': `Use ${p.name}`, checked: chosenByOrg(org, p),
               onchange: (e) => set('plugins', { ...org.plugins, [p.id]: e.target.checked }) })),
-      h('p', { class: 'org-plug-blurb' }, p.blurb),
-      (p.features ?? []).length > 0 && h('ul', { class: 'org-plug-feats' }, p.features.map((f) => {
-        const ok = featureOn(p.id, f.id, tier);
-        return h('li', { class: ok ? '' : 'off', title: ok ? f.description : `${f.description ?? ''} (not in your plan)`.trim() }, icon(ok ? 'check' : 'lock', 12), f.label);
-      })));
+      p.core
+        ? h('td', { class: 'rp-everyone', colspan: ROLES.length }, h('span', {}, 'Everyone', p.id === 'org' ? ', so admins can always reach settings' : ''))
+        : ROLES.map((r) => h('td', { class: 'rp-cell' },
+            h('input', { type: 'checkbox', class: 'checkbox checkbox-sm rp-check', disabled: !used, checked: used && roleHas(org, p.id, r.id),
+              'aria-label': `${p.name} for ${r.label}`, title: used ? `${p.name} for ${r.label}` : `${p.name} is switched off for the whole organisation`,
+              onchange: (e) => setRole(p.id, r.id, e.target.checked) }))));
   };
-  return h('div', {},
-    h('p', { class: 'lede' }, 'Choose the plugins your organisation uses. Switching one off hides it from the dashboard and header; its data is kept. Each plugin lists its features; a lock means your plan leaves that one out.'),
-    h('div', { class: 'org-plug-grid' }, cats.flatMap((c) => PLUGINS.filter((p) => !p.platformOff && (p.category ?? 'Other') === c)).map(card)));
+  return h('div', { class: 'rp' },
+    h('p', { class: 'lede' }, 'Choose the plugins your organisation uses, then which roles get each one. Leaders can have a different palette of tools from the board or guests. Switching one off hides it from the dashboard and header; its data is kept.'),
+    h('div', { class: 'rp-presets' },
+      h('span', { class: 'section-label' }, 'Start from'),
+      h('button', { class: 'btn btn-sm', onclick: () => preset('all') }, 'Same tools for everyone'),
+      h('button', { class: 'btn btn-sm', onclick: () => preset('reading') }, 'Reading tools for the board and guests')),
+    h('div', { class: 'rp-scroll' },
+      h('table', { class: 'rp-table' }, h('thead', {}, head), h('tbody', {}, list.map(row)))),
+    h('p', { class: 'muted small rp-note' }, icon('info', 13), ' Board directors, guests and viewers can only read, whatever their palette. Someone who opens a plugin outside their palette is told who to ask.'));
+}
+
+/** A plugin's features (a lock means your plan leaves that one out) and which roles have it. */
+function PluginDrawer(id) {
+  const draw = () => {
+    const org = store.doc;
+    const p = PLUGINS.find((x) => x.id === id);
+    const tier = org.platform?.tier ?? null;
+    return h('div', { class: 'rp-drawer' },
+      h('p', {}, p.blurb),
+      h('section', { class: 'drawer-section' }, h('h3', {}, 'Features'),
+        (p.features ?? []).length
+          ? h('ul', { class: 'org-plug-feats' }, p.features.map((f) => {
+              const ok = featureOn(p.id, f.id, tier);
+              return h('li', { class: ok ? '' : 'off' }, icon(ok ? 'check' : 'lock', 13), h('span', {}, h('strong', {}, f.label), f.description && h('small', {}, ok ? f.description : `${f.description} (not in your plan)`)));
+            }))
+          : h('p', { class: 'muted small' }, 'No separate features: it all comes together.')),
+      h('section', { class: 'drawer-section' }, h('h3', {}, 'Who has it'),
+        h('ul', { class: 'rp-who' }, ROLES.map((r) => h('li', {}, h('span', { class: `role-badge role-${r.id}` }, r.label), h('span', { class: 'muted small' }, p.core || roleHas(org, p.id, r.id) ? 'Yes' : 'Not in their palette'))))));
+  };
+  const p = PLUGINS.find((x) => x.id === id);
+  const d = Drawer({ title: p.name, sub: p.category ?? 'Plugin', lead: h('span', { class: 'tone-tile solid', style: `--tone:${p.tone}` }, icon(p.icon, 20)), body: draw() });
+  const keep = () => d.setBody(draw());
+  store.addEventListener('change', keep);
+  d.el.addEventListener('close', () => store.removeEventListener('change', keep));
 }
 
 /**
