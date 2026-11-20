@@ -1,0 +1,281 @@
+/*
+ * Dashi's app interface: the staff screens (dashboard, mapper, plugins,
+ * organisation, admin). Loaded last, after theme.css and a page's own CSS.
+ * Public pages and public sites don't load it.
+ *
+ * The decisions behind it live in .interface-design/system.md. In short:
+ *
+ * - "A steward's field notebook." Warm paper for the page, white sheets
+ *   for the work, ink for text. Colour is scarce: each plugin's tone marks
+ *   identity and action, nothing else.
+ * - Depth is borders-only inside a sheet. Only things that float over the
+ *   page (the sheet itself, dock panels, menus, drawers) cast a shadow.
+ * - The ripple ring is Dashi's way of saying "here": focus, the open
+ *   plugin, the current page in a sidebar.
+ * - 4px spacing; 8px controls, 12px cards, 16px sheets.
+ */
+
+/* ── Tokens ─────────────────────────────────────────────────────────── */
+[data-theme='toolbox'] {
+  --paper: #f3f1ec;          /* the page: warm, like recycled stock */
+  --sheet: #fffefc;          /* where the work sits */
+  --well: #f8f6f2;           /* inset: fields, wells, hovered rows */
+  --ink-1: #22252b;          /* titles, values */
+  --ink-2: #4d515a;          /* body copy */
+  --ink-3: #757982;          /* labels, metadata */
+  --ink-4: #a4a7ad;          /* placeholders, disabled */
+  --rule: rgb(70 60 40 / 0.10);        /* hairlines between things */
+  --rule-soft: rgb(70 60 40 / 0.06);   /* rows inside a list */
+  --rule-strong: rgb(70 60 40 / 0.18); /* edges you need to find: fields */
+  --lift-sheet: 0 0 0 1px rgb(70 60 40 / 0.05), 0 1px 2px rgb(40 30 20 / 0.04), 0 4px 16px -4px rgb(40 30 20 / 0.05);
+  --lift-float: 0 0 0 1px rgb(70 60 40 / 0.07), 0 4px 10px -2px rgb(40 30 20 / 0.08), 0 16px 36px -8px rgb(40 30 20 / 0.16);
+  --r-control: 8px;
+  --r-card: 12px;
+  --r-sheet: 16px;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  /* Map the older names onto the new ones so every stylesheet follows. */
+  --color-base-100: var(--sheet);
+  --color-base-200: var(--paper);
+  --color-base-300: #e4e0d8;
+  --color-base-content: var(--ink-1);
+  --panel: var(--sheet);
+  --bg: var(--paper);
+  --ink: var(--ink-1);
+  --muted: var(--ink-3);
+  --line: #e2ded6;
+  --line-soft: var(--rule);
+  --panel-radius: var(--r-sheet);
+  --panel-shadow: var(--lift-sheet);
+  --card-shadow: none;
+  --radius-field: var(--r-control);
+  --radius-selector: var(--r-control);
+  --radius-box: var(--r-card);
+}
+
+/* The ripple: a ring with a gap of paper, in the page's colour. */
+:root, [data-theme], body {
+  --ripple: 0 0 0 2px var(--sheet), 0 0 0 3.5px color-mix(in oklab, var(--color-primary) 75%, transparent);
+  --ripple-soft: 0 0 0 2px var(--sheet), 0 0 0 3.5px color-mix(in oklab, var(--color-primary) 28%, transparent);
+}
+
+html { -webkit-tap-highlight-color: transparent; }
+body { background: var(--paper); color: var(--ink-2); font-size: 14.5px; }
+:where(button, a, input, select, textarea, summary, label) { touch-action: manipulation; }
+
+/* ── Type: weight and colour do the work, sizes step at 1.25 ─────────── */
+h1, h2, h3, h4, .card-title { color: var(--ink-1); text-wrap: balance; }
+h1 { letter-spacing: -0.02em; }
+h2, h3 { letter-spacing: -0.01em; }
+p, li, .side-text small { text-wrap: pretty; }
+.page h1, .plugin-header-text h1 { font-size: 28px; font-weight: 800; line-height: 1.15; }
+.plugin-header-text p, .page-sub, .page > p:first-of-type { color: var(--ink-3); font-size: 14.5px; }
+.page h2, .studio-h2 { font-size: 18px; font-weight: 750; color: var(--ink-1); }
+.card-title, .card h3 { font-size: 15px; font-weight: 750; }
+.muted, .small.muted, small { color: var(--ink-3); }
+
+/* Section labels: small capitals in ink, never a colour (colour means something). */
+.side-title, .panels-title, .dock-head, .drawer-section h3, .page h2.label, .section-label, .upcoming h3 {
+  font-size: 11px; font-weight: 750; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3);
+}
+
+/* Numbers that change or line up. */
+.num, .tile .num, td, .badge, .netlight-label, .gs-kbd, time, .count, .stat-line, .gantt-label, .ms { font-variant-numeric: tabular-nums; }
+
+/* ── Focus: the ripple, for keyboards only ───────────────────────────── */
+:where(a, button, summary, [role='button'], [tabindex]:not(main), .btn, .tab, .menu li > *):focus-visible {
+  outline: none; box-shadow: var(--ripple);
+}
+:where(.input, .select, .textarea, input, select, textarea):focus-visible,
+:where(.input, .select, .textarea):focus-within {
+  outline: none; border-color: color-mix(in oklab, var(--color-primary) 70%, var(--rule-strong)); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 16%, transparent);
+}
+/* Elements that dropped their outline now get one back for keyboards. */
+.title-input:focus-visible, .pick-row:focus-visible, .tile-face:focus-visible, .tm-node:focus-visible, .dd-inline:focus-visible, #topbar .map-name:focus-visible { box-shadow: var(--ripple); }
+
+main[tabindex='-1']:focus { outline: none; }
+
+/* Skip to content: hidden until a keyboard reaches it. */
+.skip-link {
+  position: fixed; left: 16px; top: 12px; z-index: 2000; padding: 8px 14px; border-radius: var(--r-control);
+  background: var(--ink-1); color: #fff !important; font-weight: 700; font-size: 14px; text-decoration: none;
+  transform: translateY(-160%); transition: transform 150ms var(--ease-out);
+}
+.skip-link:focus-visible { transform: none; box-shadow: var(--ripple); }
+
+/* ── The header ──────────────────────────────────────────────────────── */
+.shell { color: var(--ink-1); }
+.shell-top { min-height: 56px; }
+.shell-word { color: var(--ink-1); letter-spacing: -0.02em; }
+.shell-orgname { color: var(--ink-3) !important; font-weight: 600; transition: color 150ms var(--ease-out); }
+.shell-orgname:hover { color: var(--ink-1) !important; }
+.shell-slash { color: var(--ink-4); }
+.stage-badge { background: color-mix(in oklab, #e3b341 32%, var(--sheet)); color: #7a5410; letter-spacing: 0.08em; }
+
+/* Plugins: quiet ink icons; the tone shows on hover and on the open one. */
+.shell-bar { gap: 2px; padding-bottom: 10px; }
+.shell-bar .shell-link { height: 36px; border-radius: 10px; transition: background-color 150ms var(--ease-out); }
+.shell-bar .shell-link .icon {
+  color: var(--ink-3); background: transparent; border-radius: 8px;
+  transition: color 150ms var(--ease-out), background-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
+}
+.shell-bar .shell-link:hover .icon { color: var(--tone); background: color-mix(in oklab, var(--tone) 12%, transparent); }
+.shell-bar .shell-link:active .icon { transform: scale(0.94); }
+.shell-bar .shell-link.active { background: var(--sheet); box-shadow: var(--lift-sheet); padding-right: 14px; }
+.shell-bar .shell-link.active .icon { color: #fff; background: var(--tone); box-shadow: 0 0 0 2px var(--sheet), 0 0 0 3.5px color-mix(in oklab, var(--tone) 35%, transparent); }
+.shell-bar .shell-link.active span { font-weight: 700; color: var(--ink-1); }
+.shell-bar-sep { background: var(--rule-strong); height: 18px; margin: 0 6px; }
+.shell-icon { color: var(--ink-3) !important; transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out); }
+
+/* Search: an inset field. */
+.gs { background: var(--well); border-color: var(--rule); transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out), background-color 150ms var(--ease-out); }
+.gs:hover { border-color: var(--rule-strong); }
+.gs:focus-within, .gs.open { background: var(--sheet); }
+.gs-input, .gs-input:focus-visible { background: none !important; border: 0 !important; box-shadow: none !important; }
+.gs-kbd { background: var(--sheet); border-color: var(--rule); color: var(--ink-3); }
+.shell .netlight { background: var(--sheet); border-color: var(--rule); color: var(--ink-2); }
+
+/* Menus and popovers float one level above what they open from. */
+.shell-menu, .panels-menu, .netlight-log, .gs-panel, .dropdown-content.menu, .menu.dropdown-content {
+  background: var(--sheet); border: 0; box-shadow: var(--lift-float); border-radius: var(--r-card);
+}
+.shell-menu .menu-title { font-size: 11px; font-weight: 750; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+
+/* ── Notes across the top ────────────────────────────────────────────── */
+.verify-note { background: var(--paper); color: var(--ink-2); border-bottom: 1px solid var(--rule); font-size: 13px; }
+.verify-note a, .verify-note .link-button { color: var(--ink-1); font-weight: 650; text-decoration: underline; text-decoration-color: var(--rule-strong); text-underline-offset: 3px; }
+
+/* ── Sheets on paper ─────────────────────────────────────────────────── */
+#app.frame { gap: 16px; padding: 0 16px 16px; }
+#app.frame > *, body:not(.app-page, .mapper-page, .login-page, .platform-page, .studio-page, .strategy-page, .podcasts-page, .palette-page, .sales-page, .assets-page) > #app:not(.frame) {
+  background: var(--sheet); border-radius: var(--r-sheet); box-shadow: var(--lift-sheet);
+}
+body:not(.app-page, .mapper-page, .login-page, .platform-page, .studio-page, .strategy-page, .podcasts-page, .palette-page, .sales-page, .assets-page) > #app:not(.frame) { margin: 0 16px 16px; }
+
+/* The sidebar is navigation, so it sits on the paper, not on a sheet. */
+#app.frame > .side-nav, .side-nav { background: transparent; box-shadow: none; border-right: 0; padding-top: 12px; }
+#app.frame > .side-nav { border-radius: 0; }
+.side-title { padding-inline: 14px; }
+.side-menu { font-size: 14px; }
+.side-menu li > :where(a, button) {
+  position: relative; border-radius: 10px; padding: 7px 10px; color: var(--ink-2);
+  transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
+}
+.side-menu li > :where(a, button):hover { background: rgb(70 60 40 / 0.05); color: var(--ink-1); }
+.side-menu li > :where(a, button) .icon { color: var(--ink-3); }
+.side-text small { color: var(--ink-3); font-size: 12px; }
+/* The current page: a sheet of its own, with a ripple dot in the plugin's tone. */
+.side-menu li > .menu-active, .side-menu li > .menu-active:hover {
+  background: var(--sheet) !important; color: var(--ink-1); font-weight: 700; box-shadow: var(--lift-sheet) !important;
+}
+.side-menu li > .menu-active .icon { color: var(--color-primary); }
+.side-menu li > .menu-active::after {
+  content: ''; position: absolute; right: 12px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%;
+  background: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 18%, transparent);
+}
+.side-menu li > .menu-active:has(.badge)::after, .side-nav.folded .side-menu li > .menu-active::after { display: none; }
+.side-menu li > .menu-active .side-text { padding-right: 14px; }
+.side-fold { color: var(--ink-3); }
+
+/* ── Page headers ────────────────────────────────────────────────────── */
+.plugin-header { margin-bottom: 24px; }
+.plugin-header-row { gap: 16px; }
+.plugin-header-icon { width: 44px; height: 44px; border-radius: var(--r-card); box-shadow: 0 0 0 3px var(--sheet), 0 0 0 4px color-mix(in oklab, var(--color-primary) 20%, transparent); }
+.plugin-header-text p { max-width: 68ch; margin-top: 6px; line-height: 1.5; }
+.plugin-tabs a { color: var(--ink-3); transition: color 150ms var(--ease-out); }
+.plugin-tabs a:hover { color: var(--ink-1); }
+.plugin-tabs a.on { color: var(--ink-1); }
+
+/* ── Cards: hairlines, no shadows (a sheet already lifts them) ───────── */
+.card, .tile, .panel, .feature-list, .episode-list, .show-card, .now-card, .news-card, .archive-season {
+  background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r-card); box-shadow: none;
+}
+a.card, .plugin-card, .pa-card { transition: border-color 150ms var(--ease-out); }
+a.card:hover, .plugin-card:hover { border-color: color-mix(in oklab, var(--color-primary) 35%, var(--rule)); }
+.card .stat-line { border-top-color: var(--rule-soft); }
+.plugin-card .stat-line { color: var(--ink-2); }
+
+/* Lists and tables. */
+table.list, .table { border-color: var(--rule); }
+table.list th, .table thead th { font-size: 11px; font-weight: 750; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+table.list td, .table td { border-color: var(--rule-soft); }
+table.list tbody tr, .table tbody tr { transition: background-color 120ms var(--ease-out); }
+table.list tbody tr:hover, .table tbody tr:hover { background: var(--well); }
+
+/* ── Controls ────────────────────────────────────────────────────────── */
+.btn {
+  font-weight: 650; border-radius: var(--r-control); letter-spacing: 0;
+  transition: background-color 150ms var(--ease-out), border-color 150ms var(--ease-out), color 150ms var(--ease-out), box-shadow 150ms var(--ease-out), transform 100ms var(--ease-out);
+}
+.btn:active:not(:disabled) { transform: scale(0.97); }
+[data-theme='toolbox'] .btn:not(.btn-primary, .btn-ghost, .btn-error, .btn-success, .btn-active, .btn-link, .btn-warning, .btn-info) {
+  --btn-bg: var(--sheet); --btn-border: var(--rule-strong); --btn-fg: var(--ink-1); --btn-shadow: 0 1px 1px rgb(40 30 20 / 0.04);
+}
+[data-theme='toolbox'] .btn:not(.btn-primary, .btn-ghost, .btn-error, .btn-success, .btn-active, .btn-link, .btn-warning, .btn-info):hover {
+  --btn-bg: var(--well); --btn-border: color-mix(in oklab, var(--ink-1) 22%, transparent);
+}
+.btn-primary { --btn-shadow: 0 1px 2px color-mix(in oklab, var(--color-primary) 35%, transparent); }
+.btn-ghost { color: var(--ink-2); }
+.btn-ghost:hover { --btn-bg: rgb(70 60 40 / 0.06); color: var(--ink-1); }
+.btn:focus-visible { outline: none; box-shadow: var(--ripple); }
+
+/* Fields are inset: a shade darker than the sheet, with a findable edge. */
+.input, .select, .textarea { background-color: var(--well); border-color: var(--rule-strong); color: var(--ink-1); border-radius: var(--r-control); box-shadow: none; transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out), background-color 150ms var(--ease-out); }
+.input:hover, .select:hover, .textarea:hover { border-color: color-mix(in oklab, var(--ink-1) 28%, transparent); }
+.input:focus, .input:focus-within, .select:focus, .textarea:focus { background-color: var(--sheet); }
+select, .select select { background-color: inherit; color: inherit; }
+::placeholder { color: var(--ink-4); opacity: 1; }
+.fieldset-legend, .dui-label, label > .label, .field > span:first-child { color: var(--ink-2); font-weight: 650; }
+
+/* Filter chips and segmented controls. */
+.segmented button, .chip, .filter-chip { transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), border-color 150ms var(--ease-out); }
+.segmented button.on { background: var(--ink-1); border-color: var(--ink-1); }
+
+.badge-ghost { background: var(--well); color: var(--ink-2); border-color: var(--rule); }
+.tabs-border .tab-active, .tab-active { color: var(--ink-1); }
+
+/* ── Things that float over the page ─────────────────────────────────── */
+.dock-panel { background: var(--sheet); border: 0; box-shadow: var(--lift-float); border-radius: var(--r-card); }
+.dock-head { border-bottom-color: var(--rule-soft); }
+.selection-bar { box-shadow: var(--lift-float); border: 0; }
+dialog.drawer-panel { background: var(--sheet); box-shadow: var(--lift-float); overscroll-behavior: contain; }
+dialog.drawer-panel::backdrop, .modal-backdrop { background: rgb(34 30 24 / 0.24); }
+.drawer-head, .drawer-foot { border-color: var(--rule); }
+.drawer-foot { background: var(--paper); }
+.modal-box { background: var(--sheet); border-radius: var(--r-sheet); box-shadow: var(--lift-float); overscroll-behavior: contain; }
+.save-toast .alert { box-shadow: var(--lift-float); border: 0; }
+
+/* Feedback: smaller and quieter, so it covers less of the work. */
+.feedback-fab {
+  right: 16px; bottom: 16px; padding: 6px 12px 6px 9px; font-size: 13px; font-weight: 650;
+  background: var(--sheet); color: var(--ink-2); border: 0; box-shadow: var(--lift-float);
+  transition: color 150ms var(--ease-out), transform 100ms var(--ease-out);
+}
+.feedback-fab:hover { color: var(--ink-1); box-shadow: var(--lift-float); }
+.feedback-fab:active { transform: scale(0.97); }
+
+/* ── The mapper ──────────────────────────────────────────────────────── */
+body.mapper-page { padding: 0 16px 16px; }
+body.mapper-page #topbar { background: var(--sheet); border-bottom: 1px solid var(--rule); }
+body.mapper-page > main { box-shadow: var(--lift-sheet); }
+#topbar .topbar-sep { background: var(--rule); }
+#topbar .map-name { color: var(--ink-1); letter-spacing: -0.01em; }
+#topbar .map-name:hover { background: var(--well); border-color: var(--rule); }
+
+/* ── Motion: short, ease-out, and none for those who ask ─────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+  .btn:active:not(:disabled), .feedback-fab:active, .shell-bar .shell-link:active .icon { transform: none; }
+}
+@media (pointer: fine) { html { overscroll-behavior: none; } }
+
+/* ── Phone width ─────────────────────────────────────────────────────── */
+@media (max-width: 760px) {
+  #app.frame { padding: 0 8px 8px; gap: 8px; }
+  #app.frame > .side-nav { background: transparent; border-bottom: 1px solid var(--rule); }
+  .page h1, .plugin-header-text h1 { font-size: 24px; }
+  /* The search box gives way so help and your profile stay on screen. */
+  .shell-top { gap: 8px; }
+  .shell .gs { width: auto; flex: 1 1 0; min-width: 44px; }
+  .shell .shell-gap { display: none; }
+}

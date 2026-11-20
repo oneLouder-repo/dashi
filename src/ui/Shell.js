@@ -85,6 +85,7 @@ export function Shell(el, { current, org }) {
   if (session()?.banner) MaintenanceBanner(session().banner);
   if (session()?.legalDue?.length) LegalPrompt(session().legalDue);
   else if (session()?.emailVerified === false) VerifyNote();
+  SkipLink(); // last, so it lands first in the page
   // A small note in the bottom-left corner when a change is saved, or when it couldn't be.
   // "Saved" shows on the save light in the header; a failure also gets a note.
   window.addEventListener('toolbox:save-failed', (e) => toast(`Not saved: ${e.detail.why}`, 'error'));
@@ -96,6 +97,15 @@ export function Shell(el, { current, org }) {
 }
 let wired = false;
 let netLight = null;
+
+/** For keyboards: the first Tab stop jumps past the header to the page's main content. */
+function SkipLink() {
+  const main = document.querySelector('main');
+  if (!main) return;
+  if (!main.id) main.id = 'main';
+  if (!main.hasAttribute('tabindex')) main.setAttribute('tabindex', '-1');
+  document.body.prepend(h('a', { class: 'skip-link', href: `#${main.id}` }, 'Skip to content'));
+}
 
 /** "alpha" beside the wordmark, with the exact version on hover. */
 function StageBadge() {
@@ -150,7 +160,7 @@ function conflictBanner({ why }) {
 export function Avatar(person, size = 28) {
   const style = `width:${size}px;height:${size}px;font-size:${Math.round(size * 0.4)}px`;
   return person?.avatar
-    ? h('img', { class: 'avatar-img', src: person.avatar, alt: '', style })
+    ? h('img', { class: 'avatar-img', src: person.avatar, alt: '', width: size, height: size, decoding: 'async', style })
     : h('span', { class: 'avatar-initials', style, 'aria-hidden': 'true' }, initials(person?.name));
 }
 
@@ -158,7 +168,7 @@ export function Avatar(person, size = 28) {
 export function Logo(org, size = 28) {
   const style = `width:${size}px;height:${size}px;font-size:${Math.round(size * 0.38)}px`;
   return org.logo
-    ? h('img', { class: 'logo-img', src: org.logo, alt: `${org.name} logo`, style })
+    ? h('img', { class: 'logo-img', src: org.logo, alt: `${org.name} logo`, width: size, height: size, style })
     : h('span', { class: 'logo-initials', style, 'aria-hidden': 'true' }, initials(org.name));
 }
 
