@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="en" data-type="software" data-radius="soft" data-ground="sand" data-buttons="pill" data-motion>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dashi: planning and impact software for nonprofits</title>
+<meta name="description" content="One place for a nonprofit's strategic plan, ecosystem map, impact dashboards, documents, podcast and public website, hosted in Canada.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Dashi: planning and impact software for nonprofits">
+<meta property="og:description" content="Plan, map, measure and publish your work in one place. Free for teams of up to five.">
+<meta property="og:image" content="/media/brand/share.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/media/brand/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#fbfaf8">
+<!-- <link rel="canonical" href="https://dashi.ca/"> once the live domain is confirmed -->
+<meta name="site-kind" content="software">
+<meta name="page-type" content="software">
+<link rel="stylesheet" href="kit/fonts/fonts.css">
+<link rel="stylesheet" href="kit/system.css">
+<link rel="stylesheet" href="kit/ui/cards.css">
+<link rel="stylesheet" href="kit/motion/motion.css">
+<link rel="stylesheet" href="kit/backgrounds/backgrounds.css">
+<link rel="stylesheet" href="kit/layout/layout.css">
+<link rel="stylesheet" href="kit/icons/icon.css">
+<style>
+:root {
+  --p-bg: #fbfaf8; --p-surface: #efeeed; --p-ink: #1f2430; --p-muted: #4a4d56;
+  --p-accent: #d0621b; --p-accent-ink: #111111; --p-action: #d0621b; --p-action-ink: #111111;
+  --p-inv-bg: #1f2430; --p-inv-surface: #2c313c; --p-inv-ink: #fbfaf8; --p-inv-muted: #9fa1a6;
+  --p-inv-accent: #d0621b; --p-inv-accent-ink: #111111; --p-inv-action: #d0621b; --p-inv-action-ink: #111111;
+  --font-display: "Mona Sans", system-ui, sans-serif;
+  --font-text: "Mona Sans", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --display-weight: 500;
+  --display-tracking: -0.03em;
+  --display-tracking-xl: -0.04em;
+  --display-stretch: 104%;
+  --ly-scale: 0.96;
+}
+</style>
+<link rel="stylesheet" href="kit/ui/base.css">
+<link rel="stylesheet" href="kit/ui/window/fragment.css">
+<link rel="stylesheet" href="kit/ui/doc/fragment.css">
+<link rel="stylesheet" href="kit/ui/files/fragment.css">
+<link rel="stylesheet" href="kit/ui/stat/fragment.css">
+<link rel="stylesheet" href="kit/ui/notify/fragment.css">
+<link rel="stylesheet" href="kit/ui/toggles/fragment.css">
+<link rel="stylesheet" href="kit/ui/checklist/fragment.css">
+<script src="kit/backgrounds/backgrounds.js"></script>
+<script src="kit/head.js"></script>
+<link rel="modulepreload" href="kit/moments/moments.js">
+<link rel="modulepreload" href="kit/moments/lib.js">
+<link rel="modulepreload" href="kit/moments/liquid-type/moment.js">
+<!-- page CSS: inside visuals only, plus one --p-h per card group -->
+<style>
+  /* the logo: Dashi's own mark beside the name */
+  .nav__logo img, .dashi-mark { width: 24px; height: 24px; flex: none; }
+  h1 .dashi-mark { width: .8em; height: .8em; vertical-align: -.06em; margin-right: .12em; }
+
+  /* the hero window: Dashi's ecosystem mapper as live HTML (its own screen, light) */
+  .dmap { background: #fff; color: #1f2430; border-radius: 14px; overflow: hidden; text-align: left;
+          font: 400 13px/1.4 var(--font-text); box-shadow: 0 0 0 1px rgb(31 36 48 / .08), 0 24px 60px -28px rgb(31 36 48 / .45); }
+  .dmap__bar { display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 14px; border-bottom: 1px solid rgb(31 36 48 / .08); color: #5c616b; }
+  .dmap__bar b { color: #1f2430; font-weight: 500; }
+  .dmap__dots { display: flex; gap: 6px; } .dmap__dots i { width: 10px; height: 10px; border-radius: 50%; background: #e2e1de; }
+  .dmap__sp { flex: 1; }
+  .dmap__lens { padding: 3px 10px; border: 1px solid rgb(31 36 48 / .12); border-radius: 99px; font-size: 12px; }
+  .dmap__body { display: grid; grid-template-columns: minmax(0, 1fr) 240px; }
+  .dmap__map { position: relative; background: #f4f2ee; }
+  .dmap__map svg { display: block; width: 100%; height: 300px; }
+  .dmap__map .ln { stroke: #8a8d95; stroke-width: 1.6; fill: none; }
+  .dmap__map .ln--loop { stroke: #d0621b; stroke-width: 2; stroke-dasharray: 5 4; }
+  .dmap__map .nd { fill: #fff; stroke: #1f2430; stroke-width: 2.4; }
+  .dmap__map .nd--org { fill: #d0621b; stroke: #d0621b; }
+  .dmap__map .tx { font: 400 13px var(--font-text); fill: #1f2430; }
+  .dmap__map .tx--org { font-weight: 500; }
+  .dmap__side { border-left: 1px solid rgb(31 36 48 / .08); padding: 14px 16px; display: grid; align-content: start; gap: 10px; }
+  .dmap__kind { font-size: 12px; color: #5c616b; }
+  .dmap__name { font-size: 15px; font-weight: 500; }
+  .dmap__rows { display: grid; gap: 8px; }
+  .dmap__row { padding: 6px 0; border-bottom: 1px solid rgb(31 36 48 / .1); white-space: nowrap; overflow: hidden; }
+  .dmap__row small { font-size: 12px; color: #4a4d56; margin-right: 4px; }
+  .dmap__row--loop small { color: #a8480f; }
+  @media (max-width: 1023px) { .dmap__body { grid-template-columns: minmax(0, 1fr); } .dmap__side { display: none; } }
+  @media (max-width: 639px) { .dmap__lens, .dmap__dots { display: none; } .dmap__map svg { height: 240px; } }
+
+  /* the app frame (sections-library app-frame) */
+  .app.ui { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); margin-top: var(--s-7); background: var(--u-bg); border: 1px solid var(--u-border); border-radius: var(--u-r); box-shadow: var(--u-shadow); }
+  .app > .app__pane { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+  .app > .app__pane + .app__pane { border-left: 1px solid var(--u-line); }
+  .app > .app__pane > .ui-panel, .app > .app__pane > .ui { width: 100%; border: 0; border-radius: 0; box-shadow: none; }
+  .app > .app__pane::after { content: ""; position: absolute; inset: auto 0 0 0; height: 64px; background: linear-gradient(transparent, var(--u-bg)); pointer-events: none; }
+  @media (min-width: 1024px) and (max-width: 1279px) { .app.ui { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); } }
+  @media (max-width: 1023px) {
+    .app.ui { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .app > .app__pane--list { max-height: 252px; }
+    .app > .app__pane--list::after { display: none; }
+    .app .ui-win__side { display: none; }
+    .app .ui-win__body { grid-template-columns: minmax(0, 1fr); }
+    .app > .app__pane + .app__pane { border-left: 0; border-top: 1px solid var(--u-line); }
+  }
+  @media (max-width: 639px) {
+    .app.ui { grid-template-rows: minmax(0, 1fr); }
+    .app > .app__pane--list { display: none; }
+    .app > .app__pane + .app__pane { border-top: 0; }
+  }
+
+  .plan-ics { display: flex; flex-wrap: wrap; gap: 8px; color: var(--ink); }
+  .plan-ic { flex: none; }
+  .card--plan > .plan-flag { align-self: flex-start; }
+  @media (max-width: 639px) { #pricing .checks li:nth-child(3) { display: none; } }
+  #publish .panel { --p-h: 340px; }
+  @media (min-width: 1024px) and (max-width: 1279px) { #publish .panel { --p-h: 300px; } }
+  @media (min-width: 640px) and (max-width: 1023px) { #publish { --h: 1; } #publish > .wrap { display: flex; flex-direction: column; row-gap: var(--s-6); } #publish .panel { --p-h: 200px; } }
+  @media (max-width: 639px) { #publish .panel { --p-h: 180px; } }
+</style>
+</head>
+<body>
+<!-- type: software (planning and impact software for nonprofits)
+     deal: hero centred, nav nav-mega, close close-type, footer footer-statement, rhythm surface-pairs, buttons pill,
+           mark: Dashi's own logo (replaces the dealt ring), palette from Dashi's own colours (start.mjs brand: ink #1f2430,
+           accent #d0621b, ground #fbfaf8), type mona (Mona Sans + Geist Mono), effect painterly-landscape in the hero frame,
+           card ground grain-gradient (sand, sky, sage) on #publish
+     moments: liquid-type on the #privacy statement (counter-rolls was dealt first and dealt again: the brief has no proof figures)
+     screens: hero 1, plan 1, library 1, privacy 1, publish 1, pricing 1, closing 1 -->
+
+<header class="nav">
+  <div class="wrap nav__bar">
+    <a class="skip-link" href="#top">Skip to content</a>
+    <a class="nav__logo" href="#top"><img src="/media/brand/dashi-mark.svg" alt="" width="24" height="24">Dashi</a>
+    <nav class="nav__links" aria-label="Main">
+      <div class="nav__item">
+        <a class="nav__link" href="#plan">Product <svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        <div class="nav__menu">
+          <div class="wrap grid">
+            <div class="menu-col span-3">
+              <p class="t-label">Plan the work</p>
+              <a href="#plan">Strategy<span>Mission down to tasks</span></a>
+              <a href="#plan">Planning studio<span>SOAR board and framework</span></a>
+              <a href="#top">Ecosystem map<span>Partners, funders, loops</span></a>
+            </div>
+            <div class="menu-col span-3">
+              <p class="t-label">Show the work</p>
+              <a href="#publish">Dashboards<span>Charts from program data</span></a>
+              <a href="#publish">Podcasts<span>Shows with an RSS feed</span></a>
+              <a href="#publish">Public sites<span>Pages in your colours</span></a>
+              <a href="#library">Library<span>Documents and references</span></a>
+            </div>
+            <a class="menu-card span-3 start-10" href="#privacy">
+              <div class="panel"><div class="stage stage--fade-br"><div class="at-corner" style="--ax:24px;--ay:24px">
+                <div class="ui ui-notify" data-ui="notify" data-ui-still>
+                  <ul class="ui-notify__list" data-notify-list>
+                    <li class="ui-note"><span class="ui-avatar ui-note__av" data-tone="2">GC</span><span class="ui-note__text"><span class="ui-note__title">Grace Chen joined as Board director<time>now</time></span><span class="ui-note__body">Can read the plan and the board portal</span></span></li>
+                    <li class="ui-note"><span class="ui-avatar ui-note__av" data-tone="4">OT</span><span class="ui-note__text"><span class="ui-note__title">Owen Tremblay joined as Guest<time>3m</time></span><span class="ui-note__body">Read-only, no edits</span></span></li>
+                  </ul>
+                </div>
+              </div></div></div>
+              <span class="t-card">Board and guest roles</span>
+              <span class="t-small muted">Read-only seats for your board</span>
+            </a>
+          </div>
+        </div>
+      </div>
+      <div class="nav__item"><a class="nav__link" href="/pricing.html">Pricing</a></div>
+      <div class="nav__item"><a class="nav__link" href="/about.html">About</a></div>
+      <div class="nav__item"><a class="nav__link" href="/contact.html">Contact</a></div>
+    </nav>
+    <div class="nav__actions">
+      <a class="nav__link" href="/login.html?next=/">Sign in</a>
+      <a class="btn btn--primary" href="/signup.html">Start free</a>
+    </div>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero hero--centred" data-enter aria-labelledby="hero-h">
+    <div class="wrap"><div class="hero-text">
+      <div class="hero__c">
+        <a class="pill" href="/pricing.html"><span>Free for up to 5 people</span></a>
+        <h1 id="hero-h">Planning software for nonprofits</h1>
+        <p class="hero__lead">Dashi keeps your strategic plan, ecosystem map, impact dashboards, documents, podcast and public site in one place, on servers in Toronto.</p>
+        <div class="btn-row"><a class="btn btn--primary" href="/signup.html">Start free</a><a class="btn btn--secondary" href="/pricing.html">Compare plans</a></div>
+      </div>
+      <div class="hero__window" data-fx="painterly-landscape" data-fx-seed="7" data-fx-palette='{"bg":"#a3b0b6","accent":"#c49a6c"}' data-fx-params='{"blur":1,"brush":0.35,"slope":0,"hillY":0.3,"horizon":0.62}' role="img" aria-label="Dashi's ecosystem map for a community food hub: its funders, partners, the families it serves and a monthly feedback loop">
+        <div class="ly-piece ui dmap" aria-hidden="true">
+          <div class="dmap__bar"><span class="dmap__dots"><i></i><i></i><i></i></span><span>Mapper / <b>Riverbend food access</b></span><span class="dmap__sp"></span><span class="dmap__lens">Lens: relationships</span></div>
+          <div class="dmap__body">
+            <div class="dmap__map">
+              <svg viewBox="0 0 600 300" preserveAspectRatio="xMidYMid meet" role="presentation">
+                <path class="ln" d="M300 140 L120 60"/><path class="ln" d="M300 140 L480 56"/><path class="ln" d="M300 140 L110 220"/>
+                <path class="ln" d="M300 140 L490 228"/><path class="ln" d="M300 140 L300 262"/><path class="ln" d="M120 60 L480 56"/>
+                <path class="ln ln--loop" d="M312 150 C 380 200 440 214 478 226 C 430 250 350 222 306 158"/>
+                <circle class="nd nd--org" cx="300" cy="140" r="13"/>
+                <circle class="nd" cx="120" cy="60" r="8"/><circle class="nd" cx="480" cy="56" r="8"/><circle class="nd" cx="110" cy="220" r="8"/>
+                <circle class="nd" cx="490" cy="228" r="8"/><rect class="nd" x="292" y="254" width="16" height="16" rx="4"/>
+                <text class="tx tx--org" x="300" y="116" text-anchor="middle">Riverbend Food Hub</text>
+                <text class="tx" x="120" y="40" text-anchor="middle">City of Riverbend</text>
+                <text class="tx" x="480" y="36" text-anchor="middle">Community foundation</text>
+                <text class="tx" x="110" y="248" text-anchor="middle">School board</text>
+                <text class="tx" x="490" y="256" text-anchor="middle">Northside families</text>
+                <text class="tx" x="340" y="267" text-anchor="start">Volunteer drivers</text>
+              </svg>
+            </div>
+            <div class="dmap__side">
+              <div><div class="dmap__kind">Organisation</div><div class="dmap__name">Riverbend Food Hub</div></div>
+              <div class="dmap__rows" data-ly-steps="900">
+                <div class="dmap__row"><small>Funded by</small> City of Riverbend</div>
+                <div class="dmap__row" data-step><small>Serves</small> Northside families</div>
+                <div class="dmap__row dmap__row--loop" data-step><small>Loop</small> Monthly pantry survey</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="section" id="plan" aria-labelledby="plan-h">
+    <div class="wrap">
+      <div class="grid">
+        <h2 class="span-5" id="plan-h">Your plan, from mission to tasks</h2>
+        <div class="span-6 start-7 stack-4">
+          <p class="muted">Write the mission, set objectives and goals, then split each goal into workplans with owners and due dates. Every task shows the goal it serves.</p>
+          <a class="link" href="/about.html">Read how Dashi works</a>
+        </div>
+      </div>
+      <div class="ui app fill" role="img" aria-label="Dashi's workplan beside the strategic plan it belongs to" data-ui-pause-host>
+        <div class="app__pane app__pane--list">
+          <div class="ui ui-panel ui-win" data-ui="window" data-open="To do" data-work="Doing" data-done="Done" data-ui-still>
+            <div class="ui-win__bar">
+              <span class="ui-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="ui-win__crumb"><img class="ui-brand" src="/media/brand/dashi-mark.svg" alt="" width="14" height="14">Workplan <i>/</i> <b>Spring</b></span>
+              <span class="ui-spacer"></span>
+              <span class="ui-win__search" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg><span class="ui-win__ph">Search</span><span class="ui-kbd">/</span></span>
+            </div>
+            <div class="ui-win__body">
+              <nav class="ui-win__side" aria-hidden="true">
+                <span class="ui-win__nav is-on"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M3 4h10M3 8h10M3 12h6"/></svg>All tasks<em>34</em></span>
+                <span class="ui-win__nav"><svg class="ui-icon" viewBox="0 0 16 16"><circle cx="8" cy="6" r="2.5"/><path d="M3.5 13.5c.6-2.3 2.4-3.5 4.5-3.5s3.9 1.2 4.5 3.5"/></svg>Mine<em>7</em></span>
+                <span class="ui-win__nav"><svg class="ui-icon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.5"/></svg>Due soon<em>5</em></span>
+                <span class="ui-win__nav"><svg class="ui-icon" viewBox="0 0 16 16"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg>Done</span>
+                <span class="ui-win__label">Goals</span>
+                <span class="ui-win__nav"><span class="ui-win__hash">#</span>Food access</span>
+                <span class="ui-win__nav"><span class="ui-win__hash">#</span>Volunteers</span>
+              </nav>
+              <div class="ui-win__main">
+                <div class="ui-win__cols" aria-hidden="true"><span>Owner</span><span>Task</span><span>Status</span><span>Due</span></div>
+                <ul class="ui-win__rows">
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">JL</span><span class="ui-win__who">Jordan Lee</span><span class="ui-win__sub">Draft the city grant report</span><span class="ui-win__st" data-st>To do</span><span class="ui-win__age">Mar 4</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="3">MR</span><span class="ui-win__who">Mateo Rivera</span><span class="ui-win__sub">Book volunteer driver training</span><span class="ui-win__st" data-st>To do</span><span class="ui-win__age">Mar 6</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="4">HK</span><span class="ui-win__who">Hana Kim</span><span class="ui-win__sub">Run the February pantry survey</span><span class="ui-win__st" data-st>To do</span><span class="ui-win__age">Mar 9</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="2">LH</span><span class="ui-win__who">Leila Haddad</span><span class="ui-win__sub">Second pantry day in Northside</span><span class="ui-win__st is-you" data-st>Needs you</span><span class="ui-win__age">Mar 12</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="5">TC</span><span class="ui-win__who">Tanis Cardinal</span><span class="ui-win__sub">Meet the school board on breakfasts</span><span class="ui-win__st is-done" data-st>Done</span><span class="ui-win__age">Feb 27</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="3">BM</span><span class="ui-win__who">Ben Murphy</span><span class="ui-win__sub">Update the meals dashboard</span><span class="ui-win__st is-done" data-st>Done</span><span class="ui-win__age">Feb 24</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">SR</span><span class="ui-win__who">Sofia Rossi</span><span class="ui-win__sub">Record episode 4 of the podcast</span><span class="ui-win__st is-done" data-st>Done</span><span class="ui-win__age">Feb 20</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="4">NB</span><span class="ui-win__who">Noah Bergeron</span><span class="ui-win__sub">Add two farms to the map</span><span class="ui-win__st is-done" data-st>Done</span><span class="ui-win__age">Feb 18</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="2">OT</span><span class="ui-win__who">Owen Tremblay</span><span class="ui-win__sub">Board review of the spring goals</span><span class="ui-win__st is-done" data-st>Done</span><span class="ui-win__age">Feb 12</span></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="app__pane app__pane--open" data-ui-loop>
+          <div class="ui ui-doc" data-ui="doc">
+            <article class="ui-doc__page">
+              <div class="ui-doc__label">Strategic plan 2026 to 2029, objective 2</div>
+              <div class="ui-doc__title">2. Food within reach of every Northside family</div>
+              <div class="ui-doc__text">By 2029, no family in Northside lives more than a 15-minute walk from a <mark class="ui-doc__mark is-on">free pantry day</mark>, and families shape what the pantry stocks.</div>
+              <div class="ui-doc__text">Goal 2.1: open a <mark class="ui-doc__mark" data-kind="Workplan" data-msg="4 tasks, 2 done. Owner Leila Haddad." data-where="Workplan, spring">second pantry day</mark> at the Northside community centre by April.</div>
+              <div class="ui-doc__text">Goal 2.2: ask families what they need every month, and bring the answers to the board each quarter.</div>
+              <div class="ui-doc__text">Goal 2.3: train twelve volunteer drivers so homebound neighbours get a delivery each week.</div>
+              <div class="ui-doc__text">Goal 2.4: report meals served on the public dashboard, updated on the first Monday of each month.</div>
+              <div class="ui-doc__text">Partners on this objective are drawn from the ecosystem map: the school board, the city and two farms.</div>
+            </article>
+            <aside class="ui-doc__note ui-panel is-on" aria-live="polite">
+              <div class="ui-doc__kind"><span class="ui-doc__dot"></span><span data-doc-kind>Goal 2.1</span></div>
+              <div class="ui-doc__msg" data-doc-msg>3 tasks in the spring workplan, due by April 15.</div>
+              <div class="ui-doc__where" data-doc-where>Workplan, spring</div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section ground-surface" id="library" aria-labelledby="library-h">
+    <div class="wrap">
+      <div class="grid">
+        <div class="span-5 stack-6">
+          <h2 id="library-h">A library for your planning documents</h2>
+          <p class="t-lead">Upload reports and papers with a proper reference, or write a Dashi doc and export it to Word, PDF or Markdown.</p>
+          <ul class="stack-3">
+            <li>Annotated bibliographies, built as you read</li>
+            <li>A weekly brief of what the team added</li>
+          </ul>
+          <a class="link" href="/pricing.html">See which plans include briefs</a>
+        </div>
+        <div class="frame frame--split span-6 start-7" data-visual>
+          <div class="stage stage--fade-br"><div class="at-corner wide" style="--w:680px;--ax:56px;--ay:56px">
+            <div class="ui ui-files" data-ui="files" data-reading="Filing {n} of {total}" data-ui-loop>
+              <div class="ui-files__status"><span class="ui-dot"></span><span data-files-status>6 documents filed</span></div>
+              <ul class="ui-files__grid">
+                <li class="ui-file is-done"><span class="ui-file__icon"><svg class="ui-file__glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.25 2.75h8L18.75 7.25v14H6.25z"/><path d="M14 2.75v4.75h4.75M9 12.5h6.5M9 15.5h6.5M9 18.5h4"/></svg></span><span class="ui-file__name">Food security survey 2025</span><span class="ui-file__kind">PDF · cited</span><span class="ui-file__bar"><i></i></span><span class="ui-file__check"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 8.2 2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li>
+                <li class="ui-file is-done"><span class="ui-file__icon"><svg class="ui-file__glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.25 2.75h8L18.75 7.25v14H6.25z"/><path d="M14 2.75v4.75h4.75M9 12.5h6.5M9 15.5h6.5M9 18.5h4"/></svg></span><span class="ui-file__name">City grant report</span><span class="ui-file__kind">Word</span><span class="ui-file__bar"><i></i></span><span class="ui-file__check"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 8.2 2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li>
+                <li class="ui-file is-done"><span class="ui-file__icon"><svg class="ui-file__glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.25 2.75h8L18.75 7.25v14H6.25z"/><path d="M14 2.75v4.75h4.75M9 12.5h6.5M9 15.5h6.5M9 18.5h4"/></svg></span><span class="ui-file__name">Meals served, February</span><span class="ui-file__kind">CSV</span><span class="ui-file__bar"><i></i></span><span class="ui-file__check"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 8.2 2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li>
+                <li class="ui-file is-done"><span class="ui-file__icon"><img src="kit/ui/icons/md.svg" alt=""></span><span class="ui-file__name">Volunteer handbook</span><span class="ui-file__kind">Markdown</span><span class="ui-file__bar"><i></i></span><span class="ui-file__check"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 8.2 2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li>
+                <li class="ui-file is-done"><span class="ui-file__icon"><svg class="ui-file__glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.25 2.75h8L18.75 7.25v14H6.25z"/><path d="M14 2.75v4.75h4.75M9 12.5h6.5M9 15.5h6.5M9 18.5h4"/></svg></span><span class="ui-file__name">Board minutes, January</span><span class="ui-file__kind">PDF</span><span class="ui-file__bar"><i></i></span><span class="ui-file__check"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 8.2 2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li>
+                <li class="ui-file is-done"><span class="ui-file__icon"><svg class="ui-file__glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.25 2.75h8L18.75 7.25v14H6.25z"/><path d="M14 2.75v4.75h4.75M9 12.5h6.5M9 15.5h6.5M9 18.5h4"/></svg></span><span class="ui-file__name">Pantry stock list</span><span class="ui-file__kind">Excel</span><span class="ui-file__bar"><i></i></span><span class="ui-file__check"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 8.2 2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li>
+                <li class="ui-file is-done"><span class="ui-file__icon"><svg class="ui-file__glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.25 2.75h8L18.75 7.25v14H6.25z"/><path d="M14 2.75v4.75h4.75M9 12.5h6.5M9 15.5h6.5M9 18.5h4"/></svg></span><span class="ui-file__name">Partner agreement</span><span class="ui-file__kind">Word</span><span class="ui-file__bar"><i></i></span><span class="ui-file__check"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 8.2 2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li>
+                <li class="ui-file is-done"><span class="ui-file__icon"><svg class="ui-file__glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.25 2.75h8L18.75 7.25v14H6.25z"/><path d="M14 2.75v4.75h4.75M9 12.5h6.5M9 15.5h6.5M9 18.5h4"/></svg></span><span class="ui-file__name">Annual report 2025</span><span class="ui-file__kind">PDF</span><span class="ui-file__bar"><i></i></span><span class="ui-file__check"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 8.2 2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li>
+              </ul>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section statement" id="privacy" data-moment="liquid-type" aria-labelledby="privacy-h">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="mo-lt__type" id="privacy-h">Every map and dashboard starts private</h2>
+        <p class="t-lead">Nothing reaches your public site until you switch it on.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section g2" id="publish" aria-labelledby="publish-h">
+    <div class="wrap">
+      <div class="group">
+        <div class="section-head">
+          <h2 id="publish-h">Impact dashboards, podcasts and public sites. <span class="muted">Shared when you are ready.</span></h2>
+        </div>
+        <div class="grid">
+        <article class="card card--row card--open span-6 m-nolift">
+          <h3>Builds impact charts from program data</h3>
+          <p>Keep the numbers current and build a dashboard straight from your goals.</p>
+          <div class="panel" data-fx="grain-gradient" data-fx-seed="21" data-fx-palette='{"bg":"#d9ccb7","surface":"#e9e0d2","ink":"#2a2622","accent":"#a8794a"}' data-fx-params='{"grainMotion":0,"speed":0}'>
+            <div class="stage stage--fade-b"><div class="at-corner" style="--ax:24px;--ay:40px">
+              <div class="ui ui-panel ui-stat" data-ui="stat" data-from="2410" data-to="2786" data-suffix="">
+                <div class="ui-stat__head">
+                  <div class="ui-stat__top"><span class="ui-stat__label">Meals served</span><span class="ui-stat__range">This winter<svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"/></svg></span></div>
+                  <div class="ui-stat__line"><span class="ui-stat__num" data-stat-num>2,786</span><span class="ui-chip ui-chip--plain ui-stat__delta"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 9.5v-7M3 5.5l3-3 3 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>376</span><span class="ui-stat__sub">vs. last winter</span></div>
+                </div>
+                <div class="ui-stat__chart">
+                  <svg class="ui-stat__svg" viewBox="0 0 400 120" preserveAspectRatio="none" aria-hidden="true">
+                    <path class="ui-stat__grid" d="M0 30.5H400M0 60.5H400M0 90.5H400"/>
+                    <path class="ui-stat__cover" fill-rule="evenodd" d=""/>
+                    <g class="ui-stat__bars"><rect rx="3" x="0.00" y="58" width="21.14" height="62"/><rect rx="3" x="29.14" y="52" width="21.14" height="68"/><rect rx="3" x="58.29" y="55" width="21.14" height="65"/><rect rx="3" x="87.43" y="47" width="21.14" height="73"/><rect rx="3" x="116.57" y="50" width="21.14" height="70"/><rect rx="3" x="145.71" y="43" width="21.14" height="77"/><rect rx="3" x="174.86" y="46" width="21.14" height="74"/><rect rx="3" x="204.00" y="39" width="21.14" height="81"/><rect rx="3" x="233.14" y="41" width="21.14" height="79"/><rect rx="3" x="262.29" y="34" width="21.14" height="86"/><rect rx="3" x="291.43" y="37" width="21.14" height="83"/><rect rx="3" x="320.57" y="29" width="21.14" height="91"/><rect rx="3" x="349.71" y="31" width="21.14" height="89"/><rect rx="3" x="378.86" y="22" width="21.14" height="98"/></g>
+                  </svg>
+                  <div class="ui-stat__axis" aria-hidden="true"><span>Dec</span><span>Jan</span><span>Feb</span></div>
+                </div>
+              </div>
+            </div></div>
+          </div>
+        </article>
+        <article class="card card--row card--open span-6 m-nolift">
+          <h3>Runs your nonprofit&rsquo;s podcast station</h3>
+          <p>Upload an episode and every podcast app picks it up from your station's feed.</p>
+          <div class="panel" data-fx="grain-gradient" data-fx-seed="22" data-fx-palette='{"bg":"#c6d3df","surface":"#d6e0e9","ink":"#25303a","accent":"#3f6a92"}' data-fx-params='{"grainMotion":0,"speed":0}'>
+            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:340px;--ax:max(24px, 50% - 170px);--ay:calc(100% - 180px);--ay-sm:calc(100% - 180px)">
+              <div class="ui ui-notify" data-ui="notify">
+                <ul class="ui-notify__list" data-notify-list>
+                  <li class="ui-note"><span class="ui-avatar ui-note__av" data-tone="1">SR</span><span class="ui-note__text"><span class="ui-note__title">Episode 4 is live<time>now</time></span><span class="ui-note__body">Pantry days, with two Northside parents</span></span></li>
+                  <li class="ui-note"><span class="ui-note__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M4 11.5a1 1 0 1 0 0 .01M3.5 7a5.5 5.5 0 0 1 5.5 5.5M3.5 3.5a9 9 0 0 1 9 9"/></svg></span><span class="ui-note__text"><span class="ui-note__title">RSS feed updated<time>1m</time></span><span class="ui-note__body">Season 1, 4 episodes</span></span></li>
+                  <li class="ui-note"><span class="ui-note__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg></span><span class="ui-note__text"><span class="ui-note__title">Station page refreshed<time>1m</time></span><span class="ui-note__body">In your colours</span></span></li>
+                </ul>
+              </div>
+            </div></div>
+          </div>
+        </article>
+        </div>
+      </div>
+      <div class="grid">
+        <article class="card card--row card--open span-6 m-nolift">
+          <h3>Lets you pick what visitors see</h3>
+          <p>Your public site picks up each item you switch on, with no copying.</p>
+          <div class="panel" data-fx="grain-gradient" data-fx-seed="23" data-fx-palette='{"bg":"#cdd6c6","surface":"#dce3d6","ink":"#262d24","accent":"#6c8e63"}' data-fx-params='{"grainMotion":0,"speed":0}'>
+            <div class="stage stage--fade-b"><div class="at-right to-edge" style="--ax:24px;--ay:40px">
+              <div class="ui ui-panel ui-toggles" data-ui="toggles">
+                <div class="ui-head">
+                  <svg class="ui-icon ui-toggles__ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><path d="M2.5 8h11M8 2.5c1.6 1.6 2.4 3.4 2.4 5.5S9.6 11.9 8 13.5C6.4 11.9 5.6 10.1 5.6 8S6.4 4.1 8 2.5"/></svg>
+                  <div class="ui-title">On your public site</div>
+                  <span class="ui-spacer"></span>
+                  <div class="ui-meta" data-tg-count>3 of 4 on</div>
+                </div>
+                <ul class="ui-toggles__list">
+                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Meals served dashboard</span><span class="ui-tg__sub">Updated monthly</span></span><button class="ui-switch is-on" type="button" role="switch" aria-checked="true" aria-label="Meals served dashboard" tabindex="-1"><i></i></button></li>
+                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Podcast station</span><span class="ui-tg__sub">Season 1</span></span><button class="ui-switch is-on" type="button" role="switch" aria-checked="true" aria-label="Podcast station" tabindex="-1"><i></i></button></li>
+                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Strategic plan summary</span><span class="ui-tg__sub">Objectives only</span></span><button class="ui-switch is-on" type="button" role="switch" aria-checked="true" aria-label="Strategic plan summary" tabindex="-1"><i></i></button></li>
+                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Ecosystem map</span><span class="ui-tg__sub">Board portal only</span></span><button class="ui-switch" type="button" role="switch" aria-checked="false" aria-label="Ecosystem map" tabindex="-1"><i></i></button></li>
+                </ul>
+              </div>
+            </div></div>
+          </div>
+        </article>
+        <article class="card card--row card--open span-6 m-nolift">
+          <h3>Opens a board portal for your nonprofit</h3>
+          <p>Board directors and guests sign in to a members-only portal and can read, never edit.</p>
+          <div class="panel" data-fx="grain-gradient" data-fx-seed="24" data-fx-palette='{"bg":"#d9ccb7","surface":"#e9e0d2","ink":"#2a2622","accent":"#a8794a"}' data-fx-params='{"grainMotion":0,"speed":0}'>
+            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:360px;--ax:max(24px, 50% - 180px);--ay:48px;--ay-sm:24px">
+              <div class="ui ui-panel ui-checks" data-ui="checklist">
+                <div class="ui-checks__head"><div class="ui-title">Board portal, March meeting</div><span class="ui-spacer"></span><div class="ui-meta" data-checks-count>3 of 5</div></div>
+                <div class="ui-checks__bar"><i data-checks-bar style="--k:0.6"></i></div>
+                <ul class="ui-checks__list">
+                  <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Share the spring workplan</span></li>
+                  <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Post the January minutes</span></li>
+                  <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Add the meals dashboard</span></li>
+                  <li class="ui-check"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Invite Grace Chen as director</span></li>
+                  <li class="ui-check"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Send the agenda by March 10</span></li>
+                </ul>
+              </div>
+            </div></div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="pricing" style="--hm: 2" aria-labelledby="pricing-h">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="pricing-h">Plans and prices</h2>
+        <p>Prices are in Canadian dollars, billed yearly, with HST included. Move up or down at any time.</p>
+      </div>
+      <div class="grid">
+        <article class="card card--plan span-3">
+          <h3>Free</h3>
+          <p class="price"><span class="t-stat">$0</span><span class="t-small muted">for good</span></p>
+          <p class="plan-ics"><svg class="plan-ic" role="img" aria-label="Ecosystem map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Ecosystem map</title><path d="M6 7 A2.5 2.5 0 1 0 6.01 7 Z M18 6 A2.5 2.5 0 1 0 18.01 6 Z M12 18 A2.5 2.5 0 1 0 12.01 18 Z M8 8.5 L11 16 M16.5 8 L13 16 M8.5 6.5 H15.5"/></svg><svg class="plan-ic" role="img" aria-label="Dashboards" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Dashboards</title><path d="M3 10 H21 V13 H3 Z M5 13 V20 M19 13 V20 M5 17 H19 M7 10 V6 H11 V10 M14.5 10 L16 4.5 L18 5 L17 10"/></svg><svg class="plan-ic" role="img" aria-label="Podcasts" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Podcasts</title><path d="M9 5 A3 3 0 0 1 15 5 V11 A3 3 0 0 1 9 11 Z M5.5 10.5 A6.5 6.5 0 0 0 18.5 10.5 M12 17 V21 M8 21 H16"/></svg><svg class="plan-ic" role="img" aria-label="Public sites" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Public sites</title><path d="M12 3 A9 9 0 1 0 12.01 3 Z M3 12 H21 M12 3 C9 6 9 18 12 21 M12 3 C15 6 15 18 12 21"/></svg><svg class="plan-ic" role="img" aria-label="Library" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Library</title><path d="M4 5 C7 4 10 4.5 12 6 C14 4.5 17 4 20 5 V19 C17 18 14 18.5 12 20 C10 18.5 7 18 4 19 Z M12 6 V20"/></svg></p>
+          <a class="btn btn--secondary" href="/signup.html?plan=free">Sign up for Free</a>
+          <ul class="checks"><li>5 people</li><li>1 map and 1 dashboard</li><li>1 public site and 1 podcast show</li></ul>
+        </article>
+        <article class="card card--plan span-3">
+          <h3>Basic</h3>
+          <p class="price"><span class="t-stat">$19</span><span class="t-small muted">a month</span></p>
+          <p class="plan-ics"><svg class="plan-ic" role="img" aria-label="Ecosystem map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Ecosystem map</title><path d="M6 7 A2.5 2.5 0 1 0 6.01 7 Z M18 6 A2.5 2.5 0 1 0 18.01 6 Z M12 18 A2.5 2.5 0 1 0 12.01 18 Z M8 8.5 L11 16 M16.5 8 L13 16 M8.5 6.5 H15.5"/></svg><svg class="plan-ic" role="img" aria-label="Dashboards" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Dashboards</title><path d="M3 10 H21 V13 H3 Z M5 13 V20 M19 13 V20 M5 17 H19 M7 10 V6 H11 V10 M14.5 10 L16 4.5 L18 5 L17 10"/></svg><svg class="plan-ic" role="img" aria-label="Podcasts" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Podcasts</title><path d="M9 5 A3 3 0 0 1 15 5 V11 A3 3 0 0 1 9 11 Z M5.5 10.5 A6.5 6.5 0 0 0 18.5 10.5 M12 17 V21 M8 21 H16"/></svg><svg class="plan-ic" role="img" aria-label="Public sites" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Public sites</title><path d="M12 3 A9 9 0 1 0 12.01 3 Z M3 12 H21 M12 3 C9 6 9 18 12 21 M12 3 C15 6 15 18 12 21"/></svg><svg class="plan-ic" role="img" aria-label="Library" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Library</title><path d="M4 5 C7 4 10 4.5 12 6 C14 4.5 17 4 20 5 V19 C17 18 14 18.5 12 20 C10 18.5 7 18 4 19 Z M12 6 V20"/></svg><svg class="plan-ic" role="img" aria-label="Strategy" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Strategy</title><path d="M12 3 V8 M6 8 H18 M6 8 V12 M18 8 V12 M3 12 H9 V16 H3 Z M15 12 H21 V16 H15 Z M9 3 H15 V6 H9 Z M18 16 V19 H14 V21 H22 V19"/></svg></p>
+          <a class="btn btn--secondary" href="/signup.html?plan=basic">Sign up for Basic</a>
+          <ul class="checks"><li>15 people</li><li>2 strategic plans</li><li>Sign in with Google or Microsoft</li></ul>
+        </article>
+        <article class="card card--plan span-3 is-featured">
+          <span class="badge plan-flag">Most chosen</span>
+          <h3>Standard</h3>
+          <p class="price"><span class="t-stat">$49</span><span class="t-small muted">a month</span></p>
+          <p class="plan-ics"><svg class="plan-ic" role="img" aria-label="Ecosystem map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Ecosystem map</title><path d="M6 7 A2.5 2.5 0 1 0 6.01 7 Z M18 6 A2.5 2.5 0 1 0 18.01 6 Z M12 18 A2.5 2.5 0 1 0 12.01 18 Z M8 8.5 L11 16 M16.5 8 L13 16 M8.5 6.5 H15.5"/></svg><svg class="plan-ic" role="img" aria-label="Dashboards" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Dashboards</title><path d="M3 10 H21 V13 H3 Z M5 13 V20 M19 13 V20 M5 17 H19 M7 10 V6 H11 V10 M14.5 10 L16 4.5 L18 5 L17 10"/></svg><svg class="plan-ic" role="img" aria-label="Podcasts" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Podcasts</title><path d="M9 5 A3 3 0 0 1 15 5 V11 A3 3 0 0 1 9 11 Z M5.5 10.5 A6.5 6.5 0 0 0 18.5 10.5 M12 17 V21 M8 21 H16"/></svg><svg class="plan-ic" role="img" aria-label="Public sites" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Public sites</title><path d="M12 3 A9 9 0 1 0 12.01 3 Z M3 12 H21 M12 3 C9 6 9 18 12 21 M12 3 C15 6 15 18 12 21"/></svg><svg class="plan-ic" role="img" aria-label="Library" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Library</title><path d="M4 5 C7 4 10 4.5 12 6 C14 4.5 17 4 20 5 V19 C17 18 14 18.5 12 20 C10 18.5 7 18 4 19 Z M12 6 V20"/></svg><svg class="plan-ic" role="img" aria-label="Strategy" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Strategy</title><path d="M12 3 V8 M6 8 H18 M6 8 V12 M18 8 V12 M3 12 H9 V16 H3 Z M15 12 H21 V16 H15 Z M9 3 H15 V6 H9 Z M18 16 V19 H14 V21 H22 V19"/></svg><svg class="plan-ic" role="img" aria-label="Planning studio" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Planning studio</title><path d="M3 4 H21 V16 H3 Z M7 20 H17 M12 16 V20 M7 8 H10 V11 H7 Z M14 8 H17 V11 H14 Z M10 9.5 H14"/></svg></p>
+          <a class="btn btn--secondary" href="/signup.html?plan=standard">Sign up for Standard</a>
+          <ul class="checks"><li>50 people</li><li>The planning studio</li><li>Weekly briefs and bibliographies</li></ul>
+        </article>
+        <article class="card card--plan span-3">
+          <h3>Custom</h3>
+          <p class="price"><span class="t-stat">Quote</span><span class="t-small muted">on request</span></p>
+          <p class="plan-ics"><svg class="plan-ic" role="img" aria-label="Ecosystem map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Ecosystem map</title><path d="M6 7 A2.5 2.5 0 1 0 6.01 7 Z M18 6 A2.5 2.5 0 1 0 18.01 6 Z M12 18 A2.5 2.5 0 1 0 12.01 18 Z M8 8.5 L11 16 M16.5 8 L13 16 M8.5 6.5 H15.5"/></svg><svg class="plan-ic" role="img" aria-label="Dashboards" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Dashboards</title><path d="M3 10 H21 V13 H3 Z M5 13 V20 M19 13 V20 M5 17 H19 M7 10 V6 H11 V10 M14.5 10 L16 4.5 L18 5 L17 10"/></svg><svg class="plan-ic" role="img" aria-label="Podcasts" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Podcasts</title><path d="M9 5 A3 3 0 0 1 15 5 V11 A3 3 0 0 1 9 11 Z M5.5 10.5 A6.5 6.5 0 0 0 18.5 10.5 M12 17 V21 M8 21 H16"/></svg><svg class="plan-ic" role="img" aria-label="Public sites" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Public sites</title><path d="M12 3 A9 9 0 1 0 12.01 3 Z M3 12 H21 M12 3 C9 6 9 18 12 21 M12 3 C15 6 15 18 12 21"/></svg><svg class="plan-ic" role="img" aria-label="Library" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Library</title><path d="M4 5 C7 4 10 4.5 12 6 C14 4.5 17 4 20 5 V19 C17 18 14 18.5 12 20 C10 18.5 7 18 4 19 Z M12 6 V20"/></svg><svg class="plan-ic" role="img" aria-label="Strategy" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Strategy</title><path d="M12 3 V8 M6 8 H18 M6 8 V12 M18 8 V12 M3 12 H9 V16 H3 Z M15 12 H21 V16 H15 Z M9 3 H15 V6 H9 Z M18 16 V19 H14 V21 H22 V19"/></svg><svg class="plan-ic" role="img" aria-label="Planning studio" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><title>Planning studio</title><path d="M3 4 H21 V16 H3 Z M7 20 H17 M12 16 V20 M7 8 H10 V11 H7 Z M14 8 H17 V11 H14 Z M10 9.5 H14"/></svg></p>
+          <a class="btn btn--secondary" href="/contact.html">Request a quote</a>
+          <ul class="checks"><li>No limits on people</li><li>Your own domain</li><li>Setup shaped to your network</li></ul>
+        </article>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer closing footer--statement g2m" id="contact" aria-labelledby="close-h">
+  <div class="wrap">
+    <div class="closing__cta close--type">
+      <div class="section-head">
+        <h2 id="close-h">Put your plan and your map in one place</h2>
+        <p class="t-small muted">Free for up to five people. No card needed.</p>
+      </div>
+      <a class="btn btn--primary btn--xl btn--wide" href="/signup.html">Start free<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+    </div>
+    <div class="closing__links">
+      <div class="grid">
+        <div class="span-4 stack-4">
+          <a class="nav__logo" href="#top"><img src="/media/brand/dashi-mark.svg" alt="" width="24" height="24">Dashi</a>
+          <p class="footer__lede">Planning and impact software for nonprofits, run as a social enterprise and hosted in Canada.</p>
+        </div>
+        <div class="span-2 footer__col"><h3>Product</h3><ul><li><a href="#plan">Strategy</a></li><li><a href="#library">Library</a></li><li><a href="#publish">Dashboards</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Plans</h3><ul><li><a href="/pricing.html">Pricing</a></li><li><a href="/signup.html">Sign up</a></li><li><a href="/login.html?next=/">Sign in</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Company</h3><ul><li><a href="/about.html">About</a></li><li><a href="/about.html#security">Security</a></li><li><a href="/contact.html">Contact</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Legal</h3><ul><li><a href="/legal.html?doc=terms">Terms</a></li><li><a href="/legal.html?doc=privacy">Privacy</a></li><li><a href="/legal.html?doc=accessibility">Accessibility</a></li></ul></div>
+      </div>
+      <div class="footer__legal">
+        <span>&copy; 2026 Dashi &nbsp; <a href="/legal.html?doc=privacy">Privacy</a> &nbsp; <a href="/legal.html?doc=terms">Terms</a></span>
+        <div class="socials"></div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="kit/system.js"></script>
+<script type="module" src="kit/motion/motion.js"></script>
+<script type="module" src="kit/layout/layout.js"></script>
+</body>
+</html>

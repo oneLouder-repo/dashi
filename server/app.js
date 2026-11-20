@@ -1463,7 +1463,7 @@ export function createApp(db, options = {}) {
   }
 
   /* Files: the app's pages and modules, and uploaded media. */
-  const PUBLIC_DIRS = ['src/', 'vendor/', 'media/'];
+  const PUBLIC_DIRS = ['src/', 'vendor/', 'media/', 'kit/'];
   function files(req, res, a, path) {
     let m;
     if ((m = path.match(/^\/media\/(media_[\w-]+)$/))) {
@@ -1480,7 +1480,8 @@ export function createApp(db, options = {}) {
     if (path === '/favicon.ico') return send(res, 204);
     if (path === '/') {
       // The root site is the platform's own page; an org's address is its app (for members) or its public site.
-      if (a.t.root) return sendFile(req, res, join(config.root, 'platform.html'));
+      // Visitors get Dashi's home page (home.html, built with the taste kit in kit/); anyone signed in gets the platform page.
+      if (a.t.root) return sendFile(req, res, join(config.root, a.user ? 'platform.html' : 'home.html'));
       if (!a.org) return page(res, 404, 'Nothing here yet', `There is no organisation at ${a.t.host}.`, { href: urlFor(config.baseDomain, '/'), label: 'Go to the platform' });
       const site = new URL(req.url, 'http://x').searchParams.has('site');
       return sendFile(req, res, join(config.root, a.member && !site ? 'index.html' : 'site.html'));
