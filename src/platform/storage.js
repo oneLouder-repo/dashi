@@ -258,6 +258,11 @@ let events = null;
 export function onDocChange(name, fn) {
   if (hosted) {
     (listeners[name] ??= []).push(fn);
+    // A preview inside another Dashi page doesn't listen for itself: the page
+    // around it sends it changes (postMessage). Browsers allow only six open
+    // connections to a server, so a page full of previews, each holding an
+    // event stream open, left nothing for following a link.
+    if (framed()) return;
     events ??= listen();
     return;
   }
@@ -271,9 +276,17 @@ export function onDocChange(name, fn) {
   });
 }
 
+const framed = () => { try { return window.self !== window.top; } catch { return true; } };
+
 /** Hosted: the server announces which documents changed; fetch the ones someone is listening for. */
 function listen() {
   const source = new EventSource('/api/events');
+  // Let go of the stream when leaving the page, so the next page's requests aren't kept waiting.
+  addEventListener('pagehide', () => {
+    source.close();
+    // Back on this page from the browser's cache: listen again.
+    addEventListener('pageshow', (e) => { if (e.persisted) events = listen(); }, { once: true });
+  }, { once: true });
   source.addEventListener('doc', async (e) => {
     const { name, by } = JSON.parse(e.data);
     if (by && by === hosted.sessionTag) return; // Our own save coming back.

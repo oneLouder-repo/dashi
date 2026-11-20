@@ -385,6 +385,17 @@ export function Player(getDoc) {
     /** The episode playing now, if any. */
     get current() { return audio.dataset.ep ?? null; },
     setLink(fn) { link = fn; },
+    /** Show the player with an episode ready but not playing: how a preview shows the station's player style. */
+    show(e) {
+      if (!e || !el.hidden || audio.dataset.ep) return;
+      const show = getDoc().podcasts[e.podcastId];
+      art.replaceChildren(EpisodeArt(e, show, 52));
+      title.textContent = e.title;
+      title.href = link({ episode: e.id });
+      sub.textContent = show?.title ?? '';
+      time.textContent = `0:00 / ${fmtDuration(e.audio?.duration ?? 0)}`;
+      el.hidden = false;
+    },
     setLook(look) { el.className = `station-player player-${look.player}`; },
   };
 }

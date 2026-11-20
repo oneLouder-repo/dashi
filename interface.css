@@ -343,6 +343,7 @@ body.mapper-page > main { box-shadow: var(--lift-sheet); }
 
 /* ── Breadcrumbs: the same trail at the top of every plugin page ── */
 .page-crumbs { grid-column: 1 / -1; flex: none; width: 100%; margin: 0 0 4px; font-size: 13px; color: var(--ink-3); }
+.page-crumbs.pad { padding: 16px 24px 4px; margin: 0; box-sizing: border-box; }
 .page-crumbs ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; }
 .page-crumbs li { display: inline-flex; align-items: center; min-width: 0; }
 .page-crumbs li + li::before { content: '/'; margin: 0 8px; color: var(--ink-4); }

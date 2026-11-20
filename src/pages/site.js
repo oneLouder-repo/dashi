@@ -120,6 +120,8 @@ function render() {
   const plansHere = Object.values(docs.plandocs.docs).filter((d) => d.siteId === id && isLivePlan(d));
   const ctx = { doc: pod, org, site, today: now, player, link };
   player.setLook(pod.station.look);
+  // In a staff preview of the station, show the player (not playing) so its style can be seen.
+  if (hasStation && staffView && params().frame === '1' && (p.view === 'station' || p.show || p.episode)) player.show(Object.values(pod.episodes).filter((e) => published(e, now)).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))[0]);
 
   // The org's palette and look and feel (Public Portal → Look and feel), then the station's look.
   applyTheme(document.documentElement, org.theme);

@@ -321,13 +321,12 @@ function StationDesign() {
         h('div', { class: 'lk-box-head' }, h('h2', {}, 'The archive'), h('span', { class: 'muted small' }, 'How listeners find past episodes')),
         cards('Archive', LOOKS.archive, L.archive, (archive) => setLook({ archive }), (id) => h('span', { class: `pd-sketch pd-arc-${id}`, 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i')))),
       h('section', { class: 'lk-box' },
-        h('div', { class: 'lk-box-head' }, h('h2', {}, 'Player and cover art')),
-        h('div', { class: 'lk-row' }, h('span', { class: 'lk-label' }, 'Player'),
-          h('div', { class: 'device-toggle xs', role: 'radiogroup', 'aria-label': 'Player' }, LOOKS.player.map((x) =>
-            h('button', { type: 'button', role: 'radio', title: x.blurb, 'aria-checked': String(L.player === x.id), class: L.player === x.id ? 'on' : '', onclick: () => setLook({ player: x.id }) }, x.label)))),
-        h('div', { class: 'lk-row' }, h('span', { class: 'lk-label' }, 'Art'),
-          h('div', { class: 'device-toggle xs', role: 'radiogroup', 'aria-label': 'Cover art' }, LOOKS.art.map((x) =>
-            h('button', { type: 'button', role: 'radio', 'aria-checked': String(L.art === x.id), class: L.art === x.id ? 'on' : '', onclick: () => setLook({ art: x.id }) }, x.label.replace(' art', '')))))),
+        h('div', { class: 'lk-box-head' }, h('h2', {}, 'Player'), h('span', { class: 'muted small' }, 'Where listening happens as people move around the site')),
+        cards('Player', LOOKS.player, L.player, (player) => setLook({ player }), (id) => h('span', { class: `pd-sketch pd-player pd-player-${id}`, 'aria-hidden': 'true' },
+          h('em', {}), h('em', {}), h('span', { class: 'pd-pl' }, h('b'), h('i'), h('u'))))),
+      h('section', { class: 'lk-box' },
+        h('div', { class: 'lk-box-head' }, h('h2', {}, 'Cover art')),
+        cards('Cover art', LOOKS.art, L.art, (art) => setLook({ art }), (id) => h('span', { class: `pd-sketch pd-art pd-art-${id}`, 'aria-hidden': 'true' }, h('i'), h('i'), h('i')))),
       h('section', { class: 'lk-box' },
         h('div', { class: 'lk-box-head' }, h('h2', {}, 'Featured shows'), h('span', { class: 'muted small' }, 'Starred shows lead the page, in this order')),
         h('ol', { class: 'pd-shows' }, shows.map((x, i) => h('li', { class: x.featured ? 'on' : '' },
@@ -727,18 +726,7 @@ function ShowSettings(p) {
         others.length > 0 && h('select', { class: 'select select-sm host-add', name: 'show-add-host', 'aria-label': 'Add a host', onchange: (ev) => { if (ev.target.value) update({ hostIds: [...p.hostIds, ev.target.value] }); } },
           h('option', { value: '' }, '+ Add a host'), options(others.map((x) => ({ id: x.id, label: x.name }))))),
       h('p', { class: 'muted small' }, 'Hosts are added to each new episode’s people. Their names show on the public show page.')),
-    h('section', { class: 'pc-set card' },
-      h('div', { class: 'pc-section-head' }, h('h3', {}, 'Seasons'), h('button', { class: 'btn btn-xs', onclick: addSeason }, icon('plus', 13), 'Add season')),
-      seasonsOf(doc(), p.id).map((s) => {
-        const count = eps.filter((e) => e.season === s.number).length;
-        return h('div', { class: 'pc-season-edit' },
-          h('span', { class: 'pc-season-no' }, `S${s.number}`),
-          h('div', { class: 'pc-season-fields' },
-            h('input', { class: 'input input-sm', name: `season-${s.number}-title`, value: s.title, 'aria-label': `Season ${s.number} title`, onchange: (ev) => setSeason(s.number, { title: ev.target.value }) }),
-            h('input', { class: 'input input-sm', name: `season-${s.number}-desc`, value: s.description, placeholder: 'What this season is about', 'aria-label': `Season ${s.number} description`, onchange: (ev) => setSeason(s.number, { description: ev.target.value }) })),
-          h('span', { class: 'muted small' }, n(count, 'episode')),
-          !count && h('button', { class: 'btn btn-ghost btn-xs btn-square', 'aria-label': `Remove season ${s.number}`, onclick: () => removeSeason(s.number) }, icon('close', 13)));
-      })),
+    SeasonsPanel(p, eps, { setSeason, addSeason, removeSeason }),
     h('section', { class: 'pc-set card' },
       h('h3', {}, 'Where people can listen'),
       h('p', { class: 'muted small' }, 'Paste the show’s address on each service once it is listed there (they all read your RSS feed). They show as buttons on the public pages.'),
@@ -753,6 +741,48 @@ function ShowSettings(p) {
         location.hash = 'station';
       } }, icon('trash', 14), 'Delete this show')));
 }
+
+/**
+ * A show's seasons, side by side as cards, newest last like a shelf: each
+ * with its number, name and blurb (typed in place), its episodes' art, how
+ * many are out and when it ran, and a way to its episodes. The newest is
+ * marked current; a season with no episodes can be removed; the dashed card
+ * at the end starts the next one.
+ */
+function SeasonsPanel(p, eps, { setSeason, addSeason, removeSeason }) {
+  const seasons = seasonsOf(doc(), p.id);
+  const next = (seasons.at(-1)?.number ?? 0) + 1;
+  const span = (list) => {
+    const dates = list.map((e) => e.publishedAt).filter(Boolean).sort();
+    if (!dates.length) return null;
+    const a = monthYear(dates[0]), b = monthYear(dates.at(-1));
+    return a === b ? a : `${a} to ${b}`;
+  };
+  return h('section', { class: 'pc-set card pc-seasons' },
+    h('div', { class: 'pc-seasons-head' },
+      h('div', {}, h('h3', {}, 'Seasons'), h('p', { class: 'muted small' }, 'Group episodes into runs. Listeners pick a season on the public show page; the newest shows first.'))),
+    h('ol', { class: 'pc-season-shelf' },
+      seasons.map((x, k) => {
+        const list = eps.filter((e) => e.season === x.number).sort((a, b) => a.number - b.number);
+        const live = list.filter((e) => stateOf(e) === 'live').length;
+        const current = k === seasons.length - 1;
+        return h('li', { class: `pc-season-card${current ? ' current' : ''}` },
+          h('div', { class: 'pc-season-card-top' },
+            h('span', { class: 'pc-season-big', 'aria-hidden': 'true' }, String(x.number)),
+            h('div', { class: 'pc-season-card-meta' },
+              h('span', { class: 'pc-season-kicker' }, `Season ${x.number}`, current && h('span', { class: 'pc-season-now' }, 'Current')),
+              h('small', { class: 'muted' }, [list.length ? `${n(list.length, 'episode')}${live < list.length ? `, ${live} out` : ''}` : 'No episodes yet', span(list)].filter(Boolean).join(' · '))),
+            !list.length && h('button', { class: 'btn btn-ghost btn-xs btn-square', 'aria-label': `Remove season ${x.number}`, title: 'Remove this season (it has no episodes)', onclick: async () => { if (await uiConfirm(`Remove season ${x.number}?`)) removeSeason(x.number); } }, icon('trash', 13))),
+          h('input', { class: 'pc-season-name', name: `season-${x.number}-title`, value: x.title, placeholder: `Season ${x.number}`, 'aria-label': `Season ${x.number} name`, onchange: (ev) => setSeason(x.number, { title: ev.target.value.trim() || `Season ${x.number}` }) }),
+          h('textarea', { class: 'pc-season-desc', name: `season-${x.number}-desc`, rows: 2, placeholder: 'What this season is about, in a line or two', 'aria-label': `Season ${x.number} description`, onchange: (ev) => setSeason(x.number, { description: ev.target.value }) }, x.description ?? ''),
+          h('div', { class: 'pc-season-art' }, list.length
+            ? [...list.slice(0, 5).map((e) => h('span', { title: e.title }, EpisodeArt(e, p, 34))), list.length > 5 && h('span', { class: 'pc-season-more' }, `+${list.length - 5}`)]
+            : h('span', { class: 'muted small' }, 'New episodes can go in this season.')),
+          list.length > 0 && h('a', { class: 'pc-season-link', href: `#${p.id}`, onclick: () => { filter.season = x.number; } }, 'See its episodes', icon('chevronRight', 13)));
+      }),
+      h('li', {}, h('button', { class: 'pc-season-card pc-season-add', onclick: addSeason }, icon('plus', 22), h('strong', {}, `Start season ${next}`), h('small', { class: 'muted' }, 'For a new run of episodes')))));
+}
+const monthYear = (d) => new Date(`${d.slice(0, 7)}-15T12:00:00Z`).toLocaleDateString('en-CA', { month: 'short', year: 'numeric', timeZone: 'UTC' });
 
 function showRss(p) {
   const xml = podcastRss(doc(), p.id, { baseUrl: org.contact.website || 'https://example.org', today: now });
