@@ -20,7 +20,7 @@ const folded = () => { try { return localStorage.getItem(KEY) === '1'; } catch {
 
 export function SideNav({ label, sections }) {
   const nav = h('nav', { class: `side-nav${folded() ? ' folded' : ''}`, 'aria-label': label });
-  const toggle = h('button', { class: 'btn btn-ghost btn-xs btn-square side-fold', title: 'Fold the sidebar', 'aria-expanded': String(!folded()),
+  const toggle = h('button', { class: 'btn btn-ghost btn-xs btn-square side-fold', title: 'Fold the sidebar', 'aria-label': 'Fold the sidebar', 'aria-expanded': String(!folded()),
     onclick: () => {
       const now = !nav.classList.toggle('folded') ? '0' : '1';
       try { localStorage.setItem(KEY, now); } catch { /* private window: fold just for now */ }

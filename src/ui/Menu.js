@@ -22,6 +22,7 @@ export function Menu({ label, icon: glyph = null, title = '', items, align = 'st
   const panel = h('div', { class: `tb-menu${align === 'end' ? ' end' : ''}`, role: 'menu', hidden: true });
   const button = h('button', {
     type: 'button', class: `btn btn-sm ${primary ? 'btn-primary' : 'btn-ghost'} tb-menu-btn ${className}`.trim(), title,
+    'aria-label': label ? null : (title || null),
     'aria-haspopup': 'menu', 'aria-expanded': 'false',
     onclick: (e) => { e.stopPropagation(); panel.hidden ? open() : close(); },
     onkeydown: (e) => { if (e.key === 'ArrowDown') { e.preventDefault(); open(); focusItem(0); } },

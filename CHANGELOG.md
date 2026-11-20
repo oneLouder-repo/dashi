@@ -2,6 +2,15 @@
 
 Dashi uses version numbers like `0.1.0-alpha.1`. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
+## Unreleased (a calmer app interface)
+
+- **One look for every app screen**, set down in `.interface-design/system.md` and `interface.css`: warm paper for the page, white sheets for the work, ink for text, and each plugin's colour used only where it means something.
+- **The plugin bar is quiet**: plain ink icons, with the plugin's colour on hover and on the one that's open.
+- **Sidebars sit on the page**, so the work stands out; the page you're on shows as a small sheet with a dot in the plugin's colour.
+- **Cards, tables, fields and buttons** share one set of edges, corners and states. Fields look inset, buttons press in a little, and rows light up under the pointer.
+- **Keyboard friendly**: a "Skip to content" link, and a clear ring around whatever has focus, everywhere.
+- The Feedback button is smaller, the search box makes room on phones, and motion is short and switches off for people who ask their device for less.
+
 ## 0.1.0-alpha.9 (a rethought Organisation page, the look of your sites in the Public Portal, and two new roles)
 
 ### Organisation
