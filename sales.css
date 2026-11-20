@@ -113,3 +113,70 @@ body.sales-page { background: #fbfaf8; display: block; }
 .legal-body th, .legal-body td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); }
 .legal-versions { display: inline-block; }
 .legal-versions summary { cursor: pointer; display: inline; text-decoration: underline; }
+
+/* ------------------------------------------------------------------------------------------------
+   The look of Dashi's home page (home.html, the taste kit) carried onto pricing, about, contact,
+   sign-up and legal: Mona Sans, the warm ink, one orange action, pill buttons, hairline cards with no
+   shadow, 20px corners, 16px text in the ink, sentence case. Loaded after the rules above, so it wins.
+   ------------------------------------------------------------------------------------------------ */
+body.sales-page {
+  --ink: #1f2430; --muted: #4a4d56; --accent: #b4541a; --line-soft: rgb(31 36 48 / .12); --card-shadow: none;
+  --color-primary: #d0621b; --color-primary-content: #111111;
+  background: #fbfaf8; color: var(--ink);
+  font-family: "Mona Sans", system-ui, sans-serif; font-size: 16px; line-height: 1.55;
+}
+body.sales-page :is(h1, h2, h3) { font-family: "Mona Sans", system-ui, sans-serif; font-weight: 500; letter-spacing: -0.02em; font-stretch: 104%; }
+.sales-head { position: sticky; top: 0; z-index: 10; display: block; padding: 0; background: #fbfaf8; backdrop-filter: none; border-bottom: 1px solid var(--line-soft); }
+.sales-bar { display: flex; align-items: center; gap: 32px; height: 72px; width: min(100% - 2 * 80px, 1280px); margin: 0 auto; }
+.sales-logo { display: inline-flex; align-items: center; gap: 8px; font-size: 21px; font-weight: 500; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; }
+.sales-nav { gap: 28px; font-weight: 400; font-size: 15px; }
+.sales-nav a { border-bottom-width: 2px; }
+.sales-nav a.on { border-bottom-color: var(--ink); }
+.sales-signin { color: var(--ink); text-decoration: none; font-size: 15px; }
+body.sales-page .btn { height: 44px; min-height: 44px; padding-inline: 24px; border-radius: 999px; font-size: 16px; font-weight: 500; box-shadow: none; border: 1px solid var(--line-soft); background: #ecebe8; color: var(--ink); }
+body.sales-page .btn-primary { background: #d0621b; border-color: #d0621b; color: #111111; }
+body.sales-page .btn-primary:hover { background: #b9561a; border-color: #b9561a; }
+body.sales-page .btn:active { transform: translateY(1px); }
+.sales-main { max-width: none; width: min(100% - 2 * 80px, 1280px); padding: 0 0 96px; }
+.sales-main h1 { font-size: clamp(38px, 2.6vw + 18px, 60px); line-height: 1.04; font-weight: 500; letter-spacing: -0.035em; margin: 0 0 24px; }
+.sales-main h2 { font-size: clamp(28px, 1.4vw + 18px, 40px); line-height: 1.1; font-weight: 500; margin: 0 0 24px; }
+.sales-main .lede { font-size: 20px; line-height: 1.5; color: var(--ink); max-width: 56ch; }
+.eyebrow { font-size: 13px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--muted); }
+.sales-section { padding: 120px 0 24px; }
+.plan-cards { gap: 24px; }
+.plan-card, .sales-point, .signup-form, .signup-done { background: #fff; border: 1px solid var(--line-soft); border-radius: 20px; box-shadow: none; padding: 32px; }
+.plan-card.featured { border: 1px solid #d0621b; box-shadow: inset 0 0 0 1px #d0621b; }
+.plan-card h3 { font-size: 20px; font-weight: 500; }
+.plan-price strong { font-weight: 500; font-size: 38px; letter-spacing: -0.03em; }
+.plan-tag, .plan-list { font-size: 16px; color: var(--ink); }
+.plan-list .icon { color: #d0621b; }
+.compare-table { border: 1px solid var(--line-soft); border-radius: 20px; box-shadow: none; font-size: 16px; }
+.compare-table thead th { background: #f4f2ee; font-weight: 500; }
+.compare-table tr.group th { background: #fbfaf8; color: var(--muted); text-transform: none; letter-spacing: 0; font-size: 14px; font-weight: 500; }
+.compare-table .yes .icon { color: #d0621b; }
+.about-block h2 { font-size: 24px; }
+.faq summary { font-weight: 500; }
+.faq p { color: var(--ink); }
+.signup-form .field { font-weight: 500; font-size: 14px; }
+.signup-form :is(.input, .select, .textarea) { min-height: 48px; font-size: 16px; border-radius: 12px; border-color: var(--line-soft); }
+body.sales-page .sales-main a:not(.btn) { color: var(--accent); }
+.sales-foot { display: block; max-width: none; width: min(100% - 2 * 80px, 1280px); margin: 0 auto; padding: 64px 0 48px; border-top: 1px solid var(--line-soft); }
+.sales-foot-grid { display: grid; grid-template-columns: 4fr repeat(4, 2fr); gap: 24px; }
+.sales-foot-lede p { margin: 16px 0 0; max-width: 34ch; font-size: 16px; }
+.sales-foot-col h3 { font-size: 14px; font-weight: 500; color: var(--muted); letter-spacing: 0; margin: 0 0 16px; }
+.sales-foot-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; font-size: 15px; }
+.sales-foot a { color: var(--ink); text-decoration: none; } .sales-foot a:hover { color: var(--accent); }
+.sales-foot-legal { margin: 48px 0 0; padding-top: 24px; border-top: 1px solid var(--line-soft); font-size: 14px; color: var(--muted); }
+@media (max-width: 1023px) {
+  .sales-bar, .sales-main, .sales-foot { width: calc(100% - 2 * 48px); }
+  .sales-foot-grid { grid-template-columns: repeat(2, 1fr); }
+  .sales-foot-lede { grid-column: 1 / -1; }
+}
+@media (max-width: 639px) {
+  .sales-bar, .sales-main, .sales-foot { width: calc(100% - 2 * 24px); }
+  .sales-bar { height: 56px; gap: 12px; } .sales-nav { display: none; }
+  .sales-section { padding-top: 64px; }
+}
+.sales-section > .plan-cards, .sales-plans-band > .plan-cards { margin-top: 48px; }
+.sales-page .table-scroll { position: relative; overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
+@media (max-width: 639px) { .sales-page .table-scroll .compare-table { min-width: 560px; font-size: 14px; } }

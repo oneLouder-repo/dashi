@@ -1,6 +1,5 @@
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
-import { Wordmark } from '../ui/Wordmark.js';
 import { PLUGINS } from '../plugins.js';
 import { LIMITS, FEATURES, PLAN_IDS, PLAN_PLUGINS, amount, allPlans } from '../platform/plans.js';
 import { siteContent } from '../platform/salesSite.js';
@@ -29,24 +28,33 @@ async function platformInfo() {
   return { plans: allPlans(), site: siteContent(), signup: true, baseDomain: 'dashi.ca', tax: { label: 'HST' } };
 }
 
+/* The bar and the footer match Dashi's home page (home.html, built with the taste kit): one opaque 72px
+   bar with a hairline, the mark and the name, four plain words, Sign in and the one Start free button. */
+const Logo = () => h('a', { href: '/', class: 'sales-logo', 'aria-label': 'Dashi home' }, h('img', { src: '/media/brand/dashi-mark.svg', alt: '', width: 24, height: 24 }), 'Dashi');
+
 function Header(page, user) {
   const link = (href, label, id) => h('a', { href, class: page === id ? 'on' : '', 'aria-current': page === id ? 'page' : null }, label);
   return h('header', { class: 'sales-head' },
-    h('a', { href: '/', class: 'platform-brand', 'aria-label': 'Dashi home' }, Wordmark(24)),
-    h('nav', { class: 'sales-nav', 'aria-label': 'Dashi' },
-      link('/pricing.html', 'Plans and pricing', 'pricing'), link('/about.html', 'About', 'about'), link('/contact.html', 'Contact', 'contact')),
-    h('span', { class: 'spacer' }),
-    user
-      ? h('a', { class: 'btn btn-sm', href: '/' }, 'Your organisations')
-      : [h('a', { class: 'btn btn-sm btn-ghost', href: '/login.html?next=/' }, 'Sign in'), h('a', { class: 'btn btn-sm btn-primary', href: '/signup.html' }, 'Start free')]);
+    h('div', { class: 'sales-bar' },
+      Logo(),
+      h('nav', { class: 'sales-nav', 'aria-label': 'Dashi' },
+        link('/#plan', 'Product', 'home'), link('/pricing.html', 'Pricing', 'pricing'), link('/about.html', 'About', 'about'), link('/contact.html', 'Contact', 'contact')),
+      h('span', { class: 'spacer' }),
+      user
+        ? h('a', { class: 'btn sales-btn', href: '/' }, 'Your organisations')
+        : [h('a', { class: 'sales-signin', href: '/login.html?next=/' }, 'Sign in'), h('a', { class: 'btn btn-primary sales-btn', href: '/signup.html' }, 'Start free')]));
 }
 
 function Footer(site) {
+  const col = (title, links) => h('div', { class: 'sales-foot-col' }, h('h3', {}, title), h('ul', {}, links.map(([href, label]) => h('li', {}, h('a', { href }, label)))));
   return h('footer', { class: 'sales-foot' },
-    h('div', {}, Wordmark(18), h('p', { class: 'muted small' }, 'A social enterprise. Hosted in Canada.')),
-    h('nav', {}, h('a', { href: '/pricing.html' }, 'Plans and pricing'), h('a', { href: '/about.html' }, 'About'), h('a', { href: '/about.html#security' }, 'Security'), h('a', { href: '/contact.html' }, 'Contact'), h('a', { href: '/login.html?next=/' }, 'Sign in')),
-    h('nav', { class: 'sales-legal', 'aria-label': 'Legal' }, LEGAL_KINDS.map((k) => h('a', { href: `/legal.html?doc=${k.id}` }, k.short))),
-    h('p', { class: 'muted small' }, site.contact.email));
+    h('div', { class: 'sales-foot-grid' },
+      h('div', { class: 'sales-foot-lede' }, Logo(), h('p', {}, 'Planning and impact software for nonprofits, run as a social enterprise and hosted in Canada.')),
+      col('Product', [['/#plan', 'Strategy'], ['/#library', 'Library'], ['/#publish', 'Dashboards']]),
+      col('Plans', [['/pricing.html', 'Pricing'], ['/signup.html', 'Sign up'], ['/login.html?next=/', 'Sign in']]),
+      col('Company', [['/about.html', 'About'], ['/about.html#security', 'Security'], ['/contact.html', 'Contact']]),
+      col('Legal', LEGAL_KINDS.map((k) => [`/legal.html?doc=${k.id}`, k.short]))),
+    h('p', { class: 'sales-foot-legal' }, `© ${new Date().getFullYear()} Dashi · ${site.contact.email}`));
 }
 
 /* -------------------------------------------------------------- home */
