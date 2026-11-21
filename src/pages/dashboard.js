@@ -63,7 +63,7 @@ function Moving() {
   for (const [id, m] of Object.entries(docs.maps?.maps ?? {})) if (has('mapper') && m.updatedAt) items.push({ at: m.updatedAt, glyph: 'sec-mapper', toneId: 'mapper', text: h('span', {}, 'Map ', h('a', { href: `mapper.html#${id}` }, m.title), ' was updated') });
   for (const it of Object.values(docs.library?.items ?? {})) if (has('library') && it.updatedAt) items.push({ at: it.updatedAt, glyph: 'sec-library', toneId: 'library', text: h('span', {}, it.kind === 'doc' ? 'Doc ' : 'Reading ', h('a', { href: `library.html#item/${it.id}` }, it.meta?.title || 'Untitled'), it.kind === 'doc' ? ' was edited' : ' was added or changed') });
   for (const a of (docs.assets?.activity ?? []).slice(0, 3)) if (has('assets')) items.push({ at: a.at, glyph: 'sec-assets', toneId: 'assets', text: h('span', {}, h('b', {}, org.staff[a.by]?.name?.split(' ')[0] ?? 'Someone'), ` ${a.what}`), href: a.key ? `assets.html#key=${encodeURIComponent(a.key)}` : 'assets.html' });
-  for (const e of Object.values(docs.podcasts?.episodes ?? {})) if (has('podcasts') && e.publishedAt) items.push({ at: e.publishedAt, glyph: 'sec-podcasts', toneId: 'podcasts', text: h('span', {}, 'Episode ', h('a', { href: `podcasts.html#${e.podcastId ?? ''}` }, e.title), ' went out') });
+  for (const e of Object.values(docs.podcasts?.episodes ?? {})) if (has('podcasts') && e.publishedAt) items.push({ at: e.publishedAt, glyph: 'sec-podcasts', toneId: 'podcasts', text: h('span', {}, 'Episode ', h('a', { href: `podcasts.html#episodes/${e.id}` }, e.title), ' went out') });
   const t = (x) => (typeof x.at === 'number' ? x.at : new Date(x.at).getTime()) || 0;
   const recent = items.sort((a, b) => t(b) - t(a)).slice(0, 8);
   return Card('What’s moving', 'flow', {},

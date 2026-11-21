@@ -11,7 +11,7 @@ import { uiAlert } from '../ui/dialog.js';
 /**
  * Podcast publishing mini-tool (only when the org has the Podcasts plugin):
  * put an episode out in one step, and push drafts and scheduled episodes
- * live. Show settings, seasons and the station's look stay in Podcasts.
+ * live. Series settings, seasons and the station's look stay in Podcasts.
  */
 export function PodcastTool(ctx) {
   const store = ctx.podcasts;
@@ -32,13 +32,13 @@ export function PodcastTool(ctx) {
       h('small', { class: 'muted' }, [showOf(e).title, `S${e.season} · E${e.number ?? '?'}`, fmtDuration(e.audio?.duration)].filter(Boolean).join(' · '))),
     h('span', { class: `pq-when ${e.status === 'draft' ? 'draft' : e.publishedAt > now ? 'soon' : 'out'}` }, e.status === 'draft' ? 'Draft' : e.publishedAt > now ? `Out ${short(e.publishedAt)}` : short(e.publishedAt)),
     action,
-    h('a', { class: 'btn btn-xs btn-ghost', href: `podcasts.html#${e.podcastId}`, title: 'Show notes, guests and chapters' }, 'Edit'));
+    h('a', { class: 'btn btn-xs btn-ghost', href: `podcasts.html#episodes/${e.id}/edit`, title: 'Notes, guests and chapters' }, 'Edit'));
 
   return h('div', { class: 'pq' },
     h('div', { class: 'pq-head' },
       h('div', {},
         h('h1', {}, 'Podcast publishing'),
-        h('p', { class: 'lede' }, 'Drop an episode in and put it out, or send a draft live. Shows, seasons and how the station looks are in ', h('a', { href: 'podcasts.html' }, 'Podcasts'), '.')),
+        h('p', { class: 'lede' }, 'Drop an episode in and put it out, or send a draft live. Series, seasons and how the station looks are in ', h('a', { href: 'podcasts.html' }, 'Podcasts'), '.')),
       h('div', { class: 'pq-head-actions' },
         site ? h('a', { class: 'btn btn-sm', href: stationUrl, target: '_blank', rel: 'noopener' }, icon('globe', 14), 'Station page') : h('span', { class: 'muted small' }, 'The station isn’t on a site yet.'),
         h('a', { class: 'btn btn-sm btn-ghost', href: 'podcasts.html' }, icon('mic', 14), 'Open Podcasts'))),
@@ -66,7 +66,7 @@ function QuickPublish(ctx, shows, now) {
   const seasons = seasonsOf(store.doc, ctx.quickShow);
   const last = seasons.at(-1)?.number ?? 1;
   const f = {
-    show: h('select', { class: 'select select-sm', name: 'q-show', 'aria-label': 'Show', onchange: (e) => { ctx.quickShow = e.target.value; ctx.render(); } },
+    show: h('select', { class: 'select select-sm', name: 'q-show', 'aria-label': 'Series', onchange: (e) => { ctx.quickShow = e.target.value; ctx.render(); } },
       options(shows.map((s) => ({ id: s.id, label: s.title })), ctx.quickShow)),
     season: h('select', { class: 'select select-sm', name: 'q-season', 'aria-label': 'Season' },
       options([...seasons.map((s) => ({ id: String(s.number), label: s.title || `Season ${s.number}` })), { id: 'new', label: `New season (${last + 1})` }], String(last))),
@@ -122,10 +122,10 @@ function QuickPublish(ctx, shows, now) {
     }));
     store.apply(ops.length > 1 ? col.batch(ops) : ops[0]);
   } },
-    h('div', { class: 'pq-form-head' }, Cover(store.doc.podcasts[ctx.quickShow], 52), h('div', {}, h('h2', {}, 'New episode'), h('small', { class: 'muted' }, 'The show’s hosts are credited. Add notes and guests afterwards in Podcasts.'))),
+    h('div', { class: 'pq-form-head' }, Cover(store.doc.podcasts[ctx.quickShow], 52), h('div', {}, h('h2', {}, 'New episode'), h('small', { class: 'muted' }, 'The series’ hosts are credited. Add notes and guests afterwards in Podcasts.'))),
     drop,
     h('div', { class: 'pq-fields' },
-      h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Show'), f.show),
+      h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Series'), f.show),
       h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Season'), f.season),
       h('label', { class: 'fieldset span-2' }, h('span', { class: 'fieldset-legend' }, 'Title'), f.title),
       h('label', { class: 'fieldset span-2' }, h('span', { class: 'fieldset-legend' }, 'Summary'), f.description),

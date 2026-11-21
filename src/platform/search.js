@@ -75,8 +75,8 @@ export function buildIndex(docs = {}, { plugins = null } = {}) {
     add({ id: `staff:${s.id}`, kind: 'Person', group: 'people', title: s.name, text: [s.title, s.bio, s.email].filter(Boolean).join(' · '), href: `org.html#people/${s.id}`, icon: 'person', sub: s.title ?? '', person: s });
   }
   if (on('podcasts')) {
-    for (const p of Object.values(docs.podcasts?.podcasts ?? {})) add({ id: `show:${p.id}`, kind: 'Show', group: 'podcasts', title: p.title || 'Untitled show', text: p.description ?? '', href: `podcasts.html#${p.id}`, icon: 'sec-podcasts' });
-    for (const e of Object.values(docs.podcasts?.episodes ?? {})) add({ id: `ep:${e.id}`, kind: 'Episode', group: 'podcasts', title: e.title || 'Untitled episode', tags: e.tags ?? [], text: [e.summary, e.description, e.notes, e.transcript, ...(e.chapters ?? []).map((c) => c.title)].filter(Boolean).join(' · '), href: `podcasts.html#${e.podcastId ?? ''}/${e.id}`, icon: 'music', sub: docs.podcasts.podcasts?.[e.podcastId]?.title ?? '' });
+    for (const p of Object.values(docs.podcasts?.podcasts ?? {})) add({ id: `show:${p.id}`, kind: 'Series', group: 'podcasts', title: p.title || 'Untitled series', text: p.description ?? '', href: `podcasts.html#series/${p.id}`, icon: 'sec-podcasts' });
+    for (const e of Object.values(docs.podcasts?.episodes ?? {})) add({ id: `ep:${e.id}`, kind: 'Episode', group: 'podcasts', title: e.title || 'Untitled episode', tags: e.tags ?? [], text: [e.summary, e.description, e.notes, e.transcript, ...(e.chapters ?? []).map((c) => c.title)].filter(Boolean).join(' · '), href: `podcasts.html#episodes/${e.id}`, icon: 'music', sub: docs.podcasts.podcasts?.[e.podcastId]?.title ?? '' });
   }
   if (on('pages')) {
     for (const p of Object.values(docs.pages?.pages ?? {})) add({ id: `page:${p.id}`, kind: p.kind === 'article' ? 'News article' : 'Page', group: 'pages', title: p.title || 'Untitled', text: [p.summary, plain(p.body)].filter(Boolean).join(' · '), href: `pages.html#${p.id}`, icon: 'fileText' });

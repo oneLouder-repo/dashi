@@ -129,7 +129,7 @@ const BUILT_IN = {
     ],
     dataModel: { docs: [{ name: 'podcasts', label: 'Podcasts', collections: [
       { id: 'podcasts', label: 'Shows', fields: [f('title', 'Title', 'text', { required: true }), f('category', 'Category'), f('featured', 'Featured', 'boolean'), f('hostIds', 'Hosts', 'list')] },
-      { id: 'episodes', label: 'Episodes', fields: [f('podcastId', 'Show', 'reference', { required: true }), f('title', 'Title', 'text', { required: true }), f('season', 'Season', 'number'), f('status', 'Status', 'select', { options: ['draft', 'scheduled', 'published'] }), f('publishAt', 'Publish on', 'date'), f('mediaId', 'Audio', 'reference')] }] }] },
+      { id: 'episodes', label: 'Episodes', fields: [f('podcastId', 'Series', 'reference', { required: true }), f('title', 'Title', 'text', { required: true }), f('season', 'Season', 'number'), f('status', 'Status', 'select', { options: ['draft', 'scheduled', 'published'] }), f('publishAt', 'Publish on', 'date'), f('mediaId', 'Audio', 'reference')] }] }] },
   },
   library: {
     category: 'Knowledge',

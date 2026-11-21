@@ -333,3 +333,139 @@ details.pc-season[open] > summary .pc-fold { transform: rotate(180deg); }
 .pd-art-square > i { border-radius: 0 !important; }
 .pd-art-rounded > i { border-radius: 6px !important; }
 .pd-art-circle > i { border-radius: 50% !important; }
+
+/* alpha.11: episodes first. The episode list is home, with the station alongside;
+   an episode, its form and a series' settings open in trays over the page. */
+.pc-home-top { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr); gap: 14px; margin: 6px 0 18px; }
+.pc-strip { display: flex; gap: 14px; align-items: center; padding: 14px 16px; border: 1px solid var(--rule); border-radius: var(--r-card, 12px); background: var(--sheet); min-width: 0; }
+.pc-strip-art { flex: none; line-height: 0; }
+.pc-strip-art .cover { border-radius: 12px; }
+.pc-strip-text { display: grid; gap: 1px; min-width: 0; }
+.pc-strip-kicker { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.pc-strip-name { font-size: 17px; font-weight: 750; color: var(--ink-1); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-strip-name:hover { text-decoration: underline; text-underline-offset: 3px; }
+.pc-strip-links { display: flex; flex-wrap: wrap; gap: 2px; margin: 4px 0 0 -8px; }
+.pc-addcard { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1.5px dashed var(--rule-strong, var(--line)); border-radius: var(--r-card, 12px); cursor: pointer; color: var(--ink-2); transition: border-color 140ms var(--ease-out, ease), background 140ms var(--ease-out, ease); }
+.pc-addcard:hover, .pc-addcard.over { border-color: var(--color-primary); background: color-mix(in oklab, var(--color-primary) 5%, transparent); }
+.pc-addcard:focus-within { box-shadow: var(--ripple-soft, 0 0 0 3px color-mix(in oklab, var(--color-primary) 25%, transparent)); }
+.pc-addcard-icon { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--color-primary); color: var(--color-primary-content, #fff); }
+.pc-addcard-text { display: grid; gap: 2px; }
+.pc-addcard-text strong { color: var(--ink-1); font-size: 15px; }
+.pc-addcard-text small { font-size: 12.5px; color: var(--ink-3); line-height: 1.4; }
+.pc-series-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; }
+.pc-schip { display: inline-flex; align-items: center; gap: 7px; padding: 3px 10px 3px 3px; border: 1px solid var(--rule); border-radius: 999px; background: var(--sheet); font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
+.pc-schip .cover { border-radius: 999px !important; box-shadow: none; }
+.pc-schip small { font-weight: 600; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.pc-schip:hover { border-color: var(--rule-strong, var(--line)); color: var(--ink-1); }
+.pc-schip.on { background: var(--ink-1, var(--ink)); border-color: var(--ink-1, var(--ink)); color: var(--sheet, #fff); }
+.pc-schip.on small { color: color-mix(in oklab, var(--sheet, #fff) 70%, transparent); }
+.pc-schip-all { width: 22px; height: 22px; border-radius: 999px; display: grid; place-items: center; background: var(--well); color: var(--ink-2); }
+.pc-schip.on .pc-schip-all { background: color-mix(in oklab, var(--sheet, #fff) 18%, transparent); color: inherit; }
+.pc-schip-new { padding: 3px 10px; border-style: dashed; background: none; color: var(--ink-3); font-weight: 500; }
+.pc-schip-open { display: inline-flex; align-items: center; gap: 2px; margin-left: 4px; font-size: 13px; font-weight: 600; color: var(--color-primary); text-decoration: none; }
+.pc-schip-open:hover { text-decoration: underline; text-underline-offset: 3px; }
+.pc-groups { display: grid; gap: 4px; }
+.pc-group .pc-section-head { margin-top: 16px; }
+.pc-group .pc-section-head .muted { margin-left: 0; font-variant-numeric: tabular-nums; }
+.pc-series .pc-list { padding-top: 6px; }
+.pc-show-head-art { line-height: 0; border-radius: 14px; }
+.pc-show-head-art:hover .cover { filter: brightness(0.96); }
+
+/* the trays */
+dialog.drawer-panel.pc-tray .drawer-body { padding-top: 16px; }
+.pc-tray .drawer-foot .btn-primary { min-width: 120px; }
+.pc-ep-top { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 18px; align-items: start; padding-bottom: 14px; border-bottom: 1px solid var(--rule-soft, var(--line)); }
+.pc-ep-about { display: grid; gap: 4px; min-width: 0; }
+.pc-ep-about .pc-ep-status { margin: 0; }
+.pc-ep-about .pc-ep-meta { margin: 2px 0 0; }
+.pc-ep-meta a { color: var(--ink-1); font-weight: 600; text-decoration: none; }
+.pc-ep-meta a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.pc-ep-file { display: flex; align-items: center; gap: 5px; margin: 0; overflow-wrap: anywhere; }
+.pc-ep-about .pc-ep-desc { margin: 6px 0 0; }
+.pc-person-tag { font-size: 11px; font-weight: 700; color: var(--ink-3); margin-left: -2px; }
+.pc-tray .pc-settings { padding: 0; grid-template-columns: minmax(0, 1fr); gap: 0; }
+.pc-tray .pc-set { padding: 18px 0; border-top: 1px solid var(--rule-soft, var(--line)); border-radius: 0; }
+.pc-tray .pc-set:first-child { padding-top: 0; border-top: 0; }
+.pc-tray .pc-season-shelf { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.pc-tray .pc-danger { padding-top: 14px; }
+
+/* the episode form: four steps, then the rest folded away */
+.pc-form { display: grid; gap: 20px; }
+.pc-step { display: grid; gap: 10px; }
+.pc-step-head { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; font-weight: 700; color: var(--ink-1); }
+.pc-step-no { width: 22px; height: 22px; border-radius: 999px; display: grid; place-items: center; font-size: 12px; font-weight: 800; background: var(--well); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.pc-drop.big { padding: 18px; gap: 14px; }
+.pc-drop-icon { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--well); color: var(--ink-2); }
+.pc-drop.has .pc-drop-icon { background: color-mix(in oklab, var(--color-primary) 14%, transparent); color: var(--color-primary); }
+.pc-drop.over .pc-drop-icon { background: var(--color-primary); color: var(--color-primary-content, #fff); }
+.pc-series-row { display: flex; align-items: center; gap: 8px; }
+.pc-series-row .select { flex: 1; min-width: 0; }
+.pc-series-pick-art { flex: none; line-height: 0; }
+.pc-series-pick-art .cover { border-radius: 8px; }
+.pc-series-pick-new { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; border: 1.5px dashed var(--rule-strong, var(--line)); color: var(--ink-3); }
+.pc-when-pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pc-when-opt { display: grid; justify-items: start; gap: 2px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: var(--r-control, 10px); background: var(--sheet); font: inherit; text-align: left; cursor: pointer; color: var(--ink-2); transition: border-color 120ms var(--ease-out, ease), box-shadow 120ms var(--ease-out, ease); }
+.pc-when-opt strong { font-size: 13.5px; color: var(--ink-1); }
+.pc-when-opt small { font-size: 12px; color: var(--ink-3); }
+.pc-when-opt:hover { border-color: var(--rule-strong, var(--line)); }
+.pc-when-opt.on { border-color: var(--color-primary); box-shadow: inset 0 0 0 1px var(--color-primary); color: var(--color-primary); }
+.pc-date-field { max-width: 220px; }
+.pc-more { border: 1px solid var(--rule); border-radius: var(--r-card, 12px); background: var(--sheet); }
+.pc-more > summary { display: flex; align-items: center; gap: 10px; padding: 12px 14px; list-style: none; cursor: pointer; }
+.pc-more > summary::-webkit-details-marker { display: none; }
+.pc-more > summary > span { font-weight: 700; font-size: 14px; color: var(--ink-1); }
+.pc-more > summary > small { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-more > summary .icon { color: var(--ink-3); transition: transform 160ms var(--ease-out, ease); }
+.pc-more[open] > summary .icon { transform: rotate(180deg); }
+.pc-more-body { display: grid; gap: 12px; padding: 4px 14px 14px; }
+
+/* who is in it */
+.pp { display: grid; gap: 8px; }
+.pp-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.pp-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 4px 2px 2px; border: 1px solid var(--rule); border-radius: 999px; background: var(--sheet); font-size: 13px; font-weight: 600; color: var(--ink-1); }
+.pp-chip.guest { border-style: dashed; }
+.pp-chip button { width: 20px; height: 20px; border: 0; border-radius: 999px; display: grid; place-items: center; background: none; color: var(--ink-3); cursor: pointer; }
+.pp-chip button:hover { background: var(--well); color: var(--ink-1); }
+.pp-tag { font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; background: color-mix(in oklab, var(--color-primary) 12%, transparent); color: var(--color-primary); }
+.pp-tag.soft { background: var(--well); color: var(--ink-3); }
+.pp-add { position: relative; }
+.pp-box { display: flex; align-items: center; gap: 8px; padding: 0 10px; height: 34px; border: 1px solid var(--rule); border-radius: var(--r-control, 8px); background: var(--color-base-100, #fff); color: var(--ink-3); }
+.pp-box:focus-within { border-color: var(--color-primary); box-shadow: var(--ripple-soft, none); }
+.pp-input { flex: 1; min-width: 0; border: 0; outline: none; background: none; font: inherit; font-size: 14px; color: var(--ink-1); }
+.pp-menu { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; list-style: none; margin: 0; padding: 4px; border: 1px solid var(--rule); border-radius: var(--r-card, 10px); background: var(--sheet); box-shadow: var(--lift-float, 0 10px 30px rgb(0 0 0 / 0.14)); max-height: 280px; overflow: auto; }
+.pp-opt { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+.pp-opt.on { background: color-mix(in oklab, var(--color-primary) 10%, transparent); }
+.pp-opt-text { flex: 1; min-width: 0; display: grid; }
+.pp-opt-text strong { font-size: 13.5px; color: var(--ink-1); font-weight: 600; }
+.pp-opt-text small { font-size: 12px; color: var(--ink-3); }
+.pp-plus { width: 24px; height: 24px; border-radius: 999px; display: grid; place-items: center; border: 1.5px dashed var(--rule-strong, var(--line)); color: var(--ink-2); }
+.pp-quick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pp-quick > small { font-size: 12px; color: var(--ink-3); margin-right: 2px; }
+.pp-suggest { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px 2px 6px; border: 1px dashed var(--rule-strong, var(--line)); border-radius: 999px; background: none; font: inherit; font-size: 12.5px; color: var(--ink-2); cursor: pointer; }
+.pp-suggest:hover { border-color: var(--color-primary); color: var(--color-primary); }
+
+@media (max-width: 980px) {
+  .pc-home-top { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .pc-ep-top { grid-template-columns: minmax(0, 1fr); }
+  .pc-ep-top .pc-ep-art { max-width: 240px; }
+  .pc-when-pick { grid-template-columns: minmax(0, 1fr); }
+}
+.pc-form [hidden], .pp [hidden], .pc-tray [hidden] { display: none !important; }
+/* On a phone the side list sits above the page instead of squeezing it. */
+@media (max-width: 760px) {
+  #app.podcasts-app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  #app.podcasts-app > .pc-panel { grid-column: 1; }
+  #app.podcasts-app > .side-nav { max-height: 30vh; overflow: auto; width: auto; }
+  .pc-main > .plugin-header { padding: 14px 14px 4px; }
+  .pc-body, .pc-list { padding-left: 14px; padding-right: 14px; }
+  .pc-show-head { padding: 16px 14px 10px; gap: 14px; }
+  .pc-show-head-art .cover { width: 84px !important; height: 84px !important; }
+  .pc-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .pc-row-date { display: none; }
+  .pc-search { width: 100%; }
+  .pc-pair { grid-template-columns: minmax(0, 1fr); }
+}
+.pc-form, .pc-step, .pc-more-body, .pc-ep, .pc-settings { grid-template-columns: minmax(0, 1fr); }
+.pc-form > *, .pc-step > *, .pc-ep > * { min-width: 0; }
