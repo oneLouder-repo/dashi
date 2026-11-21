@@ -111,7 +111,10 @@ function Editor(ctx, dash) {
   // Strategy measures, then calculated ones (Program data).
   const measures = [...Object.values(measureIndex(ctx.strategy)), ...Object.values(ctx.data.doc.calcs ?? {}).map(calcMeasure)];
   const nodes = Object.values(ctx.strategy.nodes).filter((n) => ['plan', 'objective', 'goal', 'workplan'].includes(n.type));
-  const plans = Object.values(ctx.strategy.nodes).filter((n) => n.type === 'plan');
+  const onlyPlans = Object.values(ctx.strategy.nodes).filter((n) => n.type === 'plan');
+  // Plans sit side by side; with more than one, a widget can also span them all.
+  const root = Object.values(ctx.strategy.nodes).find((n) => n.type === 'framework');
+  const plans = onlyPlans.length > 1 && root ? [{ ...root, title: 'All plans, end to end' }, ...onlyPlans] : onlyPlans;
   const sites = Object.values(org.sites);
   const site = org.sites[dash.siteId];
   const live = dash.visibility === 'public' && site && site.visibility !== 'private';

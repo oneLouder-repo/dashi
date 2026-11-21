@@ -68,8 +68,9 @@ test('the road puts lights passed behind today, red ahead, and a sign at each go
   const doc = migrateStrategy(seedStrategy());
   const now = '2026-11-15';
   const plan = currentPlan(doc, now);
-  assert.match(plan.title, /2026–2030/, 'the plan holding today');
-  const top = Object.values(doc.nodes).find((n) => n.type === 'plan' && /2026–2030/.test(n.title));
+  assert.match(plan.title, /Year 1/, 'the plan holding today');
+  // The whole road: the framework, across both plans.
+  const top = Object.values(doc.nodes).find((n) => n.type === 'framework');
   const m = roadModel(doc, top.id, now);
   const passed = m.posts.filter((p) => p.date < now);
   const ahead = m.posts.filter((p) => p.date >= now);

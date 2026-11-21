@@ -77,10 +77,38 @@ test('a theory of change lays out from the plan, reads as pathways, and counts w
   assert.ok(r.assumed >= 2 && r.signposts >= 2 && r.evidenced >= 1, 'the example fills some in');
   assert.equal(tocFromPlan(studio, s, planId).length, 0, 'laying it out again adds nothing new');
   const story = tocStory(studio, planId);
-  assert.equal(story.length, Object.values(s.nodes).filter((n) => n.type === 'objective').length, 'one pathway per lasting change');
+  assert.equal(story.length, Object.values(s.nodes).filter((n) => n.type === 'objective' && n.parentId === planId).length, 'one pathway per lasting change in this plan');
   const equity = story.find((p) => /equity/i.test(p.title));
   assert.ok(equity.lines.some(([k]) => k === 'What it produces'));
   assert.ok(equity.lines.some(([k, v]) => k === 'It rests on' && /reaching more girls/i.test(v)));
   assert.match(tocMarkdown(story), /^\*\*/);
   assert.ok(Object.keys(mergeStudio(studio, studio).toc).length === r.items, 'theories of change merge like the rest of the studio');
+});
+
+test('the example keeps Year 1 and Year 2 as sibling plans, and an example folded into one plan splits back', () => {
+  const node = (id, type, parentId, order, more = {}) => ({ id, type, parentId, order, title: id, notes: '', ...more });
+  const doc = {
+    id: 'strategy-example',
+    nodes: {
+      f: node('f', 'framework', null, 0, { title: 'Strategic framework' }),
+      big: node('big', 'plan', 'f', 0, { title: 'Strategic Plan 2026–2030: From pipelines to systems', start: '2026-04-01', end: '2030-03-31',
+        milestones: [{ id: 'a', date: '2026-06-18', title: 'Board' }, { id: 'b', date: '2028-03-20', title: 'Mid-plan' }] }),
+      'obj-equity': node('obj-equity', 'objective', 'big', 0),
+      'obj-scale': node('obj-scale', 'objective', 'big', 1),
+    },
+  };
+  migrateStrategy(doc);
+  const y2 = doc.nodes['plan-year-2'];
+  assert.equal(doc.nodes.big.title, 'Year 1 plan: Foundations', 'the folded plan keeps its id and becomes Year 1');
+  assert.equal(doc.nodes.big.end, '2027-03-31');
+  assert.deepEqual(doc.nodes.big.milestones.map((m) => m.id), ['a']);
+  assert.equal(y2.parentId, 'f');
+  assert.equal(doc.nodes['obj-scale'].parentId, y2.id);
+  assert.deepEqual(y2.milestones.map((m) => m.id), ['b']);
+  const once = JSON.stringify(doc);
+  assert.equal(JSON.stringify(migrateStrategy(doc)), once, 'runs once');
+  // A plan someone renamed is theirs: it stays as it is.
+  const mine = { id: 's', nodes: { f: node('f', 'framework', null, 0), p: node('p', 'plan', 'f', 0, { title: 'Our plan' }), 'obj-equity': node('obj-equity', 'objective', 'p', 0), 'obj-scale': node('obj-scale', 'objective', 'p', 1) } };
+  migrateStrategy(mine);
+  assert.equal(mine.nodes['obj-scale'].parentId, 'p');
 });

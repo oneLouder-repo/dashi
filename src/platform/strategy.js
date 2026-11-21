@@ -155,6 +155,7 @@ export function measuresUnder(doc, id) {
 /** Bring an older saved strategy up to the current shape. */
 export function migrateStrategy(doc) {
   flattenPlans(doc);
+  splitExampleYears(doc);
   for (const n of Object.values(doc.nodes)) {
     if (n.measures) for (const m of n.measures) m.id ??= uid('m');
     if (n.type === 'task' || n.type === 'workplan') n.assets ??= [];
@@ -188,6 +189,33 @@ export function flattenPlans(doc) {
     doc.folded = { ...doc.folded, [inner.id]: outer.id };
     for (const [k, v] of Object.entries(doc.folded)) if (v === inner.id) doc.folded[k] = outer.id;
   }
+  return doc;
+}
+
+/**
+ * The STEM example once kept Year 1 and Year 2 inside a 2026–2030 plan, and
+ * flattenPlans folded them into it. The example now keeps them as sibling
+ * plans: if that folded plan is still as the example left it, it becomes
+ * the Year 1 plan (keeping its id, so its studio work, plan document and
+ * dashboards stay with it) and the Year 2 objective moves to a new plan
+ * beside it. Runs once, and never on a plan someone has renamed.
+ */
+const FOLDED_TITLE = 'Strategic Plan 2026–2030: From pipelines to systems';
+export function splitExampleYears(doc) {
+  const y1 = doc.nodes[doc.nodes['obj-equity']?.parentId];
+  const scale = doc.nodes['obj-scale'];
+  if (doc.yearsSplit || !y1 || !scale || y1.type !== 'plan' || scale.parentId !== y1.id || y1.title !== FOLDED_TITLE) return doc;
+  const root = doc.nodes[y1.parentId];
+  // A fixed id, so a page that migrates without saving finds the same plan next time.
+  const { data } = strategyOps.addNode(doc, { type: 'plan', parentId: y1.parentId, title: 'Year 2 plan: Growth', start: '2027-04-01', end: '2028-03-31', theme: 'Growth',
+    milestones: (y1.milestones ?? []).filter((m) => m.date > '2027-03-31') });
+  const y2 = { ...data, id: 'plan-year-2' };
+  doc.nodes[y2.id] = y2;
+  scale.parentId = y2.id;
+  scale.order = 0;
+  Object.assign(y1, { title: 'Year 1 plan: Foundations', theme: 'Foundations', start: '2026-04-01', end: '2027-03-31', milestones: (y1.milestones ?? []).filter((m) => m.date <= '2027-03-31') });
+  if (root?.type === 'framework' && root.title === 'Strategic framework') root.title = 'Strategic framework 2026–2030: From pipelines to systems';
+  doc.yearsSplit = true;
   return doc;
 }
 

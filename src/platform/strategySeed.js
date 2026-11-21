@@ -3,18 +3,18 @@ import { strategyOps } from './strategy.js';
 
 /**
  * Example strategy for the example org (staff and team ids match org.js).
- * The framework holds one strategic plan, 2026–2030: three objectives for
- * its first year (goals, workplans and thirty-odd tasks around November
- * 2026, some workplans already finished) and a fourth that is still
- * ahead. Plans sit directly under the framework, never inside each other.
- * Plans and goals carry milestones for the roadmap.
+ * The 2026–2030 framework holds two plans side by side: a Year 1 plan
+ * (three objectives, goals, workplans and thirty-odd tasks around November
+ * 2026, some workplans already finished) and a Year 2 plan that is still
+ * ahead. Plans sit directly under the framework, never inside each other,
+ * and may overlap in time. Plans and goals carry milestones for the roadmap.
  */
 const T = (title, start, end, status, assigneeIds, events = [], assets = []) => ({ type: 'task', title, start, end, status, assigneeIds, events, assets });
 const asset = (id, kind, label, more = {}) => ({ id, kind, label, ...more });
 
 const TREE = {
   type: 'framework',
-  title: 'Strategic framework',
+  title: 'Strategic framework 2026–2030: From pipelines to systems',
   mission: 'Every young person in Canada can see themselves in STEM.',
   vision: 'A national STEM ecosystem that bends to serve youth, especially those furthest from opportunity.',
   values: 'Equity · Curiosity · Reciprocity · Learning in public',
@@ -22,15 +22,14 @@ const TREE = {
   children: [
     {
       type: 'plan',
-      title: 'Strategic Plan 2026–2030: From pipelines to systems',
+      title: 'Year 1 plan: Foundations',
       start: '2026-04-01',
-      end: '2030-03-31',
-      theme: 'Systems change',
+      end: '2027-03-31',
+      theme: 'Foundations',
       milestones: [
         { id: 'ms-y1-board', date: '2026-06-18', title: 'Board approves the Year 1 plan' },
         { id: 'ms-y1-midyear', date: '2026-10-08', title: 'Mid-year check-in with funders' },
         { id: 'ms-y1-review', date: '2027-03-12', title: 'Year 1 learning review' },
-        { id: 'ms-y2-midplan', date: '2028-03-20', title: 'Mid-plan review with the network' },
       ],
       children: [
         {
@@ -249,6 +248,16 @@ const TREE = {
             },
           ],
         },
+      ],
+    },
+    {
+      type: 'plan',
+      title: 'Year 2 plan: Growth',
+      start: '2027-04-01',
+      end: '2028-03-31',
+      theme: 'Growth',
+      milestones: [{ id: 'ms-y2-midplan', date: '2028-03-20', title: 'Mid-plan review with the network' }],
+      children: [
         {
           type: 'objective',
           id: 'obj-scale',

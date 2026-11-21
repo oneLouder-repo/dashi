@@ -317,7 +317,9 @@ export function RoadmapRoad(ctx) {
   return h('div', { class: 'roadmap-road' },
     h('div', { class: 'road-tools' },
       h('label', { class: 'road-plan' }, h('span', { class: 'muted small' }, 'Plan'),
-        h('select', { class: 'select select-sm', onchange: (e) => { planPick = e.target.value; ctx.render(); } }, plans.map((p) => h('option', { value: p.id, selected: p.id === planPick }, p.title)))),
+        h('select', { class: 'select select-sm', onchange: (e) => { planPick = e.target.value; ctx.render(); } }, 
+          // With plans side by side (often overlapping), the whole framework is one road.
+          [...(plans.length > 1 && rootOf(doc) ? [{ id: rootOf(doc).id, title: 'All plans, end to end' }] : []), ...plans].map((p) => h('option', { value: p.id, selected: p.id === planPick }, p.title)))),
       h('div', { class: 'road-tally' },
         h('span', {}, h('strong', {}, String(passed.length)), ' lights passed: ', h('b', { class: 'tg' }, count(passed, 'green')), ' green, ', h('b', { class: 'ta' }, count(passed, 'amber')), ' amber, ', h('b', { class: 'tr' }, count(passed, 'red')), ' red'),
         h('span', {}, h('strong', {}, String(ahead.length)), ' still ahead')),

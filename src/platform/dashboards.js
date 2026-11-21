@@ -159,7 +159,9 @@ export function boardDashboard(strategy, createdBy = null, { sites = {}, today =
 function boardDashboards(strategy) {
   const plan = Object.values(strategy.nodes).find((n) => n.type === 'plan' && n.start && n.end && n.start <= '2026-11-15' && '2026-11-15' <= n.end) ?? Object.values(strategy.nodes).find((n) => n.type === 'plan');
   if (!plan || !strategy.nodes['obj-equity']) return {};
-  const master = rootOf(strategy)?.type === 'framework' ? childrenOf(strategy, rootOf(strategy).id).find((n) => n.type === 'plan') : rootOf(strategy);
+  // The road runs across every plan in the framework; the lights follow the plan running today.
+  const root = rootOf(strategy);
+  const master = root?.type === 'framework' && childrenOf(strategy, root.id).filter((n) => n.type === 'plan').length < 2 ? childrenOf(strategy, root.id).find((n) => n.type === 'plan') : root;
   return {
     'dash-board': {
       id: 'dash-board', title: 'Board scorecard', description: 'Where the strategic plan stands, for the board pack: live from the roadmap and our program data.',
