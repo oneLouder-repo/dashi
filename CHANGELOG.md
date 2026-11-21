@@ -6,6 +6,23 @@ Dashi uses version numbers like `0.1.0-alpha.1`. While the first number is 0, an
 
 From 0.2 on, each alpha point version (0.2, 0.3…) is one major platform feature, and its sub-versions (0.2.1, 0.2.2…) are bug hunts and polish from live testing. 0.2 lands over several pull requests; this is the first.
 
+### Podcast Studio (PR 5)
+
+A multitrack editor inside Podcasts (Podcasts → Studio), for making an episode from start to finish in the browser.
+
+- **Sessions from templates**: Interview, Solo show, Panel, Radio hour or Blank, each with voice, music and effects tracks. Sessions are kept in the podcasts document (`projects`), never public.
+- **Record** on the selected track from the microphone, hearing the rest of the session as you go, with a live level meter. Takes are saved as WAV, like episode audio.
+- **Import** .mp3 and .wav files (button, or drop them on a track). Bring in a station episode's audio for trailers and "previously on…" clips.
+- **Arrange and edit**: drag clips between tracks with snapping, trim either edge, split at the playhead (S) or by double-clicking, duplicate, and delete. Drag fade handles or use Quick fades. Set clip volume in dB.
+- **Take out a stretch of time** across every track and close the gap (drag across the ruler, then Delete). Insert silence at the playhead.
+- **The toolbox**: Normalise, Tighten pauses (shortens every pause longer than half a second and keeps all tracks in step), and Trim the quiet ends.
+- **Mixing**: mute, solo, volume and pan per track. Music tracks duck under voices automatically. A gentle limiter keeps the mix from clipping.
+- **Chapters** from markers (M), named and moved in the Chapters tab.
+- **Sound pads**: a sound board of jingles, stings and beds. Tap to play (keys 1 to 9), or insert at the playhead.
+- **Undo and redo** for every edit, plus keyboard shortcuts for the rest (listed in the Shortcuts tab).
+- **Out**: download the mix as WAV, or **send it to the station** as a draft episode with its chapters (or update the episode it became). WAV only for now; MP3 needs an encoder we haven't added yet.
+- The server's permissions policy now lets Dashi's own pages use the microphone (`microphone=(self)`). Camera, location and payment stay off.
+
 ### Palette builder, the station's own colours, live edit (PR 3)
 
 - **Palette builder** in Public Portal → Look and feel → Colours and shape. Start from any palette, then adjust any colour (main, second, accent, dark, page, text) with a colour picker, hex code, shade strip and hue, strength and lightness sliders. The preview follows while a slider moves. Each colour's text stays readable on its own, the builder shows the contrast ratio (AA/AAA), and "fix the text colours" repairs unreadable pairs. An adjusted palette remembers where it started ("Emerald, adjusted", with "Back to Emerald").

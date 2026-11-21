@@ -10,6 +10,7 @@ import { linkTo } from '../plugins.js';
  *               look.theme: the station's own colours (a theme, see themes.js); absent = the site's
  *   podcasts: { [id]: Show },
  *   episodes: { [id]: Episode },
+ *   projects: { [id]: Project },     Podcast Studio sessions (studio/project.js); never public
  * }
  * Show    { handle, title, description, category, language, type: 'episodic' | 'serial',
  *           owner: { name, email }, cover, accent, explicit, hostIds: [staff ids], featured, order,
@@ -131,6 +132,7 @@ export function migratePodcasts(doc) {
   doc.station.look.masthead = { ...DEFAULT_MASTHEAD, ...doc.station.look.masthead };
   doc.podcasts ??= {};
   doc.episodes ??= {};
+  doc.projects ??= {};
   for (const p of Object.values(doc.podcasts)) {
     p.featured ??= false;
     p.order ??= 0;
@@ -170,7 +172,7 @@ export const seriesHref = (p) => linkTo('podcasts', `#series/${p.id}`);
  * (#<series>/<episode>) still land in the right place, and anything
  * unknown lands on the episode list.
  */
-const SCOPES = ['episodes', 'series', 'station', 'design'];
+const SCOPES = ['episodes', 'series', 'station', 'design', 'studio'];
 export function podcastRoute(hash, doc) {
   let parts = decodeURIComponent(String(hash ?? '').replace(/^#/, '')).split('/').filter(Boolean);
   if (parts[0] && !SCOPES.includes(parts[0]) && doc.podcasts[parts[0]]) parts = ['series', ...parts];
@@ -180,6 +182,8 @@ export function podcastRoute(hash, doc) {
   if (scope === 'series' && !seriesId) return { scope: 'episodes', seriesId: null, base: 'episodes', tray: null };
   const base = seriesId ? `series/${seriesId}` : scope;
   const [first, second] = parts.slice(seriesId ? 2 : 1);
+  // The studio: #studio (sessions) or #studio/<session id>; no trays.
+  if (scope === 'studio') return { scope, seriesId: null, base: first && doc.projects?.[first] ? `studio/${first}` : 'studio', tray: null, projectId: doc.projects?.[first] ? first : null };
   let tray = null;
   if (first === 'new') tray = { kind: 'new', id: null };
   else if (first === 'settings' && seriesId) tray = { kind: 'settings', id: seriesId };

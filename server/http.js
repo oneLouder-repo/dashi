@@ -144,7 +144,7 @@ export function securityHeaders(res) {
   res.setHeader('referrer-policy', 'same-origin');
   res.setHeader('x-frame-options', 'SAMEORIGIN');
   res.setHeader('content-security-policy', CSP);
-  res.setHeader('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+  res.setHeader('permissions-policy', 'camera=(), microphone=(self), geolocation=(), payment=()');
   res.setHeader('cross-origin-opener-policy', 'same-origin');
   if (config.https) res.setHeader('strict-transport-security', 'max-age=31536000; includeSubDomains');
 }
