@@ -55,3 +55,10 @@ export function applyTheme(el, theme = {}) {
   for (const [k, v] of Object.entries(shape.vars)) el.style.setProperty(k, v);
   el.dataset.shape = shape.id;
 }
+
+/** A theme in words: "Emerald", "Emerald, adjusted", "Your own". */
+export function themeLabel(theme = {}) {
+  if (!isCustomTheme(theme)) return paletteById[theme.palette]?.label ?? 'Corporate blue';
+  const from = paletteById[theme.from]?.label;
+  return from ? `${from}, adjusted` : 'Your own';
+}

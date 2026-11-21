@@ -13,6 +13,7 @@ import { dashboardFromNode } from '../platform/dashboards.js';
 import { uid } from '../core/ops.js';
 import { currentUser } from '../platform/session.js';
 import { uiConfirm } from '../ui/dialog.js';
+import { linkTo, reach } from '../plugins.js';
 
 /** The views each level offers, the first is where it opens. */
 export const VIEWS = {
@@ -45,7 +46,7 @@ export function Detail(ctx) {
       h('input', { class: 'title-input detail-title', name: 'title', value: n.title, 'aria-label': 'Title', onchange: (e) => update({ title: e.target.value }) }),
       s && h('p', { class: 'summary' }, span ? `${range(span.start, span.end)} · ` : '', `${s.total} tasks: ${s.done} done, ${s.active} in progress, ${s.blocked} blocked, ${s.planned} planned`,
         // A plan is planned in the Studio and worked on here: one click between them.
-        n.type === 'plan' && h('a', { class: 'sw-studio-link', href: `studio.html#${n.id}` }, icon('studio', 13), 'Plan it with your team'))),
+        n.type === 'plan' && h('a', { class: 'sw-studio-link', href: linkTo('studio', `#${n.id}`) }, icon('studio', 13), 'Plan it with your team'))),
     views.length > 1 && h('nav', { class: 'sw-views', 'aria-label': 'Views' }, views.map(([id, label, ic]) =>
       h('a', { href: `#${n.id}/${id}`, class: id === view ? 'on' : '', 'aria-current': id === view ? 'page' : null }, icon(ic, 15), label))));
 
@@ -107,7 +108,7 @@ function DetailsView(ctx, n, update) {
         }
       } }, icon('trash', 16), 'Delete')),
     showsGantt && h('section', { class: 'panel' }, h('h2', {}, n.type === 'workplan' ? 'Schedule' : 'Workplans under this'), Gantt(ctx, n.id, { compact: true, fullHref: `#${n.id}/gantt` })),
-    (n.type === 'objective' || n.type === 'goal') && DashboardsPanel(ctx, n),
+    (n.type === 'objective' || n.type === 'goal') && reach('palette') && DashboardsPanel(ctx, n),
     n.type !== 'framework' && AssetsPanel(ctx, n));
 }
 
@@ -162,7 +163,7 @@ function DashboardsPanel(ctx, n) {
     doc.dashboards[id] = { ...dashboardFromNode(ctx.store.doc, n.id, currentUser(ctx.org)?.id ?? null), id };
     saveDoc('dashboards', doc);
     saveDoc('strategy', ctx.store.doc);
-    location.href = `palette.html#${id}`;
+    location.href = linkTo('palette', `#${id}`);
   };
   return h('section', { class: 'panel' },
     h('div', { class: 'panel-head' },
@@ -174,7 +175,7 @@ function DashboardsPanel(ctx, n) {
     made.length > 0 && h('ul', { class: 'asset-list' }, made.map((d) =>
       h('li', { class: 'asset' },
         icon('chart', 18),
-        h('div', { class: 'asset-text' }, h('a', { href: `palette.html#${d.id}` }, d.title), h('small', {}, `${d.widgets.length} widgets`)),
+        h('div', { class: 'asset-text' }, h('a', { href: linkTo('palette', `#${d.id}`) }, d.title), h('small', {}, `${d.widgets.length} widgets`)),
         h('span', { class: `badge ${d.visibility}` }, d.visibility),
         d.siteId && h('a', { href: `site.html?site=${d.siteId}#${d.id}`, target: '_blank' }, 'View on site ↗')))));
 }

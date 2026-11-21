@@ -39,7 +39,9 @@ function draw() {
   const el = trail();
   const p = PLUGINS.find((x) => x.id === plugin);
   if (!p) { el.remove(); return; }
-  const steps = [{ label: p.name, href: p.href }];
+  // A sub-plugin's trail starts at its parent: Public Portal / Data Workbench / Dashboards.
+  const parent = p.parent && PLUGINS.find((x) => x.id === p.parent);
+  const steps = [...(parent ? [{ label: parent.name, href: parent.href }] : []), { label: p.name, href: p.href }];
   if (section && !(home && !tail.length)) steps.push(section);
   steps.push(...tail);
   if (steps.length < 2) { el.remove(); return; }

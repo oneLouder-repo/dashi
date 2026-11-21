@@ -9,11 +9,12 @@ import { loadOrg, loadPodcasts, loadLibrary, loadMaps } from '../platform/docs.j
 import { staffList } from '../platform/org.js';
 import {
   CATEGORIES, EPISODE_TYPES, LOOKS, isAudioFile, slugify, published, episodesOf, seasonsOf, showsInOrder, nextNumber, podcastRss,
-  toClock, fromClock, episodeCode, DEFAULT_LOOK, DEFAULT_MASTHEAD, podcastRoute,
+  toClock, fromClock, episodeCode, DEFAULT_LOOK, DEFAULT_MASTHEAD, podcastRoute, stationTheme,
 } from '../platform/podcasts.js';
 import { MASTHEADS, MASTHEAD_HEIGHTS, siteDesign } from '../platform/siteDesign.js';
 import { mastheadSvg } from '../site/mastheads.js';
-import { applyTheme } from '../platform/themes.js';
+import { applyTheme, themeLabel } from '../platform/themes.js';
+import { PaletteBuilder } from '../ui/PaletteBuilder.js';
 import { DevicePreview, DeviceToggle, deviceMode } from '../ui/DevicePreview.js';
 import { setCrumbs } from '../ui/crumbs.js';
 import { Drawer } from '../ui/drawer.js';
@@ -26,6 +27,7 @@ import { PluginHeader } from '../ui/PluginHeader.js';
 import { today, short } from '../strategy/dates.js';
 import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
 import { PeoplePicker } from './people.js';
+import { linkTo } from '../plugins.js';
 
 /**
  * Podcasts: the studio for an org's own podcast station.
@@ -108,8 +110,8 @@ function relatedChoices() {
   const lib = safe(loadLibrary);
   const maps = safe(loadMaps);
   relatedCache = [
-    ...Object.values(maps?.maps ?? {}).map((m) => ({ key: `map:${m.id}`, label: m.name || 'Untitled map', group: 'Ecosystem maps', href: `mapper.html#${m.id}`, icon: 'mapper' })),
-    ...Object.values(lib?.items ?? {}).map((it) => ({ key: `library:${it.id}`, label: it.meta?.title || 'Untitled', group: 'Library', href: `library.html#item/${it.id}`, icon: 'book' })),
+    ...Object.values(maps?.maps ?? {}).map((m) => ({ key: `map:${m.id}`, label: m.name || 'Untitled map', group: 'Ecosystem maps', href: linkTo('mapper', `#${m.id}`), icon: 'mapper' })),
+    ...Object.values(lib?.items ?? {}).map((it) => ({ key: `library:${it.id}`, label: it.meta?.title || 'Untitled', group: 'Library', href: linkTo('library', `#item/${it.id}`), icon: 'book' })),
   ];
   return relatedCache;
 }
@@ -342,7 +344,20 @@ function StationDesign() {
     const f = stage.querySelector('iframe');
     try { f?.contentWindow?.postMessage({ type: 'dashi:podcasts', doc: structuredClone(doc()) }, location.origin); } catch { /* not loaded yet: it reads the saved station */ }
   };
-  const themed = (el) => { applyTheme(el, org.theme ?? {}); return el; };
+  const themed = (el) => { applyTheme(el, stationTheme(st(), org.theme ?? {})); return el; };
+  // The station's own colours. A draft (a slider moving) only tells the preview; a settled change saves.
+  const tellTheme = (theme) => {
+    const d = structuredClone(doc());
+    d.station.look = { ...look(), theme };
+    try { stage.querySelector('iframe')?.contentWindow?.postMessage({ type: 'dashi:podcasts', doc: d }, location.origin); } catch { /* not loaded yet */ }
+  };
+  const colours = PaletteBuilder({
+    theme: st().look?.theme ?? org.theme ?? {},
+    inherit: { label: 'Same as the site', on: () => !st().look?.theme, onPick: () => { const { theme, ...rest } = look(); update({ look: rest }); colours.update(org.theme ?? {}); } },
+    brands: () => org.palettes ?? [],
+    onDraft: tellTheme,
+    onChange: (theme) => { const { shape, ...own } = theme; setLook({ theme: own }); },
+  });
   const choice = (on, attrs, ...kids) => h('button', { type: 'button', role: 'radio', 'aria-checked': String(on), ...attrs, class: `${attrs.class ?? ''}${on ? ' on' : ''}` }, ...kids);
   const room = () => Math.max(380, Math.min(820, (panel.clientWidth || 1100) - 470));
 
@@ -386,6 +401,9 @@ function StationDesign() {
           h('select', { id: 'pd-site', class: 'select select-sm', onchange: (e) => update({ siteId: e.target.value || null }) },
             h('option', { value: '' }, 'Not on a site'), options(Object.values(org.sites).map((x) => ({ id: x.id, label: `${x.name}${x.visibility === 'private' ? ' (members only)' : ''}` })), st().siteId))),
         site?.visibility === 'private' && h('p', { class: 'pd-note' }, icon('lock', 13), `${site.name} is members only, so listeners outside need to sign in. Pick a public site to reach everyone.`)),
+      h('section', { class: 'lk-box' },
+        h('div', { class: 'lk-box-head' }, h('h2', {}, 'Colours'), h('span', { class: 'muted small' }, st().look?.theme ? `The station’s own: ${themeLabel(st().look.theme)}` : `The site’s: ${themeLabel(org.theme)}`)),
+        colours),
       h('section', { class: 'lk-box' },
         h('div', { class: 'lk-box-head' }, h('h2', {}, 'Masthead banner'), h('span', { class: 'muted small' }, 'Across the top of the station page')),
         h('div', { class: 'lk-masts', role: 'radiogroup', 'aria-label': 'Masthead banner' },
@@ -433,7 +451,7 @@ function StationDesign() {
     h('header', { class: 'lk-head' },
       h('div', {},
         h('h1', {}, 'Public station'),
-        h('p', { class: 'muted' }, 'Where listeners find every series and episode. It wears your site’s colours and shape (Public Portal → Look and feel); the choices here are the station’s own.'))),
+        h('p', { class: 'muted' }, 'Where listeners find every series and episode. Its colours, banner and layout are designed here; it can wear your site’s colours or its own.'))),
     h('div', { class: 'lk-grid' },
       controls,
       h('aside', { class: 'lk-preview', 'aria-label': 'Preview' },

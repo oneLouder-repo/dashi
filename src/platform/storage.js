@@ -38,6 +38,9 @@ if (inBrowser) setLocalMode(!hosted);
 applyRegistry(hosted?.plugins);
 export const session = () => hosted;
 export const isHosted = () => !!hosted;
+/** May this page save a document? Hosted, the server says per document (platform/access.js); local, always. */
+export const docModeOf = (name) => hosted?.docModes?.[name] ?? 'write';
+export const canWriteDoc = (name) => docModeOf(name) === 'write';
 /** The server's limits (largest upload), when hosted. */
 export const hostedLimits = () => hosted?.limits ?? null;
 
@@ -202,6 +205,8 @@ export function saveDoc(name, doc, orgId, { quiet = false } = {}) {
     if (orgId && orgId !== activeOrgId) return false;
     cache[name] = structuredClone(doc);
     if (!hosted.canEdit) return false;
+    // A document whose plugin this person can't use (or only reads): the server would refuse it.
+    if (!canWriteDoc(name)) { if (!quiet) saveProblem(name, 'This belongs to a plugin that isn’t switched on for you, so it can’t be changed here.'); return false; }
     if (conflicted.has(name)) { saveProblem(name, 'Someone else saved changes here. Reload the page to see them before you go on.'); return false; }
     const job = (sending[name] ??= {});
     job.next = cache[name];

@@ -106,6 +106,8 @@ const SCHEMA = [
   `CREATE TABLE legal_acceptances (
      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, doc TEXT NOT NULL, version INTEGER NOT NULL,
      at TEXT NOT NULL, ip TEXT, PRIMARY KEY (user_id, doc, version))`,
+  // 0.2: an org that changes its subdomain keeps the old one as a redirect for a while.
+  `CREATE TABLE slug_aliases (slug TEXT PRIMARY KEY, org_id TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE, until INTEGER NOT NULL)`,
 ];
 
 export function openDb(dataDir) {

@@ -4,6 +4,7 @@ import { uid } from '../core/ops.js';
 import { ASSET_KINDS, assetKey } from '../platform/assets.js';
 import { NODE_TYPES } from '../platform/strategy.js';
 import { typeOf } from '../platform/library.js';
+import { linkTo } from '../plugins.js';
 
 /**
  * A pop-up for adding assets to a task or workplan. One picker per asset
@@ -152,7 +153,7 @@ const PICKERS = {
       asset: { kind: 'map', libraryId: it.id, label: it.meta.title || it.file.name },
     }));
     const items = [...live, ...files];
-    if (!items.length) return h('p', { class: 'pick-empty' }, 'No ecosystem maps yet. ', h('a', { href: 'mapper.html' }, 'Open the mapper'), '.');
+    if (!items.length) return h('p', { class: 'pick-empty' }, 'No ecosystem maps yet. ', h('a', { href: linkTo('mapper') }, 'Open the mapper'), '.');
     return pickList({ name: 'q-map', used, pick, placeholder: 'Search maps', items });
   },
 
@@ -165,7 +166,7 @@ const PICKERS = {
         sub: `${a.kind === 'agent' ? 'Agent' : 'Actor'} · ${a.category.replace(/-/g, ' ')}`,
         asset: { kind: 'actor', mapId: entry.id, ref: a.id, label: a.label },
       })));
-    if (!items.length) return h('p', { class: 'pick-empty' }, 'Your ecosystem maps have no actors yet. ', h('a', { href: 'mapper.html' }, 'Open the mapper'), '.');
+    if (!items.length) return h('p', { class: 'pick-empty' }, 'Your ecosystem maps have no actors yet. ', h('a', { href: linkTo('mapper') }, 'Open the mapper'), '.');
     return pickList({ name: 'q-actor', used, pick, placeholder: 'Search your maps', items });
   },
 

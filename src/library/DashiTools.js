@@ -5,6 +5,7 @@ import { loadAllMaps } from '../platform/maps.js';
 import { rootOf } from '../platform/strategy.js';
 import { resolveAsset, kindById, ASSET_KINDS, assetsUnder, groupAssets } from '../platform/assets.js';
 import { mapPicture, strategyPicture, dataCardPicture, plansIn, measuresWithData } from '../platform/dashiObjects.js';
+import { linkTo } from '../plugins.js';
 
 /**
  * Three Dashi tools for the doc editor's toolbar:
@@ -64,7 +65,7 @@ export function AssetLinkChooser(editor) {
   const root = rootOf(d.strategy);
   const used = root ? groupAssets(assetsUnder(d.strategy, root.id)) : [];
   // Assets with no page of their own (a person outside the staff, a citation) link to where the strategy uses them.
-  const rows = used.map(({ asset, from }) => { const r = resolveAsset(asset, d); return { asset, from, r: { ...r, href: r.href ?? `strategy.html#${from[0].id}` } }; }).filter((x) => !x.r.missing);
+  const rows = used.map(({ asset, from }) => { const r = resolveAsset(asset, d); return { asset, from, r: { ...r, href: r.href ?? linkTo('strategy', `#${from[0].id}`) } }; }).filter((x) => !x.r.missing);
   const search = h('input', { class: 'input input-sm w-full', placeholder: 'Search assets', autofocus: true });
   const kindSel = h('select', { class: 'select select-sm' }, h('option', { value: '' }, 'Every kind'), options(ASSET_KINDS.map((k) => ({ id: k.id, label: k.label })), ''));
   const list = h('div', { class: 'dashi-list' });
@@ -171,7 +172,7 @@ export function PlanDocChooser(editor) {
     const site = d.org.sites?.[pd.siteId];
     const live = pd.status === 'published' && site;
     return { pd, title: plan?.title ?? pd.snapshot?.plan?.title ?? 'Strategic plan', live, site,
-      url: live ? `site.html?site=${site.id}&plan=${pd.id}` : `plandoc.html#${pd.id}`,
+      url: live ? `site.html?site=${site.id}&plan=${pd.id}` : linkTo('plandoc', `#${pd.id}`),
       pdf: live ? `site.html?site=${site.id}&plan=${pd.id}&pdf=1` : null };
   });
   const rows = h('div', { class: 'dashi-list' }, list.length ? list.map((x) => h('div', { class: 'dashi-row static' },
@@ -181,5 +182,5 @@ export function PlanDocChooser(editor) {
       h('button', { type: 'button', class: 'btn btn-xs', onclick: () => { insertLink(editor, x.title, x.url); dialog.close(); } }, x.live ? 'Web view' : 'Link'),
       x.pdf && h('button', { type: 'button', class: 'btn btn-xs btn-primary', title: 'Opens the plan ready to save as PDF', onclick: () => { insertLink(editor, `${x.title} (PDF)`, x.pdf); dialog.close(); } }, 'PDF')))) : [h('p', { class: 'muted' }, 'No plan documents yet.')]);
   const dialog = Dialog('Link to a strategic plan', 'Designed plan documents from the Plan designer. The web view can be read online and downloaded as a PDF.',
-    rows, h('a', { class: 'btn btn-sm btn-ghost', href: 'plandoc.html', target: '_blank' }, icon('plus', 15), 'Design a plan document'));
+    rows, h('a', { class: 'btn btn-sm btn-ghost', href: linkTo('plandoc'), target: '_blank' }, icon('plus', 15), 'Design a plan document'));
 }

@@ -17,6 +17,7 @@ import { PluginHeader } from '../ui/PluginHeader.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
 import { short } from './dates.js';
 import { uiConfirm } from '../ui/dialog.js';
+import { linkTo } from '../plugins.js';
 
 /**
  * Strategy & Work, in sections listed down the shared sidebar:
@@ -101,8 +102,10 @@ function drawSide(tab) {
   const plans = Object.values(store.doc.nodes).filter((n) => n.type === 'plan').sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   side = swapSide(side, SideNav({ label: 'Strategy & Work', sections: [
     { title: 'Strategy & Work', items: TABS.map((t) => ({ label: t.label, icon: t.icon, href: `#${t.id}`, on: t.id === tab && !(tab === 'framework' && plans.some((p) => p.id === ctx.selectedId)) })) },
+    // The Planning Studio is part of Strategy & Work (0.2): each plan's planning tools, a click away.
     { title: 'Planning Studio', items: [
-      { label: 'Plan with your team', sub: 'SOAR board, results, assemble', icon: 'sec-studio', href: 'studio.html' },
+      { label: 'Plan with your team', sub: 'SOAR board, assemble, theory of change, results', icon: 'sec-studio', href: linkTo('studio') },
+      ...plans.map((p) => ({ label: p.title, sub: 'Plan it in the Studio', icon: 'sec-studio', href: linkTo('studio', `#${p.id}`), className: 'side-indent' })),
       { label: 'Plan designer', sub: 'A designed plan to print or publish', icon: 'brush', href: 'plandoc.html' },
     ] },
     plans.length && { title: 'Plans', items: plans.map((p) => ({ label: p.title, sub: [p.start, p.end].filter(Boolean).map(short).join(' – '), icon: 'mapTrifold', href: `#${p.id}`, on: tab === 'framework' && ctx.selectedId === p.id })) },

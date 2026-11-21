@@ -388,7 +388,7 @@ export function cleanManifest(m) {
  * changes) then installed plugins. stored = { plugins: { id: manifest }, history: { id: [manifest...] } }.
  */
 /** Built-in plugins Dashi has renamed: a stored copy still carrying an old name takes the new one. */
-const RENAMED = { pages: ['Web views', 'Sites & Pages'] };
+const RENAMED = { pages: ['Web views', 'Sites & Pages'], assets: ['Asset manager'] };
 
 export function mergeRegistry(stored = {}) {
   const plugins = {};

@@ -10,6 +10,7 @@
  *   theme: { palette, shape },             see themes.js
  *   plugins: { [pluginId]: false | true }, a plugin is on unless switched off; newer optional ones are off unless switched on (true)
  *   pluginRoles: { [pluginId]: { [roleId]: false } },  a role's palette leaves that plugin out (Organisation → Plugins)
+ *   pluginPeople: { [pluginId]: { [staffId]: true | false } },  one person's own exception, which wins over their role
  *   staff: {id: Staff}, teams: {id: Team}, sites: {id: Site},
  * }
  *   Staff  { name, title, roleId, teamIds: [], email, avatar, interests: [strategy node ids] }

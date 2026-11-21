@@ -11,7 +11,7 @@ import { toast } from '../ui/Shell.js';
 import { loadOrg } from '../platform/docs.js';
 import { ROLES, staffList, teamList, membersOf } from '../platform/org.js';
 import { renameOrg } from '../platform/session.js';
-import { PLUGINS, pausedForOrg, featureOn, chosenByOrg, roleHas } from '../plugins.js';
+import { PLUGINS, pausedForOrg, featureOn, chosenByOrg, roleHas, linkTo } from '../plugins.js';
 import { LIMITS, FEATURES, PLAN_IDS, PLAN_PLUGINS, amount } from '../platform/plans.js';
 import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
 
@@ -47,7 +47,7 @@ const route = () => decodeURIComponent(location.hash.slice(1)).split('/');
 const tab = () => { const [t] = route(); return t === 'sites' ? 'profile' : TABS.some(([id]) => id === t) ? t : 'profile'; };
 const set = (key, value) => store.apply(col.set(key, value));
 // Sites and their look moved to the Public Portal.
-if (location.hash === '#sites') location.replace('pages.html#look');
+if (location.hash === '#sites') location.replace(linkTo('pages', '#look') ?? '#profile');
 if (location.hash === '#platform') history.replaceState(null, '', '#profile');
 
 let lastTab = null;
@@ -61,7 +61,7 @@ function render() {
   side = swapSide(side, SideNav({ label: 'Organisation', sections: [
     { title: 'Organisation', items: TABS.map(([id, label, ic, sub]) => ({ label, sub, icon: ic, href: `#${id}`, on: t === id })) },
     { title: 'Elsewhere', items: [
-      { label: 'Public sites and look', sub: 'In the Public Portal', icon: 'globe', href: 'pages.html#look' },
+      { label: 'Public sites and look', sub: 'In the Public Portal', icon: 'globe', href: linkTo('pages', '#look') },
       { label: 'My profile', sub: 'Your own picture and details', icon: 'userCircle', href: 'me.html' },
     ] },
   ] }));
@@ -385,9 +385,12 @@ function openFromHash() {
 const READING_SET = ['strategy', 'palette', 'library', 'pages'];
 function Plugins(org) {
   const cats = [...new Set(PLUGINS.filter((p) => !p.platformOff).map((p) => p.category ?? 'Other'))];
-  const list = cats.flatMap((c) => PLUGINS.filter((p) => !p.platformOff && (p.category ?? 'Other') === c));
+  // Sub-plugins sit right under their parent (Planning Studio under Strategy & Work).
+  const tops = cats.flatMap((c) => PLUGINS.filter((p) => !p.platformOff && !p.parent && (p.category ?? 'Other') === c));
+  const list = tops.flatMap((p) => [p, ...PLUGINS.filter((x) => !x.platformOff && x.parent === p.id)]);
   const optional = list.filter((p) => !p.core);
-  const inUse = (p) => p.core || (!pausedForOrg(org, p.id) && chosenByOrg(org, p));
+  const parentOf = (p) => p.parent && PLUGINS.find((x) => x.id === p.parent);
+  const inUse = (p) => p.core || (!pausedForOrg(org, p.id) && chosenByOrg(org, p) && (!parentOf(p) || inUse(parentOf(p))));
   const setRole = (pid, rid, on) => {
     const next = structuredClone(org.pluginRoles ?? {});
     const row = next[pid] ?? {};
@@ -420,14 +423,17 @@ function Plugins(org) {
   const row = (p) => {
     const paused = pausedForOrg(org, p.id);
     const used = inUse(p);
-    return h('tr', { class: `${used ? 'on' : 'off'}${paused ? ' locked' : ''}`, style: `--tone:${p.tone}` },
+    const parent = parentOf(p);
+    const own = Object.keys(org.pluginPeople?.[p.id] ?? {}).length;
+    return h('tr', { class: `${used ? 'on' : 'off'}${paused ? ' locked' : ''}${parent ? ' rp-sub' : ''}`, style: `--tone:${p.tone}` },
       h('th', { scope: 'row', class: 'rp-plugin' },
         h('button', { type: 'button', class: 'rp-plugin-btn', onclick: () => PluginDrawer(p.id), 'aria-label': `${p.name}: features and who has it` },
           h('span', { class: 'tone-tile' }, icon(p.icon, 18)),
-          h('span', { class: 'rp-plugin-text' }, h('strong', {}, p.name), h('small', {}, [p.category, `${(p.features ?? []).length || 'no'} feature${(p.features ?? []).length === 1 ? '' : 's'}`].filter(Boolean).join(' · '))))),
+          h('span', { class: 'rp-plugin-text' }, h('strong', {}, p.name), h('small', {}, [parent ? `Inside ${parent.name}` : p.category, `${(p.features ?? []).length || 'no'} feature${(p.features ?? []).length === 1 ? '' : 's'}`, own && `${own} ${own === 1 ? 'person' : 'people'} set apart`].filter(Boolean).join(' · '))))),
       h('td', { class: 'rp-use' },
         p.core ? h('span', { class: 'rp-always' }, 'Always')
           : paused ? h('span', { class: 'badge badge-warning badge-soft badge-sm', title: 'Ask the platform admin, or change your plan under Plan' }, 'Not in plan')
+          : parent && !inUse(parent) ? h('span', { class: 'badge badge-ghost badge-sm', title: `Switch on ${parent.name} first` }, `Needs ${parent.short ?? parent.name}`)
           : h('input', { type: 'checkbox', class: 'toggle toggle-sm toggle-primary', 'aria-label': `Use ${p.name}`, checked: chosenByOrg(org, p),
               onchange: (e) => set('plugins', { ...org.plugins, [p.id]: e.target.checked }) })),
       p.core
@@ -448,6 +454,35 @@ function Plugins(org) {
     h('p', { class: 'muted small rp-note' }, icon('info', 13), ' Board directors, guests and viewers can only read, whatever their palette. Someone who opens a plugin outside their palette is told who to ask.'));
 }
 
+/**
+ * One person set apart from their role: switch a plugin off for someone
+ * whose role has it, or on for someone whose role doesn't
+ * (org.pluginPeople[pid][staffId]). The server enforces it like the role.
+ */
+function PeopleApart(org, p) {
+  const people = Object.values(org.staff ?? {}).sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+  const setPerson = (sid, value) => {
+    const next = structuredClone(org.pluginPeople ?? {});
+    const row = next[p.id] ?? {};
+    if (value === 'role') delete row[sid]; else row[sid] = value === 'on';
+    if (Object.keys(row).length) next[p.id] = row; else delete next[p.id];
+    set('pluginPeople', next);
+  };
+  return h('section', { class: 'drawer-section' }, h('h3', {}, 'For one person'),
+    h('p', { class: 'muted small' }, 'Someone can have a different setting from their role: off for one staff member, or on for one guest.'),
+    people.length ? h('ul', { class: 'rp-people' }, people.map((st) => {
+      const own = org.pluginPeople?.[p.id]?.[st.id];
+      const byRole = roleHas(org, p.id, st.roleId);
+      const role = ROLES.find((r) => r.id === st.roleId);
+      return h('li', { class: own == null ? '' : 'apart' },
+        h('span', { class: 'rp-person' }, h('strong', {}, st.name || 'Unnamed'), h('small', { class: 'muted' }, role?.label ?? '')),
+        h('select', { class: 'select select-xs', 'aria-label': `${p.name} for ${st.name}`, onchange: (e) => setPerson(st.id, e.target.value) },
+          h('option', { value: 'role', selected: own == null }, `As their role (${byRole ? 'on' : 'off'})`),
+          h('option', { value: 'on', selected: own === true }, 'On for them'),
+          h('option', { value: 'off', selected: own === false }, 'Off for them')));
+    })) : h('p', { class: 'muted small' }, 'No people yet.'));
+}
+
 /** A plugin's features (a lock means your plan leaves that one out) and which roles have it. */
 function PluginDrawer(id) {
   const draw = () => {
@@ -464,7 +499,8 @@ function PluginDrawer(id) {
             }))
           : h('p', { class: 'muted small' }, 'No separate features: it all comes together.')),
       h('section', { class: 'drawer-section' }, h('h3', {}, 'Who has it'),
-        h('ul', { class: 'rp-who' }, ROLES.map((r) => h('li', {}, h('span', { class: `role-badge role-${r.id}` }, r.label), h('span', { class: 'muted small' }, p.core || roleHas(org, p.id, r.id) ? 'Yes' : 'Not in their palette'))))));
+        h('ul', { class: 'rp-who' }, ROLES.map((r) => h('li', {}, h('span', { class: `role-badge role-${r.id}` }, r.label), h('span', { class: 'muted small' }, p.core || roleHas(org, p.id, r.id) ? 'Yes' : 'Not in their palette'))))),
+      !p.core && PeopleApart(org, p));
   };
   const p = PLUGINS.find((x) => x.id === id);
   const d = Drawer({ title: p.name, sub: p.category ?? 'Plugin', lead: h('span', { class: 'tone-tile solid', style: `--tone:${p.tone}` }, icon(p.icon, 20)), body: draw() });
@@ -576,16 +612,66 @@ function Billing(plans, current) {
   return box;
 }
 
-/** The org's own domains (Custom plan): add one, see the DNS records to set, check them. */
+/**
+ * Organisation → Domain: the org's Dashi address (its subdomain, the
+ * namespace for everything it has on Dashi), which the admin can change
+ * with a live check as they type, then its own domains (Custom plan). The
+ * Dashi address keeps working beside an own domain, as a mirror.
+ */
 function Domain(org) {
-  if (!isHosted()) return h('p', { class: 'note' }, 'Your own domain works on the hosted platform.');
+  if (!isHosted()) return h('p', { class: 'note' }, 'Your Dashi address and your own domain work on the hosted platform.');
+  return h('div', { class: 'domain-page' }, Address(), OwnDomains(org));
+}
+
+/** The Dashi address: yourname.dashi.app, checked against every other org as the admin types. */
+function Address() {
+  const current = session()?.org?.slug ?? '';
+  const status = h('p', { class: 'small addr-status', role: 'status', 'aria-live': 'polite' });
+  const save = h('button', { class: 'btn btn-sm btn-primary', type: 'submit', disabled: true }, 'Change address');
+  const base = h('span', { class: 'addr-base' }, '');
+  const input = h('input', { class: 'input input-sm addr-input', name: 'slug', value: current, autocomplete: 'off', spellcheck: false, 'aria-label': 'Your Dashi address', maxlength: 40 });
+  let timer = null;
+  let last = null;
+  const check = async () => {
+    const slug = input.value.trim().toLowerCase();
+    if (slug !== input.value) input.value = slug;
+    if (slug === current) { status.className = 'small addr-status muted'; status.textContent = 'This is your address now.'; save.disabled = true; return; }
+    const res = await api('GET', `/api/domains/address?slug=${encodeURIComponent(slug)}`).catch((err) => ({ ok: false, why: err.message }));
+    if (input.value.trim().toLowerCase() !== slug) return; // They typed on.
+    last = res;
+    status.className = `small addr-status ${res.ok ? 'ok' : 'bad'}`;
+    status.textContent = res.ok ? `${res.host} is free.` : res.why;
+    save.disabled = !res.ok;
+  };
+  input.addEventListener('input', () => { save.disabled = true; clearTimeout(timer); timer = setTimeout(check, 250); });
+  api('GET', `/api/domains/address?slug=${encodeURIComponent(current)}`).then((r) => { base.textContent = `.${r.base}`; check(); }).catch(() => {});
+  const form = h('form', { class: 'addr-form', onsubmit: async (e) => {
+    e.preventDefault();
+    if (!last?.ok) return;
+    if (!await uiConfirm(`Move to ${last.host}? Everyone signs in there from now on. ${current}${base.textContent} keeps sending people to the new address for 30 days, then anyone can take it. Links you have shared to your own domain keep working.`, { ok: 'Change address' })) return;
+    save.disabled = true;
+    try {
+      const out = await api('POST', '/api/domains/address', { slug: last.slug });
+      location.assign(`${out.url.replace(/\/$/, '')}/org.html#domain`);
+    } catch (err) { status.className = 'small addr-status bad'; status.textContent = err.message; save.disabled = false; }
+  } }, h('div', { class: 'addr-field' }, input, base), save);
+  return h('section', { class: 'card card-border bg-base-100 domain-card' }, h('div', { class: 'card-body' },
+    h('h2', { class: 'card-title text-base' }, 'Your Dashi address'),
+    h('p', { class: 'muted small' }, 'Your organisation’s own space on Dashi: staff sign in here and your public sites live here. One word, letters and numbers (a dash between words is fine), not case sensitive.'),
+    form, status));
+}
+
+/** The org's own domains (Custom plan): add one, see the DNS records to set, check them. */
+function OwnDomains(org) {
   const box = h('div', {}, h('p', { class: 'muted' }, 'Loading…'));
   const load = () => api('GET', '/api/domains').then(({ domains, allowed, target }) => {
     const input = h('input', { class: 'input input-sm', placeholder: 'www.yourorg.org', name: 'new-domain' });
     const msg = h('span', { class: 'small', role: 'status' });
     const STATUS = { pending: ['badge-warning', 'Waiting for DNS'], verified: ['badge-info', 'Yours; not pointing here yet'], active: ['badge-success', 'Working'] };
-    box.replaceChildren(
-      h('p', { class: 'muted' }, `Your Dashi address, ${location.host.replace(/:\d+$/, '')}, always works. `, allowed ? 'You can also use your own domain. You keep managing its DNS where it is; add the records below at your registrar (where you bought the domain), then press Check.' : 'Using your own domain comes with the Custom plan.'),
+    // (replaceChildren would print `false` for the parts a plan leaves out: the old “falsefalse”.)
+    box.replaceChildren(...[
+      h('h2', { class: 'domain-own-title' }, 'Your own domain'),
+      h('p', { class: 'muted' }, `Your Dashi address, ${location.host.replace(/:\d+$/, '')}, always works, as a mirror of your own domain. `, allowed ? 'You can also use your own domain. You keep managing its DNS where it is; add the records below at your registrar (where you bought the domain), then press Check.' : 'Using your own domain comes with the Custom plan.'),
       h('div', {}, domains.map((d) => h('div', { class: 'card card-border bg-base-100 domain-card' }, h('div', { class: 'card-body' },
         h('div', { class: 'domain-head' }, h('strong', {}, d.host), h('span', { class: `badge badge-sm ${STATUS[d.status][0]}` }, STATUS[d.status][1]), d.primary && h('span', { class: 'badge badge-sm badge-ghost' }, 'Main address'),
           h('span', { class: 'spacer' }),
@@ -603,7 +689,8 @@ function Domain(org) {
         try { await api('POST', '/api/domains', { host: input.value }); load(); } catch (err) { msg.textContent = err.message; }
       } }, input, h('button', { class: 'btn btn-sm btn-primary', type: 'submit' }, 'Add domain'), msg),
       allowed && h('details', { class: 'domain-help' }, h('summary', {}, 'www or the bare domain?'),
-        h('p', { class: 'small' }, `Use www.yourorg.org if you can: it takes one CNAME record pointing at ${target}, which keeps working if Dashi’s servers move. A bare domain (yourorg.org) needs A records to Dashi’s addresses instead, unless your registrar offers ALIAS or ANAME records. Many registrars can forward the bare domain to www for you.`)));
+        h('p', { class: 'small' }, `Use www.yourorg.org if you can: it takes one CNAME record pointing at ${target}, which keeps working if Dashi’s servers move. A bare domain (yourorg.org) needs A records to Dashi’s addresses instead, unless your registrar offers ALIAS or ANAME records. Many registrars can forward the bare domain to www for you.`)),
+    ].filter(Boolean));
   }).catch((err) => box.replaceChildren(h('p', { class: 'empty' }, err.message)));
   load();
   return box;

@@ -8,6 +8,7 @@
  */
 import { loadOrSeed, saveDoc, activeOrg } from './storage.js';
 import './session.js';
+import { setLinkOrg } from '../plugins.js';
 import { blankOrg, migrateOrg } from './org.js';
 import { migrateStrategy, measureIndex } from './strategy.js';
 import { blankStrategy } from './strategySeed.js';
@@ -25,7 +26,11 @@ import { blankAssets, migrateAssets } from './assetHub.js';
 
 const seedFor = (doc) => SEEDS[activeOrg()]?.[doc];
 
-export const loadOrg = () => migrateOrg(loadOrSeed('org', seedFor('org') ?? (() => blankOrg({ id: activeOrg(), name: 'New org' }))));
+export const loadOrg = () => {
+  const org = migrateOrg(loadOrSeed('org', seedFor('org') ?? (() => blankOrg({ id: activeOrg(), name: 'New org' }))));
+  setLinkOrg(org);
+  return org;
+};
 export const loadStrategy = () => migrateStrategy(loadOrSeed('strategy', seedFor('strategy') ?? blankStrategy));
 export const loadData = () => loadOrSeed('data', () => seedData(Object.keys(measureIndex(loadStrategy()))));
 // Example orgs get the example calculators and stories when an older document has none.

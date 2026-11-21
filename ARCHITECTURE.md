@@ -300,3 +300,13 @@ The platform is now called **Dashi** (the wordmark is `src/ui/Wordmark.js`). Sto
 **Strategy & Work tabs.** Overview (the framework's statements, counts, and a squarified treemap down to workplans), Framework (the tree and detail, as before; `#<id>` still opens an item), Strategic data, Workplan completion and Roadmap lights. The sums behind them are pure functions in `platform/strategyReports.js`, with tests.
 
 **Help library.** Help is a platform document, not an org one: `{ version, sections: [{ id, title, icon, blurb, pages: [{ id, title, body }] }] }`, with bodies in the same markdown as site pages plus `[[diagram:…]]` shortcodes. The built-in library is `src/help/library.js`; once the platform admin edits it (Help → Edit help), their copy is kept in the `platform_docs` table (`GET`/`PUT /api/help`, writes for the platform admin only) or, locally, in the browser.
+
+---
+
+## Plugins, sub-plugins and access (alpha 0.2)
+
+Each plugin entry in `src/plugins.js` declares what it **owns** (the documents only it changes), what it **reads** (documents it may read but never change), and optionally a **parent** (a sub-plugin lives inside its parent and only works when the parent does). Installed plugins own the documents in their manifest's `dataModel`.
+
+`src/platform/access.js` holds the one rule set, shared by the server and the browser. A plugin is usable when the platform has it installed, the org's plan includes it, the org has it switched on, its parent is usable, the person's role has it (`org.pluginRoles`), unless the person has their own setting (`org.pluginPeople`). Each document then has a mode per person: `write`, `read`, or `public` (what a visitor to the public site sees). The server applies it to `/api/session`, `GET` and `PUT /api/docs/<name>`, and sends `docModes` so pages never try to save what they can't.
+
+Links between plugins go through `linkTo(plugin, route)`, which returns null for a plugin the person can't use. `SideNav` drops items whose link is null, and `test/links.test.js` fails on any page that hard-codes another plugin's address.

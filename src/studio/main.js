@@ -153,15 +153,18 @@ function drawSide({ planId, tab }) {
       })) : []),
     ];
   });
-  side = swapSide(side, SideNav({ label: 'Planning Studio', sections: [
+  side = swapSide(side, SideNav({ label: 'Strategy & Work', sections: [
+    // The Studio is part of Strategy & Work (0.2): one place for the plan, the planning and the work.
+    { title: 'Strategy & Work', items: [
+      { label: 'Overview', icon: 'home', href: 'strategy.html#overview' },
+      { label: 'Framework', icon: 'strategy', href: `strategy.html${planId ? `#${planId}` : '#framework'}`, sub: planId ? 'This plan as work: goals, tasks' : null },
+      { label: 'Roadmap', icon: 'mapTrifold', href: 'strategy.html#roadmap' },
+      { label: 'Plan designer', sub: 'Pages to print or publish', icon: 'brush', href: 'plandoc.html' },
+    ] },
     { title: 'Planning Studio', items: [
       { label: 'Framework and plans', sub: 'Mission, vision, values', icon: 'strategy', href: '#framework', on: tab === 'framework' },
     ] },
     { title: 'Plans', action: { label: 'New plan', onclick: newPlan }, items: planItems },
-    { title: 'Elsewhere in Dashi', className: 'side-elsewhere', items: [
-      { label: 'Strategy & Work', sub: planId ? 'This plan as work: goals, tasks, timelines' : 'The plans as work', icon: 'share', href: `strategy.html${planId ? `#${planId}` : ''}` },
-      { label: 'Plan designer', sub: 'Pages to print or publish', icon: 'share', href: 'plandoc.html' },
-    ] },
   ] }));
 }
 

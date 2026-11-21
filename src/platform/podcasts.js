@@ -1,3 +1,4 @@
+import { linkTo } from '../plugins.js';
 /**
  * Podcasts: an org's own podcast station. The shape follows Castopod's
  * model (https://castopod.org), so a self-hosted Node service (or a
@@ -5,7 +6,8 @@
  *
  * {
  *   station:  { name, tagline, description, siteId, cover,      the public station page
- *               look: { player, art, hero, archive, masthead } },   how the station page is skinned
+ *               look: { player, art, hero, archive, masthead, theme? } },   how the station page is skinned
+ *               look.theme: the station's own colours (a theme, see themes.js); absent = the site's
  *   podcasts: { [id]: Show },
  *   episodes: { [id]: Episode },
  * }
@@ -157,9 +159,9 @@ export function migratePodcasts(doc) {
 export const slugify = (s) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_-]+/g, '-');
 
 /** Where an episode opens in the Podcasts plugin: in a tray over the episode list. */
-export const episodeHref = (e) => `podcasts.html#episodes/${e.id}`;
+export const episodeHref = (e) => linkTo('podcasts', `#episodes/${e.id}`);
 /** Where a series opens in the Podcasts plugin. */
-export const seriesHref = (p) => `podcasts.html#series/${p.id}`;
+export const seriesHref = (p) => linkTo('podcasts', `#series/${p.id}`);
 
 /**
  * Reads a Podcasts address: { scope, seriesId, base, tray }. `base` is the
@@ -273,3 +275,6 @@ ${items.map((e) => `    <item>
   </channel>
 </rss>`;
 }
+
+/** The colours the station wears: its own palette, or the site's. The shape always follows the site. */
+export const stationTheme = (station, orgTheme = {}) => (station?.look?.theme ? { ...station.look.theme, shape: orgTheme.shape } : orgTheme);

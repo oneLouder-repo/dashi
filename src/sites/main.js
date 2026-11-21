@@ -1,7 +1,7 @@
 import { h, options } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { Shell } from '../ui/Shell.js';
-import { SideNav, swapSide } from '../ui/SideNav.js';
+import { SideNav, swapSide, reachable } from '../ui/SideNav.js';
 import { Store } from '../core/Store.js';
 import { applyCollectionOp, col } from '../core/collections.js';
 import { autosaveDoc, loadDoc, saveDoc } from '../platform/storage.js';
@@ -13,7 +13,9 @@ import { mastheadSvg } from '../site/mastheads.js';
 import { DevicePreview, DeviceToggle, PhoneShell, deviceMode } from '../ui/DevicePreview.js';
 import { setCrumbs } from '../ui/crumbs.js';
 import { isLivePlan } from '../platform/plandocs.js';
-import { applyTheme, paletteById, shapeById, PALETTES, SHAPES } from '../platform/themes.js';
+import { applyTheme, shapeById, SHAPES, themeLabel } from '../platform/themes.js';
+import { PaletteBuilder } from '../ui/PaletteBuilder.js';
+import { brandPalette } from '../platform/palettes.js';
 import { Logo } from '../ui/Shell.js';
 import { PAGE_KINDS, uniqueSlug, isLive, embedsIn, siteContent } from '../platform/pages.js';
 import { published } from '../platform/podcasts.js';
@@ -28,6 +30,7 @@ import { EpisodeCard, ShowCard, Player } from '../site/station.js';
 import { today, short } from '../strategy/dates.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
 import { uiAlert, uiConfirm, uiPrompt, uiPanel } from '../ui/dialog.js';
+import { linkTo } from '../plugins.js';
 
 /**
  * Public Portal (formerly Web views, and before that Sites & Pages): one
@@ -69,6 +72,17 @@ const ctx = { doc: docs.podcasts, org, today: now, player, link: () => '#' };
 const publicDashboards = () => Object.values(docs.dashboards.dashboards).filter((d) => d.visibility === 'public');
 const liveEpisodes = () => Object.values(docs.podcasts.episodes).filter((e) => published(e, now)).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
 
+/** The Data Workbench's tools, as the Portal's side list shows them (src/palette/main.js has the tools themselves). */
+const DATA_TOOLS = [
+  { id: 'dashboards', name: 'Dashboards', sub: 'Private and public', icon: 'chart' },
+  { id: 'data', name: 'Program data', sub: 'The numbers behind them', icon: 'timeline' },
+  { id: 'stories', name: 'Data stories', sub: 'Words, charts and voices', icon: 'story' },
+  { id: 'impact', name: 'Impact calculator', sub: 'What a gift makes possible', icon: 'gift' },
+  { id: 'postcards', name: 'Data postcards', sub: 'One number, beautifully', icon: 'media' },
+  { id: 'feedback', name: 'Feedback forms', sub: 'Ask what readers think', icon: 'chats' },
+  { id: 'reports', name: 'Funder reports', sub: 'A first draft, from your data', icon: 'handshake' },
+];
+
 function renderSide() {
   const r = route();
   const list = (kind) => Object.values(doc().pages).filter((p) => p.kind === kind)
@@ -84,13 +98,15 @@ function renderSide() {
   side = swapSide(side, SideNav({ label: 'Public Portal', sections: [
     { title: 'Public Portal', items: [
       { label: 'Overview', sub: 'Every site, and what is live', icon: 'home', href: '#sites', on: r === 'sites' },
-      { label: 'Look and feel', sub: org.theme?.palette ? `${org.theme.palette === 'custom' ? 'Your own' : paletteById[org.theme.palette]?.label ?? 'Your'} colours, ${shapeById[org.theme.shape]?.label?.toLowerCase() ?? 'rounded'}` : 'Colours and shapes', icon: 'palette', href: '#look', on: r === 'look' || r.startsWith('look/') },
-      { label: 'Dashboards', sub: 'Data Workbench', icon: 'chart', href: 'palette.html#dashboards' },
-      { label: 'Feedback forms', sub: 'Data Workbench', icon: 'chats', href: 'palette.html#feedback' },
-      { label: 'Strategic plan', sub: 'Plan designer', icon: 'strategy', href: 'plandoc.html' },
-      pluginOn(org, 'podcasts') && { label: 'Podcast station', sub: 'Podcasts', icon: 'mic', href: 'podcasts.html#station' },
-      criticalOn(org) && { label: 'Media smart', sub: 'Critical Media', icon: 'news', href: 'plugin.html?id=critical-media' },
+      { label: 'Look and feel', sub: org.theme?.palette ? `${themeLabel(org.theme)} colours, ${shapeById[org.theme.shape]?.label?.toLowerCase() ?? 'rounded'}` : 'Colours and shapes', icon: 'palette', href: '#look', on: r === 'look' || r.startsWith('look/') },
     ].filter(Boolean) },
+    // The Data Workbench lives here now (a sub-plugin of the Portal): every data tool, one click away.
+    { title: 'Data', items: DATA_TOOLS.map((t) => ({ label: t.name, sub: t.sub, icon: t.icon, href: linkTo('palette', `#${t.id}`) })) },
+    { title: 'From other plugins', className: 'side-elsewhere', items: [
+      { label: 'Strategic plan', sub: 'In the Plan designer', icon: 'strategy', href: linkTo('plandoc') },
+      pluginOn(org, 'podcasts') && { label: 'Podcast station', sub: 'In Podcasts', icon: 'mic', href: linkTo('podcasts', '#station') },
+      criticalOn(org) && { label: 'Media smart', sub: 'In Critical Media', icon: 'news', href: linkTo('critical-media') },
+    ] },
     { title: 'Sites', action: { label: 'New site', onclick: newSite }, items: byVis('public').map(siteItem) },
     byVis('private').length > 0 && { title: 'Members only', items: byVis('private').map(siteItem) },
     { title: 'Pages', action: { label: 'New page', onclick: () => newPage('page') }, items: [...list('page').map(item), { label: 'New page', icon: 'plus', onclick: () => newPage('page') }] },
@@ -137,12 +153,12 @@ function Sites() {
 
   // Getting the public side working, step by step.
   const steps = [
-    { done: publicSites.length > 0 && !!org.theme?.palette, title: 'Your look and your sites', text: org.theme?.palette ? `${paletteById[org.theme.palette]?.label ?? org.theme.palette} colours, ${shapeById[org.theme.shape]?.label?.toLowerCase() ?? 'rounded'} shapes, ${publicSites.length} public site${publicSites.length === 1 ? '' : 's'}.` : 'Pick your colours and shape, and name your public sites.', href: '#look', action: 'Look and feel' },
-    { done: dashes.some((d) => d.visibility === 'public' && d.siteId), title: 'Live dashboards', text: `${dashes.filter((d) => d.visibility === 'public' && d.siteId).length} of ${dashes.length} dashboards are public. Design them as visitors will see them.`, href: 'palette.html#dashboards', action: 'Design dashboards' },
-    { done: plans.some(isLivePlan), title: 'Your strategic plan', text: plans.some(isLivePlan) ? 'Your plan is online, and downloads as a PDF.' : 'Turn your strategy into a designed plan to read online or download as a PDF.', href: 'plandoc.html', action: 'Plan designer' },
-    hasPods && { done: !!station, title: 'Your podcast station', text: station ? `On ${station.name}, with ${liveEpisodes().length} episodes out.` : 'Put the station on a site so listeners can find it.', href: 'podcasts.html#station', action: 'Station' },
+    { done: publicSites.length > 0 && !!org.theme?.palette, title: 'Your look and your sites', text: org.theme?.palette ? `${themeLabel(org.theme)} colours, ${shapeById[org.theme.shape]?.label?.toLowerCase() ?? 'rounded'} shapes, ${publicSites.length} public site${publicSites.length === 1 ? '' : 's'}.` : 'Pick your colours and shape, and name your public sites.', href: '#look', action: 'Look and feel' },
+    { done: dashes.some((d) => d.visibility === 'public' && d.siteId), title: 'Live dashboards', text: `${dashes.filter((d) => d.visibility === 'public' && d.siteId).length} of ${dashes.length} dashboards are public. Design them as visitors will see them.`, href: linkTo('palette', '#dashboards'), action: 'Design dashboards' },
+    { done: plans.some(isLivePlan), title: 'Your strategic plan', text: plans.some(isLivePlan) ? 'Your plan is online, and downloads as a PDF.' : 'Turn your strategy into a designed plan to read online or download as a PDF.', href: linkTo('plandoc'), action: 'Plan designer' },
+    hasPods && { done: !!station, title: 'Your podcast station', text: station ? `On ${station.name}, with ${liveEpisodes().length} episodes out.` : 'Put the station on a site so listeners can find it.', href: linkTo('podcasts', '#station'), action: 'Station' },
     { done: pages.some((p) => p.kind === 'page' && isLive(p, now)), title: 'Pages and news', text: `${pages.filter((p) => p.kind === 'page' && isLive(p, now)).length} pages and ${pages.filter((p) => p.kind === 'article' && isLive(p, now)).length} articles are live. Say who you are and what’s new.`, onclick: () => newPage('page'), action: 'New page' },
-  ].filter(Boolean);
+  ].filter(reachable);
   const doneCount = steps.filter((x) => x.done).length;
 
   return h('div', { class: 'wv' },
@@ -173,22 +189,22 @@ function propertiesOf(site) {
   const out = [];
   const isPublic = site.visibility !== 'private';
   const add = (kind, icon, title, live, href) => out.push({ kind, icon, title, live, href });
-  for (const d of Object.values(docs.dashboards.dashboards).filter((x) => x.siteId === site.id)) add('Dashboard', 'chart', d.title, !isPublic || (d.visibility === 'public' && site.visibility === 'public'), `palette.html#${d.id}`);
-  for (const d of Object.values(docs.plandocs.docs).filter((x) => x.siteId === site.id)) add('Plan', 'strategy', docs.strategy.nodes[d.planId]?.title ?? d.snapshot?.plan?.title ?? 'Plan', isLivePlan(d), `plandoc.html#${d.id}`);
-  if (pluginOn(org, 'podcasts') && docs.podcasts.station.siteId === site.id) add('Station', 'mic', docs.podcasts.station.name, liveEpisodes().length > 0, 'podcasts.html#station');
-  for (const x of Object.values(docs.dashboards.stories ?? {}).filter((y) => y.siteId === site.id)) add('Story', 'story', x.title, x.visibility === 'public', 'palette.html#stories');
-  for (const x of Object.values(docs.dashboards.calculators ?? {}).filter((y) => y.siteId === site.id)) add('Calculator', 'gift', x.title, x.visibility === 'public', 'palette.html#impact');
+  for (const d of Object.values(docs.dashboards.dashboards).filter((x) => x.siteId === site.id)) add('Dashboard', 'chart', d.title, !isPublic || (d.visibility === 'public' && site.visibility === 'public'), linkTo('palette', `#${d.id}`));
+  for (const d of Object.values(docs.plandocs.docs).filter((x) => x.siteId === site.id)) add('Plan', 'strategy', docs.strategy.nodes[d.planId]?.title ?? d.snapshot?.plan?.title ?? 'Plan', isLivePlan(d), linkTo('plandoc', `#${d.id}`));
+  if (pluginOn(org, 'podcasts') && docs.podcasts.station.siteId === site.id) add('Station', 'mic', docs.podcasts.station.name, liveEpisodes().length > 0, linkTo('podcasts', '#station'));
+  for (const x of Object.values(docs.dashboards.stories ?? {}).filter((y) => y.siteId === site.id)) add('Story', 'story', x.title, x.visibility === 'public', linkTo('palette', '#stories'));
+  for (const x of Object.values(docs.dashboards.calculators ?? {}).filter((y) => y.siteId === site.id)) add('Calculator', 'gift', x.title, x.visibility === 'public', linkTo('palette', '#impact'));
   const pages = Object.values(doc().pages).filter((p) => p.siteId === site.id);
   for (const p of pages.filter((x) => x.kind === 'page')) add('Page', 'doc', p.title, isLive(p, now), `#${p.id}`);
   const articles = pages.filter((x) => x.kind === 'article');
   if (articles.length) add('News', 'news', `${articles.filter((a) => isLive(a, now)).length} articles`, articles.some((a) => isLive(a, now)), `#${articles[0].id}`);
-  for (const f of Object.values(docs.dashboards.forms ?? {}).filter((x) => x.siteId === site.id)) add('Feedback', 'chats', f.title, !isPublic || f.visibility === 'public', 'palette.html#feedback');
+  for (const f of Object.values(docs.dashboards.forms ?? {}).filter((x) => x.siteId === site.id)) add('Feedback', 'chats', f.title, !isPublic || f.visibility === 'public', linkTo('palette', '#feedback'));
   if (site.visibility === 'public' && criticalOn(org) && docs.critical.settings?.corner !== false && onSiteFor(docs.critical.settings ?? {}, site.id)) add('Media smart', 'news', 'Lessons and tips', true, 'plugin.html?id=critical-media');
   if (!isPublic) {
     const board = Object.values(docs.library.items ?? {}).filter((it) => (it.tags ?? []).includes('board'));
     for (const [tag, label, icon] of [['governance', 'Governance', 'scales'], ['minutes', 'Minutes', 'notePencil'], ['finance', 'Finance', 'chart']]) {
       const n = board.filter((it) => it.tags.includes(tag)).length;
-      add('Papers', icon, `${label}: ${n} document${n === 1 ? '' : 's'}`, n > 0, `library.html#tag/${tag}`);
+      add('Papers', icon, `${label}: ${n} document${n === 1 ? '' : 's'}`, n > 0, linkTo('library', `#tag/${tag}`));
     }
   }
   return out;
@@ -329,11 +345,11 @@ function SitePage(s) {
   const addLinks = [
     { label: 'Page', icon: 'doc', onclick: () => newPage('page', s.id) },
     { label: 'News article', icon: 'news', onclick: () => newPage('article', s.id) },
-    { label: 'Dashboard', icon: 'chart', href: 'palette.html#dashboards' },
-    { label: 'Feedback form', icon: 'chats', href: 'palette.html#feedback' },
-    { label: 'Data story', icon: 'story', href: 'palette.html#stories' },
-    !isPublic && { label: 'Board paper', icon: 'books', href: 'library.html#tag/board' },
-  ].filter(Boolean);
+    { label: 'Dashboard', icon: 'chart', href: linkTo('palette', '#dashboards') },
+    { label: 'Feedback form', icon: 'chats', href: linkTo('palette', '#feedback') },
+    { label: 'Data story', icon: 'story', href: linkTo('palette', '#stories') },
+    !isPublic && { label: 'Board paper', icon: 'books', href: linkTo('library', '#tag/board') },
+  ].filter(reachable);
 
   return h('div', { class: 'wv-sitepage' },
     h('header', { class: 'wv-sitepage-head' },
@@ -349,7 +365,7 @@ function SitePage(s) {
           h('span', { class: 'muted small' }, 'Live: this is the site as visitors get it today.')),
         h('div', { class: `wv-preview-stage ${deviceMode()}` }, SitePreview(s, { width: Math.max(420, Math.min(760, (main.clientWidth || 1100) - 460)) })),
         h('a', { class: 'wv-look-line', href: `#look/${s.id}` },
-          h('span', { class: 'wv-look-text' }, h('strong', {}, `${templateById[look.template].label} template`), h('small', {}, [look.masthead.preset === 'none' ? 'No banner' : look.masthead.preset === 'upload' ? 'Your own banner' : `${MASTHEADS.find((m) => m.id === look.masthead.preset)?.label} banner`, SITE_FONTS.find((f) => f.id === look.type)?.label, paletteById[org.theme?.palette]?.label && `${paletteById[org.theme.palette].label} colours`].filter(Boolean).join(' · '))),
+          h('span', { class: 'wv-look-text' }, h('strong', {}, `${templateById[look.template].label} template`), h('small', {}, [look.masthead.preset === 'none' ? 'No banner' : look.masthead.preset === 'upload' ? 'Your own banner' : `${MASTHEADS.find((m) => m.id === look.masthead.preset)?.label} banner`, SITE_FONTS.find((f) => f.id === look.type)?.label, org.theme?.palette && `${themeLabel(org.theme)} colours`].filter(Boolean).join(' · '))),
           h('span', { class: 'btn btn-sm' }, icon('palette', 14), 'Change the look'))),
       h('aside', { class: 'wv-sitepage-side' },
         h('section', { class: 'wv-box' },
@@ -423,6 +439,24 @@ function Look(siteId) {
       h('button', { type: 'button', role: 'radio', class: 'lk-choice lk-tpl', 'data-tpl': t.id, onclick: () => setLook({ template: t.id, header: undefined }) },
         h('span', { class: 'lk-tpl-shot' }, tplShots[t.id]),
         h('span', { class: 'lk-tpl-text' }, h('strong', {}, t.label), h('small', {}, t.blurb))))));
+  // The palette builder lives across redraws, so a slider keeps the pointer while the preview follows it.
+  const builder = PaletteBuilder({
+    theme: theme(),
+    onDraft: (t) => { org.theme = t; tellPreviews(); },
+    onChange: (t) => { org.theme = t; commit(); },
+    brands: () => org.palettes ?? [],
+    onSaveBrand: async (t) => {
+      const name = await uiPrompt('Name this palette, so you can pick it again (and use it on your podcast station)', 'Our colours');
+      if (!name?.trim()) return;
+      org.palettes = [...(org.palettes ?? []), brandPalette(name.trim(), t)];
+      commit(); builder.update(theme());
+    },
+    onDeleteBrand: async (id) => {
+      if (!(await uiConfirm('Remove this saved palette? Sites using it keep their colours.'))) return;
+      org.palettes = (org.palettes ?? []).filter((b) => b.id !== id);
+      commit(); builder.update(theme());
+    },
+  });
   function drawControls() {
     const d = design();
     const th = theme();
@@ -462,21 +496,7 @@ function Look(siteId) {
             h('button', { type: 'button', role: 'radio', title: x.blurb, 'aria-checked': String(d.header === x.id), class: d.header === x.id ? 'on' : '', onclick: () => setLook({ header: x.id }) }, x.label))))),
       h('section', { class: 'lk-box' },
         h('div', { class: 'lk-box-head' }, h('h2', {}, 'Colours and shape'), h('span', { class: 'lk-shared' }, icon('globe', 12), 'Shared by all your sites')),
-        h('div', { class: 'palette-grid', role: 'radiogroup', 'aria-label': 'Colour palette' }, th.colors && (() => {
-          // The org's own colours (set at intake; no maker yet). Kept when trying a preset, so you can come back.
-          const on = th.palette === 'custom';
-          const sw = h('button', { type: 'button', class: `palette-option${on ? ' on' : ''}`, role: 'radio', 'aria-checked': String(on), onclick: () => setTheme({ palette: 'custom' }) },
-            h('span', { class: 'swatches' }, ['primary', 'secondary', 'accent', 'neutral', 'base-200'].map((c) => h('span', { style: `background:${th.colors[c] ?? `var(--color-${c})`}` }))),
-            h('span', {}, 'Your own colours'));
-          return sw;
-        })(), PALETTES.map((p) => {
-          const on = th.palette === p.id;
-          const sw = h('button', { type: 'button', class: `palette-option${on ? ' on' : ''}`, role: 'radio', 'aria-checked': String(on), onclick: () => setTheme({ palette: p.id }) },
-            h('span', { class: 'swatches' }, ['primary', 'secondary', 'accent', 'neutral', 'base-200'].map((c) => h('span', { style: `background:var(--color-${c})` }))),
-            h('span', {}, p.label));
-          sw.querySelector('.swatches').setAttribute('data-theme', p.id);
-          return sw;
-        })),
+        builder,
         h('div', { class: 'shape-grid', role: 'radiogroup', 'aria-label': 'Shape' }, SHAPES.map((x) =>
           h('button', { type: 'button', class: `shape-option${th.shape === x.id ? ' on' : ''}`, role: 'radio', 'aria-checked': String(th.shape === x.id), onclick: () => setTheme({ shape: x.id }), style: `--r:${x.vars['--radius-box']}` },
             h('span', { class: 'shape-sample' }), h('strong', {}, x.label), h('small', {}, x.blurb))))));
@@ -513,13 +533,13 @@ async function addProperty() {
     { id: 'site', label: 'Site or portal', sub: 'A new public site, or a members-only portal', icon: 'globe' },
     { id: 'page', label: 'Page', sub: 'Who you are, how to get involved', icon: 'doc', needsSite: true },
     { id: 'article', label: 'News article', sub: 'What’s new, with a date', icon: 'news', needsSite: true },
-    { id: 'dashboard', label: 'Dashboard', sub: 'In the Data Workbench', icon: 'chart', href: 'palette.html#dashboards' },
-    { id: 'feedback', label: 'Feedback form', sub: 'In the Data Workbench', icon: 'chats', href: 'palette.html#feedback' },
-    { id: 'story', label: 'Data story', sub: 'In the Data Workbench', icon: 'story', href: 'palette.html#stories' },
-    { id: 'calculator', label: 'Impact calculator', sub: 'In the Data Workbench', icon: 'gift', href: 'palette.html#impact' },
-    { id: 'plan', label: 'Strategic plan', sub: 'In the Plan designer', icon: 'strategy', href: 'plandoc.html' },
-    pluginOn(org, 'podcasts') && { id: 'station', label: 'Podcast station', sub: 'In Podcasts', icon: 'mic', href: 'podcasts.html#station' },
-  ].filter(Boolean);
+    { id: 'dashboard', label: 'Dashboard', sub: 'In the Data Workbench', icon: 'chart', href: linkTo('palette', '#dashboards') },
+    { id: 'feedback', label: 'Feedback form', sub: 'In the Data Workbench', icon: 'chats', href: linkTo('palette', '#feedback') },
+    { id: 'story', label: 'Data story', sub: 'In the Data Workbench', icon: 'story', href: linkTo('palette', '#stories') },
+    { id: 'calculator', label: 'Impact calculator', sub: 'In the Data Workbench', icon: 'gift', href: linkTo('palette', '#impact') },
+    { id: 'plan', label: 'Strategic plan', sub: 'In the Plan designer', icon: 'strategy', href: linkTo('plandoc') },
+    pluginOn(org, 'podcasts') && { id: 'station', label: 'Podcast station', sub: 'In Podcasts', icon: 'mic', href: linkTo('podcasts', '#station') },
+  ].filter(reachable);
   let pick = KINDS[1];
   let siteId = sites.find((s) => s.visibility === 'public')?.id ?? sites[0]?.id ?? null;
   const choice = await uiPanel({
@@ -652,6 +672,7 @@ function Editor(p) {
       } }),
       h('span', { class: `badge ${live ? 'badge-success' : p.status === 'draft' ? 'badge-ghost' : 'badge-warning'}` }, live ? 'Published' : p.status === 'draft' ? 'Draft' : `Goes live ${short(p.publishedAt)}`),
       live && org.sites[p.siteId]?.visibility === 'public' && h('a', { class: 'btn btn-sm', href: viewHref, target: '_blank', rel: 'noopener' }, icon('globe', 14), 'View on site'),
+      live && h('a', { class: 'btn btn-sm btn-ghost', href: siteUrl(p.siteId, { page: p.slug, edit: '1' }), target: '_blank', rel: 'noopener', title: 'Open the page as visitors see it, and change it where it stands' }, icon('pencil', 14), 'Edit on the page'),
       p.status === 'draft' && h('button', { class: 'btn btn-sm btn-primary', onclick: () => { save({ status: 'published' }); render(); } }, 'Publish'),
       h('button', { class: 'btn btn-sm btn-ghost btn-error', onclick: async () => { if (await uiConfirm(`Delete “${p.title}”?`)) { store.apply(col.remove('pages', p.id)); location.hash = 'sites'; } } }, 'Delete')),
     fields,

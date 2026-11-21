@@ -17,6 +17,18 @@ import { setSection } from './crumbs.js';
  * ready-made ul.menu that someone else keeps drawn (the mapper's tools).
  */
 const KEY = 'dashi.side-folded';
+/**
+ * An item whose link came back empty (linkTo: a plugin this person can't
+ * use) and has nothing else to do is left out, and so is a section left
+ * with no items. Menus never point somewhere closed.
+ */
+export const reachable = (it) => !!it && (it instanceof Node || !('href' in it) || it.href != null || !!it.onclick || !!it.disabled);
+const keepSection = (s) => {
+  if (!s) return null;
+  if (!s.items) return s;
+  const items = s.items.filter(reachable);
+  return items.length || s.body || s.menu || s.action ? { ...s, items } : null;
+};
 const folded = () => { try { return localStorage.getItem(KEY) === '1'; } catch { return false; } };
 
 export function SideNav({ label, sections }) {
@@ -28,9 +40,10 @@ export function SideNav({ label, sections }) {
       toggle.setAttribute('aria-expanded', String(now === '0'));
       document.dispatchEvent(new CustomEvent('dashi:side-fold'));
     } }, h('span', { 'aria-hidden': 'true' }, '‹'));
-  nav.append(toggle, ...sections.filter(Boolean).map(Section));
+  sections = sections.map(keepSection).filter(Boolean);
+  nav.append(toggle, ...sections.map(Section));
   // The open item is the second step of the page's breadcrumb trail.
-  const all = sections.filter(Boolean).flatMap((s) => (s.items ?? []).filter((it) => it && !(it instanceof Node)));
+  const all = sections.flatMap((s) => (s.items ?? []).filter((it) => it && !(it instanceof Node)));
   const on = all.find((it) => it.on);
   if (on) setSection({ label: on.label, href: on.href }, { isHome: on === all[0] });
   return nav;

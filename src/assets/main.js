@@ -13,7 +13,7 @@ import { saveDoc, onDocChange, session } from '../platform/storage.js';
 import { loadOrg, loadAssets, loadMaps, loadLibrary, loadPodcasts } from '../platform/docs.js';
 import { loadAllMaps } from '../platform/maps.js';
 import { currentUser } from '../platform/session.js';
-import { enabledPlugins } from '../plugins.js';
+import { enabledPlugins, linkTo } from '../plugins.js';
 import { putMedia, deleteMedia, mediaUrl, maxUploadMb } from '../platform/media.js';
 import {
   ABCD, abcdById, SENSITIVITY, SOURCES, sourceById, FILE_GROUPS, gatherAssets, ensureItem, newItem, touch, logActivity,
@@ -53,6 +53,8 @@ function loadDocs() {
 
 /* ------------------------------------------------------------------ state */
 const prefs = (() => { try { return { view: 'tiles', sort: 'recent', size: 's', ...JSON.parse(localStorage.getItem('dashi.assets.prefs') ?? '{}') }; } catch { return { view: 'tiles', sort: 'recent', size: 's' }; } })();
+// A link can ask for a view (assets.html#view=map), as the Library's side list does.
+{ const v = new URLSearchParams(location.hash.slice(1)).get('view'); if (['tiles', 'list', 'map'].includes(v)) prefs.view = v; }
 const savePrefs = () => { try { localStorage.setItem('dashi.assets.prefs', JSON.stringify(prefs)); } catch { /* private window */ } };
 let query = '';
 let lastQ = null;
@@ -180,6 +182,12 @@ function drawSide(cards) {
     { title: 'Collections', action: canEdit && { label: 'New collection', onclick: () => newCollection() },
       items: roots.length ? roots.flatMap((c) => collItems(c)) : null,
       body: roots.length ? (canEdit ? h('p', { class: 'ah-empty-note' }, 'Right-click a collection to rename it or add one inside.') : null) : h('p', { class: 'ah-empty-note' }, 'Gather assets into collections: drag cards onto one.') },
+    // The Library lives inside Assets (0.2): documents and bibliographies are assets too.
+    { title: 'Library', items: [
+      { label: 'Documents', sub: 'Files, Dashi docs and references', icon: 'book', href: linkTo('library', '#files/all') },
+      { label: 'Bibliographies', sub: 'Annotated, with weekly briefs', icon: 'news', href: linkTo('library', '#bibs') },
+      { label: 'Library tags', sub: 'What you’re reading about', icon: 'tag', href: linkTo('library', '#tags') },
+    ] },
     tags.length && { title: 'Tags', body: h('div', { class: 'ah-tags' }, tags.map((t) => h('a', { href: `#tag=${encodeURIComponent(t.tag)}`, class: `ah-tag${s.tag === t.tag ? ' on' : ''}` }, t.tag, h('small', {}, String(t.n))))) },
   ] }));
   sideEl.classList.add('ah-side');

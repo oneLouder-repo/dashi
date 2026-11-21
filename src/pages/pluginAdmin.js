@@ -3,6 +3,7 @@ import { icon, SECTION_ICONS } from '../ui/icons.js';
 import { PHOSPHOR } from '../ui/phosphor.js';
 import { uiAlert, uiConfirm, uiForm, uiPanel } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
+import { BUILT_IN_PLUGINS } from '../plugins.js';
 import {
   STATUSES, CATEGORIES, FIELD_TYPES, TIERS, manifestProblems, packageOf, manifestFromPackage, compareVersions, bumpVersion,
 } from '../platform/pluginRegistry.js';
@@ -58,6 +59,10 @@ function List({ call, data, rerender }) {
     h('div', { class: 'pa-cards' }, byCat.flatMap(([, list]) => list).map((m) => PluginCard(m, data))));
 }
 
+/** Sub-plugins and owned documents come from the built-in list (src/plugins.js) or the manifest. */
+const parentOf = (m) => { const id = BUILT_IN_PLUGINS.find((p) => p.id === m.id)?.parent ?? m.parent; return id && BUILT_IN_PLUGINS.find((p) => p.id === id); };
+const ownsOf = (m) => BUILT_IN_PLUGINS.find((p) => p.id === m.id)?.owns ?? (m.dataModel?.docs ?? []).map((d) => d.name).filter(Boolean);
+
 function PluginCard(m, data) {
   const st = statusOf(m.status);
   const cols = (m.dataModel?.docs ?? []).reduce((n, d) => n + (d.collections?.length ?? 0), 0);
@@ -68,7 +73,9 @@ function PluginCard(m, data) {
       h('span', { class: 'pa-meta' },
         h('span', { class: 'pa-ver' }, `v${m.version}`),
         h('span', { class: `pa-status ${m.status}` }, st.label),
-        h('span', { class: 'muted' }, `${m.category ?? 'Other'} · ${m.core ? 'core' : m.builtIn ? 'built in' : 'installed'}`)),
+        h('span', { class: 'muted' }, `${m.category ?? 'Other'} · ${m.core ? 'core' : m.builtIn ? 'built in' : 'installed'}`),
+        parentOf(m) && h('span', { class: 'badge badge-ghost badge-sm', title: 'A sub-plugin: it lives inside this plugin and only works when it is on' }, `Inside ${parentOf(m).name}`)),
+      ownsOf(m).length > 0 && h('span', { class: 'pa-owns muted small' }, `Owns ${ownsOf(m).join(', ')}`),
       h('span', { class: 'pa-blurb' }, m.blurb || 'No description yet.'),
       h('span', { class: 'pa-stats' },
         h('span', {}, icon('features', 13), `${(m.features ?? []).filter((f) => f.enabled !== false).length}/${(m.features ?? []).length} features`),

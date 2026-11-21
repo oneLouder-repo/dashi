@@ -1,3 +1,4 @@
+import { linkTo } from '../plugins.js';
 /**
  * Assets: the things a task or workplan uses. An asset can point at
  * anything in any tool (an ecosystem actor, a staff member, a strategy
@@ -44,25 +45,25 @@ export function resolveAsset(asset, docs) {
       if (!found) return { label: asset.label, sub: 'No longer on the map', missing: true };
       const { actor: a, mapId } = found;
       const mapTitle = docs.maps?.maps[mapId]?.title ?? 'the ecosystem map';
-      return { label: a.label, sub: `${a.kind === 'agent' ? 'Agent' : 'Actor'} on ${mapTitle}`, href: `mapper.html#${mapId}` };
+      return { label: a.label, sub: `${a.kind === 'agent' ? 'Agent' : 'Actor'} on ${mapTitle}`, href: linkTo('mapper', `#${mapId}`) };
     }
     case 'map': {
       if (asset.libraryId) {
         const it = docs.library?.items?.[asset.libraryId];
-        return it ? { label: it.meta.title || asset.label, sub: 'Ecosystem map file in the library', href: `library.html#item/${asset.libraryId}` } : { label: asset.label, sub: 'Removed from the library', missing: true };
+        return it ? { label: it.meta.title || asset.label, sub: 'Ecosystem map file in the library', href: linkTo('library', `#item/${asset.libraryId}`) } : { label: asset.label, sub: 'Removed from the library', missing: true };
       }
       const entry = docs.maps?.maps?.[asset.ref];
       if (!entry) return { label: asset.label, sub: 'Map removed', missing: true };
       const actors = Object.keys(docs.mapContents?.[asset.ref]?.actors ?? {}).length;
-      return { label: entry.title, sub: `Ecosystem map · ${actors} actor${actors === 1 ? '' : 's'}`, href: `mapper.html#${asset.ref}` };
+      return { label: entry.title, sub: `Ecosystem map · ${actors} actor${actors === 1 ? '' : 's'}`, href: linkTo('mapper', `#${asset.ref}`) };
     }
     case 'staff': {
       const s = docs.org?.staff[asset.ref];
-      return s ? { label: s.name, sub: s.title, href: `assets.html#key=${encodeURIComponent(`staff:${s.id}`)}` } : { label: asset.label, sub: 'No longer on staff', missing: true };
+      return s ? { label: s.name, sub: s.title, href: linkTo('assets', `#key=${encodeURIComponent(`staff:${s.id}`)}`) } : { label: asset.label, sub: 'No longer on staff', missing: true };
     }
     case 'plan': {
       const n = docs.strategy?.nodes[asset.ref];
-      return n ? { label: n.title, sub: `Strategy · ${n.type}`, href: `strategy.html#${n.id}` } : { label: asset.label, sub: 'Removed from the strategy', missing: true };
+      return n ? { label: n.title, sub: `Strategy · ${n.type}`, href: linkTo('strategy', `#${n.id}`) } : { label: asset.label, sub: 'Removed from the strategy', missing: true };
     }
     case 'document':
     case 'literature': {
@@ -72,20 +73,20 @@ export function resolveAsset(asset, docs) {
         const year = String(it.meta.issued ?? '').slice(0, 4);
         const who = (it.meta.creators ?? [])[0];
         const by = who ? (who.literal ?? who.family) + ((it.meta.creators.length > 1) ? ' et al.' : '') : '';
-        return { label: it.meta.title || asset.label, sub: ['In the library', by, year].filter(Boolean).join(' · '), href: `library.html#item/${asset.libraryId}` };
+        return { label: it.meta.title || asset.label, sub: ['In the library', by, year].filter(Boolean).join(' · '), href: linkTo('library', `#item/${asset.libraryId}`) };
       }
       if (asset.kind === 'document') {
-        if (asset.assetKey) return { label: asset.label, sub: asset.detail ?? 'Document', href: `assets.html#key=${encodeURIComponent(asset.assetKey)}` };
+        if (asset.assetKey) return { label: asset.label, sub: asset.detail ?? 'Document', href: linkTo('assets', `#key=${encodeURIComponent(asset.assetKey)}`) };
         // A file kept inline opens as a file (browsers block opening data: links directly).
         if (asset.dataUrl) return { label: asset.label, sub: asset.detail ?? 'Document', href: asset.dataUrl, file: true };
         if (asset.url) return { label: asset.label, sub: asset.detail ?? 'Document', href: asset.url };
-        return { label: asset.label, sub: `${asset.detail ?? 'Document'} · find it in the Asset manager`, href: `assets.html#q=${encodeURIComponent(asset.label.replace(/\.[a-z0-9]+$/i, ''))}` };
+        return { label: asset.label, sub: `${asset.detail ?? 'Document'} · find it in the Asset manager`, href: linkTo('assets', `#q=${encodeURIComponent(asset.label.replace(/\.[a-z0-9]+$/i, ''))}`) };
       }
       return { label: asset.label, sub: ['Literature', asset.year].filter(Boolean).join(' · '), href: asset.url };
     }
     case 'person':
       // Someone outside the staff list: their card in the Asset manager, if they have one.
-      return { label: asset.label, sub: asset.detail ?? 'Person', href: asset.url ?? `assets.html#${new URLSearchParams({ q: asset.label.replace(/\s*\(.*\)\s*/g, ' ').trim(), person: asset.label, ...(asset.detail ? { about: asset.detail } : {}) })}` };
+      return { label: asset.label, sub: asset.detail ?? 'Person', href: asset.url ?? linkTo('assets', `#${new URLSearchParams({ q: asset.label.replace(/\s*\(.*\)\s*/g, ' ').trim(), person: asset.label, ...(asset.detail ? { about: asset.detail } : {}) })}`) };
     default:
       return { label: asset.label, sub: asset.detail ?? kindById[asset.kind]?.label ?? asset.kind, href: asset.url };
   }

@@ -6,7 +6,7 @@ import { MapHelp } from './MapHelp.js';
 import { toast } from './Shell.js';
 import { uiAlert, uiPrompt } from './dialog.js';
 import { Menu } from './Menu.js';
-import { enabledPlugins } from '../plugins.js';
+import { enabledPlugins, linkTo } from '../plugins.js';
 import { linkToStrategy, addToAssets, strategyUses } from './MapConnections.js';
 import { saveDoc } from '../platform/storage.js';
 import { mapDocName } from '../platform/maps.js';
@@ -113,7 +113,7 @@ export function TopBar(el, ctx) {
       has('assets') && { heading: 'Assets' },
       has('assets') && { label: 'Add the map to a collection…', icon: 'sec-assets', hint: 'Beside the org’s files, people and stories', onclick: () => addToAssets(ctx) },
       has('assets') && actor && { label: `Add “${actor.label || 'Untitled'}” to a collection…`, icon: actor.kind === 'agent' ? 'agent' : 'actor', onclick: () => addToAssets(ctx, { actor }) },
-      has('assets') && { label: 'See it in the Asset manager', icon: 'arrowsIn', onclick: () => { location.href = `assets.html#key=${encodeURIComponent(`map:${ctx.mapId}`)}`; } },
+      has('assets') && { label: 'See it in the Asset manager', icon: 'arrowsIn', onclick: () => { location.href = linkTo('assets', `#key=${encodeURIComponent(`map:${ctx.mapId}`)}`); } },
       has('library') && { heading: 'Library' },
       has('library') && { label: ctx.actions.libraryCopy() ? 'Update the copy in the library' : 'Keep a copy in the library', icon: 'sec-library', hint: 'As a map file you can tag, cite or attach', onclick: async () => {
         try { toast((await ctx.actions.saveToLibrary()) === 'added' ? 'Saved to the library as a map file' : 'Updated the map file in the library'); }
