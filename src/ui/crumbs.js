@@ -85,10 +85,13 @@ function draw() {
 }
 
 /**
- * The often-used actions for each plugin, shown in its ribbon. `here` hides
- * the one for the page you're already on. Links to another plugin go
+ * The often-used actions for each plugin, shown in its ribbon. Alpha 0.3
+ * PR 11: three per plugin, set at the plugin level, so the ribbon never
+ * shifts as you move around inside a plugin; `here` marks the one for the
+ * page you're on (it isn't hidden any more). Links to another plugin go
  * through linkTo, so they only show to people who can open it.
  */
+export const RIBBON_SIZE = 3;
 const own = (pid, hash) => linkTo(pid, hash);
 const ACTIONS = {
   home: () => [
@@ -99,7 +102,6 @@ const ACTIONS = {
   strategy: () => [
     { label: 'Roadmap', icon: 'mapTrifold', href: own('strategy', '#roadmap'), here: '#roadmap' },
     { label: 'Framework', icon: 'strategy', href: own('strategy', '#framework'), here: '#framework' },
-    { label: 'Plan details', icon: 'doc', href: own('studio'), title: 'The plan’s home: dates, context and team' },
     { label: 'Plan designer', icon: 'brush', href: linkTo('plandoc'), title: 'Design the plan as pages, then print, save as PDF or publish' },
   ],
   studio: () => [
@@ -118,18 +120,17 @@ const ACTIONS = {
     { label: 'Export', icon: 'download', href: own('graph', '#export'), here: '#export' },
   ],
   library: () => [
+    { label: 'Documents', icon: 'doc', href: own('library', '#files/all'), here: '#files' },
     { label: 'Bibliographies', icon: 'book', href: own('library', '#bibs'), here: '#bibs' },
     { label: 'Tags', icon: 'tag', href: own('library', '#tags'), here: '#tags' },
   ],
   podcasts: () => [
-    { label: 'New episode', icon: 'plus', href: own('podcasts', '#episodes/new') },
+    { label: 'New episode', icon: 'plus', href: own('podcasts', '#episodes/new'), here: '#episodes/new' },
     { label: 'Studio', icon: 'mic', href: own('podcasts', '#studio'), here: '#studio' },
     { label: 'Station', icon: 'radio', href: own('podcasts', '#station'), here: '#station' },
-    { label: 'Design', icon: 'palette', href: own('podcasts', '#design'), here: '#design' },
   ],
   pages: () => [
     { label: 'Pages', icon: 'doc', href: own('pages', '#cms/pages'), here: '#cms/pages' },
-    { label: 'News', icon: 'news', href: own('pages', '#cms/news'), here: '#cms/news' },
     { label: 'Look and feel', icon: 'palette', href: own('pages', '#look'), here: '#look' },
     { label: 'Social media', icon: 'share', href: linkTo('social') },
   ],
@@ -145,16 +146,19 @@ const ACTIONS = {
   ],
   org: () => [
     { label: 'People', icon: 'person', href: own('org', '#people'), here: '#people' },
+    { label: 'Teams', icon: 'people', href: own('org', '#teams'), here: '#teams' },
     { label: 'Plugins', icon: 'settings', href: own('org', '#plugins'), here: '#plugins' },
   ],
 };
 export function contextActions(id) {
   const tone = PLUGINS.find((x) => x.id === id)?.tone ?? 'var(--color-primary)';
-  const list = (ACTIONS[id]?.() ?? []).filter((a) => a.href && !(a.here && typeof location !== 'undefined' && location.hash.startsWith(a.here)));
+  const list = (ACTIONS[id]?.() ?? []).filter((a) => a.href).slice(0, RIBBON_SIZE);
+  const at = (a) => a.here && typeof location !== 'undefined' && location.hash.startsWith(a.here);
   return list.length ? h('span', { class: 'ribbon-group ribbon-actions', role: 'group', 'aria-label': 'Quick actions' },
-    list.map((a) => h('a', { class: 'ribbon-link', href: a.href, style: `--tone:${tone}`, title: a.title ?? a.label }, icon(a.icon, 15), h('span', {}, a.label)))) : null;
+    list.map((a) => h('a', { class: `ribbon-link${at(a) ? ' on' : ''}`, href: a.href, style: `--tone:${tone}`, title: a.title ?? a.label, 'aria-current': at(a) ? 'page' : null }, icon(a.icon, 15), h('span', {}, a.label)))) : null;
 }
-// Moving between a plugin's own pages changes which actions show.
+export const ribbonActions = (id) => (ACTIONS[id]?.() ?? []);
+// Moving between a plugin's own pages only changes which action is marked, never which show.
 if (typeof addEventListener !== 'undefined') addEventListener('hashchange', () => queue());
 
 /** The "Works with" links for a plugin: the ones it works with most that this person can open. The mapper's top bar uses it too. */

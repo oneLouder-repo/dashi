@@ -141,3 +141,11 @@ test('an asset can wear a library photo, and Kestrel Bay has photos on over half
   assert.equal(cards.filter((c) => c.missing).length, 0);
   assert.equal(Object.keys(d.studio.toc).length, 0, 'a blank theory of change');
 });
+
+test('every plugin ribbon has the same three actions wherever you are in the plugin', async () => {
+  const { ribbonActions, RIBBON_SIZE } = await import('../src/ui/crumbs.js');
+  assert.equal(RIBBON_SIZE, 3);
+  for (const id of ['home', 'strategy', 'studio', 'assets', 'graph', 'library', 'podcasts', 'pages', 'social', 'palette', 'org']) {
+    assert.equal(ribbonActions(id).length, 3, id);
+  }
+});

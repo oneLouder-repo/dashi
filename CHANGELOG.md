@@ -6,6 +6,10 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### PR 11: ribbons that don't shift
+- **Three ribbon actions per plugin, set at the plugin level**: the same three show on every page of a plugin, so the ribbon never changes width or order as you click around. The one for the page you're on is marked (tinted, with a line under it) instead of disappearing, which was what made the ribbon jump.
+- Trimmed to three where there were four (Strategy & Work: Roadmap, Framework, Plan designer; Podcasts: New episode, Studio, Station; Public Portal: Pages, Look and feel, Social media) and filled up to three where there were two (Library adds Documents; Organisation adds Teams). Home has My work, People and Search.
+
 ### PR 10: sunbursts that keep their context
 - **A coloured trail above every sunburst**: one chip per ring from the centre out to where you are, each in its ring's colour. Click a chip to go straight back to that level. The centre takes a pale wash of the ring you're inside and says what "back" goes to.
 - **Leaves are picked in place**: clicking a task (or an asset) outlines it in black and shows it in the panel, and the rings around it stay in view, instead of the whole chart zooming into one item.
