@@ -36,12 +36,12 @@ import { linkTo } from '../plugins.js';
 
 /** The six ABCD asset types, plus files that are simply the org's records. */
 export const ABCD = [
-  { id: 'individual', label: 'Individuals', short: 'People', hint: 'Gifts, skills and passions of people', color: '#d9893a', icon: 'person' },
-  { id: 'association', label: 'Associations', short: 'Groups', hint: 'Clubs, circles, networks and informal groups', color: '#3c9a6b', icon: 'users' },
-  { id: 'institution', label: 'Institutions', short: 'Institutions', hint: 'Agencies, schools, funders, governments', color: '#3d6fc4', icon: 'org' },
-  { id: 'physical', label: 'Physical', short: 'Places', hint: 'Land, buildings, spaces and equipment', color: '#7f8f3a', icon: 'pin' },
-  { id: 'economic', label: 'Economic', short: 'Exchange', hint: 'Money, local business, trades and barter', color: '#b8860b', icon: 'handshake' },
-  { id: 'cultural', label: 'Cultural', short: 'Stories', hint: 'Stories, heritage, language, art and knowledge', color: '#a45ab8', icon: 'story' },
+  { id: 'individual', label: 'Individuals', short: 'People', hint: 'Gifts, skills and passions of people', color: '#ef7f2d', icon: 'person' },
+  { id: 'association', label: 'Associations', short: 'Groups', hint: 'Clubs, circles, networks and informal groups', color: '#4da65c', icon: 'users' },
+  { id: 'institution', label: 'Institutions', short: 'Institutions', hint: 'Agencies, schools, funders, governments', color: '#2c4fa3', icon: 'org' },
+  { id: 'physical', label: 'Physical', short: 'Places', hint: 'Land, buildings, spaces and equipment', color: '#3e8fa6', icon: 'pin' },
+  { id: 'economic', label: 'Economic', short: 'Exchange', hint: 'Money, local business, trades and barter', color: '#f4a93b', icon: 'handshake' },
+  { id: 'cultural', label: 'Cultural', short: 'Stories', hint: 'Stories, heritage, language, art and knowledge', color: '#7b2fe8', icon: 'story' },
 ];
 export const abcdById = Object.fromEntries(ABCD.map((a) => [a.id, a]));
 

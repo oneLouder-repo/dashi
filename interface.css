@@ -563,7 +563,7 @@ body.mapper-page > main { box-shadow: var(--lift-sheet); }
 .tool-list .tool:hover { background: rgb(70 60 40 / .05); color: var(--ink-1, var(--ink)); }
 .tool-list .tool.active, .tool-list .tool.armed { background: var(--tone-soft, var(--accent-soft)); color: var(--ink-1, var(--ink)); }
 .tool-list .tool .icon { flex: none; color: var(--accent); }
-.tool-list .tool-add.actor .icon { color: #b8860b; }
+.tool-list .tool-add.actor .icon { color: #f4a93b; }
 .tool-list .tool-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tool-list .tool-key { flex: none; min-width: 22px; padding: 1px 5px; border-radius: 5px; border: 1px solid var(--line-soft, var(--line)); background: var(--color-base-100); color: var(--muted); font: 600 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; text-align: center; }
 .tool-list .tool-add { cursor: grab; }
@@ -718,7 +718,7 @@ body.mapper-page > main { border-radius: 0 0 var(--r-sheet, 14px) var(--r-sheet,
 #topbar .btn-ghost, #topbar .tb-menu-btn { height: 30px; min-height: 30px; border-radius: 8px; font-weight: 600; color: var(--ink-2); }
 #topbar .btn-ghost:hover, #topbar .tb-menu-btn:hover { background: color-mix(in oklab, var(--tone, #1d8a7a) 9%, transparent); color: var(--ink-1); border-color: transparent; }
 #topbar { --tone: #1d8a7a; }
-#topbar .tb-share { --tone: #3d63dd; }
+#topbar .tb-share { --tone: #2c4fa3; }
 #topbar .map-name { font-size: 15px; }
 #topbar .ribbon-group { margin-left: 4px; }
 @media (max-width: 760px) {
@@ -870,7 +870,7 @@ body.mapper-page > main { border-radius: 0 0 var(--r-sheet, 14px) var(--r-sheet,
 .lens-label { fill: #3a4256; font-weight: 750; }
 .lens-hint { fill: #6a7286; }
 /* SOAR (alpha 0.3): solid quadrants, like the sunbursts, with white gaps along the axes. */
-.soar-zone { background: color-mix(in oklab, var(--q) 82%, #fff); box-sizing: border-box; }
+.soar-zone { background: var(--q); box-sizing: border-box; }
 .soar-zone.q-s { border-right: 4px solid #fff; border-bottom: 4px solid #fff; }
 .soar-zone.q-o { border-left: 4px solid #fff; border-bottom: 4px solid #fff; }
 .soar-zone.q-a { border-right: 4px solid #fff; border-top: 4px solid #fff; }
@@ -898,7 +898,7 @@ body.mapper-page > main { border-radius: 0 0 var(--r-sheet, 14px) var(--r-sheet,
 .tool-menu li > button.tool { border: 0; background: transparent; font: inherit; cursor: pointer; }
 .tool-menu li > button.tool-add { cursor: grab; }
 .tool-menu .tool-key { flex: none; min-width: 22px; padding: 1px 5px; border-radius: 5px; border: 1px solid var(--line-soft, var(--line)); background: var(--color-base-100); color: var(--muted); font: 600 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; text-align: center; }
-.tool-menu li > .tool-add.actor .icon { color: #b8860b !important; }
+.tool-menu li > .tool-add.actor .icon { color: #f4a93b !important; }
 .side-nav.folded .tool-key { display: none; }
 .side-inspector { font-size: 13px; }
 .side-nav .side-body.side-layers, .side-nav .side-layers { padding: 0 8px; }

@@ -1,8 +1,8 @@
 import { Sprite } from '../core/Sprite.js';
 
 /**
- * One actor on the board, drawn as a sticky note in its lens category's
- * colour: the name in bold, a short description under it, and the category
+ * One actor on the board, drawn as a white card with its category's colour
+ * across the top and a black edge (alpha 0.3; it was a coloured sticky): the name in bold, a short description under it, and the category
  * along the bottom. Agents keep a dark outline and a solid corner notch,
  * so they read apart from actors at a glance. The dock box at the top-left
  * corner is where you drag from to draw a connector.
@@ -28,6 +28,7 @@ export class ActorView extends Sprite {
     this.ping = this.draw('rect', { class: 'actor-ping' });
     this.box = this.draw('rect', { class: 'actor-note' });
     this.fold = this.draw('path', { class: 'actor-fold' });
+    this.band = this.draw('path', { class: 'actor-band' });
     this.mark = this.draw('path', { class: 'agent-mark' });
     this.text = this.draw('text', { class: 'actor-label' });
     this.desc = this.draw('text', { class: 'actor-desc' });
@@ -54,13 +55,17 @@ export class ActorView extends Sprite {
     this.dock.setAttribute('y', -h / 2 - 6);
     for (const [k, v] of Object.entries({ x: -w / 2, y: -h / 2, width: w, height: h, rx: 6 })) this.ping.setAttribute(k, v);
     this.size = { w, h };
-    this.box.style.fill = category?.color ?? '';
+    // Alpha 0.3: a white card with its category's colour across the top and a crisp black edge.
+    this.box.style.fill = '';
     this.fold.style.fill = category?.color ?? '';
+    const r = 4, bh = 9;
+    this.band.setAttribute('d', `M ${-w / 2} ${-h / 2 + bh} V ${-h / 2 + r} Q ${-w / 2} ${-h / 2} ${-w / 2 + r} ${-h / 2} H ${w / 2 - r} Q ${w / 2} ${-h / 2} ${w / 2} ${-h / 2 + r} V ${-h / 2 + bh} Z`);
+    this.band.style.fill = category?.color ?? '';
 
     const left = -w / 2 + 12;
     const description = String(actor.meta?.description ?? '').trim();
     const nameLines = wrap(actor.label || 'Untitled', Math.max(6, Math.floor((w - 28) / (NAME_PX * 0.56))), description ? 2 : 3);
-    const nameTop = -h / 2 + 12 + NAME_PX;
+    const nameTop = -h / 2 + 17 + NAME_PX;
     this.#lines(this.text, nameLines, left, nameTop, NAME_PX + 3);
     const descTop = nameTop + nameLines.length * (NAME_PX + 3) + 1;
     const room = Math.max(0, Math.floor((h / 2 - 24 - descTop) / (DESC_PX + 3.5)) + 1);

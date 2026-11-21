@@ -20,13 +20,16 @@ import { chosenBy, orgHas, canUse, usable } from './platform/access.js';
 
 const count = (o) => Object.keys(o ?? {}).length;
 
+/** The built-in plugins' tones before the alpha 0.3 colour wheel. */
+const LEGACY_TONES = new Set(['#13897a', '#0f7f9c', '#3d63dd', '#7a4cc4', '#c25a14', '#c03a64', '#7a5a2f', '#2f6f8f', '#3a8a3f']);
+
 export const PLUGINS = [
   {
     id: 'mapper',
     owns: ['maps', 'map/*'],
     reads: ['library'],
     short: 'Mapper',
-    tone: '#13897a',
+    tone: '#3e8fa6',
     name: 'Ecosystem Mapper',
     href: 'mapper.html',
     icon: 'sec-mapper',
@@ -41,7 +44,7 @@ export const PLUGINS = [
     owns: ['assets'],
     reads: ['maps', 'map/*', 'library', 'strategy', 'dashboards'],
     short: 'Assets',
-    tone: '#0f7f9c',
+    tone: '#2c4fa3',
     name: 'Assets',
     href: 'assets.html',
     icon: 'sec-assets',
@@ -56,7 +59,7 @@ export const PLUGINS = [
     owns: ['strategy', 'plandocs'],
     reads: ['maps', 'map/*', 'data', 'dashboards', 'library', 'assets'],
     short: 'Strategy',
-    tone: '#3d63dd',
+    tone: '#7b2fe8',
     name: 'Strategy & Work',
     href: 'strategy.html',
     icon: 'sec-strategy',
@@ -73,7 +76,7 @@ export const PLUGINS = [
     owns: ['studio'],
     reads: ['strategy', 'plandocs', 'maps', 'map/*', 'library'],
     short: 'Studio',
-    tone: '#7a4cc4',
+    tone: '#b05bd8',
     name: 'Planning Studio',
     href: 'studio.html',
     icon: 'sec-studio',
@@ -86,7 +89,7 @@ export const PLUGINS = [
     owns: ['dashboards', 'data', 'feedback'],
     reads: ['strategy', 'plandocs', 'library'],
     short: 'Data',
-    tone: '#c25a14',
+    tone: '#ef7f2d',
     name: 'Data Workbench',
     href: 'palette.html',
     icon: 'sec-data',
@@ -101,7 +104,7 @@ export const PLUGINS = [
     owns: ['podcasts'],
     reads: [],
     short: 'Podcasts',
-    tone: '#c03a64',
+    tone: '#c8432f',
     name: 'Podcasts',
     href: 'podcasts.html',
     icon: 'sec-podcasts',
@@ -117,7 +120,7 @@ export const PLUGINS = [
     owns: ['library'],
     reads: ['maps', 'map/*', 'strategy', 'plandocs', 'data'],
     short: 'Library',
-    tone: '#7a5a2f',
+    tone: '#e35a2c',
     name: 'Library',
     href: 'library.html',
     icon: 'sec-library',
@@ -134,7 +137,7 @@ export const PLUGINS = [
     // The same as Assets reads, so the graph never opens a door Assets keeps shut.
     reads: ['assets', 'maps', 'map/*', 'library', 'strategy', 'dashboards'],
     short: 'Graph',
-    tone: '#2f6f8f',
+    tone: '#e0705f',
     name: 'Asset Graph',
     href: 'graph.html',
     icon: 'sec-graph',
@@ -147,7 +150,7 @@ export const PLUGINS = [
     owns: ['pages'],
     reads: ['dashboards', 'data', 'plandocs', 'strategy', 'library'],
     short: 'Portal',
-    tone: '#3a8a3f',
+    tone: '#4da65c',
     name: 'Public Portal',
     href: 'pages.html',
     icon: 'sec-sites',
@@ -207,7 +210,8 @@ export function applyRegistry(view) {
     }
     Object.assign(p, {
       name: m.name ?? p.name, short: m.short ?? p.short, blurb: m.blurb ?? p.blurb,
-      tone: m.tone ?? p.tone, icon: m.icon ?? p.icon, version: m.version, category: m.category,
+      // Tones saved before the alpha 0.3 colour wheel give way to the built-in plugin's new one.
+      tone: (m.builtIn || !p.installed) && LEGACY_TONES.has(String(m.tone).toLowerCase()) ? p.tone : m.tone ?? p.tone, icon: m.icon ?? p.icon, version: m.version, category: m.category,
       platformOff: !p.core && m.status !== 'installed',
       defaultOff: !!m.defaultOff,
       features: m.featureList ?? [],

@@ -82,14 +82,14 @@ export const defaultGraphSettings = () => ({ id: 'graph', vocabs: Object.fromEnt
 /** Kinds of node, with the colour and word the graph page uses for each. */
 export const NODE_KINDS = {
   org: { label: 'Organisation', color: '#1d2230' },
-  person: { label: 'Person', color: '#d9893a' },
+  person: { label: 'Person', color: '#ef7f2d' },
   team: { label: 'Team', color: '#c06f2a' },
-  asset: { label: 'Asset', color: '#0f7f9c' },
-  actor: { label: 'Map actor', color: '#13897a' },
+  asset: { label: 'Asset', color: '#2c4fa3' },
+  actor: { label: 'Map actor', color: '#3e8fa6' },
   map: { label: 'Ecosystem map', color: '#0e6b60' },
   concept: { label: 'Tag', color: '#8a6bc4' },
   collection: { label: 'Collection', color: '#6b55a8' },
-  strategy: { label: 'Strategy', color: '#3d63dd' },
+  strategy: { label: 'Strategy', color: '#2c4fa3' },
 };
 
 const lit = (v, extra = {}) => ({ v: String(v), ...extra });

@@ -223,7 +223,7 @@ function Facts(nd) {
       h('code', { class: 'gx-iri', title: 'This thing’s name in the graph' }, nd.iri)));
 }
 
-const GROUP_COLOURS = ['#2f6f8f', '#d9893a', '#3c9a6b', '#a45ab8', '#3d6fc4', '#b8860b', '#c03a64', '#7f8f3a', '#13897a', '#6b55a8'];
+const GROUP_COLOURS = ['#e0705f', '#ef7f2d', '#4da65c', '#7b2fe8', '#2c4fa3', '#f4a93b', '#c8432f', '#3e8fa6', '#3e8fa6', '#6b55a8'];
 
 async function drawGraph(stage, result) {
   const d3 = await loadD3();

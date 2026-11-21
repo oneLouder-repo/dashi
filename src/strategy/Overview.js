@@ -119,7 +119,7 @@ function WholeSunburst(ctx, root, now) {
   if (sunPinned && !doc.nodes[sunPinned]) sunPinned = null;
 
   const panel = h('aside', { class: 'sw-sb-panel', 'aria-live': 'polite' });
-  const show = (n, { hovering = false } = {}) => n && panel.style.setProperty('--sb-hue', n.type === 'framework' || n.type === 'plan' ? '#4f566b' : objectiveHue(doc, n)) !== 0 && panel.replaceChildren(...Details(ctx, n, now, { hovering, isDraft, lightOfWp, pinned: n.id === sunPinned, unpin: () => { sunPinned = null; show(centre); } }));
+  const show = (n, { hovering = false } = {}) => n && panel.style.setProperty('--sb-hue', n.type === 'framework' || n.type === 'plan' ? '#23262e' : objectiveHue(doc, n)) !== 0 && panel.replaceChildren(...Details(ctx, n, now, { hovering, isDraft, lightOfWp, pinned: n.id === sunPinned, unpin: () => { sunPinned = null; show(centre); } }));
   show(sunPinned ? doc.nodes[sunPinned] : centre);
 
   const objectives = objectiveOrder(doc);
@@ -137,7 +137,7 @@ function WholeSunburst(ctx, root, now) {
           color: (d) => {
             const n = doc.nodes[d.data.id];
             if (!n) return '#8a90a0';
-            if (n.type === 'plan') return '#4f566b';
+            if (n.type === 'plan') return '#23262e';
             return tint(objectiveHue(doc, n), STEP[n.type] ?? 0);
           },
           edge: (d) => { const n = doc.nodes[d.data.id]; return n?.type === 'workplan' ? lightOfWp(n).color : null; },
@@ -147,7 +147,7 @@ function WholeSunburst(ctx, root, now) {
       h('div', { class: 'sw-sb-side' },
         panel,
         h('ul', { class: 'sw-sunburst-key' },
-          h('li', {}, h('i', { style: 'background:#4f566b' }), 'Plans'),
+          h('li', {}, h('i', { style: 'background:#23262e' }), 'Plans'),
           objectives.slice(0, 8).map(({ node, hue }) => h('li', { title: node.title }, h('i', { style: `background:${hue}` }), h('span', {}, node.title))),
           h('li', { class: 'muted' }, h('i', { class: 'edge' }), 'Outline: the workplan’s traffic light'),
           h('li', { class: 'muted' }, h('i', { class: 'hatch' }), 'Striped: a draft')))));
@@ -159,7 +159,7 @@ function Details(ctx, n, now, { hovering, isDraft, lightOfWp, pinned, unpin }) {
   const doc = ctx.store.doc;
   const path = [];
   for (let p = doc.nodes[n.parentId]; p && p.type !== 'framework'; p = doc.nodes[p.parentId]) path.unshift(p);
-  const hue = n.type === 'framework' || n.type === 'plan' ? '#4f566b' : objectiveHue(doc, n);
+  const hue = n.type === 'framework' || n.type === 'plan' ? '#23262e' : objectiveHue(doc, n);
   const out = [
     h('div', { class: 'sw-sb-top', style: `--hue:${hue}` },
       LevelBadge(n.type, { long: true }),

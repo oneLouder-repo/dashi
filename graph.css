@@ -1,6 +1,6 @@
 /* The asset graph (src/graph/main.js, alpha 0.2 PR 7, experimental). */
 .graph-main { display: block; }
-.graph-page { --gx-tone: #2f6f8f; }
+.graph-page { --gx-tone: #e0705f; }
 
 /* Search */
 .gx-search { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 4px 0 12px; }

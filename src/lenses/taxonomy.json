@@ -3,32 +3,32 @@
     {
       "id": "ally",
       "label": "Key ally",
-      "color": "#9fd8cb"
+      "color": "#4da65c"
     },
     {
       "id": "resource",
       "label": "Resource provider",
-      "color": "#f6d98b"
+      "color": "#f7c744"
     },
     {
       "id": "problem",
       "label": "Problem maker",
-      "color": "#f4a993"
+      "color": "#e35a2c"
     },
     {
       "id": "gatekeeper",
       "label": "Gatekeeper",
-      "color": "#e8b4d0"
+      "color": "#c77deb"
     },
     {
       "id": "community",
       "label": "Community",
-      "color": "#b9c8f0"
+      "color": "#2c4fa3"
     },
     {
       "id": "other",
       "label": "Other",
-      "color": "#cfd5e2"
+      "color": "#9aa3b5"
     }
   ],
   "defaultCategory": "other",
@@ -41,26 +41,26 @@
     {
       "id": "resource-flow",
       "label": "Resource flow",
-      "color": "#b8860b",
+      "color": "#ef7f2d",
       "end": "arrow"
     },
     {
       "id": "information",
       "label": "Information flow",
-      "color": "#3a8f6f",
+      "color": "#3e8fa6",
       "end": "chevron"
     },
     {
       "id": "power",
       "label": "Power dynamic",
-      "color": "#b5442f",
+      "color": "#c8432f",
       "end": "diamond"
     },
     {
       "id": "feedback",
       "label": "Feedback loop",
       "dash": "8 5",
-      "color": "#2f6fb5",
+      "color": "#2c4fa3",
       "end": "arrow",
       "start": "arrow"
     },
@@ -68,7 +68,7 @@
       "id": "learning",
       "label": "Learning loop",
       "dash": "2 5",
-      "color": "#7a4fb5",
+      "color": "#7b2fe8",
       "end": "circle"
     }
   ],

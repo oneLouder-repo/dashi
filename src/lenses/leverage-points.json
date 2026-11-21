@@ -2,6 +2,7 @@
   "id": "leverage-points",
   "name": "Twelve Leverage Points (Meadows)",
   "description": "Donella Meadows' places to intervene in a system, from shallow (numbers) at the top to deep (paradigms) at the bottom, grouped as parameters, feedbacks, design and intent (Abson et al. 2017).",
+  "harmony": { "scheme": "square", "start": "green" },
   "layout": "bands",
   "width": 1500,
   "bandHeight": 132,

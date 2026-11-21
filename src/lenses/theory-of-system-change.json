@@ -2,6 +2,7 @@
   "id": "theory-of-system-change",
   "name": "Theory of System Change (ToSC)",
   "description": "Collaborative Impact's Theory of System Change pairs depth of change (the iceberg, rows) with breadth of change (adopt, adapt, expand, respond, columns). Left to right is how far a change has spread.",
+  "harmony": { "scheme": "square", "start": "yellow" },
   "layout": "grid",
   "width": 2000,
   "bandHeight": 250,

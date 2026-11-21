@@ -2,6 +2,7 @@
   "id": "water-of-systems-change",
   "name": "Water of Systems Change",
   "description": "Six conditions of systems change after Kania, Kramer and Senge (2018), as an inverted triangle: explicit structural change at the top, implicit transformative change at the point.",
+  "harmony": { "scheme": "analogous", "start": "blue" },
   "layout": "triangle",
   "triangle": {
     "centerX": 0,

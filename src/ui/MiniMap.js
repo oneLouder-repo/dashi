@@ -1,5 +1,6 @@
 import { loadLenses, project, lensBounds, bandsOf } from '../lenses/index.js';
-import { solid } from '../display/LensView.js';
+import { zoneColours } from '../display/LensView.js';
+import { INK } from './wheel.js';
 
 /**
  * A small picture of an ecosystem map: its lens backdrop, links and notes,
@@ -26,7 +27,8 @@ export async function MiniMap(map, { width = 240, height = 150, label = null } =
   const s = el('svg', { viewBox: `${b.x - pad} ${b.y - pad} ${b.w + pad * 2} ${b.h + pad * 2}`, width, height, class: 'mini-map', role: 'img', 'aria-label': label ?? `A small view of ${map?.name ?? 'a map'}`, preserveAspectRatio: 'xMidYMid meet' });
   // The backdrop: the lens regions, outermost first.
   // Solid zones with white gaps, like the board and the sunbursts (alpha 0.3).
-  const tint = (r, i) => solid(r.tint ?? '#cfd6e4', i);
+  const zones = zoneColours(lens);
+  const tint = (r) => zones.get(r.id) ?? '#cfd6e4';
   const stripe = () => '#fff';
   if (lens.layout === 'rings') {
     [...bandsOf(lens)].reverse().forEach((band, i) => el('circle', { cx: lens.center.x, cy: lens.center.y, r: band.outer, fill: tint(band.region, i), stroke: stripe(), 'stroke-width': b.w / 90 }, s));
@@ -44,12 +46,12 @@ export async function MiniMap(map, { width = 240, height = 150, label = null } =
   const at = new Map(Object.values(map?.actors ?? {}).map((a) => [a.id, project(lens, places[a.id] ?? a.place ?? { depth: 0.5, spread: 0 })]));
   for (const c of Object.values(map?.connectors ?? {})) {
     const p = at.get(c.from?.actorId), q = at.get(c.to?.actorId);
-    if (p && q) el('line', { x1: p.x, y1: p.y, x2: q.x, y2: q.y, stroke: '#4a5468', 'stroke-opacity': 0.45, 'stroke-width': b.w / 260 }, s);
+    if (p && q) el('line', { x1: p.x, y1: p.y, x2: q.x, y2: q.y, stroke: INK, 'stroke-opacity': 0.8, 'stroke-width': b.w / 240 }, s);
   }
   const w = b.w / 14, h = w * 0.62;
   for (const a of Object.values(map?.actors ?? {})) {
     const p = at.get(a.id);
-    el('rect', { x: p.x - w / 2, y: p.y - h / 2, width: w, height: h, rx: w / 12, fill: a.kind === 'agent' ? '#fff3c9' : '#fffdf6', stroke: a.kind === 'agent' ? '#c99a1b' : '#6b7488', 'stroke-width': b.w / 300 }, s);
+    el('rect', { x: p.x - w / 2, y: p.y - h / 2, width: w, height: h, rx: w / 12, fill: '#fff', stroke: INK, 'stroke-width': a.kind === 'agent' ? b.w / 160 : b.w / 300 }, s);
   }
   return s;
 }

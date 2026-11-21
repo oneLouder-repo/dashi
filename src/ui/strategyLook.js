@@ -1,4 +1,5 @@
 import { h } from './dom.js';
+import { snap } from './wheel.js';
 import { icon } from './icons.js';
 import { Avatar } from './Shell.js';
 import { staffList, teamList } from '../platform/org.js';
@@ -17,15 +18,16 @@ import { rootOf, childrenOf, descendants, ancestors } from '../platform/strategy
  */
 export const LEVELS = {
   framework: { label: 'Framework', long: 'Strategic framework', icon: 'compass', color: '#3a4256' },
-  plan: { label: 'Plan', long: 'Strategic plan', icon: 'mapTrifold', color: '#3d63dd' },
-  objective: { label: 'Objective', long: 'Strategic objective', icon: 'target', color: '#7a4cc4' },
+  plan: { label: 'Plan', long: 'Strategic plan', icon: 'mapTrifold', color: '#7b2fe8' },
+  objective: { label: 'Objective', long: 'Strategic objective', icon: 'target', color: '#b05bd8' },
   goal: { label: 'Goal', long: 'Goal', icon: 'flag', color: '#1f8a6b' },
-  workplan: { label: 'Workplan', long: 'Workplan', icon: 'timeline', color: '#c25a14' },
+  workplan: { label: 'Workplan', long: 'Workplan', icon: 'timeline', color: '#ef7f2d' },
   task: { label: 'Task', long: 'Task', icon: 'checklist', color: '#56657f' },
 };
 
 /** Hues for objectives, in order (checked side by side for colour vision differences). Past eight, grey. */
-export const OBJECTIVE_HUES = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
+// Alpha 0.3: from the colour wheel, spaced so neighbours stand apart.
+export const OBJECTIVE_HUES = ['#2c4fa3', '#ef7f2d', '#4da65c', '#f7c744', '#c77deb', '#3e8fa6', '#7b2fe8', '#c8432f'];
 export const OTHER_HUE = '#8a90a0';
 
 export function LevelBadge(type, { long = false, plain = false } = {}) {
@@ -40,7 +42,7 @@ export function objectiveOrder(doc) {
   const walk = (id) => { for (const c of childrenOf(doc, id)) { if (c.type === 'objective') out.push(c); else if (c.type === 'plan' || c.type === 'framework') walk(c.id); } };
   const root = rootOf(doc);
   if (root) walk(root.id);
-  return out.map((o, i) => ({ node: o, hue: o.color || OBJECTIVE_HUES[i] || OTHER_HUE }));
+  return out.map((o, i) => ({ node: o, hue: (o.color && snap(o.color)) || OBJECTIVE_HUES[i] || OTHER_HUE }));
 }
 export function objectiveHue(doc, node) {
   if (!node) return OTHER_HUE;

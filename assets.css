@@ -85,7 +85,7 @@ body.ah-dragging .ah-coll .ah-row, body.ah-dragging .ah-nav > .ah-row:has(.ah-do
 .ah-thumb.t-row { width: 32px; height: 32px; border-radius: 8px; }
 .ah-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .ah-thumb { position: relative; }
-.ah-thumb.map { background: color-mix(in oklab, #13897a 5%, var(--panel)); }
+.ah-thumb.map { background: color-mix(in oklab, #3e8fa6 5%, var(--panel)); }
 .ah-thumb.map svg { width: 100%; height: 100%; }
 .ah-thumb.note { background: color-mix(in oklab, var(--abcd) 10%, var(--panel)); padding: 10px; place-items: stretch; }
 .ah-sticky { background: #fffbea; border: 1px solid #e9dca6; border-radius: 3px; box-shadow: 0 2px 4px rgb(0 0 0 / 0.08); padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; overflow: hidden; color: #3a3424; text-align: left; transform: rotate(-1.2deg); }
@@ -229,7 +229,7 @@ input.ah-d-title:focus { outline: none; border-color: var(--accent); background:
 .ah-tray-head { display: flex; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
 .ah-tray ul { list-style: none; margin: 0; padding: 6px; }
 .ah-tray li { display: flex; align-items: center; gap: 8px; padding: 6px; font-size: 13px; }
-.ah-tray li.done > svg { color: #13897a; }
+.ah-tray li.done > svg { color: #3e8fa6; }
 .ah-tray li.failed > svg { color: var(--color-error); }
 .ah-tray-file { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .ah-tray-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

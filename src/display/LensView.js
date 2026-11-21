@@ -1,11 +1,17 @@
 import { Sprite } from '../core/Sprite.js';
 import { bandsOf } from '../lenses/index.js';
+import { scheme, harmonyFor, tint, inkOn, snap } from '../ui/wheel.js';
 
 /**
  * Draws the active lens as the board's backdrop, one renderer per lens
  * layout. Each region's shape is kept so it can be highlighted while an
  * actor is dragged over it.
  */
+let colours = new Map();
+const zone = (region) => colours.get(region.id) ?? '#cfd6e4';
+const inkOf = (region) => `fill:${inkOn(zone(region))}`;
+const hintOf2 = (region) => (inkOn(zone(region)) === '#ffffff' ? 'fill:rgb(255 255 255 / .86)' : 'fill:rgb(22 24 29 / .72)');
+
 export class LensView extends Sprite {
   lensId = null;
   #shapes = new Map();
@@ -17,6 +23,7 @@ export class LensView extends Sprite {
     this.#shapes.clear();
     this.#highlighted = null;
     this.node.classList.toggle('small-labels', lens.labelSize === 'small');
+    colours = zoneColours(lens);
     (renderers[lens.layout] ?? renderers.bands)(this, lens, (region, shape) => {
       shape.classList.add('lens-region');
       this.#shapes.set(region.id, shape);
@@ -99,6 +106,25 @@ export const wash = (hex) => { const h = hsl(hex); return h == null ? hex : toHe
  * the gaps between a sunburst's rings.
  */
 export const solid = (hex, k = 0) => { const h = hsl(hex); return h == null ? hex : toHex(h, 0.5, k % 2 ? 0.62 : 0.55); };
+/**
+ * Alpha 0.3 colour wheel: a lens's zones take their colours from the wheel
+ * by a harmony rule (lens.harmony = { scheme, start }, or one chosen by how
+ * many groups it has). Regions in one group share a hue, every other one a
+ * step lighter; white gaps keep zones apart.
+ */
+export function zoneColours(lens) {
+  const groups = [];
+  for (const r of lens.regions) { const g = r.group ?? r.id; if (!groups.includes(g)) groups.push(g); }
+  const hues = scheme(lens.harmony?.scheme ?? harmonyFor(groups.length), lens.harmony?.start ?? 'orange', groups.length);
+  const seen = {};
+  return new Map(lens.regions.map((r) => {
+    const g = groups.indexOf(r.group ?? r.id);
+    const k = (seen[g] = (seen[g] ?? -1) + 1);
+    return [r.id, k % 2 ? tint(hues[g], 0.3) : hues[g]];
+  }));
+}
+/** Any old tint brought onto the wheel (thumbnails of maps without a lens to hand). */
+export const onWheel = (hex, k = 0) => (k % 2 ? tint(snap(hex), 0.3) : snap(hex));
 const GAP = 6;
 const INK = 'fill:#fff';
 const HINT_INK = 'fill:rgb(255 255 255 / .86)';
@@ -111,13 +137,13 @@ const renderers = {
     const bands = bandsOf(lens);
     // Outermost first so inner rings paint on top; a white gap at each ring's edge.
     [...bands].reverse().forEach(({ region }, i) => {
-      keep(region, view.draw('circle', { cx, cy, r: region.radius, fill: solid(region.tint, i) }));
+      keep(region, view.draw('circle', { cx, cy, r: region.radius, fill: zone(region) }));
       view.draw('circle', { class: 'lens-stripe', cx, cy, r: region.radius, fill: 'none', stroke: '#fff', 'stroke-width': GAP });
     });
     for (const { region, inner, outer } of bands) {
       // Label sits in the top of each ring's band (near the top of the innermost disc).
       const y = inner ? cy - (inner + outer) / 2 - 6 : cy - outer + 40;
-      label(view, region.label, hintOf(region), cx, y, 'middle');
+      label(view, region.label, hintOf(region), cx, y, 'middle', region);
     }
   },
 
@@ -131,9 +157,9 @@ const renderers = {
         [centerX + widthAt(y1), y1],
         [centerX - widthAt(y1), y1],
       ].map((p) => p.join(',')).join(' ');
-      keep(region, view.draw('polygon', { points, fill: solid(region.tint, i) }));
+      keep(region, view.draw('polygon', { points, fill: zone(region) }));
       if (i) view.draw('line', { class: 'lens-stripe', x1: centerX - widthAt(y0) - GAP, y1: y0, x2: centerX + widthAt(y0) + GAP, y2: y0, stroke: '#fff', 'stroke-width': GAP });
-      label(view, region.label, hintOf(region), centerX, y0 + 40, 'middle');
+      label(view, region.label, hintOf(region), centerX, y0 + 40, 'middle', region);
     });
   },
 
@@ -141,11 +167,11 @@ const renderers = {
     const left = -lens.width / 2;
     let lastGroup = null;
     bandsOf(lens).forEach(({ region, y0, y1 }, i) => {
-      keep(region, view.draw('rect', { x: left, y: y0, width: lens.width, height: y1 - y0, fill: solid(region.tint, i) }));
+      keep(region, view.draw('rect', { x: left, y: y0, width: lens.width, height: y1 - y0, fill: zone(region) }));
       if (i) view.draw('rect', { class: 'lens-stripe', x: left, y: y0 - GAP / 2, width: lens.width, height: GAP, fill: '#fff' });
-      label(view, region.label, region.hint ?? '', left + 28, y0 + (region.hint ? 28 : (y1 - y0) / 2 + 6), 'start');
+      label(view, region.label, region.hint ?? '', left + 28, y0 + (region.hint ? 28 : (y1 - y0) / 2 + 6), 'start', region);
       if (region.group && region.group !== lastGroup) {
-        view.draw('text', { class: 'lens-group', x: -left - 18, y: y0 + 26, 'text-anchor': 'end', style: INK }).textContent = region.group;
+        view.draw('text', { class: 'lens-group', x: -left - 18, y: y0 + 26, 'text-anchor': 'end', style: inkOf(region) }).textContent = region.group;
       }
       lastGroup = region.group;
     });
@@ -166,7 +192,7 @@ const renderers = {
   },
 };
 
-function label(view, text, hint, x, y, anchor) {
-  view.draw('text', { class: 'lens-label', x, y, 'text-anchor': anchor, style: INK }).textContent = text;
-  if (hint) view.draw('text', { class: 'lens-hint', x, y: y + 20, 'text-anchor': anchor, style: HINT_INK }).textContent = hint;
+function label(view, text, hint, x, y, anchor, region) {
+  view.draw('text', { class: 'lens-label', x, y, 'text-anchor': anchor, style: region ? inkOf(region) : INK }).textContent = text;
+  if (hint) view.draw('text', { class: 'lens-hint', x, y: y + 20, 'text-anchor': anchor, style: region ? hintOf2(region) : HINT_INK }).textContent = hint;
 }

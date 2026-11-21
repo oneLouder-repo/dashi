@@ -31,7 +31,7 @@ export const NODE_TYPES = {
 
 export const TASK_STATUSES = [
   { id: 'planned', label: 'Planned', color: '#9aa2b5' },
-  { id: 'active', label: 'In progress', color: '#3d63dd' },
+  { id: 'active', label: 'In progress', color: '#7b2fe8' },
   { id: 'blocked', label: 'Blocked', color: '#b5442f' },
   { id: 'done', label: 'Done', color: '#2a9d8f' },
 ];

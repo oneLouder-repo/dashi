@@ -24,11 +24,11 @@ const W = 2400;
 const H = 1400;
 const KIND = {
   card: { label: 'SOAR card' },
-  context: { label: 'Context', color: '#b8860b' },
+  context: { label: 'Context', color: '#f4a93b' },
   asset: { label: 'Asset', color: '#59607a' },
   result: { label: 'Result', color: '#c4622d' },
   workplan: { label: 'Workplan', color: '#2a9d8f', editable: true },
-  goal: { label: 'Goal', color: '#3d63dd', inlet: true, editable: true },
+  goal: { label: 'Goal', color: '#7b2fe8', inlet: true, editable: true },
   objective: { label: 'Objective', color: '#1d2230', inlet: true, editable: true },
   plan: { label: 'Plan', color: '#7b4fc9', inlet: true, noOutlet: true, editable: true },
   // A comment, as in Max: words on the canvas, no wires.

@@ -54,10 +54,10 @@ const STAFF = [
 ];
 
 const TEAMS = [
-  ['t-lead', 'Leadership', '#3d63dd'],
+  ['t-lead', 'Leadership', '#2c4fa3'],
   ['t-prog', 'Programs', '#2a9d8f'],
   ['t-mel', 'Monitoring, Evaluation & Learning', '#7a4fb5'],
-  ['t-part', 'Partnerships & Communications', '#b8860b'],
+  ['t-part', 'Partnerships & Communications', '#f4a93b'],
   ['t-ops', 'Operations', '#59607a'],
 ];
 
@@ -106,7 +106,7 @@ export function seedRiverbend() {
       ['r-grow', 'Ivy Chen', 'Youth Growing Program', 'staff', ['t-grow']],
       ['r-vol', 'Luis Moreno', 'Volunteer Coordinator', 'lead', ['t-hub', 't-grow']],
     ], 'riverbend.example'),
-    teams: { 't-hub': { id: 't-hub', name: 'Hub', color: '#2a9d8f' }, 't-grow': { id: 't-grow', name: 'Growing', color: '#b8860b' } },
+    teams: { 't-hub': { id: 't-hub', name: 'Hub', color: '#2a9d8f' }, 't-grow': { id: 't-grow', name: 'Growing', color: '#f4a93b' } },
     sites: { 'site-main': { id: 'site-main', name: 'Our numbers', url: 'https://riverbend.example/numbers', visibility: 'public', shows: 'Meals shared and boxes delivered' } },
   });
 }

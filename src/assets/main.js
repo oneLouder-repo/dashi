@@ -1130,7 +1130,7 @@ async function newNote() {
   select(allCards().find((c) => c.key === it.id));
 }
 
-const COLOURS = ['#0f7f9c', '#13897a', '#d9893a', '#a45ab8', '#3d6fc4', '#c03a64', '#7f8f3a', '#56657f'];
+const COLOURS = ['#2c4fa3', '#3e8fa6', '#ef7f2d', '#7b2fe8', '#2c4fa3', '#c8432f', '#3e8fa6', '#56657f'];
 async function newCollection(parentId = null, cards = []) {
   const v = await uiForm({ title: parentId ? `New collection in “${hub.collections[parentId]?.name}”` : 'New collection', ok: 'Create', fields: [
     { name: 'name', label: 'Name', required: true, placeholder: 'e.g. Partners in the north' },

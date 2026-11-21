@@ -354,7 +354,7 @@ body.board-pending #board { opacity: 0; }
 .tool-grid .tool .icon { color: var(--accent); }
 .tool-grid .side-text { font-size: 12px; font-weight: 650; line-height: 1.1; display: flex; flex-direction: column; align-items: center; }
 .tool-grid .side-text small { font-size: 10px; font-weight: 600; color: var(--muted); margin-top: 1px; }
-.tool-grid .tool-add.actor .icon { color: #b8860b; }
+.tool-grid .tool-add.actor .icon { color: #f4a93b; }
 
 /* Layers in the panel. */
 .side-layers .layers li { gap: 2px; padding: 3px 2px; border-radius: 8px; }
@@ -605,3 +605,14 @@ body.board-pending #board { opacity: 0; }
 .page .home-card h3.home-sub { margin: 14px 0 4px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
 /* The two-row header is taller: the mapper's grid makes room for it. */
 body.mapper-page { grid-template: 'shell' auto 'top' 52px 'board' 1fr / minmax(0, 1fr) !important; }
+
+/* Alpha 0.3 colour wheel: actors are white cards with a colour band and a black edge; lines are black. */
+.actor .actor-note { fill: #fff; stroke: #16181d; stroke-width: 1.6; stroke-opacity: 1; }
+.actor .actor-band { stroke: none; pointer-events: none; }
+.actor .actor-fold { display: none; }
+.actor.unmapped .actor-note { stroke: #16181d; stroke-dasharray: 6 4; }
+.actor.unmapped .actor-band { fill: #c9ced8 !important; }
+.actor.agent .actor-note { stroke: #16181d; stroke-width: 3; stroke-opacity: 1; }
+.actor.selected .actor-note { stroke: var(--accent); stroke-width: 3.2; }
+.actor .actor-label { fill: #16181d; }
+#board { --connector: #16181d; }

@@ -6,6 +6,14 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### PR 6: featured episodes, the colour wheel, matching thumbnails
+
+- **Featured episodes**: Podcasts → Design has a managed list of up to seven episodes (three to seven read best), each with its own blurb, in the order you set. They lead the public station's home as "Featured episodes", above Featured shows. A Feature star on each published episode adds or removes it.
+- **The colour wheel**: twelve vibrant hues (yellow round to mint) with white, bold colour and crisp black lines, in place of plain primaries. Ecosystem map zones pick their colours by a harmony rule (triadic for Micro/Meso/Macro and the spheres, analogous for the water of systems change, square for leverage points, the theory of system change and SOAR). Sunbursts land every colour on the wheel, with white gaps.
+- **Map actors are white cards** with their category's colour across the top and a black edge; links are black. Map thumbnails follow.
+- **Plugin colours, ABCD colours, objective colours and the stand-in thumbnails** all come from the wheel.
+- **The Assets side panel shows the same picture as the tile you clicked**: a link's photo or drawn scene (with its web address on it), a note's page, a sticky. A picture that fails to load falls back to a drawn scene.
+
 ### PR 5: a photo library, and SJR's own audio files
 
 - **A photo library**: 17 royalty-free photos from Unsplash (nature, community and abstract), resized for the web, with the photographer credited.

@@ -34,10 +34,10 @@ import { strategyOps, childrenOf, descendants, liveNodeId, measureIndex } from '
 export const COLLECTIONS = ['plans', 'context', 'cards', 'results', 'blocks', 'wires', 'toc', 'tocLinks'];
 
 export const QUADRANTS = [
-  { id: 's', label: 'Strengths', ask: 'What are we best at? What do we do that others value?', color: '#2a7d5f' },
-  { id: 'o', label: 'Opportunities', ask: 'What could we take up? What are partners and the world asking of us?', color: '#2a78d6' },
-  { id: 'a', label: 'Aspirations', ask: 'What do we care most about? What future do we want to create?', color: '#7b4fc9' },
-  { id: 'r', label: 'Results', ask: 'How will we know we have got there? What would we measure?', color: '#c4622d' },
+  { id: 's', label: 'Strengths', ask: 'What are we best at? What do we do that others value?', color: '#4da65c' },
+  { id: 'o', label: 'Opportunities', ask: 'What could we take up? What are partners and the world asking of us?', color: '#f4a93b' },
+  { id: 'a', label: 'Aspirations', ask: 'What do we care most about? What future do we want to create?', color: '#7b2fe8' },
+  { id: 'r', label: 'Results', ask: 'How will we know we have got there? What would we measure?', color: '#c8432f' },
 ];
 export const quadrant = (id) => QUADRANTS.find((q) => q.id === id);
 

@@ -278,7 +278,7 @@ function AddPerson(org) {
 }
 
 /* --------------------------------------------------------------- teams */
-const TEAM_COLOURS = ['#2a78d6', '#7a4fc9', '#c2410c', '#2a9d8f', '#b8860b', '#c4433a', '#3f8f3a', '#d0621b', '#59607a', '#c2185b'];
+const TEAM_COLOURS = ['#2a78d6', '#7a4fc9', '#c2410c', '#2a9d8f', '#f4a93b', '#c4433a', '#3f8f3a', '#d0621b', '#59607a', '#c2185b'];
 
 /** Teams as cards: who is in each, and a drawer to name, colour and fill one. */
 function Teams(org) {

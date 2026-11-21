@@ -94,7 +94,7 @@ export async function addToAssets(ctx, { actor = null } = {}) {
   if (!ok) return;
   if (newName.trim()) {
     const id = uid('coll');
-    hub.collections[id] = { id, name: newName.trim(), color: '#13897a', parentId: null, createdAt: new Date().toISOString(), createdBy: by };
+    hub.collections[id] = { id, name: newName.trim(), color: '#3e8fa6', parentId: null, createdAt: new Date().toISOString(), createdBy: by };
     chosen.add(id);
   }
   item.collectionIds = [...chosen];

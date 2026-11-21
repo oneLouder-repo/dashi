@@ -8,7 +8,7 @@
  *     id, name, short, version ('1.2.0'), status: 'installed' | 'disabled' | 'draft',
  *     builtIn (ships with Dashi; can be reset, not removed), core (always on),
  *     category, blurb, href, author, homepage,
- *     look: { tone ('#13897a'), icon (an icon name), accent ('soft' | 'solid') },
+ *     look: { tone ('#3e8fa6'), icon (an icon name), accent ('soft' | 'solid') },
  *     features: [{ id, label, description, enabled, plans: { free, basic, standard, custom } }],
  *     dataModel: { docs: [{ name, label, description, collections: [{ id, label, fields: [{ id, label, type, required, options }] }] }] },
  *     plans: { free, basic, standard, custom }   (installed plugins only; built-ins follow Platform admin → Plans)
@@ -350,7 +350,7 @@ export function manifestProblems(m, { installing = false } = {}) {
   if (!String(m.name ?? '').trim()) out.push('Give the plugin a name.');
   if (!parseVersion(m.version)) out.push('The version must look like 1.0.0.');
   if (m.status && !STATUSES.some((s) => s.id === m.status)) out.push('Unknown status.');
-  if (m.look?.tone && !/^#[0-9a-f]{6}$/i.test(m.look.tone)) out.push('The tone must be a colour like #13897a.');
+  if (m.look?.tone && !/^#[0-9a-f]{6}$/i.test(m.look.tone)) out.push('The tone must be a colour like #3e8fa6.');
   if (m.features && !Array.isArray(m.features)) out.push('Features must be a list.');
   for (const x of m.features ?? []) if (!ID.test(x.id ?? '') && !/^[a-zA-Z][\w-]{0,39}$/.test(x.id ?? '')) out.push(`Feature “${x.label ?? x.id}” needs an id.`);
   const featIds = (m.features ?? []).map((x) => x.id);

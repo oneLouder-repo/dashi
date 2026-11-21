@@ -45,3 +45,26 @@ test('podBeam opens zips, matches names loosely and reads mp3 lengths', async ()
   const secs = mp3Duration(readFileSync(new URL('../media/podcasts/land-learning-1.mp3', import.meta.url)));
   assert.ok(secs >= 29 && secs <= 31, `about 30 seconds, got ${secs}`);
 });
+
+test('the colour wheel gives harmonies, snaps colours and picks readable ink', async () => {
+  const { scheme, snap, inkOn, WHEEL, INK } = await import('../src/ui/wheel.js');
+  assert.equal(WHEEL.length, 12);
+  assert.deepEqual(scheme('triadic', 'orange', 3), ['#ef7f2d', '#c77deb', '#4da65c']);
+  assert.deepEqual(scheme('complementary', 'yellow', 2), ['#f7c744', '#c77deb']);
+  assert.equal(scheme('square', 'yellow', 4).length, 4);
+  assert.equal(snap('#3d63dd'), '#2c4fa3');
+  assert.equal(snap('#888888'), '#888888');
+  assert.equal(inkOn('#f7c744'), INK);
+  assert.equal(inkOn('#2c4fa3'), '#ffffff');
+});
+
+test('the station features published episodes in order, up to seven', async () => {
+  const { featuredEpisodes } = await import('../src/platform/podcasts.js');
+  const ep = (id, status = 'published') => ({ id, podcastId: 'p', status, publishedAt: '2026-01-01', title: id });
+  const doc = { podcasts: { p: { id: 'p' } }, episodes: Object.fromEntries(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((x) => [x, ep(x)])), station: {} };
+  doc.episodes.c.status = 'draft';
+  doc.station.featuredEpisodes = ['b', 'c', 'a', 'gone', 'd', 'e', 'f', 'g', 'h'].map((id) => ({ episodeId: id, blurb: `why ${id}` }));
+  const got = featuredEpisodes(doc, '2026-11-21');
+  assert.deepEqual(got.map((f) => f.episode.id), ['b', 'a', 'd', 'e', 'f', 'g', 'h']);
+  assert.equal(got[0].blurb, 'why b');
+});

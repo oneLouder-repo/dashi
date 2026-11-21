@@ -24,7 +24,7 @@ const mix = (a, b, t) => {
   const [x, y] = [p(a), p(b)];
   return `#${x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('')}`;
 };
-const hex = (c) => (/^#[0-9a-f]{6}$/i.test(c) ? c : '#3d63dd');
+const hex = (c) => (/^#[0-9a-f]{6}$/i.test(c) ? c : '#2c4fa3');
 
 export function artSvg(style, colours = [], seed = 1, W = 1200, H = 800) {
   const [a, b, c] = [hex(colours[0]), hex(colours[1] ?? mix(hex(colours[0]), '#ffffff', 0.4)), hex(colours[2] ?? mix(hex(colours[0]), '#000000', 0.3))];

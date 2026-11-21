@@ -18,7 +18,7 @@ import {
  * Release makes it the next version, keeping the one before for rollback.
  */
 const TIER_LABEL = { free: 'Free', basic: 'Basic', standard: 'Standard', custom: 'Custom' };
-const TONES = ['#13897a', '#3d63dd', '#7a4cc4', '#c25a14', '#c03a64', '#7a5a2f', '#3a8a3f', '#56657f', '#0f7ea8', '#a1462e', '#5b6b2f', '#8a3fa0'];
+const TONES = ['#3e8fa6', '#2c4fa3', '#b05bd8', '#ef7f2d', '#c8432f', '#e35a2c', '#4da65c', '#56657f', '#0f7ea8', '#a1462e', '#5b6b2f', '#8a3fa0'];
 const fill = (el, ...c) => el.replaceChildren(...c.flat(Infinity).filter((x) => x != null && x !== false));
 const statusOf = (id) => STATUSES.find((s) => s.id === id) ?? STATUSES[0];
 const download = (name, data) => {

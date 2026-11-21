@@ -105,9 +105,9 @@ export const FILE_KINDS = {
   docx: { label: 'Word', icon: 'doc', tone: '#2b5cb8' }, doc: { label: 'Word', icon: 'doc', tone: '#2b5cb8' }, odt: { label: 'OpenDocument text', icon: 'doc', tone: '#2b5cb8' }, rtf: { label: 'Rich text', icon: 'doc', tone: '#2b5cb8' },
   xlsx: { label: 'Excel', icon: 'chart', tone: '#1d7a46' }, xls: { label: 'Excel', icon: 'chart', tone: '#1d7a46' }, ods: { label: 'OpenDocument sheet', icon: 'chart', tone: '#1d7a46' }, csv: { label: 'CSV', icon: 'chart', tone: '#1d7a46' },
   pptx: { label: 'PowerPoint', icon: 'story', tone: '#c4622d' }, ppt: { label: 'PowerPoint', icon: 'story', tone: '#c4622d' }, odp: { label: 'OpenDocument slides', icon: 'story', tone: '#c4622d' },
-  png: { label: 'Image', icon: 'media', tone: '#7a5a2f' }, jpg: { label: 'Image', icon: 'media', tone: '#7a5a2f' }, jpeg: { label: 'Image', icon: 'media', tone: '#7a5a2f' }, gif: { label: 'Image', icon: 'media', tone: '#7a5a2f' }, webp: { label: 'Image', icon: 'media', tone: '#7a5a2f' },
+  png: { label: 'Image', icon: 'media', tone: '#e35a2c' }, jpg: { label: 'Image', icon: 'media', tone: '#e35a2c' }, jpeg: { label: 'Image', icon: 'media', tone: '#e35a2c' }, gif: { label: 'Image', icon: 'media', tone: '#e35a2c' }, webp: { label: 'Image', icon: 'media', tone: '#e35a2c' },
   txt: { label: 'Text', icon: 'doc', tone: '#555' }, md: { label: 'Markdown', icon: 'doc', tone: '#555' }, json: { label: 'JSON', icon: 'doc', tone: '#555' }, bib: { label: 'BibTeX', icon: 'book', tone: '#555' }, ris: { label: 'RIS', icon: 'book', tone: '#555' },
-  epub: { label: 'E-book', icon: 'book', tone: '#7a5a2f' }, zip: { label: 'Zip', icon: 'download', tone: '#555' },
+  epub: { label: 'E-book', icon: 'book', tone: '#e35a2c' }, zip: { label: 'Zip', icon: 'download', tone: '#555' },
 };
 export const ACCEPT = Object.keys(FILE_KINDS).map((e) => `.${e}`).join(',');
 

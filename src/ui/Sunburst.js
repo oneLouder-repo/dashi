@@ -1,4 +1,5 @@
 import { h } from './dom.js';
+import { snap, tint as lift } from './wheel.js';
 
 /**
  * A zoomable sunburst, after Mike Bostock's (observablehq.com/@d3/zoomable-sunburst),
@@ -55,9 +56,9 @@ function inkOn(d3, fill) {
 export function calm(d3, fill) {
   const c = d3.hsl(fill);
   if (Number.isNaN(c.h) || c.s < 0.2) return fill; // greys stay as they are
-  c.s = Math.min(0.68, Math.max(0.38, c.s));
-  c.l = Math.min(0.7, Math.max(0.42, c.l));
-  return c.formatHex();
+  // Alpha 0.3 colour wheel: every colour lands on the nearest wheel hue; a pale one stays a step lighter.
+  const base = snap(c.formatHex());
+  return c.l > 0.72 ? lift(base, 0.4) : c.l > 0.62 ? lift(base, 0.22) : base;
 }
 
 function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, label, focusPath, onZoom, onHover, tip }) {
@@ -99,7 +100,7 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
     .attr('fill-opacity', (d) => +visible(d.current))
     .attr('pointer-events', (d) => (visible(d.current) ? 'auto' : 'none'))
     .attr('stroke', (d) => (edge?.(d) ?? '#fff'))
-    .attr('stroke-width', (d) => (edge?.(d) ? 2.5 : 1))
+    .attr('stroke-width', (d) => (edge?.(d) ? 2.5 : 2))
     .attr('stroke-opacity', (d) => +visible(d.current))
     .attr('tabindex', (d) => (visible(d.current) ? 0 : -1))
     .attr('role', 'button')

@@ -1848,7 +1848,7 @@ dialog.dui.wide .dui-body > :not(.half) { grid-column: 1 / -1; }
 .road-post:hover .road-label-bg { stroke-opacity: 0.45; }
 .road-cat-eye { stroke: #fff; stroke-width: 1; }
 .road-flag-pole { stroke: #3b4150; stroke-width: 1.4; }
-.road-flag-cloth { fill: #7a4cc4; }
+.road-flag-cloth { fill: #b05bd8; }
 .road-flag-foot { fill: #3b4150; }
 .road-sign-board { fill: #ffffff; stroke: #1d2230; stroke-opacity: 0.12; filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.1)); }
 .road-sign-post { stroke: #9aa0ab; stroke-width: 2.5; }
@@ -1877,7 +1877,7 @@ dialog.dui.wide .dui-body > :not(.half) { grid-column: 1 / -1; }
 .road-stage { position: relative; min-width: 0; }
 .road-scroll { overflow-x: auto; overflow-y: hidden; border-radius: 16px; border: 1px solid var(--line-soft, var(--line)); cursor: grab; scrollbar-width: none; overscroll-behavior-x: contain; }
 .road-scroll::-webkit-scrollbar { display: none; }
-.road-scroll:focus-visible { outline: 2px solid var(--color-primary, #3d63dd); outline-offset: 2px; }
+.road-scroll:focus-visible { outline: 2px solid var(--color-primary, #2c4fa3); outline-offset: 2px; }
 .road-scroll.dragging { cursor: grabbing; }
 /* Soft edges and arrows say there is more road either way. */
 .road-stage::before, .road-stage::after { content: ''; position: absolute; top: 1px; bottom: 1px; width: 72px; pointer-events: none; transition: opacity 0.2s; z-index: 1; }
@@ -1891,7 +1891,7 @@ dialog.dui.wide .dui-body > :not(.half) { grid-column: 1 / -1; }
 .road-scrub { position: relative; height: 26px; border-radius: 13px; background: var(--color-base-200, #eef0f3); cursor: pointer; touch-action: none; }
 .road-scrub-line { position: absolute; left: 10px; right: 10px; top: 12px; height: 2px; background: #c3c8d1; border-radius: 1px; }
 .road-scrub-dot { --c: #999; position: absolute; top: 9px; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 1.5px #fff; }
-.road-scrub-flag { position: absolute; top: 4px; width: 0; height: 0; border-left: 6px solid #7a4cc4; border-top: 3px solid transparent; border-bottom: 3px solid transparent; }
+.road-scrub-flag { position: absolute; top: 4px; width: 0; height: 0; border-left: 6px solid #b05bd8; border-top: 3px solid transparent; border-bottom: 3px solid transparent; }
 .road-scrub-now { position: absolute; top: 3px; bottom: 3px; width: 2px; margin-left: -1px; background: #d0621b; border-radius: 1px; }
 .road-scrub-win { position: absolute; top: 2px; bottom: 2px; border-radius: 11px; border: 2px solid #1d2230; background: rgb(29 34 48 / 0.06); pointer-events: none; transition: left 0.05s linear; }
 .road-hint { display: flex; align-items: center; gap: 6px; margin: 0; }
@@ -1899,8 +1899,8 @@ dialog.dui.wide .dui-body > :not(.half) { grid-column: 1 / -1; }
 .road-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .lg-light { --c: #999; display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 2px #23272f; vertical-align: -1px; }
 .lg-eye { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #1f9d55; box-shadow: 0 0 0 1px #fff, 0 0 0 2px #8a909c; }
-.lg-flag { display: inline-block; width: 0; height: 0; border-left: 10px solid #7a4cc4; border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
-.lg-sign { display: inline-block; width: 18px; height: 11px; border-radius: 3px; background: #fff; border: 1px solid #c3c8d1; box-shadow: inset 3px 0 0 #3d63dd; }
+.lg-flag { display: inline-block; width: 0; height: 0; border-left: 10px solid #b05bd8; border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+.lg-sign { display: inline-block; width: 18px; height: 11px; border-radius: 3px; background: #fff; border: 1px solid #c3c8d1; box-shadow: inset 3px 0 0 #2c4fa3; }
 .lg-now { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #d0621b; box-shadow: 0 0 0 3px rgb(208 98 27 / 0.25); }
 .lg-finish { display: inline-block; width: 12px; height: 12px; background: conic-gradient(#1d2230 0 25%, #fff 0 50%, #1d2230 0 75%, #fff 0); background-size: 6px 6px; border: 1px solid #1d2230; }
 .road-list ol { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; }
@@ -1925,7 +1925,7 @@ dialog.dui.wide .dui-body > :not(.half) { grid-column: 1 / -1; }
 .lights-meta { font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ms-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .ms-list li { display: grid; grid-template-columns: 58px 1fr; gap: 10px; align-items: baseline; }
-.ms-list time { font-size: 12px; font-weight: 700; color: #7a4cc4; font-variant-numeric: tabular-nums; }
+.ms-list time { font-size: 12px; font-weight: 700; color: #b05bd8; font-variant-numeric: tabular-nums; }
 .ms-list span { font-size: 13.5px; line-height: 1.3; display: flex; flex-direction: column; }
 .ms-list small { font-size: 11.5px; color: var(--muted); }
 
@@ -2074,7 +2074,7 @@ body.site-page.look-type-serif { --site-serif: 'Iowan Old Style', 'Palatino Lino
 }
 
 /* Public Portal: the properties map */
-.pm-panel { border: 1px solid var(--line-soft); border-radius: 16px; padding: 18px 20px 12px; background: linear-gradient(180deg, color-mix(in oklab, #3a8a3f 5%, var(--panel)), var(--panel) 140px); }
+.pm-panel { border: 1px solid var(--line-soft); border-radius: 16px; padding: 18px 20px 12px; background: linear-gradient(180deg, color-mix(in oklab, #4da65c 5%, var(--panel)), var(--panel) 140px); }
 .pm-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 6px; }
 .pm-head h2 { margin: 0; font-size: 17px; font-weight: 800; text-transform: none; letter-spacing: 0; color: var(--ink); }
 .pm-head p { margin: 2px 0 0; }
@@ -2085,16 +2085,16 @@ body.site-page.look-type-serif { --site-serif: 'Iowan Old Style', 'Palatino Lino
 .pm-key.design { background: transparent; border: 1.5px dashed #b07d00; }
 .pm-scroll { overflow-x: auto; }
 .pm { display: block; width: 100%; min-width: 760px; height: auto; font-family: inherit; }
-.pm-hub-ring { fill: color-mix(in oklab, #3a8a3f 12%, transparent); }
-.pm-hub-core { fill: #3a8a3f; }
+.pm-hub-ring { fill: color-mix(in oklab, #4da65c 12%, transparent); }
+.pm-hub-core { fill: #4da65c; }
 .pm-hub-title { fill: #fff; font-size: 14px; font-weight: 800; }
-.pm-link { fill: none; stroke: #3a8a3f; stroke-opacity: 0.45; stroke-width: 2; }
+.pm-link { fill: none; stroke: #4da65c; stroke-opacity: 0.45; stroke-width: 2; }
 .pm-link.private { stroke-dasharray: 5 5; stroke: #56657f; }
 .pm-link.thin { stroke-width: 1.3; stroke-opacity: 0.3; stroke: var(--ink); }
-.pm-site-box { fill: var(--panel); stroke: color-mix(in oklab, #3a8a3f 45%, transparent); stroke-width: 1.5; filter: drop-shadow(0 2px 4px rgb(0 0 0 / 0.06)); transition: stroke 0.15s; }
+.pm-site-box { fill: var(--panel); stroke: color-mix(in oklab, #4da65c 45%, transparent); stroke-width: 1.5; filter: drop-shadow(0 2px 4px rgb(0 0 0 / 0.06)); transition: stroke 0.15s; }
 .pm-site.private .pm-site-box { stroke: #56657f; fill: color-mix(in oklab, #56657f 6%, var(--panel)); }
-.pm-site:hover .pm-site-box { stroke: #3a8a3f; stroke-width: 2.2; }
-.pm-site-icon { fill: #3a8a3f; }
+.pm-site:hover .pm-site-box { stroke: #4da65c; stroke-width: 2.2; }
+.pm-site-icon { fill: #4da65c; }
 .pm-site.private .pm-site-icon { fill: #56657f; }
 .pm-site-name { font-size: 14px; font-weight: 750; fill: var(--ink); }
 .pm-site-vis { font-size: 11.5px; fill: var(--muted); font-weight: 600; }
@@ -2116,7 +2116,7 @@ body.site-page.look-type-serif { --site-serif: 'Iowan Old Style', 'Palatino Lino
 .k-road::after { left: 3px; right: 3px; top: 12px; height: 5px; border-radius: 3px; background: linear-gradient(90deg, #3b4150 55%, #8a909c 55%); }
 .k-road::before { content: ''; position: absolute; left: 24px; top: 9px; width: 9px; height: 9px; border-radius: 50%; background: #d0621b; box-shadow: 0 0 0 2px #fff; z-index: 1; }
 .k-lights::after { left: 6px; top: 9px; width: 30px; height: 10px; border-radius: 5px; background: radial-gradient(circle at 5px 5px, #1f9d55 3px, transparent 3.5px), radial-gradient(circle at 15px 5px, #e0a100 3px, transparent 3.5px), radial-gradient(circle at 25px 5px, #d64545 3px, transparent 3.5px), #23272f; }
-.k-milestones::after { left: 10px; top: 6px; width: 0; height: 0; border-left: 14px solid #7a4cc4; border-top: 7px solid transparent; border-bottom: 7px solid transparent; }
+.k-milestones::after { left: 10px; top: 6px; width: 0; height: 0; border-left: 14px solid #b05bd8; border-top: 7px solid transparent; border-bottom: 7px solid transparent; }
 .k-milestones::before { content: ''; position: absolute; left: 9px; top: 6px; width: 2px; height: 18px; background: #3b4150; }
 .dd-strategic { display: grid; gap: 6px; margin-bottom: 14px; }
 .dd-strat { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; text-align: left; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line-soft); background: var(--panel); cursor: pointer; }
@@ -2264,7 +2264,7 @@ body.site-framed::-webkit-scrollbar { display: none; }
 .dg-start-card p { margin: 0; color: var(--muted); font-size: 13.5px; flex: 1; }
 .dg-start-card .btn { margin-top: 4px; }
 .dg-start-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; background: color-mix(in oklab, var(--accent) 16%, var(--panel)); color: var(--accent); }
-.dg-start-icon.road { background: #efe7fb; color: #7a4cc4; }
+.dg-start-icon.road { background: #efe7fb; color: #b05bd8; }
 .dg-start-icon.board { background: #e3f1ea; color: #23744f; }
 .dg-start-card.featured { box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-primary) 45%, transparent), 0 6px 18px -10px rgb(0 0 0 / 0.25); }
 .dg-start-icon.blank { background: var(--color-base-200); color: var(--muted); }
@@ -2291,7 +2291,7 @@ body.site-framed::-webkit-scrollbar { display: none; }
 .dg-w.t-road b { background: linear-gradient(180deg, #e8f0fb 0 55%, #e3eedf 55%); }
 .dg-w.t-road b::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 4px; margin-top: -2px; background: #4a5263; border-radius: 2px; transform: skewY(-3deg); }
 .dg-w.t-lights b { background: radial-gradient(circle, #2fb25f 3px, transparent 3.5px) 8px 50% / 10px 10px no-repeat, radial-gradient(circle, #f2b134 3px, transparent 3.5px) 18px 50% / 10px 10px no-repeat, radial-gradient(circle, #e0534a 3px, transparent 3.5px) 28px 50% / 10px 10px no-repeat; }
-.dg-w.t-milestones b::after { content: ''; position: absolute; left: 7px; top: 7px; border-left: 7px solid #7a4cc4; border-top: 4px solid transparent; border-bottom: 4px solid transparent; box-shadow: 0 0 0 0; }
+.dg-w.t-milestones b::after { content: ''; position: absolute; left: 7px; top: 7px; border-left: 7px solid #b05bd8; border-top: 4px solid transparent; border-bottom: 4px solid transparent; box-shadow: 0 0 0 0; }
 .dg-w.t-text b::after { content: ''; position: absolute; left: 6px; right: 30%; top: 8px; height: 3px; background: var(--line); box-shadow: 0 6px 0 var(--line), 0 12px 0 var(--line); }
 .dg-thumb-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 12px; }
 .dg-card-body { padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line-soft); flex: 1; }
