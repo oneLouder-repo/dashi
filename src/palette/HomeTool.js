@@ -19,7 +19,7 @@ export function HomeTool(ctx) {
   const answers = Object.keys(migrateFeedback(loadDoc('feedback')).responses).length;
   const reports = Object.values(ctx.dashboards.doc.reports ?? {});
   const plan = currentPlan(ctx.strategy);
-  const master = plan?.parentId && ctx.strategy.nodes[plan.parentId]?.type === 'plan' ? ctx.strategy.nodes[plan.parentId] : plan;
+  const master = plan;
   const road = master ? RoadSvg(ctx.strategy, master.id, { compact: true, links: false }) : null;
   const usesStrategy = Object.values(ctx.dashboards.doc.dashboards).filter((d) => d.widgets.some((w) => ['road', 'lights', 'milestones', 'progress'].includes(w.type)));
   const stat = (label, value, hint) => h('div', { class: 'stat-tile' }, h('span', {}, label), h('strong', {}, value), hint && h('small', {}, hint));

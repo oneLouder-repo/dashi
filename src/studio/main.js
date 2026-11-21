@@ -23,6 +23,10 @@ import { Assemble } from './Assemble.js';
 import { Change } from './Change.js';
 import { uiPrompt } from '../ui/dialog.js';
 
+/** Where a plan sits in time: running now, still ahead, or finished. */
+const PHASE_LABEL = { now: 'Running now', ahead: 'Up next', done: 'Finished' };
+const planPhase = (p, now) => (!p.start || !p.end ? null : now < p.start ? 'ahead' : now > p.end ? 'done' : 'now');
+
 /**
  * Planning Studio: facilitating a strategic plan, online and together.
  *
@@ -141,7 +145,7 @@ function drawSide({ planId, tab }) {
     const last = lastTab(p.id);
     const resume = TABS.find((t) => t.id === last && t.id !== 'home');
     return [
-      { label: p.title, sub: open ? [p.start, p.end].filter(Boolean).map(short).join(' – ') || 'Plan home' : resume ? `Pick up in ${resume.label}` : [p.start, p.end].filter(Boolean).map(short).join(' – '),
+      { label: p.title, sub: open ? [p.start, p.end].filter(Boolean).map(short).join(' – ') || 'Plan home' : resume ? `Pick up in ${resume.label}` : PHASE_LABEL[planPhase(p, today())] ?? '',
         icon: 'mapTrifold', href: open ? tabHref(p.id, 'home') : tabHref(p.id, last), on: open && tab === 'home', className: open ? 'side-plan open' : 'side-plan' },
       ...(open ? TOOL_TABS.filter((t) => t.id !== 'home').map((t) => ({
         label: t.label, icon: t.icon, href: tabHref(p.id, t.id), on: t.id === tab || (t.id === 'soar' && ['s', 'o', 'a'].includes(tab)),
@@ -186,7 +190,11 @@ function Framework() {
     h('div', {}, h('span', {}, label), h('textarea', { class: 'sw-statement-input', name: `fw-${k}`, rows, onchange: setRoot(k), placeholder: `Our ${label.toLowerCase()}…` }, root?.[k] ?? '')));
   const designs = Object.values(loadPlanDocs().docs ?? {});
   const now = today();
+  // Plans sit side by side and can overlap (the old plan winding down as the new one starts).
+  const running = plans.filter((x) => planPhase(x, now) === 'now');
   const planCard = (p) => {
+    const phase = planPhase(p, now);
+    const alongside = phase === 'now' ? running.filter((x) => x.id !== p.id) : [];
     const rec = store.doc.plans[p.id];
     const cards = ofPlan(store.doc, 'cards', p.id);
     const results = ofPlan(store.doc, 'results', p.id).length;
@@ -201,6 +209,8 @@ function Framework() {
         LevelBadge('plan', { plain: true }),
         h('a', { class: 'studio-plan-name', href: `#${p.id}` }, p.title),
         h('span', { class: 'muted small' }, range(p.start, p.end)),
+        phase && h('span', { class: `studio-phase ${phase}` }, PHASE_LABEL[phase]),
+        alongside.length > 0 && h('span', { class: 'muted small' }, `Alongside ${alongside.map((x) => x.title).join(', ')}`),
         h('span', { class: 'spacer' }),
         ProgressRing(t.total ? t.done / t.total : 0, { size: 36, label: `${t.done} of ${t.total} tasks done` })),
       total > 0 && h('div', { class: 'sw-plan-time', title: `${Math.round(gone * 100)}% of the way through its dates` }, h('i', { style: `width:${gone * 100}%` }), h('b', { style: `left:${gone * 100}%` })),

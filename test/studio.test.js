@@ -8,15 +8,16 @@ import { settle } from '../src/studio/Results.js';
 
 const strategy = () => migrateStrategy(seedStrategy());
 
-test('the example studio plans the long-range plan, with a SOAR in every quadrant', () => {
+test('the example studio plans the year-one plan, with a SOAR in every quadrant', () => {
   const s = strategy();
   const doc = seedStudio(s, { staff: ['s-ed', 's-eval'] });
   const [planId] = Object.keys(doc.plans);
   assert.equal(s.nodes[planId].type, 'plan');
-  assert.match(s.nodes[planId].title, /2026/);
+  assert.match(s.nodes[planId].title, /Year 1/, 'the plan running today');
   for (const q of ['s', 'o', 'a', 'r']) assert.ok(Object.values(doc.cards).some((c) => c.quadrant === q), q);
   assert.ok(Object.values(doc.wires).every((w) => canWire(doc.blocks[w.from], doc.blocks[w.to])), 'every example wire is allowed');
   assert.ok(plansOf(s).every((p) => p.depth === 0), 'plans sit side by side');
+  assert.equal(plansOf(s).length, 2, 'Year 1 and Year 2 are sibling plans');
 });
 
 test('merging keeps the newer of each card, and deletions stick', () => {
@@ -89,7 +90,7 @@ test('bring in the plan lays out objectives, goals and workplans, wired, and onl
   const blocks = Object.values(doc.blocks);
   const kinds = (k) => blocks.filter((b) => b.kind === k);
   assert.equal(kinds('plan').length, 1);
-  assert.equal(kinds('objective').length, 4, 'objectives from the year-one and year-two plans under it too');
+  assert.equal(kinds('objective').length, 3, 'the year-one objectives only; year two is its own plan');
   assert.ok(kinds('workplan').length > 0, 'the example plan has workplans');
   assert.ok(Object.values(doc.wires).every((w) => canWire(doc.blocks[w.from], doc.blocks[w.to])));
   assert.equal(bringInPlan(doc, s, plan.id).length, 0, 'bringing it in again adds nothing');
