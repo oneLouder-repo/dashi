@@ -12,7 +12,7 @@ import { blankOrg, migrateOrg } from './org.js';
 import { migrateStrategy, measureIndex } from './strategy.js';
 import { blankStrategy } from './strategySeed.js';
 import { seedData } from './data.js';
-import { seedDashboards, migrateDashboards } from './dashboards.js';
+import { seedDashboards, migrateDashboards, refoldDashboards } from './dashboards.js';
 import { blankPodcasts, migratePodcasts } from './podcasts.js';
 import { loadPages as loadPagesFor } from './pages.js';
 import { loadMapIndex, loadAllMaps } from './maps.js';
@@ -31,14 +31,18 @@ export const loadData = () => loadOrSeed('data', () => seedData(Object.keys(meas
 // Example orgs get the example calculators and stories when an older document has none.
 export function loadDashboards() {
   const doc = loadOrSeed('dashboards', () => seedDashboards(loadStrategy()));
-  if (doc.calculators && doc.stories && doc.forms && doc.reports && (activeOrg() !== 'org-example' || (doc.dashboards['dash-board'] && doc.forms['form-numbers']?.siteId !== 'site-main'))) return doc;
+  const refolded = refoldDashboards(doc, loadStrategy());
+  if (doc.calculators && doc.stories && doc.forms && doc.reports && (activeOrg() !== 'org-example' || (doc.dashboards['dash-board'] && doc.forms['form-numbers']?.siteId !== 'site-main'))) {
+    if (refolded) saveDoc('dashboards', doc, undefined, { quiet: true });
+    return doc;
+  }
   migrateDashboards(doc, seedFor('strategy') ? loadStrategy() : null, loadOrg());
   saveDoc('dashboards', doc, undefined, { quiet: true });
   return doc;
 }
 export const loadPodcasts = () => migratePodcasts(loadOrSeed('podcasts', seedFor('podcasts') ?? blankPodcasts));
 export const loadPages = () => loadPagesFor(activeOrg());
-export const loadStudio = () => migrateStudio(loadOrSeed('studio', () => (seedFor('strategy') ? seedStudio(loadStrategy(), { staff: Object.keys(loadOrg().staff) }) : blankStudio())));
+export const loadStudio = () => migrateStudio(loadOrSeed('studio', () => (seedFor('strategy') ? seedStudio(loadStrategy(), { staff: Object.keys(loadOrg().staff) }) : blankStudio())), loadStrategy());
 export const loadMaps = () => loadMapIndex(seedFor('maps'));
 /** The library. The STEM example's board documents are added to older copies that lack them. */
 export function loadLibrary() {
@@ -49,7 +53,7 @@ export function loadLibrary() {
 export const loadAssets = () => migrateAssets(loadOrSeed('assets', blankAssets));
 
 /** Plan documents. Every org with a plan starts with a draft of one; example orgs publish it to their public site. */
-export const loadPlanDocs = () => migratePlanDocs(loadOrSeed('plandocs', () => seedPlanDocs(loadStrategy(), loadData(), loadOrg(), { publish: !!seedFor('strategy') })));
+export const loadPlanDocs = () => migratePlanDocs(loadOrSeed('plandocs', () => seedPlanDocs(loadStrategy(), loadData(), loadOrg(), { publish: !!seedFor('strategy') })), loadStrategy());
 
 export function loadAll() {
   const maps = loadMaps();

@@ -1,5 +1,5 @@
 import { uid } from '../core/ops.js';
-import { measuresUnder, rootOf, childrenOf, descendants } from './strategy.js';
+import { measuresUnder, rootOf, childrenOf, descendants, liveNodeId } from './strategy.js';
 import { dataMonths, measureFacts } from './data.js';
 
 /**
@@ -157,7 +157,7 @@ export function boardDashboard(strategy, createdBy = null, { sites = {}, today =
 
 /** The STEM example's board scorecard: the road, the headline numbers, the goal lights, and what is next. */
 function boardDashboards(strategy) {
-  const plan = Object.values(strategy.nodes).find((n) => n.type === 'plan' && n.start && n.end && n.start <= '2026-11-15' && '2026-11-15' <= n.end && n.parentId && strategy.nodes[n.parentId]?.type === 'plan') ?? Object.values(strategy.nodes).find((n) => n.type === 'plan');
+  const plan = Object.values(strategy.nodes).find((n) => n.type === 'plan' && n.start && n.end && n.start <= '2026-11-15' && '2026-11-15' <= n.end) ?? Object.values(strategy.nodes).find((n) => n.type === 'plan');
   if (!plan || !strategy.nodes['obj-equity']) return {};
   const master = rootOf(strategy)?.type === 'framework' ? childrenOf(strategy, rootOf(strategy).id).find((n) => n.type === 'plan') : rootOf(strategy);
   return {
@@ -276,4 +276,20 @@ export function migrateDashboards(doc, strategy = null, org = null) {
   if (org?.id === 'org-example' && doc.forms['form-numbers']?.siteId === 'site-main' && org.sites?.['site-impact']) doc.forms['form-numbers'].siteId = 'site-impact';
   if (strategy && org?.id === 'org-example' && !doc.dashboards['dash-board']) Object.assign(doc.dashboards, boardDashboards(strategy));
   return doc;
+}
+
+/**
+ * Dashboards that pointed at a plan since folded into another (a yearly
+ * plan inside a long-range one, see flattenPlans) point at where it went.
+ * Returns true when something changed.
+ */
+export function refoldDashboards(doc, strategy) {
+  if (!strategy?.folded) return false;
+  let changed = false;
+  const live = (id) => { const to = liveNodeId(strategy, id); if (to !== id) changed = true; return to; };
+  for (const d of Object.values(doc.dashboards ?? {})) {
+    if (d.sourceNodeId) d.sourceNodeId = live(d.sourceNodeId);
+    for (const w of d.widgets ?? []) if (w.nodeId) w.nodeId = live(w.nodeId);
+  }
+  return changed;
 }

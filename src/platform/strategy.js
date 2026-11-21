@@ -7,7 +7,7 @@ import { today } from '../strategy/dates.js';
  * at the root down to tasks.
  *
  *   framework  mission, vision, values               (the root)
- *   plan       start, end, theme; plans can nest inside plans (a master plan)
+ *   plan       start, end, theme, milestones; plans sit side by side under the framework, never inside each other
  *   objective  measures (KPIs to track later on dashboards)
  *   goal       measures
  *   workplan   start, end, staffIds, teamIds, assets  (shows as a Gantt chart)
@@ -22,7 +22,7 @@ import { today } from '../strategy/dates.js';
  */
 export const NODE_TYPES = {
   framework: { label: 'Strategic framework', children: ['plan'], glyph: '◆' },
-  plan: { label: 'Strategic plan', children: ['plan', 'objective'], glyph: '▣', dated: true },
+  plan: { label: 'Strategic plan', children: ['objective'], glyph: '▣', dated: true },
   objective: { label: 'Strategic objective', children: ['goal'], glyph: '◎' },
   goal: { label: 'Goal', children: ['workplan'], glyph: '○' },
   workplan: { label: 'Workplan', children: ['task'], glyph: '≡', dated: true },
@@ -154,6 +154,7 @@ export function measuresUnder(doc, id) {
 
 /** Bring an older saved strategy up to the current shape. */
 export function migrateStrategy(doc) {
+  flattenPlans(doc);
   for (const n of Object.values(doc.nodes)) {
     if (n.measures) for (const m of n.measures) m.id ??= uid('m');
     if (n.type === 'task' || n.type === 'workplan') n.assets ??= [];
@@ -161,6 +162,40 @@ export function migrateStrategy(doc) {
     for (const a of n.assets ?? []) if (a.kind === 'document' && a.label === 'Partner check-in guide.pdf' && !a.url && !a.dataUrl) { a.url = 'media/docs/partner-check-in-guide.pdf'; a.detail = 'PDF · 3 KB'; }
   }
   return doc;
+}
+
+/**
+ * Plans sit directly under the framework, never inside another plan. Older
+ * documents (the first example among them) had a long-range plan holding
+ * yearly plans; each inner plan folds into the plan around it: its
+ * objectives move up (after the outer plan's own), its milestones and notes
+ * join the outer plan's, and the outer plan stretches to cover its dates.
+ * `doc.folded` remembers where each folded plan went, so dashboards, plan
+ * documents and studio work that pointed at it still land (liveNodeId).
+ */
+export function flattenPlans(doc) {
+  const nested = () => Object.values(doc.nodes).find((n) => n.type === 'plan' && doc.nodes[n.parentId]?.type === 'plan');
+  for (let inner = nested(); inner; inner = nested()) {
+    const outer = doc.nodes[inner.parentId];
+    const siblings = childrenOf(doc, outer.id).filter((c) => c.id !== inner.id);
+    let order = Math.max(-1, ...siblings.map((c) => c.order ?? 0));
+    for (const c of childrenOf(doc, inner.id)) { c.parentId = outer.id; c.order = ++order; }
+    if (inner.milestones?.length) outer.milestones = [...(outer.milestones ?? []), ...inner.milestones];
+    if (inner.notes?.trim()) outer.notes = [outer.notes, `${inner.title}: ${inner.notes}`].filter((x) => x?.trim()).join('\n\n');
+    if (inner.start && (!outer.start || inner.start < outer.start)) outer.start = inner.start;
+    if (inner.end && (!outer.end || inner.end > outer.end)) outer.end = inner.end;
+    delete doc.nodes[inner.id];
+    doc.folded = { ...doc.folded, [inner.id]: outer.id };
+    for (const [k, v] of Object.entries(doc.folded)) if (v === inner.id) doc.folded[k] = outer.id;
+  }
+  return doc;
+}
+
+/** Where a node lives now: itself, or the plan it was folded into. */
+export function liveNodeId(doc, id) {
+  let at = id;
+  for (let i = 0; i < 10 && at && !doc.nodes[at] && doc.folded?.[at]; i++) at = doc.folded[at];
+  return at;
 }
 
 /** A task's status on a date, read from its status history. */

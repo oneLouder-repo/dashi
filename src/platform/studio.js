@@ -14,6 +14,11 @@
  *   results: { [id]: { id, planId, title, indicator, baseline, target, unit, source, frequency, measureId, cardId, x, y, w, h, at } }
  *   blocks:  { [id]: { id, planId, kind: 'card'|'asset'|'context'|'result'|'workplan'|'goal'|'objective'|'plan', ref, title, x, y, strategyId, at } }
  *   wires:   { [id]: { id, planId, from, to, at } }
+ *   toc:      { [id]: { id, planId, lane, title, strategyId, order, at } }        a theory of change: what we do,
+ *             what it produces, the early and lasting changes, and the change we seek (TOC_LANES)
+ *   tocLinks: { [id]: { id, planId, from, to, assumption, confidence, evidence: [Asset], signpost: { measureId, note }, at } }
+ *             "so that" links between them, each with the assumption behind it, how sure we are, the
+ *             evidence for it, and a signpost: the number we watch, and what would make us rethink
  *   gone:    { [id]: at }                                                  deleted items, so a merge doesn't bring them back
  * }
  *
@@ -24,9 +29,9 @@
  */
 import { uid } from '../core/ops.js';
 import { col } from '../core/collections.js';
-import { strategyOps, childrenOf, descendants } from './strategy.js';
+import { strategyOps, childrenOf, descendants, liveNodeId } from './strategy.js';
 
-export const COLLECTIONS = ['plans', 'context', 'cards', 'results', 'blocks', 'wires'];
+export const COLLECTIONS = ['plans', 'context', 'cards', 'results', 'blocks', 'wires', 'toc', 'tocLinks'];
 
 export const QUADRANTS = [
   { id: 's', label: 'Strengths', ask: 'What are we best at? What do we do that others value?', color: '#2a7d5f' },
@@ -53,10 +58,23 @@ export const TEAM_ROLES = [
   { id: 'advisor', label: 'Advisor' },
 ];
 
-export const blankStudio = () => ({ id: 'studio', plans: {}, context: {}, cards: {}, results: {}, blocks: {}, wires: {}, gone: {} });
+export const blankStudio = () => ({ id: 'studio', plans: {}, context: {}, cards: {}, results: {}, blocks: {}, wires: {}, toc: {}, tocLinks: {}, gone: {} });
 
-export function migrateStudio(doc) {
+export function migrateStudio(doc, strategy = null) {
   for (const k of [...COLLECTIONS, 'gone']) doc[k] ??= {};
+  // Work on a plan since folded into another (see flattenPlans) moves with it.
+  if (strategy?.folded) {
+    for (const k of COLLECTIONS.filter((c) => c !== 'plans')) for (const x of Object.values(doc[k])) {
+      if (x.planId) x.planId = liveNodeId(strategy, x.planId);
+      if (x.strategyId) x.strategyId = liveNodeId(strategy, x.strategyId);
+    }
+    for (const [id, p] of Object.entries(doc.plans)) {
+      const to = liveNodeId(strategy, id);
+      if (to === id) continue;
+      delete doc.plans[id];
+      if (!doc.plans[to]) doc.plans[to] = { ...p, id: to };
+    }
+  }
   // Cards from the first SOAR board sat at a share of a fixed quadrant; put them on the open canvas.
   for (const c of Object.values(doc.cards)) {
     if (c.wx != null) continue;
@@ -181,7 +199,7 @@ export function sendToPlan(doc, strategy, planId) {
     const notes = notesFor(b);
     if (existing) {
       const patch = { title: b.title };
-      // Move it only if it isn't already somewhere under its new parent (an objective in a sub-plan stays there).
+      // Move it only if it isn't already somewhere under its new parent.
       if (parentId && !isUnder(nodes, existing.id, parentId)) patch.parentId = parentId;
       if (notes && !existing.notes) patch.notes = notes;
       const measures = measuresFor(b, existing);
@@ -270,7 +288,31 @@ export function seedStudio(strategy, { staff = [] } = {}) {
   for (const [id, kind, ref, x, y, title, strategyId] of blocks) doc.blocks[id] = { id, planId, kind, ref, x, y, title: title ?? null, strategyId: strategyId ?? null, at };
   [['bl-1', 'bl-5'], ['bl-2', 'bl-5'], ['bl-3', 'bl-5'], ['bl-4', 'bl-5'], ['bl-5', 'bl-6'], ['bl-7', 'bl-8'], ['bl-8', 'bl-6']]
     .forEach(([from, to], i) => { doc.wires[`wi-${i + 1}`] = { id: `wi-${i + 1}`, planId, from, to, at }; });
+  seedToc(doc, strategy, planId);
   return doc;
+}
+
+/** The example's theory of change: the plan laid out, with a few outputs, assumptions, evidence and signposts filled in. */
+function seedToc(doc, strategy, planId) {
+  const apply = (op) => { if (op.op === 'add') doc[op.collection][op.id] = { ...op.data, id: op.id, at: 1 }; };
+  for (const op of tocFromPlan(doc, strategy, planId)) apply(op);
+  const item = (re) => ofPlan(doc, 'toc', planId).find((x) => re.test(x.title));
+  const linkOf = (a, b) => a && b && ofPlan(doc, 'tocLinks', planId).find((l) => l.from === a.id && l.to === b.id);
+  const set = (l, patch) => { if (l) Object.assign(l, patch); };
+  const refresh = item(/training refresh/i), trained = item(/^Instructors are trained/i), girls = item(/reach more girls/i), equity = item(/^Deepen equity/i), outreach = item(/girls in STEM outreach/i);
+  const out = (id, title, order, from, to, assumption) => {
+    if (!from || !to) return;
+    doc.toc[id] = { id, planId, lane: 'output', title, strategyId: null, order, at: 1 };
+    const old = linkOf(from, to);
+    if (old) delete doc.tocLinks[old.id];
+    doc.tocLinks[`${id}-in`] = { id: `${id}-in`, planId, from: from.id, to: id, assumption: '', confidence: 'tested', evidence: [], signpost: null, at: 1 };
+    doc.tocLinks[`${id}-out`] = { id: `${id}-out`, planId, from: id, to: to.id, assumption, confidence: 'likely', evidence: [], signpost: null, at: 1 };
+  };
+  out('toc-out-1', '600 instructors finish the refreshed modules', 0, refresh, trained, 'Instructors use new practice when their sites back them');
+  out('toc-out-2', 'Outreach sessions in 40 schools', 1, outreach, girls, 'Girls who meet role models like themselves are more likely to join a club');
+  if (doc.tocLinks['toc-out-1-out']) doc.tocLinks['toc-out-1-out'].evidence = [{ id: 'as-toc-1', kind: 'link', label: 'Culturally responsive teaching: a research brief', url: 'https://example.org/research/crt-brief', detail: 'Research brief' }];
+  set(linkOf(girls, equity), { assumption: 'Reaching more girls changes who stays in STEM, not just who tries it', confidence: 'untested', signpost: { measureId: 'm-equity', note: 'If the share of equity-deserving youth is still under 45% by spring, rethink outreach before scaling it.' } });
+  set(linkOf(trained, equity), { assumption: 'Trained instructors keep equity-deserving youth in programs', confidence: 'likely', signpost: { measureId: 'm-trained', note: 'If fewer than half the instructors have finished by March, slow the roll-out.' } });
 }
 
 /**
@@ -302,7 +344,6 @@ export function bringInPlan(doc, strategy, planId) {
   const plan = strategy.nodes[planId];
   if (!plan) return ops;
   const planBlock = put(plan, 'plan');
-  // Objectives in sub-plans (a year-one plan under a five-year plan) count as the plan's too.
   for (const o of descendants(strategy, planId).filter((n) => n.type === 'objective')) {
     const ob = put(o, 'objective');
     wire(ob, planBlock);
@@ -333,3 +374,120 @@ export function freeSpot(doc, planId, q, near = null) {
   }
   return { wx: start.x, wy: start.y };
 }
+
+/* ------------------------------------------------------------------ theory of change */
+/**
+ * A theory of change reads left to right: what we do, so that it produces
+ * something, so that early changes happen, so that lasting changes follow,
+ * toward the change we seek. Every "so that" rests on an assumption; good
+ * plans say what it is, how sure they are, what the evidence is, and which
+ * number would tell them to change course (a signpost, in the spirit of
+ * adaptive strategy).
+ */
+export const TOC_LANES = [
+  { id: 'activity', label: 'What we do', short: 'Activities', hint: 'Programs, workplans, the work itself' },
+  { id: 'output', label: 'What it produces', short: 'Outputs', hint: 'Sessions run, people reached, things made' },
+  { id: 'short', label: 'Early changes', short: 'Short-term outcomes', hint: 'What shifts for people in a year or two' },
+  { id: 'long', label: 'Lasting changes', short: 'Long-term outcomes', hint: 'What stays different, in people and systems' },
+  { id: 'impact', label: 'The change we seek', short: 'Impact', hint: 'The vision this all serves' },
+];
+export const TOC_CONFIDENCE = [
+  { id: 'untested', label: 'Untested', blurb: 'We believe it, but have not checked' },
+  { id: 'likely', label: 'Some evidence', blurb: 'Research or experience points this way' },
+  { id: 'tested', label: 'Tested', blurb: 'Our own data shows it' },
+];
+export const laneIndex = (id) => TOC_LANES.findIndex((l) => l.id === id);
+
+/**
+ * Ops that lay a plan's structure out as a first theory of change: its
+ * workplans as what we do, its goals as early changes, its objectives as
+ * lasting changes and the framework's vision as the change we seek, linked
+ * the way the plan already nests them. Things already on the board are
+ * left alone (matched by strategyId), so it can be run again after the
+ * plan grows.
+ */
+export function tocFromPlan(doc, strategy, planId) {
+  const plan = strategy.nodes[planId];
+  if (!plan) return [];
+  const have = Object.fromEntries(ofPlan(doc, 'toc', planId).filter((x) => x.strategyId).map((x) => [x.strategyId, x.id]));
+  const linked = new Set(ofPlan(doc, 'tocLinks', planId).map((l) => `${l.from}>${l.to}`));
+  const ops = [];
+  const counts = Object.fromEntries(TOC_LANES.map((l) => [l.id, ofPlan(doc, 'toc', planId).filter((x) => x.lane === l.id).length]));
+  const put = (node, lane, title = node.title) => {
+    if (have[node.id]) return have[node.id];
+    const op = studioOps.add('toc', { planId, lane, title, strategyId: node.id, order: counts[lane]++ });
+    ops.push(op);
+    have[node.id] = op.id;
+    return op.id;
+  };
+  const next = {};
+  for (const l of ofPlan(doc, 'tocLinks', planId)) (next[l.from] ??= []).push(l.to);
+  // Already connected, perhaps through something added in between (an output)?
+  const reaches = (from, to, seen = new Set()) => (next[from] ?? []).some((x) => x === to || (!seen.has(x) && seen.add(x) && reaches(x, to, seen)));
+  const link = (from, to) => {
+    if (linked.has(`${from}>${to}`) || reaches(from, to)) return;
+    linked.add(`${from}>${to}`);
+    ops.push(studioOps.add('tocLinks', { planId, from, to, assumption: '', confidence: 'untested', evidence: [], signpost: null }));
+  };
+  const root = Object.values(strategy.nodes).find((n) => !n.parentId);
+  const impact = root?.vision ? put(root, 'impact', root.vision) : null;
+  for (const o of childrenOf(strategy, planId).filter((n) => n.type === 'objective')) {
+    const ob = put(o, 'long');
+    if (impact) link(ob, impact);
+    for (const g of childrenOf(strategy, o.id).filter((n) => n.type === 'goal')) {
+      const gb = put(g, 'short');
+      link(gb, ob);
+      for (const w of childrenOf(strategy, g.id).filter((n) => n.type === 'workplan')) link(put(w, 'activity'), gb);
+    }
+  }
+  return ops;
+}
+
+/** How ready the theory is: links, and how many have an assumption, evidence and a signpost. */
+export function tocReadiness(doc, planId) {
+  const items = ofPlan(doc, 'toc', planId);
+  const links = ofPlan(doc, 'tocLinks', planId).filter((l) => doc.toc[l.from] && doc.toc[l.to]);
+  const ids = new Set(links.flatMap((l) => [l.from, l.to]));
+  return {
+    items: items.length,
+    links: links.length,
+    assumed: links.filter((l) => l.assumption?.trim()).length,
+    evidenced: links.filter((l) => l.evidence?.length).length,
+    tested: links.filter((l) => l.confidence === 'tested').length,
+    signposts: links.filter((l) => l.signpost?.measureId).length,
+    loose: items.filter((x) => !ids.has(x.id)).length,
+    lanesEmpty: TOC_LANES.filter((l) => !items.some((x) => x.lane === l.id)).map((l) => l.label),
+  };
+}
+
+/**
+ * The theory as pathways, one per lasting change: what we do, what it
+ * produces, the early changes, the change it serves, and what it rests on.
+ * Each pathway is { title, lines: [[label, text]] }; tocMarkdown turns them
+ * into text for a plan document, a funder or a board.
+ */
+export function tocStory(doc, planId) {
+  const items = ofPlan(doc, 'toc', planId);
+  const links = ofPlan(doc, 'tocLinks', planId).filter((l) => doc.toc[l.from] && doc.toc[l.to]);
+  const into = (id) => links.filter((l) => l.to === id);
+  const lower = (t) => (t && !/^.[A-Z]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t ?? '');
+  const list = (xs) => { xs = [...new Set(xs)].map((x, i) => (i ? lower(x) : x)); return xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`; };
+  const from = (xs, lane) => xs.flatMap((x) => into(x.id).map((l) => doc.toc[l.from])).filter((x) => x.lane === lane);
+  return items.filter((x) => x.lane === 'long').sort((a, b) => a.order - b.order).map((lo) => {
+    const shorts = from([lo], 'short');
+    const outs = [...from(shorts, 'output'), ...from([lo], 'output')];
+    const acts = [...from([...shorts, ...outs], 'activity'), ...from([lo], 'activity')];
+    const goal = links.filter((l) => l.from === lo.id).map((l) => doc.toc[l.to]).find((x) => x.lane === 'impact');
+    const used = links.filter((l) => l.to === lo.id || l.from === lo.id || shorts.some((x) => x.id === l.to) || outs.some((x) => x.id === l.to));
+    const beliefs = used.map((l) => l.assumption?.trim().replace(/\.$/, '')).filter(Boolean);
+    const lines = [
+      acts.length && ['What we do', list(acts.map((x) => x.title))],
+      outs.length && ['What it produces', list(outs.map((x) => x.title))],
+      shorts.length && ['Early changes', list(shorts.map((x) => x.title))],
+      goal && ['Toward', goal.title.replace(/\.$/, '')],
+      beliefs.length && ['It rests on', list(beliefs)],
+    ].filter(Boolean).map(([k, v]) => [k, `${v}.`]);
+    return { title: lo.title, lines };
+  });
+}
+export const tocMarkdown = (story) => story.map((p) => `**${p.title}**\n\n${p.lines.map(([k, v]) => `- ${k}: ${v}`).join('\n')}`).join('\n\n');

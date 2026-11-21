@@ -16,7 +16,7 @@ test('the example studio plans the long-range plan, with a SOAR in every quadran
   assert.match(s.nodes[planId].title, /2026/);
   for (const q of ['s', 'o', 'a', 'r']) assert.ok(Object.values(doc.cards).some((c) => c.quadrant === q), q);
   assert.ok(Object.values(doc.wires).every((w) => canWire(doc.blocks[w.from], doc.blocks[w.to])), 'every example wire is allowed');
-  assert.deepEqual(plansOf(s).map((p) => p.depth), [0, 1, 1]);
+  assert.ok(plansOf(s).every((p) => p.depth === 0), 'plans sit side by side');
 });
 
 test('merging keeps the newer of each card, and deletions stick', () => {
