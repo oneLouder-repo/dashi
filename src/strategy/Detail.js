@@ -13,6 +13,8 @@ import { dashboardFromNode } from '../platform/dashboards.js';
 import { uid } from '../core/ops.js';
 import { currentUser } from '../platform/session.js';
 import { uiConfirm } from '../ui/dialog.js';
+import { col } from '../core/collections.js';
+import { draftsOf, acceptDraftOps } from '../platform/studio.js';
 import { linkTo, reach } from '../plugins.js';
 
 /** The views each level offers, the first is where it opens. */
@@ -56,7 +58,7 @@ export function Detail(ctx) {
   else if (view === 'board') body = Board(ctx, n);
   else if (view === 'gantt') body = h('section', { class: 'panel gantt-full' }, Gantt(ctx, n.id));
   else body = DetailsView(ctx, n, update);
-  return h('div', { class: `detail view-${view}` }, crumbs, head, body);
+  return h('div', { class: `detail view-${view}` }, crumbs, n.draft && DraftBar(ctx, n), head, body);
 }
 
 function DetailsView(ctx, n, update) {
@@ -180,3 +182,27 @@ function DashboardsPanel(ctx, n) {
         d.siteId && h('a', { href: `site.html?site=${d.siteId}#${d.id}`, target: '_blank' }, 'View on site ↗')))));
 }
 export { LEVELS, childrenOf, options };
+
+/**
+ * A draft the theory of change sent: keep it (and the drafts above it, so
+ * nothing real hangs off a draft) or discard it with what is under it.
+ * "Accept all" keeps every draft in the strategy.
+ */
+function DraftBar(ctx, n) {
+  const doc = ctx.store.doc;
+  const all = draftsOf(doc);
+  const under = descendants(doc, n.id).length;
+  return h('div', { class: 'sw-draft-bar', role: 'note' },
+    icon('spark', 15),
+    h('div', {}, h('strong', {}, 'Draft from the theory of change'),
+      h('span', { class: 'muted small' }, ' Kept out of reports until you accept it.', all.length > 1 ? ` ${all.length} drafts in all.` : '')),
+    h('span', { class: 'spacer' }),
+    h('button', { class: 'btn btn-ghost btn-xs text-error', onclick: async () => {
+      if (!await uiConfirm(`Discard “${n.title}”${under ? ` and the ${under} under it` : ''}? The theory of change keeps its box.`, { danger: true, ok: 'Discard' })) return;
+      const parent = n.parentId;
+      ctx.store.apply(strategyOps.removeNode(doc, n.id));
+      ctx.select(parent);
+    } }, 'Discard'),
+    all.length > 1 && h('button', { class: 'btn btn-xs', onclick: () => ctx.store.apply(col.batch(all.map((d) => strategyOps.update(d.id, { draft: false })))) }, 'Accept all'),
+    h('button', { class: 'btn btn-primary btn-xs', onclick: () => ctx.store.apply(col.batch(acceptDraftOps(doc, n.id))) }, 'Accept'));
+}

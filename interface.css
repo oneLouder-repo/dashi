@@ -607,3 +607,37 @@ body.mapper-page > main { box-shadow: var(--lift-sheet); }
 .result-edit .rf > span { font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
 .rf-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 860px) { .result-row { grid-template-columns: 1fr; gap: 6px; } .result-row-meta { justify-content: flex-start; } }
+
+/* ---------- Theory layers and Send to plan (alpha 0.2, PR 10) ---------- */
+.toc-layers { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; padding: 6px 8px; border: 1px solid var(--color-base-300, #e3e6ee); border-radius: 10px; background: var(--color-base-100, #fff); }
+.toc-layers-label { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--muted, #59607a); margin-right: 4px; }
+.toc-layer { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 4px 0 2px; border: 1px solid hsl(var(--lh) 40% 85%); border-radius: 8px; background: hsl(var(--lh) 60% 97%); font-size: 12.5px; }
+.toc-layer.on { border-color: hsl(var(--lh) 55% 55%); box-shadow: inset 0 0 0 1px hsl(var(--lh) 55% 55%); }
+.toc-layer.off { opacity: .55; }
+.toc-layer-dot { width: 9px; height: 9px; border-radius: 50%; background: hsl(var(--lh) 60% 50%); flex: none; display: inline-block; }
+.toc-layer-eye { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; color: var(--muted, #59607a); }
+.toc-layer-eye:hover { background: hsl(var(--lh) 50% 92%); }
+input.toc-layer-name { border: 0; background: transparent; font: inherit; padding: 0; min-width: 6ch; }
+input.toc-layer-name:focus { outline: 1px dashed hsl(var(--lh) 50% 60%); outline-offset: 2px; }
+.toc-layer small { color: var(--muted, #59607a); font-variant-numeric: tabular-nums; }
+.toc-layer-use { height: 20px; width: 78px; padding: 0 6px; border-radius: 5px; font-size: 11px; color: hsl(var(--lh) 50% 35%); }
+.toc-layer-use[aria-pressed="true"] { background: hsl(var(--lh) 60% 50%); color: #fff; }
+.toc-card[data-layer] { border-left: 4px solid hsl(var(--lh) 60% 52%); }
+.toc-card.is-draft { background-image: repeating-linear-gradient(135deg, transparent 0 6px, hsl(var(--lh) 60% 50% / .07) 6px 12px); }
+.toc-draft { align-self: flex-start; font-size: 10.5px; font-weight: 600; letter-spacing: .02em; padding: 1px 6px; border-radius: 4px; background: hsl(var(--lh) 60% 92%); color: hsl(var(--lh) 50% 30%); }
+.toc-send { display: grid; gap: 14px; }
+.toc-send-layers { display: flex; flex-wrap: wrap; gap: 8px 16px; border: 1px solid var(--color-base-300, #e3e6ee); border-radius: 10px; padding: 8px 12px 10px; }
+.toc-send-layers legend { font-size: 12px; font-weight: 600; padding: 0 4px; }
+.toc-send-layers label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.toc-send-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.toc-send-list li { display: grid; grid-template-columns: 84px 1fr auto; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; background: var(--color-base-200, #f4f5f9); }
+.toc-send-list li.lvl-goal { margin-left: 16px; } .toc-send-list li.lvl-workplan { margin-left: 32px; } .toc-send-list li.lvl-task { margin-left: 48px; }
+.toc-send-kind { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted, #59607a); }
+.toc-send-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toc-send-none { padding: 16px; text-align: center; border: 1px dashed var(--color-base-300, #d8dce6); border-radius: 10px; color: var(--muted, #59607a); }
+.toc-send-loose { display: flex; gap: 6px; align-items: flex-start; }
+/* Drafts in Strategy & Work */
+.tree-row.is-draft .tree-title { font-style: italic; opacity: .8; }
+.tree-draft { font-size: 10px; font-weight: 600; padding: 0 5px; border-radius: 4px; background: #fff3dd; color: #8a5a00; line-height: 16px; flex: none; }
+.sw-draft-bar { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; padding: 8px 12px; border-radius: 10px; border: 1px dashed #d9a441; background: repeating-linear-gradient(135deg, #fffaf0 0 8px, #fff4df 8px 16px); color: #6b4700; }
+.sw-draft-bar .spacer { flex: 1; }

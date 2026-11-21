@@ -1,7 +1,7 @@
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { svg } from '../core/svg.js';
-import { descendants, rootOf } from '../platform/strategy.js';
+import { descendants, rootOf, withoutDrafts } from '../platform/strategy.js';
 import { workplanProgress, PROGRESS_STATES, LIGHTS } from '../platform/strategyReports.js';
 import { objectiveHue } from '../ui/strategyLook.js';
 import { addDays, daysBetween, short, today, parse, monthStarts } from './dates.js';
@@ -256,7 +256,7 @@ export function RoadSvg(doc, planId, { compact = false, dayPx = DAY_PX[zoom], on
 
 /** The full roadmap page: plan picker, zoom, a road that slides sideways, a strip to move along it, and a legend. */
 export function RoadmapRoad(ctx) {
-  const doc = ctx.store.doc;
+  const doc = withoutDrafts(ctx.store.doc);
   const plans = Object.values(doc.nodes).filter((n) => n.type === 'plan').sort((a, b) => (a.start ?? '').localeCompare(b.start ?? '') || a.order - b.order);
   if (!plans.length) return h('p', { class: 'empty' }, 'No plans yet.');
   // Start on the whole road: the longest plan whose dates hold today.

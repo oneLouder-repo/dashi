@@ -239,3 +239,15 @@ export function statusAt(task, date, now = today()) {
   if (date >= now) return task.status;
   return 'planned';
 }
+
+/**
+ * The strategy without drafts the theory of change sent (and anything
+ * under them), for reports, which show only what the team has accepted.
+ */
+export function withoutDrafts(doc) {
+  if (!Object.values(doc.nodes).some((n) => n.draft)) return doc;
+  const out = {};
+  const keep = (n) => { for (let p = n; p; p = doc.nodes[p.parentId]) if (p.draft) return false; return true; };
+  for (const n of Object.values(doc.nodes)) if (keep(n)) out[n.id] = n;
+  return { ...doc, nodes: out };
+}

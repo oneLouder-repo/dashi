@@ -29,7 +29,7 @@
  */
 import { uid } from '../core/ops.js';
 import { col } from '../core/collections.js';
-import { strategyOps, childrenOf, descendants, liveNodeId } from './strategy.js';
+import { strategyOps, childrenOf, descendants, liveNodeId, measureIndex } from './strategy.js';
 
 export const COLLECTIONS = ['plans', 'context', 'cards', 'results', 'blocks', 'wires', 'toc', 'tocLinks'];
 
@@ -547,3 +547,120 @@ export function studioFromPlans(strategy, spec = {}) {
   }
   return doc;
 }
+
+/**
+ * Theory layers: each plan's theory can hold several layers of thinking.
+ * "From the plan" holds what was laid out from Strategy & Work; "New
+ * thinking" holds what the team adds; more can be named. A layer can be
+ * hidden on the board. Layers live on the plan's studio record as
+ * { id, name, hue }; a toc item's layer is x.layer, or, when it has none,
+ * 'plan' if it came from the plan and 'new' if not.
+ */
+export const BASE_LAYERS = [
+  { id: 'plan', name: 'From the plan', hue: 222 },
+  { id: 'new', name: 'New thinking', hue: 32 },
+];
+export const layersOf = (doc, planId) => {
+  const own = doc.plans?.[planId]?.tocLayers ?? [];
+  return [...BASE_LAYERS.map((b) => ({ ...b, ...own.find((l) => l.id === b.id) })), ...own.filter((l) => !BASE_LAYERS.some((b) => b.id === l.id))];
+};
+export const layerOf = (x) => x.layer ?? (x.strategyId ? 'plan' : 'new');
+
+/** Which level each theory column becomes in the plan. */
+export const TOC_TO_LEVEL = { long: 'objective', short: 'goal', activity: 'workplan', output: 'task' };
+
+/**
+ * Send the theory of change to the plan as drafts: lasting changes become
+ * objectives, early changes goals, what we do workplans and what it
+ * produces tasks (Planned), each placed under what it leads to. The change
+ * we seek fills the framework's vision if that is empty. The assumption
+ * behind a box's links, and any signposts, go in its notes.
+ *
+ * Only boxes not yet in the plan are made, as drafts ({ draft: true,
+ * fromToc }), so the team can accept or discard each one in Strategy &
+ * Work. Sending again updates drafts it made before. Boxes that came from
+ * the plan, or whose draft was accepted, are left as they are.
+ *
+ * layers: which layers to send (default every layer).
+ * Returns { strategyOps, studioOps, preview: [{ tocId, type, title, parentTitle, action }], loose: [title] }.
+ */
+export function tocToPlan(doc, strategy, planId, { layers = null } = {}) {
+  const plan = strategy.nodes[planId];
+  const out = { strategyOps: [], studioOps: [], preview: [], loose: [] };
+  if (!plan) return out;
+  const nodes = { ...strategy.nodes };
+  const items = ofPlan(doc, 'toc', planId);
+  const links = ofPlan(doc, 'tocLinks', planId).filter((l) => doc.toc[l.from] && doc.toc[l.to]);
+  const sending = (x) => !layers || layers.includes(layerOf(x));
+  const outsOf = (id) => links.filter((l) => l.from === id).map((l) => doc.toc[l.to]);
+  const insOf = (id) => links.filter((l) => l.to === id).map((l) => doc.toc[l.from]);
+  const measures = measureIndex(strategy);
+  const notesFor = (x) => {
+    const lines = links.filter((l) => l.from === x.id && (l.assumption || l.signpost?.measureId)).map((l) => {
+      const to = doc.toc[l.to].title;
+      const m = l.signpost?.measureId && measures[l.signpost.measureId];
+      return [l.assumption && `- So that “${to}”, because we believe: ${l.assumption}`, m && `- Signpost: ${m.name}${l.signpost.note ? `. We would rethink this if ${l.signpost.note}` : ''}`].filter(Boolean).join('\n');
+    });
+    return `From the theory of change (draft).${lines.length ? `\n${lines.join('\n')}` : ''}`;
+  };
+  const made = {};   // toc id → node id, this pass
+  const nodeFor = (x) => made[x.id] ?? (x.strategyId && nodes[x.strategyId] ? x.strategyId : null);
+  const place = (x, type, parentId, parentTitle) => {
+    const have = x.strategyId && nodes[x.strategyId];
+    if (have && !have.draft) { made[x.id] = have.id; return have.id; }
+    if (have) {
+      const patch = { title: x.title, notes: notesFor(x) };
+      if (have.parentId !== parentId) patch.parentId = parentId;
+      out.strategyOps.push(strategyOps.update(have.id, patch));
+      out.preview.push({ tocId: x.id, type, title: x.title, parentTitle, action: 'update' });
+      made[x.id] = have.id;
+      return have.id;
+    }
+    const op = strategyOps.addNode({ nodes }, { type, parentId, title: x.title, notes: notesFor(x), draft: true, fromToc: x.id });
+    nodes[op.id] = { ...op.data, id: op.id };
+    out.strategyOps.push(op);
+    out.studioOps.push(studioOps.update('toc', x.id, { strategyId: op.id, layer: layerOf(x) }));
+    out.preview.push({ tocId: x.id, type, title: x.title, parentTitle, action: 'new' });
+    made[x.id] = op.id;
+    return op.id;
+  };
+  const byLane = (lane) => items.filter((x) => x.lane === lane).sort((a, b) => a.order - b.order);
+
+  // The change we seek: the framework's vision, if it has none yet.
+  const root = Object.values(nodes).find((n) => !n.parentId);
+  const impact = byLane('impact').find(sending);
+  if (root && impact && !root.vision && !impact.strategyId) {
+    out.strategyOps.push(strategyOps.update(root.id, { vision: impact.title }));
+    out.preview.push({ tocId: impact.id, type: 'framework', title: impact.title, parentTitle: null, action: 'vision' });
+  }
+  for (const x of byLane('long')) if (sending(x) || nodeFor(x)) {
+    if (sending(x)) place(x, 'objective', planId, plan.title);
+  }
+  // Each later column goes under the first thing it leads to that is (or is about to be) in the plan.
+  const parentIn = (x, lanes) => {
+    for (const to of outsOf(x.id)) if (lanes.includes(to.lane) && nodeFor(to)) return to;
+    // An activity may lead to an early change only through what it produces.
+    for (const mid of outsOf(x.id)) for (const to of outsOf(mid.id)) if (lanes.includes(to.lane) && nodeFor(to)) return to;
+    return null;
+  };
+  for (const x of byLane('short').filter(sending)) {
+    const p = parentIn(x, ['long']);
+    if (p) place(x, 'goal', nodeFor(p), p.title); else out.loose.push(x.title);
+  }
+  for (const x of byLane('activity').filter(sending)) {
+    const p = parentIn(x, ['short']);
+    if (p) place(x, 'workplan', nodeFor(p), p.title); else out.loose.push(x.title);
+  }
+  for (const x of byLane('output').filter(sending)) {
+    const from = insOf(x.id).find((a) => a.lane === 'activity' && nodeFor(a));
+    if (from) place(x, 'task', nodeFor(from), from.title); else out.loose.push(x.title);
+  }
+  return out;
+}
+
+/** The drafts the theory of change made, and ops to accept or discard them. */
+export const draftsOf = (strategy) => Object.values(strategy.nodes).filter((n) => n.draft);
+export const acceptDraftOps = (strategy, id) => [id, ...ancestorDrafts(strategy, id)]
+  .filter((x, i, a) => a.indexOf(x) === i && strategy.nodes[x]?.draft).map((x) => strategyOps.update(x, { draft: false }));
+// Accepting a draft goal accepts the draft objective it sits under too, so nothing real hangs off a draft.
+const ancestorDrafts = (strategy, id) => { const out = []; for (let n = strategy.nodes[strategy.nodes[id]?.parentId]; n; n = strategy.nodes[n.parentId]) if (n.draft) out.push(n.id); return out; };
