@@ -2,7 +2,7 @@ import { h } from '../ui/dom.js';
 import { Shell } from '../ui/Shell.js';
 import { Store } from '../core/Store.js';
 import { applyCollectionOp } from '../core/collections.js';
-import { autosaveDoc, saveDoc, onDocChange } from '../platform/storage.js';
+import { autosaveDoc, saveDoc, onDocChange, loadDoc } from '../platform/storage.js';
 import { loadOrg, loadStrategy, loadMaps, loadData, loadLibrary } from '../platform/docs.js';
 import { loadAllMaps } from '../platform/maps.js';
 import { seedStrategy } from '../platform/strategySeed.js';
@@ -15,6 +15,8 @@ import { RoadmapRoad } from './Road.js';
 import { icon } from '../ui/icons.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
+import { swSections } from './swNav.js';
+import { withoutLayers, layersInPlan } from '../platform/strategy.js';
 import { short } from './dates.js';
 import { uiConfirm } from '../ui/dialog.js';
 import { linkTo } from '../plugins.js';
@@ -99,17 +101,48 @@ let side = h('nav');
 app.replaceChildren(side, h('div', { class: 'strategy-column' }, head, framework, report));
 
 function drawSide(tab) {
-  const plans = Object.values(store.doc.nodes).filter((n) => n.type === 'plan').sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  side = swapSide(side, SideNav({ label: 'Strategy & Work', sections: [
-    { title: 'Strategy & Work', items: TABS.map((t) => ({ label: t.label, icon: t.icon, href: `#${t.id}`, on: t.id === tab && !(tab === 'framework' && plans.some((p) => p.id === ctx.selectedId)) })) },
-    // The Planning Studio is part of Strategy & Work (0.2): each plan's planning tools, a click away.
-    { title: 'Planning Studio', items: [
-      { label: 'Plan with your team', sub: 'SOAR board, assemble, theory of change, results', icon: 'sec-studio', href: linkTo('studio') },
-      ...plans.map((p) => ({ label: p.title, sub: 'Plan it in the Studio', icon: 'sec-studio', href: linkTo('studio', `#${p.id}`), className: 'side-indent' })),
-      { label: 'Plan designer', sub: 'A designed plan to print or publish', icon: 'brush', href: 'plandoc.html' },
-    ] },
-    plans.length && { title: 'Plans', items: plans.map((p) => ({ label: p.title, sub: [p.start, p.end].filter(Boolean).map(short).join(' – '), icon: 'mapTrifold', href: `#${p.id}`, on: tab === 'framework' && ctx.selectedId === p.id })) },
-  ] }));
+  // The same panel on every Strategy & Work page (swNav.js): its tools, then the Planning Studio's.
+  const sel = store.doc.nodes[ctx.selectedId];
+  const planId = tab === 'framework' && sel ? planOfNode(sel) : null;
+  side = swapSide(side, SideNav({ label: 'Strategy & Work', sections: swSections({ page: 'strategy', tab, planId, strategy: store.doc, studio: null, extra: [LayersSection()] }) }));
+}
+
+/*
+ * Layers, like the mapper's: the plan as accepted, and each theory-of-change
+ * layer whose drafts are in it. Hide a layer to see the plan without it, in
+ * the outline and the framework sunburst. Remembered per browser.
+ */
+const LAYER_KEY = 'dashi.strategy.hidden-layers';
+ctx.hiddenLayers = new Set((() => { try { return JSON.parse(localStorage.getItem(LAYER_KEY) ?? '[]'); } catch { return []; } })());
+ctx.shown = (doc) => withoutLayers(doc, ctx.hiddenLayers);
+function LayersSection() {
+  const found = layersInPlan(store.doc);
+  const names = (() => { try { return loadStudioNames(); } catch { return {}; } })();
+  const row = (id, name, count, locked = false) => {
+    const off = ctx.hiddenLayers.has(id);
+    return h('li', { class: `sw-layer${off ? ' off' : ''}` },
+      h('span', { class: 'sw-layer-swatch', style: `--h:${id === 'plan' ? 222 : names[id]?.hue ?? 32}` }),
+      h('span', { class: 'sw-layer-name' }, name, h('small', {}, count)),
+      !locked && h('button', { class: 'btn btn-ghost btn-xs btn-square', title: off ? 'Show this layer' : 'Hide this layer', 'aria-label': off ? `Show ${name}` : `Hide ${name}`, 'aria-pressed': String(!off),
+        onclick: () => { off ? ctx.hiddenLayers.delete(id) : ctx.hiddenLayers.add(id); try { localStorage.setItem(LAYER_KEY, JSON.stringify([...ctx.hiddenLayers])); } catch { /* fine */ } render(); } }, icon(off ? 'eyeOff' : 'eye', 14)));
+  };
+  const accepted = Object.values(store.doc.nodes).filter((n) => !n.draft && n.type !== 'framework').length;
+  return { title: 'Layers', fold: 'sw-layers', className: 'sw-section', body: h('ul', { class: 'sw-layers' },
+    row('plan', 'The plan', `${accepted} accepted`, true),
+    Object.entries(found).map(([id, c]) => row(id, `${names[id]?.name ?? (id === 'toc' ? 'Theory of change' : id === 'new' ? 'New thinking' : id)} (draft)`, `${c} from the theory of change`))),
+  };
+}
+/** The theory layers' names and colours, from the Planning Studio, if this person can read it. */
+function loadStudioNames() {
+  const st = loadDoc('studio');
+  const out = {};
+  for (const p of Object.values(st?.plans ?? {})) for (const l of p.tocLayers ?? []) out[l.id] = l;
+  return { new: { name: 'New thinking', hue: 32 }, ...out };
+}
+/** The plan an item sits under, if any. */
+function planOfNode(n) {
+  while (n && n.type !== 'plan') n = store.doc.nodes[n.parentId];
+  return n?.id ?? null;
 }
 
 function render() {

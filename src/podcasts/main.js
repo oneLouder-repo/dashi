@@ -136,7 +136,7 @@ function render() {
     ] },
     { title: 'Series', action: { label: 'New series', onclick: newSeries }, items: [
       ...showsInOrder(doc()).map((p) => ({ label: p.title, sub: [countsOf(p.id).line, p.featured && 'featured'].filter(Boolean).join(' · '), lead: Cover(p, 28, 'side-cover'), href: `#series/${p.id}`, on: r.seriesId === p.id })),
-      { label: 'New series', icon: 'plus', onclick: newSeries },
+      { label: 'New series', sub: 'A name is all it takes', icon: 'plus', onclick: newSeries },
     ] },
   ] }));
 

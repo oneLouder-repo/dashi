@@ -778,3 +778,82 @@ body.mapper-page > main { border-radius: 0 0 var(--r-sheet, 14px) var(--r-sheet,
 .sw-sunburst-key { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 12px; font-size: 12px; }
 .sw-sunburst-key li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sb-tip[hidden] { display: none; }
+
+/* Sections that fold, like the mapper's tool panel (SideNav `fold`). */
+.side-section-fold { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-left: -4px; border: 0; background: none; color: inherit; cursor: pointer; border-radius: 4px; transition: transform .15s; }
+.side-section-fold:hover { background: color-mix(in oklab, currentColor 12%, transparent); }
+.side-section .side-title > span { flex: 1; }
+.section-folded .side-section-fold { transform: rotate(-90deg); }
+.section-folded > :not(.side-title) { display: none; }
+.side-head { padding: 2px 12px 6px; }
+.sw-plan-pick { width: 100%; }
+/* Strategy & Work: the theory's layers in the plan (left panel). */
+.sw-layers { list-style: none; margin: 0; padding: 0 4px; display: grid; gap: 2px; }
+.sw-layer { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 6px 0 10px; border-radius: 8px; }
+.sw-layer:hover { background: color-mix(in oklab, var(--ink) 5%, transparent); }
+.sw-layer.off .sw-layer-name { opacity: .5; }
+.sw-layer-swatch { flex: none; width: 10px; height: 22px; border-radius: 3px; background: hsl(var(--h) 60% 50%); }
+.sw-layer-name { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13.5px; line-height: 1.2; }
+.sw-layer-name, .sw-layer-name small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sw-layer-name small { font-size: 11.5px; color: var(--muted); }
+
+/* Assemble (0.2 touch-up): lanes like Scratch's colour categories, flowing patch cords like Max. */
+.patch-lane { position: absolute; top: 0; border-radius: 10px; background: color-mix(in oklab, var(--c) 6%, transparent); border: 1px dashed color-mix(in oklab, var(--c) 28%, transparent); z-index: 0; }
+.patch-lane-head { position: sticky; top: 0; display: flex; flex-direction: column; padding: 8px 12px; color: var(--c); }
+.patch-lane-head b { font-size: 13px; text-transform: uppercase; letter-spacing: .07em; }
+.patch-lane-head small { font-size: 11.5px; color: var(--muted); }
+.patch-vp .patch { outline: none; background: none; }
+.patch-wires { z-index: 1; }
+.block[data-id] { background: #fff; border: 2px solid var(--c); border-radius: 8px; box-shadow: 0 2px 0 color-mix(in oklab, var(--c) 30%, transparent), 0 4px 12px rgb(0 0 0 / 0.06); }
+.block.big { border-width: 2px; border-top-width: 2px; }
+.block.big .block-head, .block.kind-card .block-head, .block[data-id] .block-head { background: color-mix(in oklab, var(--c) 12%, #fff); border-radius: 6px 6px 0 0; margin-bottom: 6px; }
+.block.kind-plan, .block.kind-objective { background: #fff; }
+.block.kind-plan .block-head { background: var(--c); color: #fff; }
+.block.kind-objective .block-head { background: var(--c); color: #fff; }
+.block.kind-objective .block-head small, .block.kind-plan .block-head small { color: rgb(255 255 255 / .75); }
+.block.kind-objective .block-x, .block.kind-plan .block-x { color: #fff; }
+.block.kind-note { width: 220px; background: #fffbe0; border: 1px dashed var(--c); box-shadow: none; }
+.block.kind-note .block-head { background: none; }
+.block.is-draft { border-style: dashed; background: repeating-linear-gradient(135deg, #fff 0 8px, color-mix(in oklab, var(--c) 5%, #fff) 8px 16px); }
+.block.is-draft .block-link { color: #b26b00; }
+.block.off-chain { opacity: .28; }
+.block.focused { box-shadow: 0 0 0 4px color-mix(in oklab, var(--c) 30%, transparent), 0 8px 20px rgb(0 0 0 / .12); }
+.block.loose .outlet { animation: loose-pulse 1.6s ease-in-out infinite; }
+@keyframes loose-pulse { 0%, 100% { box-shadow: 0 0 0 1px var(--c), 0 0 0 0 color-mix(in oklab, #d64545 60%, transparent); } 50% { box-shadow: 0 0 0 1px var(--c), 0 0 0 6px color-mix(in oklab, #d64545 0%, transparent); } }
+.patch-wire.off-chain .wire-line { stroke-opacity: .12; }
+.patch-wire.flow .wire-line { stroke-width: 4; stroke-dasharray: 10 8; animation: wire-flow .9s linear infinite; }
+@keyframes wire-flow { to { stroke-dashoffset: -18; } }
+@media (prefers-reduced-motion: reduce) { .patch-wire.flow .wire-line, .block.loose .outlet { animation: none; } }
+.wire-line { stroke-width: 3; stroke-linecap: round; }
+.patch-story { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 40px; font-size: 13px; }
+.patch-story-step { display: inline-flex; flex-direction: column; padding: 3px 9px; border-radius: 8px; border: 2px solid var(--c); background: #fff; line-height: 1.25; }
+.patch-story-step small { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--c); }
+.patch-story-arrow { color: var(--muted); font-weight: 700; }
+.patch-loose-btn .loose-dot { width: 9px; height: 9px; border-radius: 50%; background: #d64545; display: inline-block; }
+.bin-chip { background: #fff !important; border: 1px solid color-mix(in oklab, var(--c, #888) 40%, var(--line)) !important; border-left: 6px solid var(--c, #888) !important; box-shadow: 0 1px 0 color-mix(in oklab, var(--c, #888) 25%, transparent); }
+.bin-chip:hover { border-color: var(--c, #888) !important; }
+.bin-add-note { width: auto; }
+
+/* SOAR board in line with Assemble: white cards with their quadrant's border, bolder quadrants. */
+.soar-canvas .soar-card { background: #fff; box-shadow: 0 2px 0 color-mix(in oklab, var(--q) 35%, transparent), 0 4px 12px rgb(0 0 0 / 0.08); border-radius: 8px; }
+.soar-canvas .soar-card .soar-card-grip { background: color-mix(in oklab, var(--q) 12%, #fff); border-radius: 6px 6px 0 0; }
+.soar-zone { background: color-mix(in oklab, var(--q) 24%, #fff); }
+.soar-label strong { color: var(--q); }
+
+/* The side nav, everywhere (0.2 touch-up): slimmer two-line rows, coloured icons, the white active card. */
+.side-menu li > :where(a, button) { min-height: 42px; height: 42px; padding-block: 3px; gap: 10px; }
+.side-text { font-size: 13.5px; line-height: 1.2; }
+.side-text small { font-size: 11.5px; line-height: 1.25; margin-top: 1px; }
+.side-menu li > :where(a, button) .icon { color: color-mix(in oklab, var(--accent, var(--color-primary)) 72%, var(--ink-3, #777)); }
+.side-menu li > .menu-active, .side-menu li > .menu-active:hover { background: #fff !important; box-shadow: 0 1px 2px rgb(0 0 0 / .06), 0 4px 14px rgb(0 0 0 / .06); }
+.side-menu li > .menu-active .icon { color: var(--accent, var(--color-primary)); }
+.side-nav.folded .side-menu li > :where(a, button) { height: 40px; }
+
+/* Plan home: the planning team, one tidy row each (avatar, name over title, role, remove). */
+.team-list { gap: 2px; }
+.team-list li { display: grid; grid-template-columns: 32px minmax(0, 1fr) 132px 24px; align-items: center; gap: 10px; height: 52px; padding: 0 6px; border-radius: 10px; }
+.team-list li:hover { background: color-mix(in oklab, var(--ink) 4%, transparent); }
+.team-name { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.team-name b { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.team-name small { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.team-role { width: 132px; }

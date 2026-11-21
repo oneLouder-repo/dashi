@@ -297,7 +297,7 @@ function openSend(ctx, plan) {
           h('span', { class: 'toc-send-title' }, h('strong', {}, p.title), p.parentTitle && h('small', { class: 'muted' }, ` under ${p.parentTitle}`)),
           h('span', { class: `badge badge-xs ${p.action === 'new' ? 'badge-primary' : 'badge-ghost'}` }, p.action === 'new' ? 'New draft' : p.action === 'vision' ? 'Fills the vision' : 'Updates draft'))))
         : h('p', { class: 'toc-send-none' }, 'Nothing new to send from these layers. Boxes that came from the plan are already in it.'),
-      out.loose.length > 0 && h('p', { class: 'muted small toc-send-loose' }, icon('info', 13), `${out.loose.length} not sent yet because they don’t lead to anything in the plan: ${out.loose.join('; ')}. Link them to an early or lasting change first.`),
+      out.loose.length > 0 && h('p', { class: 'muted small toc-send-loose' }, icon('info', 13), `${out.loose.length} don’t lead to anything in the plan yet (${out.loose.join('; ')}), so they go under a holder for their layer. Link them to an early or lasting change to place them properly.`),
       h('p', { class: 'small' }, `${fresh} new, ${upd} updated.`));
   };
   const send = () => {

@@ -12,6 +12,7 @@ import { setSection } from './crumbs.js';
  *     { title: 'Layers', action: { icon: 'plus', label: 'Add layer', onclick }, body: element },
  *   ] })
  *
+ * A section's `head` is an element above its items (a picker, say); `fold: key` lets it fold.
  * A section's `body` is any element shown in place of items (the mapper's
  * layers list, say); it hides when the sidebar is folded. `menu` is a
  * ready-made ul.menu that someone else keeps drawn (the mapper's tools).
@@ -40,7 +41,9 @@ export function SideNav({ label, sections }) {
       toggle.setAttribute('aria-expanded', String(now === '0'));
       document.dispatchEvent(new CustomEvent('dashi:side-fold'));
     } }, h('span', { 'aria-hidden': 'true' }, '‹'));
-  sections = sections.map(keepSection).filter(Boolean);
+  sections = sections.map(keepSection).filter(Boolean)
+    // Every titled section folds, like the mapper's tool panel, unless it says not to (fold: false).
+    .map((sec) => (sec.fold === undefined && sec.title ? { ...sec, fold: `${label}:${sec.title}`.toLowerCase().replace(/[^\w:]+/g, '-') } : sec));
   nav.append(toggle, ...sections.map(Section));
   keepScroll(nav, label);
   // The open item is the second step of the page's breadcrumb trail.
@@ -50,14 +53,29 @@ export function SideNav({ label, sections }) {
   return nav;
 }
 
-function Section({ title, items, menu, body, action, className }) {
-  return h('section', { class: `side-section ${className ?? ''}` },
+/** A section that folds (`fold: '<key>'`), like the mapper's tool panel: remembered per browser. */
+const foldKey = (k) => `dashi.side-section.${k}`;
+const sectionFolded = (k) => { try { return localStorage.getItem(foldKey(k)) === '1'; } catch { return false; } };
+
+function Section({ title, items, menu, body, head, action, className, fold }) {
+  const sec = h('section', { class: `side-section ${className ?? ''}${fold ? ' foldable' : ''}${fold && sectionFolded(fold) ? ' section-folded' : ''}` });
+  const chevron = fold && h('button', { type: 'button', class: 'side-section-fold', 'aria-expanded': String(!sectionFolded(fold)), 'aria-label': `Fold ${title}`, title: 'Fold or open this section',
+    onclick: () => {
+      const now = sec.classList.toggle('section-folded');
+      chevron.setAttribute('aria-expanded', String(!now));
+      try { localStorage.setItem(foldKey(fold), now ? '1' : '0'); } catch { /* private window */ }
+    } }, icon('chevronDown', 13));
+  sec.append(...[
     (title || action) && h('div', { class: 'side-title' },
+      chevron,
       h('span', {}, title),
       action && h('button', { class: 'btn btn-ghost btn-xs btn-square', title: action.label, 'aria-label': action.label, onclick: action.onclick }, icon(action.icon ?? 'plus', 15))),
+    head && h('div', { class: 'side-body side-head' }, head),
     items && h('ul', { class: 'menu side-menu' }, items.filter(Boolean).map(Item)),
     menu,
-    body && h('div', { class: 'side-body' }, body));
+    body && h('div', { class: 'side-body' }, body),
+  ].filter(Boolean));
+  return sec;
 }
 
 export function Item(it) {

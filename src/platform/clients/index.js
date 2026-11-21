@@ -19,7 +19,7 @@ import { actuaDocs } from './actua.js';
  * a PR that should start clean; restarts within a PR keep your work.
  * Only the client test platform (npm run clients) does this, never a hosted server.
  */
-export const CLIENT_RESET = { mark: 'pr10', docs: { 'org-actua-ai': ['strategy', 'studio'] } };
+export const CLIENT_RESET = { mark: 'pr11', docs: { 'org-actua-ai': ['strategy', 'studio', 'plandocs'] } };
 
 export const CLIENT_ORGS = [
   { id: 'org-sjr', slug: 'sjr', name: 'Social Justice Radio', plan: 'standard', docs: sjrDocs },

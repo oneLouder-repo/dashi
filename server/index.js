@@ -115,7 +115,9 @@ export function resetClientDocs(db, app, reset = CLIENT_RESET) {
     for (const name of names) {
       const old = db.prepare('SELECT json FROM docs WHERE org_id = ? AND name = ?').get(orgId, name);
       if (old) writeFileSync(join(dir, `${orgId}-${name}-before-${reset.mark}-${stamp.replace(/[:.]/g, '-')}.json`), old.json);
+      // A document the client doesn't seed (its plan documents, say) is cleared, so the pages start it again from the fresh plan.
       if (fresh[name]) app.writeDoc(orgId, name, fresh[name]);
+      else db.prepare('DELETE FROM docs WHERE org_id = ? AND name = ?').run(orgId, name);
     }
     done.push(`${spec.name} (fresh ${names.join(' and ')} for ${reset.mark})`);
   }

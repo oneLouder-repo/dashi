@@ -616,7 +616,7 @@ export function tocToPlan(doc, strategy, planId, { layers = null } = {}) {
       made[x.id] = have.id;
       return have.id;
     }
-    const op = strategyOps.addNode({ nodes }, { type, parentId, title: x.title, notes: notesFor(x), draft: true, fromToc: x.id });
+    const op = strategyOps.addNode({ nodes }, { type, parentId, title: x.title, notes: notesFor(x), draft: true, fromToc: x.id, tocLayer: layerOf(x) });
     nodes[op.id] = { ...op.data, id: op.id };
     out.strategyOps.push(op);
     out.studioOps.push(studioOps.update('toc', x.id, { strategyId: op.id, layer: layerOf(x) }));
@@ -643,17 +643,37 @@ export function tocToPlan(doc, strategy, planId, { layers = null } = {}) {
     for (const mid of outsOf(x.id)) for (const to of outsOf(mid.id)) if (lanes.includes(to.lane) && nodeFor(to)) return to;
     return null;
   };
+  /*
+   * What doesn't lead to anything in the plan still goes, so a new theory
+   * makes a new set of goals and objectives: under a holder for its layer
+   * ("New thinking: from the theory of change"), an objective, with a goal
+   * and a workplan under it as needed. Sending again finds the same holders.
+   */
+  const layerName = (id) => layersOf(doc, planId).find((l) => l.id === id)?.name ?? 'Theory of change';
+  const holder = (layer, type) => {
+    const key = `${layer}:${type}`;
+    const found = Object.values(nodes).find((n) => n.tocHolder === key && n.draft);
+    if (found) return found.id;
+    const parentId = type === 'objective' ? planId : holder(layer, type === 'goal' ? 'objective' : 'goal');
+    const title = { objective: `${layerName(layer)}: from the theory of change`, goal: `${layerName(layer)}: early changes`, workplan: `${layerName(layer)}: what we do` }[type];
+    const op = strategyOps.addNode({ nodes }, { type, parentId, title, notes: 'Gathers what the theory of change sent that doesn’t lead to anything in the plan yet. Move things out, rename it, or accept it as it is.', draft: true, tocHolder: key, tocLayer: layer });
+    nodes[op.id] = { ...op.data, id: op.id };
+    out.strategyOps.push(op);
+    out.preview.push({ tocId: null, type, title, parentTitle: nodes[parentId]?.title ?? plan.title, action: 'new', holder: true });
+    return op.id;
+  };
+  const placeLoose = (x, type, holderType) => { out.loose.push(x.title); place(x, type, holder(layerOf(x), holderType), nodes[holder(layerOf(x), holderType)].title); };
   for (const x of byLane('short').filter(sending)) {
     const p = parentIn(x, ['long']);
-    if (p) place(x, 'goal', nodeFor(p), p.title); else out.loose.push(x.title);
+    if (p) place(x, 'goal', nodeFor(p), p.title); else placeLoose(x, 'goal', 'objective');
   }
   for (const x of byLane('activity').filter(sending)) {
     const p = parentIn(x, ['short']);
-    if (p) place(x, 'workplan', nodeFor(p), p.title); else out.loose.push(x.title);
+    if (p) place(x, 'workplan', nodeFor(p), p.title); else placeLoose(x, 'workplan', 'goal');
   }
   for (const x of byLane('output').filter(sending)) {
     const from = insOf(x.id).find((a) => a.lane === 'activity' && nodeFor(a));
-    if (from) place(x, 'task', nodeFor(from), from.title); else out.loose.push(x.title);
+    if (from) place(x, 'task', nodeFor(from), from.title); else placeLoose(x, 'task', 'workplan');
   }
   return out;
 }

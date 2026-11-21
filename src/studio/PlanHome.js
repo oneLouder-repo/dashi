@@ -59,8 +59,8 @@ export function PlanHome(ctx, plan) {
       h('ul', { class: `team-list${rec.team.length > 8 ? ' long' : ''}` }, rec.team.map((t, i) => {
         const s = ctx.org.staff[t.staffId];
         return s && h('li', {},
-          Avatar(s, 28), h('span', { class: 'team-name' }, s.name, h('small', { class: 'muted' }, s.title)),
-          h('select', { class: 'select select-xs', name: `team-${t.staffId}`, 'aria-label': `${s.name}’s role`, onchange: (e) => setTeam(rec.team.map((x, j) => (j === i ? { ...x, role: e.target.value } : x))) }, options(TEAM_ROLES, t.role)),
+          Avatar(s, 32), h('span', { class: 'team-name', title: [s.name, s.title].filter(Boolean).join(', ') }, h('b', {}, s.name), h('small', { class: 'muted' }, s.title || 'On the team')),
+          h('select', { class: 'select select-xs team-role', name: `team-${t.staffId}`, 'aria-label': `${s.name}’s role`, onchange: (e) => setTeam(rec.team.map((x, j) => (j === i ? { ...x, role: e.target.value } : x))) }, options(TEAM_ROLES, t.role)),
           h('button', { class: 'btn btn-ghost btn-xs btn-square', title: 'Remove', 'aria-label': `Remove ${s.name}`, onclick: () => setTeam(rec.team.filter((_, j) => j !== i)) }, '×'));
       })),
       // Big teams: search and team filters in one picker, instead of a long dropdown.

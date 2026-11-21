@@ -2,6 +2,7 @@ import { h, options } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { Shell, toast } from '../ui/Shell.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
+import { swSections } from '../strategy/swNav.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
 import { saveDoc, onDocChange } from '../platform/storage.js';
 import { loadOrg, loadStrategy, loadData, loadPlanDocs } from '../platform/docs.js';
@@ -56,17 +57,13 @@ function create(planId) {
 }
 
 function drawSide(pd) {
-  side = swapSide(side, SideNav({ label: 'Planning Studio', sections: [
-    { title: 'Planning Studio', items: [
-      { label: 'Framework and plans', sub: 'Mission, vision, values', icon: 'strategy', href: linkTo('studio', '#framework') },
-      { label: 'Plan designer', sub: 'Designed plans to print or publish', icon: 'brush', href: 'plandoc.html', on: true },
-      { label: 'Strategy & Work', sub: 'The plans as work', icon: 'mapTrifold', href: 'strategy.html' },
-    ] },
-    { title: 'Plan documents', items: Object.values(doc.docs).map((d) => ({
+  // The same panel as the rest of Strategy & Work (strategy/swNav.js), then this page's own documents.
+  side = swapSide(side, SideNav({ label: 'Strategy & Work', sections: swSections({ page: 'plandoc', planId: pd?.planId ?? null, strategy, extra: [
+    { title: 'Plan documents', fold: 'sw-plandocs', items: Object.values(doc.docs).map((d) => ({
       label: strategy.nodes[d.planId]?.title ?? 'A removed plan', sub: d.status === 'published' ? 'Published' : 'Draft', icon: 'doc', href: `#${d.id}`, on: d.id === pd?.id,
     })) },
-    { title: 'Make one for a plan', items: plans().map((p) => ({ label: p.title, sub: [p.start, p.end].filter(Boolean).map(short).join(' – '), icon: 'plus', onclick: () => create(p.id) })) },
-  ] }));
+    { title: 'Make one for a plan', fold: 'sw-plandoc-new', items: plans().map((p) => ({ label: p.title, sub: [p.start, p.end].filter(Boolean).map(short).join(' – '), icon: 'plus', onclick: () => create(p.id) })) },
+  ] }) }));
 }
 
 function render() {

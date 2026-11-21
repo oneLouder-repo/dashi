@@ -164,7 +164,7 @@ function drawSide(cards) {
   const roots = Object.values(hub.collections).filter((c) => !c.parentId || !hub.collections[c.parentId]).sort((a, b) => a.name.localeCompare(b.name));
   const collItems = (c, depth = 0) => [
     {
-      label: c.name, lead: dot(c.color ?? '#999'), href: `#coll=${c.id}`, on: isOn({ coll: c.id }),
+      label: c.name, sub: c.description || 'Collection', lead: dot(c.color ?? '#999'), href: `#coll=${c.id}`, on: isOn({ coll: c.id }),
       badge: String(count((x) => x.collectionIds.some((id) => collectionTree(hub, c.id).has(id)))),
       className: 'ah-coll-row', props: { ...dropProps({ coll: c.id }), style: `--depth:${depth}`, oncontextmenu: canEdit ? (e) => { e.preventDefault(); collectionMenu(c, e); } : null },
     },
@@ -173,12 +173,12 @@ function drawSide(cards) {
   const tags = tagCounts(cards).slice(0, 24);
   sideEl = swapSide(sideEl, SideNav({ label: 'Assets', sections: [
     { title: 'Assets', items: [
-      { label: 'All assets', icon: 'dots', href: '#', on: !s.src && !s.coll && !s.tag && !s.abcd, badge: String(cards.length) },
-      ...SOURCES.filter((x) => !x.plugin || plugins.has(x.plugin)).map((x) => ({ label: x.label, icon: x.icon, href: `#src=${x.id}`, on: isOn({ src: x.id }), badge: String(count((c) => c.source === x.id)) })),
+      { label: 'All assets', sub: 'Everything, from every plugin', icon: 'dots', href: '#', on: !s.src && !s.coll && !s.tag && !s.abcd, badge: String(cards.length) },
+      ...SOURCES.filter((x) => !x.plugin || plugins.has(x.plugin)).map((x) => ({ label: x.label, sub: x.sub, icon: x.icon, href: `#src=${x.id}`, on: isOn({ src: x.id }), badge: String(count((c) => c.source === x.id)) })),
     ] },
     { title: 'ABCD lens', items: [
-      ...ABCD.map((x) => ({ label: x.label, lead: dot(x.color), href: `#abcd=${x.id}`, on: isOn({ abcd: x.id }), badge: String(count((c) => c.abcd === x.id)), title: x.hint, props: dropProps({ abcd: x.id }) })),
-      { label: 'Not yet sorted', icon: 'question', href: '#abcd=none', on: isOn({ abcd: 'none' }), badge: String(count((c) => !c.abcd)) },
+      ...ABCD.map((x) => ({ label: x.label, sub: x.hint, lead: dot(x.color), href: `#abcd=${x.id}`, on: isOn({ abcd: x.id }), badge: String(count((c) => c.abcd === x.id)), title: x.hint, props: dropProps({ abcd: x.id }) })),
+      { label: 'Not yet sorted', sub: 'No ABCD type yet', icon: 'question', href: '#abcd=none', on: isOn({ abcd: 'none' }), badge: String(count((c) => !c.abcd)) },
     ] },
     { title: 'Collections', action: canEdit && { label: 'New collection', onclick: () => newCollection() },
       items: roots.length ? roots.flatMap((c) => collItems(c)) : null,

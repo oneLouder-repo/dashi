@@ -134,7 +134,7 @@ function drawSide(view, a) {
     ] },
     { title: 'Bibliographies', action: bibsAllowed && { label: 'New bibliography', onclick: newBib }, items: bibsAllowed ? [
       ...Object.values(lib().bibs).sort((x, y) => x.title.localeCompare(y.title)).map((bib) => ({ label: bib.title, sub: `${n(bib.itemIds.length, 'source')} · ${n(Object.values(bib.annotations).filter((x) => x.text?.trim()).length, 'annotation')}`, icon: 'news', href: `#bib/${bib.id}`, on: view === 'bib' && a === bib.id })),
-      { label: 'All bibliographies', icon: 'news', href: '#bibs', on: view === 'bibs' },
+      { label: 'All bibliographies', sub: 'Annotated, with weekly briefs', icon: 'news', href: '#bibs', on: view === 'bibs' },
     ] : [{ label: 'Annotated bibliographies', sub: 'Standard and Custom plans', icon: 'lock', href: '#bibs', on: view === 'bibs' }] },
   ] }));
 }

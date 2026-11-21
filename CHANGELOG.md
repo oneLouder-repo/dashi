@@ -6,6 +6,16 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 From 0.2 on, each alpha point version (0.2, 0.3…) is one major platform feature, and its sub-versions (0.2.1, 0.2.2…) are bug hunts and polish from live testing. 0.2 landed over several pull requests, newest first below.
 
+### Last touches before 0.2 is done
+
+- **One left panel for Strategy & Work**, the same on Strategy & Work, the Planning Studio and the Plan designer, laid out like the mapper's tool panel: **Tools** (Overview, Framework, Strategic data, Workplan completion, Roadmap, Plan designer), then **Planning Studio** with a plan picker and that plan's tools (Plan home, SOAR board, Assemble, Theory of change, Results). The studio's tabs are gone, since the panel has them.
+- **Every plugin's side nav folds by section**, like the mapper's, and remembers it. Rows are slimmer and all the same height, every item has a second line, icons take the plugin's colour, and the open item is the white card from the Public Portal.
+- **The theory of change is a layer of the plan.** A new theory always makes goals and objectives: anything that doesn't lead into the plan yet goes under a holder objective for its layer (with a goal and workplan as needed), and sending again finds the same holders. Each draft knows its layer, and Strategy & Work's panel has **Layers** to show or hide each one in the outline and the framework sunburst.
+- **Assemble, rethought after Max/MSP and Scratch**: colour-coded lanes (Ideas, Workplans, Goals, Objectives, Plan); white blocks with their colour as the border; click a block's top to light up everything that feeds it and everything it feeds, with the patch cords flowing and the path spelled out above the canvas; **loose ends** pulse and a button steps through them; **Tidy** lines each lane up to cross the fewest wires; **Notes** for comments on the canvas; drafts from the theory show striped; and **Layers** in the panel hide the ideas, the plan, each theory layer or the notes.
+- **The SOAR board matches**: white cards with their quadrant's colour as the border, on bolder quadrants.
+- **Plan home's Planning team** is one tidy row per person: avatar, name over title, role, remove.
+- Actua's plan documents reset with its plan (mark `pr11`).
+
 ### The asset graph, experimental (PR 7)
 
 - **Asset Graph**, a new sub-plugin of Assets (on by default, marked experimental): everything the org knows about its assets, people, map actors, tags, collections and strategy, as one web of linked facts (`src/platform/graph.js`). It uses the vocabularies the web already knows (schema.org, FOAF, SKOS, PROV, Dublin Core) plus ABCD's six types and Dashi's own terms for what they don't cover. Weak links (works here, on a map) are kept but don't count for paths and rankings.

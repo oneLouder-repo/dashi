@@ -7,7 +7,8 @@ import { levelIcon } from '../ui/strategyLook.js';
 /** The strategy as an outline: click to open, ▸ to expand, + to add the first allowed child. */
 export function Tree(ctx) {
   const { store, select, collapsed, selectedId } = ctx;
-  const doc = store.doc;
+  // Theory layers switched off in the left panel are left out (strategy/main.js).
+  const doc = ctx.shown ? ctx.shown(store.doc) : store.doc;
   const root = rootOf(doc);
   const path = new Set(selectedId && doc.nodes[selectedId] ? ancestors(doc, selectedId).map((n) => n.id) : []);
 

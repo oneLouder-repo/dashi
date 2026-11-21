@@ -65,14 +65,14 @@ export const fileGroup = (file) => FILE_GROUPS.find((g) => g.test(file?.type ?? 
 
 /** Kinds of thing an asset can be, from Dashi's own tools. */
 export const SOURCES = [
-  { id: 'upload', label: 'Uploaded files', icon: 'cloudUpload' },
-  { id: 'link', label: 'Links', icon: 'link' },
-  { id: 'note', label: 'Notes', icon: 'note' },
-  { id: 'map', label: 'Ecosystem maps', icon: 'sec-mapper', plugin: 'mapper' },
-  { id: 'actor', label: 'Actors & agents', icon: 'actor', plugin: 'mapper' },
-  { id: 'staff', label: 'People', icon: 'person' },
-  { id: 'library', label: 'Library', icon: 'sec-library', plugin: 'library' },
-  { id: 'episode', label: 'Podcast episodes', icon: 'sec-podcasts', plugin: 'podcasts' },
+  { id: 'upload', label: 'Uploaded files', icon: 'cloudUpload', sub: 'Documents, images, audio' },
+  { id: 'link', label: 'Links', icon: 'link', sub: 'Pages and drives elsewhere' },
+  { id: 'note', label: 'Notes', icon: 'note', sub: 'Written here' },
+  { id: 'map', label: 'Ecosystem maps', icon: 'sec-mapper', plugin: 'mapper', sub: 'From the mapper' },
+  { id: 'actor', label: 'Actors & agents', icon: 'actor', plugin: 'mapper', sub: 'Who is on your maps' },
+  { id: 'staff', label: 'People', icon: 'person', sub: 'Your staff and their gifts' },
+  { id: 'library', label: 'Library', icon: 'sec-library', plugin: 'library', sub: 'Documents and references' },
+  { id: 'episode', label: 'Podcast episodes', icon: 'sec-podcasts', plugin: 'podcasts', sub: 'Your stories, told aloud' },
 ];
 export const sourceById = Object.fromEntries(SOURCES.map((s) => [s.id, s]));
 

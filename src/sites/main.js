@@ -109,8 +109,8 @@ function renderSide() {
     ] },
     { title: 'Sites', action: { label: 'New site', onclick: newSite }, items: byVis('public').map(siteItem) },
     byVis('private').length > 0 && { title: 'Members only', items: byVis('private').map(siteItem) },
-    { title: 'Pages', action: { label: 'New page', onclick: () => newPage('page') }, items: [...list('page').map(item), { label: 'New page', icon: 'plus', onclick: () => newPage('page') }] },
-    { title: 'News articles', action: { label: 'New article', onclick: () => newPage('article') }, items: [...list('article').map(item), { label: 'New article', icon: 'plus', onclick: () => newPage('article') }] },
+    { title: 'Pages', action: { label: 'New page', onclick: () => newPage('page') }, items: [...list('page').map(item), { label: 'New page', sub: 'In a site’s menu', icon: 'plus', onclick: () => newPage('page') }] },
+    { title: 'News articles', action: { label: 'New article', onclick: () => newPage('article') }, items: [...list('article').map(item), { label: 'New article', sub: 'Dated news, with a cover', icon: 'plus', onclick: () => newPage('article') }] },
   ].filter(Boolean) }));
 }
 

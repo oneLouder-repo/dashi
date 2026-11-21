@@ -2,6 +2,7 @@ import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { Shell, Avatar } from '../ui/Shell.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
+import { swSections } from '../strategy/swNav.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
 import { Store } from '../core/Store.js';
 import { applyCollectionOp } from '../core/collections.js';
@@ -19,7 +20,7 @@ import { PlanHome } from './PlanHome.js';
 import { SoarBoard } from './SoarBoard.js';
 import { SoarList } from './SoarList.js';
 import { Results } from './Results.js';
-import { Assemble } from './Assemble.js';
+import { Assemble, assembleLayers } from './Assemble.js';
 import { Change } from './Change.js';
 import { uiPrompt } from '../ui/dialog.js';
 
@@ -131,41 +132,9 @@ ctx.planRecord = (planId) => store.doc.plans[planId] ?? { id: planId, team: [], 
 ctx.savePlan = (planId, patch) => (store.doc.plans[planId] ? ctx.put('plans', planId, patch) : store.apply(studioOps.add('plans', { id: planId, team: [], notes: '', ...patch })));
 
 function drawSide({ planId, tab }) {
-  const plans = plansOf(strategy.doc);
-  const count = (id, c) => ofPlan(store.doc, c, id).length;
-  const badge = (pid, t) => {
-    if (t === 'soar') return count(pid, 'cards') || null;
-    if (t === 'change') return count(pid, 'toc') || null;
-    if (t === 'results') return count(pid, 'results') || null;
-    if (t === 'assemble') return count(pid, 'blocks') || null;
-    return null;
-  };
-  const planItems = plans.flatMap((p) => {
-    const open = p.id === planId;
-    const last = lastTab(p.id);
-    const resume = TABS.find((t) => t.id === last && t.id !== 'home');
-    return [
-      { label: p.title, sub: open ? [p.start, p.end].filter(Boolean).map(short).join(' – ') || 'Plan home' : resume ? `Pick up in ${resume.label}` : PHASE_LABEL[planPhase(p, today())] ?? '',
-        icon: 'mapTrifold', href: open ? tabHref(p.id, 'home') : tabHref(p.id, last), on: open && tab === 'home', className: open ? 'side-plan open' : 'side-plan' },
-      ...(open ? TOOL_TABS.filter((t) => t.id !== 'home').map((t) => ({
-        label: t.label, icon: t.icon, href: tabHref(p.id, t.id), on: t.id === tab || (t.id === 'soar' && ['s', 'o', 'a'].includes(tab)),
-        badge: badge(p.id, t.id) ? String(badge(p.id, t.id)) : null, className: 'side-indent side-tool',
-      })) : []),
-    ];
-  });
-  side = swapSide(side, SideNav({ label: 'Strategy & Work', sections: [
-    // The Studio is part of Strategy & Work (0.2): one place for the plan, the planning and the work.
-    { title: 'Strategy & Work', items: [
-      { label: 'Overview', icon: 'home', href: 'strategy.html#overview' },
-      { label: 'Framework', icon: 'strategy', href: `strategy.html${planId ? `#${planId}` : '#framework'}`, sub: planId ? 'This plan as work: goals, tasks' : null },
-      { label: 'Roadmap', icon: 'mapTrifold', href: 'strategy.html#roadmap' },
-      { label: 'Plan designer', sub: 'Pages to print or publish', icon: 'brush', href: 'plandoc.html' },
-    ] },
-    { title: 'Planning Studio', items: [
-      { label: 'Framework and plans', sub: 'Mission, vision, values', icon: 'strategy', href: '#framework', on: tab === 'framework' },
-    ] },
-    { title: 'Plans', action: { label: 'New plan', onclick: newPlan }, items: planItems },
-  ] }));
+  // The same panel on every Strategy & Work page (strategy/swNav.js), plus the theory's layers when it's open.
+  const extra = planId && tab === 'assemble' ? [assembleLayers(ctx, planId)] : [];
+  side = swapSide(side, SideNav({ label: 'Strategy & Work', sections: swSections({ page: 'studio', tab, planId, strategy: strategy.doc, studio: store.doc, extra, onNewPlan: newPlan }) }));
 }
 
 async function newPlan() {
@@ -277,10 +246,7 @@ function render() {
           h('span', { class: 'spacer' }),
           live.el,
           AvatarStack(ctx.planRecord(plan.id).team.map((t) => org.staff[t.staffId]), { max: 8, size: 28 })),
-        h('div', { role: 'tablist', class: 'tabs tabs-border studio-tabs' }, TOOL_TABS.map((t) => {
-          const on = t.id === route.tab || (t.id === 'soar' && TAB_LABEL[route.tab]);
-          return h('a', { role: 'tab', class: `tab${on ? ' tab-active' : ''}`, href: tabHref(plan.id, t.id), 'aria-selected': String(!!on) }, icon(t.icon, 15), t.label);
-        })),
+        // The plan's tools are in the left panel (swNav.js), so there are no tabs here to repeat them.
         (route.tab === 'soar' || TAB_LABEL[route.tab]) && h('div', { class: 'device-toggle xs studio-soar-views', role: 'radiogroup', 'aria-label': 'SOAR view' },
           [['soar', 'Board'], ['s', 'Strengths'], ['o', 'Opportunities'], ['a', 'Aspirations']].map(([id, label]) =>
             h('button', { type: 'button', role: 'radio', 'aria-checked': String(route.tab === id), class: route.tab === id ? 'on' : '', onclick: () => ctx.go(tabHref(plan.id, id).slice(1)) }, label)))),

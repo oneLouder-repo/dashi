@@ -4,7 +4,7 @@ import { svg } from '../core/svg.js';
 import { col } from '../core/collections.js';
 import { kindById } from '../platform/assets.js';
 import { strategyOps, taskSummary } from '../platform/strategy.js';
-import { QUADRANTS, quadrant, ofPlan, blockLabel, canWire, sendToPlan, bringInPlan, CONTEXT_KINDS } from '../platform/studio.js';
+import { QUADRANTS, quadrant, ofPlan, blockLabel, canWire, sendToPlan, bringInPlan, CONTEXT_KINDS, studioOps } from '../platform/studio.js';
 import { Viewport } from './Viewport.js';
 import { uiAlert, uiConfirm } from '../ui/dialog.js';
 
@@ -31,13 +31,61 @@ const KIND = {
   goal: { label: 'Goal', color: '#3d63dd', inlet: true, editable: true },
   objective: { label: 'Objective', color: '#1d2230', inlet: true, editable: true },
   plan: { label: 'Plan', color: '#7b4fc9', inlet: true, noOutlet: true, editable: true },
+  // A comment, as in Max: words on the canvas, no wires.
+  note: { label: 'Note', color: '#a08a00', noOutlet: true, editable: true },
 };
-const COLUMN = { workplan: 40, goal: 400, objective: 760, plan: 1120 };
+const IDEAS = new Set(['card', 'context', 'asset', 'result']);
+const COLUMN = { idea: -320, workplan: 40, goal: 400, objective: 760, plan: 1120 };
+/** The lanes the patch flows through, left to right, like Scratch's colour-coded categories. */
+const LANES = [
+  { id: 'idea', label: 'Ideas', sub: 'SOAR, context, results, assets', x: -340, w: 300, color: '#2a7d5f' },
+  { id: 'workplan', label: 'Workplans', sub: 'What we do', x: 20, w: 330, color: KIND.workplan.color },
+  { id: 'goal', label: 'Goals', sub: 'What changes first', x: 380, w: 330, color: KIND.goal.color },
+  { id: 'objective', label: 'Objectives', sub: 'What lasts', x: 740, w: 330, color: KIND.objective.color },
+  { id: 'plan', label: 'Plan', sub: 'Where it all goes', x: 1100, w: 300, color: KIND.plan.color },
+];
+const laneOf = (b) => (IDEAS.has(b.kind) ? 'idea' : b.kind);
+
+/**
+ * Layers on the canvas, like the mapper's: the ideas, the plan as accepted,
+ * each theory-of-change layer whose drafts are on it, and notes. Hidden
+ * per browser; the left panel shows them (assembleLayers).
+ */
+const HIDE_KEY = 'dashi.assemble.hidden';
+const hiddenSet = (ctx) => (ctx.assembleHidden ??= new Set((() => { try { return JSON.parse(localStorage.getItem(HIDE_KEY) ?? '[]'); } catch { return []; } })()));
+function groupOf(ctx, b) {
+  if (IDEAS.has(b.kind)) return 'ideas';
+  if (b.kind === 'note') return 'notes';
+  const n = b.strategyId && ctx.strategy.doc.nodes[b.strategyId];
+  return n?.draft ? `toc:${n.tocLayer ?? 'toc'}` : 'plan';
+}
+export function assembleLayers(ctx, planId) {
+  const blocks = ofPlan(ctx.doc, 'blocks', planId);
+  const counts = {};
+  for (const b of blocks) { const gr = groupOf(ctx, b); counts[gr] = (counts[gr] ?? 0) + 1; }
+  const tocNames = Object.fromEntries((ctx.doc.plans?.[planId]?.tocLayers ?? []).map((l) => [l.id, l]));
+  const meta = (gr) => (gr === 'ideas' ? { name: 'Ideas', hue: 155 } : gr === 'plan' ? { name: 'The plan', hue: 222 } : gr === 'notes' ? { name: 'Notes', hue: 52 }
+    : { name: `${tocNames[gr.slice(4)]?.name ?? (gr === 'toc:new' ? 'New thinking' : 'Theory of change')} (draft)`, hue: tocNames[gr.slice(4)]?.hue ?? 32 });
+  const hidden = hiddenSet(ctx);
+  const order = ['ideas', 'plan', ...Object.keys(counts).filter((k) => k.startsWith('toc:')), 'notes'].filter((k) => counts[k]);
+  return { title: 'Layers', fold: 'sw-assemble-layers', className: 'sw-section', body: h('ul', { class: 'sw-layers' }, order.map((gr) => {
+    const off = hidden.has(gr);
+    const m = meta(gr);
+    return h('li', { class: `sw-layer${off ? ' off' : ''}` },
+      h('span', { class: 'sw-layer-swatch', style: `--h:${m.hue}` }),
+      h('span', { class: 'sw-layer-name' }, m.name, h('small', {}, `${counts[gr]} on the canvas`)),
+      h('button', { class: 'btn btn-ghost btn-xs btn-square', title: off ? 'Show this layer' : 'Hide this layer', 'aria-label': off ? `Show ${m.name}` : `Hide ${m.name}`, 'aria-pressed': String(!off),
+        onclick: () => { off ? hidden.delete(gr) : hidden.add(gr); try { localStorage.setItem(HIDE_KEY, JSON.stringify([...hidden])); } catch { /* fine */ } ctx.render(); } }, icon(off ? 'eyeOff' : 'eye', 14)));
+  })) };
+}
 
 export function Assemble(ctx, plan) {
   const doc = ctx.doc;
-  const blocks = ofPlan(doc, 'blocks', plan.id);
-  const wires = ofPlan(doc, 'wires', plan.id);
+  const hidden = hiddenSet(ctx);
+  const allBlocks = ofPlan(doc, 'blocks', plan.id);
+  const blocks = allBlocks.filter((b) => !hidden.has(groupOf(ctx, b)));
+  const showing = new Set(blocks.map((b) => b.id));
+  const wires = ofPlan(doc, 'wires', plan.id).filter((w) => showing.has(w.from) && showing.has(w.to));
   const byId = Object.fromEntries(blocks.map((b) => [b.id, b]));
   const placed = (kind, ref) => blocks.some((b) => b.kind === kind && (b.ref === ref || b.asset?.id === ref));
   ctx.views ??= {};
@@ -48,17 +96,22 @@ export function Assemble(ctx, plan) {
     const z = Math.max(0.25, Math.min(1, (w - 60) / (box.x1 - box.x0), (hgt - 80) / (box.y1 - box.y0)));
     return { x: 30 - box.x0 * z, y: 20 - box.y0 * z, z };
   };
-  const vp = Viewport(ctx.views[`assemble:${plan.id}`] ??= {}, { home, min: 0.25, max: 2 });
+  const vp = Viewport(ctx.views[`assemble:${plan.id}`] ??= {}, { home, min: 0.25, max: 2, buttons: [
+    h('button', { class: 'btn btn-sm join-item', title: 'Line every block up in its lane, in the order that crosses the fewest wires', onclick: () => tidy() }, icon('tidy', 15), 'Tidy'),
+  ] });
   vp.el.classList.add('patch-vp');
   const patch = h('div', { class: 'patch', 'data-pan': '', style: `width:${W}px;height:${H}px` });
   const wireLayer = svg('svg', { class: 'patch-wires', width: W, height: H });
   vp.world.append(patch);
+  // The lanes, behind everything.
+  patch.append(...LANES.map((l) => h('div', { class: 'patch-lane', 'data-pan': '', style: `left:${l.x}px;width:${l.w}px;height:${H}px;--c:${l.color}` },
+    h('div', { class: 'patch-lane-head' }, h('b', {}, l.label), h('small', {}, l.sub)))));
   patch.append(wireLayer);
   const z = () => vp.view.z;
 
   // Where to drop something added by clicking: the next free row in its column.
   const spot = (kind) => {
-    const x = COLUMN[kind] ?? 40;
+    const x = COLUMN[IDEAS.has(kind) ? 'idea' : kind] ?? 40;
     const ys = blocks.filter((b) => Math.abs(b.x - x) < 200).map((b) => b.y);
     let y = 30;
     while (ys.some((v) => Math.abs(v - y) < 90)) y += 100;
@@ -96,6 +149,7 @@ export function Assemble(ctx, plan) {
       h('button', { class: 'btn btn-sm btn-primary', onclick: () => addBlock({ kind: 'goal', title: 'New goal' }) }, icon('plus', 14), 'Goal'),
       h('button', { class: 'btn btn-sm btn-outline', onclick: () => addBlock({ kind: 'objective', title: 'New objective' }) }, icon('plus', 14), 'Objective'),
       h('button', { class: 'btn btn-sm btn-outline bin-add-wp', title: 'A workplan: wire it into a goal', onclick: () => addBlock({ kind: 'workplan', title: 'New workplan' }) }, icon('plus', 14), 'Workplan'),
+      h('button', { class: 'btn btn-sm btn-ghost bin-add-note', title: 'A note on the canvas, as in Max: words, no wires', onclick: () => addBlock({ kind: 'note', title: 'A note' }, { x: 40, y: Math.max(30, ...blocks.map((b) => b.y + 140)) }) }, icon('note', 14), 'Note'),
       h('button', { class: 'btn btn-sm btn-soft bin-add-plan', title: planOnCanvas ? 'Add anything from Strategy & Work that isn’t on the canvas yet' : 'Lay out the plan, its objectives, goals and workplans from Strategy & Work', onclick: bringIn }, icon('strategy', 14), planOnCanvas ? 'Bring in the rest of the plan' : 'Bring in the plan')),
     QUADRANTS.map((q) => bin(q.label, cards.filter((c) => c.quadrant === q.id).sort((a, b) => b.votes.length - a.votes.length)
       .map((c) => chip(c.text, { kind: 'card', ref: c.id }, c.votes.length ? `● ${c.votes.length}` : null, q.color)), q.id !== 'r')),
@@ -117,9 +171,37 @@ export function Assemble(ctx, plan) {
     addBlock(JSON.parse(raw), { x: Math.round(Math.max(0, (e.clientX - r.left) / z() - 90)), y: Math.round(Math.max(0, (e.clientY - r.top) / z() - 20)) });
   });
 
+  // A block picked (click its head): everything that feeds it and everything it feeds light up, and the wires flow.
+  const focus = ctx.focusBlock && byId[ctx.focusBlock] ? ctx.focusBlock : null;
+  const chain = new Set();
+  const flowWires = new Set();
+  if (focus) {
+    const walk = (id, dir) => {
+      for (const w of wires) {
+        const [a, b] = dir === 'down' ? [w.from, w.to] : [w.to, w.from];
+        if (a !== id || flowWires.has(w.id)) continue;
+        flowWires.add(w.id);
+        chain.add(b);
+        walk(b, dir);
+      }
+    };
+    chain.add(focus);
+    walk(focus, 'down');
+    walk(focus, 'up');
+  }
+  // Loose ends: a workplan, goal or objective that doesn't lead anywhere yet.
+  const loose = blocks.filter((b) => ['workplan', 'goal', 'objective'].includes(b.kind) && !wires.some((w) => w.from === b.id));
+
   // Blocks.
   const els = {};
-  for (const b of blocks) els[b.id] = patch.appendChild(Block(ctx, b, doc, wires, z));
+  for (const b of blocks) {
+    const el = Block(ctx, b, doc, wires, z);
+    if (focus) el.classList.add(chain.has(b.id) ? 'in-chain' : 'off-chain');
+    if (b.id === focus) el.classList.add('focused');
+    if (loose.includes(b)) el.classList.add('loose');
+    els[b.id] = patch.appendChild(el);
+  }
+  patch.addEventListener('click', (e) => { if (ctx.focusBlock && (e.target === patch || e.target.closest('.patch-lane'))) { ctx.focusBlock = null; ctx.render(); } });
 
   // Wires, drawn once the blocks are laid out.
   const port = (id, side) => {
@@ -138,7 +220,7 @@ export function Assemble(ctx, plan) {
       if (!a || !b) continue;
       const from = byId[w.from];
       const color = from.kind === 'card' ? quadrant(doc.cards[from.ref]?.quadrant)?.color : KIND[from.kind]?.color;
-      const g = svg('g', { class: `patch-wire${ctx.selWire === w.id ? ' on' : ''}` }, wireLayer);
+      const g = svg('g', { class: `patch-wire${ctx.selWire === w.id ? ' on' : ''}${focus ? (flowWires.has(w.id) ? ' flow' : ' off-chain') : ''}` }, wireLayer);
       svg('path', { d: curve(a, b), class: 'wire-hit' }, g).addEventListener('click', () => { ctx.selWire = ctx.selWire === w.id ? null : w.id; ctx.render(); });
       svg('path', { d: curve(a, b), class: 'wire-line', stroke: color ?? '#59607a' }, g);
       if (ctx.selWire === w.id) {
@@ -180,6 +262,43 @@ export function Assemble(ctx, plan) {
     window.addEventListener('pointerup', up);
   });
 
+  /* Tidy: each lane in a column, ordered by where what it feeds sits, so wires cross as little as they can. */
+  const tidy = () => {
+    const outs = (id) => wires.filter((w) => w.from === id).map((w) => byId[w.to]).filter(Boolean);
+    const ins = (id) => wires.filter((w) => w.to === id).map((w) => byId[w.from]).filter(Boolean);
+    const y = {};
+    const stack = (list, gap, top = 30) => { let at = top; for (const b of list) { y[b.id] = at; at += gap; } };
+    const mean = (xs, fallback) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : fallback);
+    const lane = (k) => blocks.filter((b) => laneOf(b) === k);
+    stack(lane('plan').sort((a, b) => a.y - b.y), 140, 200);
+    stack(lane('objective').sort((a, b) => mean(outs(a.id).map((t) => y[t.id] ?? t.y), a.y) - mean(outs(b.id).map((t) => y[t.id] ?? t.y), b.y) || a.y - b.y), 130);
+    stack(lane('goal').sort((a, b) => mean(outs(a.id).map((t) => y[t.id] ?? t.y), 1e6 + a.y) - mean(outs(b.id).map((t) => y[t.id] ?? t.y), 1e6 + b.y)), 120);
+    stack(lane('workplan').sort((a, b) => mean(outs(a.id).map((t) => y[t.id] ?? t.y), 1e6 + a.y) - mean(outs(b.id).map((t) => y[t.id] ?? t.y), 1e6 + b.y)), 135);
+    stack(lane('idea').sort((a, b) => mean(outs(a.id).map((t) => y[t.id] ?? t.y), 1e6 + a.y) - mean(outs(b.id).map((t) => y[t.id] ?? t.y), 1e6 + b.y)), 105);
+    // The plan sits level with the middle of its objectives.
+    for (const p of lane('plan')) { const ys = ins(p.id).map((o) => y[o.id]); if (ys.length) y[p.id] = Math.round(mean(ys, y[p.id])); }
+    const notes = lane('note');
+    const ops = blocks.filter((b) => b.kind !== 'note' && y[b.id] != null).map((b) => studioOps.update('blocks', b.id, { x: COLUMN[laneOf(b)], y: Math.round(y[b.id]) }))
+      .filter((op, i) => { const b = blocks.filter((x) => x.kind !== 'note' && y[x.id] != null)[i]; return b.x !== op.patch.x || b.y !== op.patch.y; });
+    if (!ops.length) return;
+    ctx.store.apply(col.batch(ops));
+    void notes;
+  };
+  /* The story of the picked block: where it comes from and where it leads, in words. */
+  const story = () => {
+    if (!focus) return null;
+    const name = (b) => (b.kind === 'card' ? quadrant(doc.cards[b.ref]?.quadrant)?.label.replace(/s$/, '').replace(/ie$/, 'y') : KIND[b.kind].label);
+    const words = (b) => cutTo(b.strategyId && ctx.strategy.doc.nodes[b.strategyId]?.title || blockLabel(doc, b) || name(b), 38);
+    const down = [];
+    for (let b = byId[focus], seen = new Set(); b && !seen.has(b.id); ) { seen.add(b.id); down.push(b); b = wires.filter((w) => w.from === b.id).map((w) => byId[w.to])[0]; }
+    const feeds = [...chain].filter((id) => id !== focus && !down.some((d) => d.id === id)).length;
+    return h('div', { class: 'patch-story', role: 'status' },
+      down.map((b, i) => [i > 0 && h('span', { class: 'patch-story-arrow' }, '→'), h('span', { class: 'patch-story-step', style: `--c:${b.kind === 'card' ? quadrant(doc.cards[b.ref]?.quadrant)?.color : KIND[b.kind].color}` }, h('small', {}, name(b)), words(b))]),
+      down.length === 1 && h('span', { class: 'muted' }, ['workplan', 'goal', 'objective'].includes(down[0].kind) ? ' leads nowhere yet: patch its outlet onward.' : ''),
+      feeds > 0 && h('span', { class: 'muted' }, ` · ${feeds} thing${feeds === 1 ? '' : 's'} feed${feeds === 1 ? 's' : ''} into it`),
+      h('button', { class: 'btn btn-ghost btn-xs', onclick: () => { ctx.focusBlock = null; ctx.render(); } }, icon('close', 12), 'Clear'));
+  };
+
   const send = async () => {
     const out = sendToPlan(doc, ctx.strategy.doc, plan.id);
     if (!out.made && !out.updated) { uiAlert('Add an objective block, and wire goals (and workplans into those) into it, to send them to the plan.'); return; }
@@ -196,12 +315,16 @@ export function Assemble(ctx, plan) {
 
   return h('div', { class: 'assemble' },
     h('div', { class: 'assemble-bar' },
-      h('p', { class: 'muted' }, 'Drag ideas in from the left. Patch an outlet ', h('span', { class: 'port-demo out' }), ' into an inlet ', h('span', { class: 'port-demo in' }), ': ideas and workplans into goals, goals into objectives, objectives into the plan. Click a wire to remove it.'),
+      story() ?? h('p', { class: 'muted' }, 'Drag ideas in from the left. Patch an outlet ', h('span', { class: 'port-demo out' }), ' into an inlet ', h('span', { class: 'port-demo in' }), '. Click a block’s top to follow what it feeds; click a wire to remove it.'),
       h('span', { class: 'spacer' }),
+      loose.length > 0 && h('button', { class: 'btn btn-sm btn-ghost patch-loose-btn', title: 'Workplans, goals and objectives that don’t lead anywhere yet: show the next one',
+        onclick: () => { const i = loose.findIndex((b) => b.id === focus); ctx.focusBlock = loose[(i + 1) % loose.length].id; ctx.render(); } }, h('span', { class: 'loose-dot' }), `${loose.length} loose end${loose.length === 1 ? '' : 's'}`),
       flash && h('span', { class: 'badge badge-success badge-soft', role: 'status' }, flash, ' ', h('a', { class: 'link', href: `strategy.html#${plan.id}` }, 'Open')),
       h('button', { class: 'btn btn-sm btn-primary', onclick: send }, icon('upload', 14), 'Send to plan')),
     h('div', { class: 'assemble-body' }, bins, vp.el));
 }
+
+const cutTo = (s, n) => (String(s).length > n ? `${String(s).slice(0, n - 1)}…` : String(s));
 
 function Block(ctx, b, doc, wires, z) {
   const k = KIND[b.kind];
@@ -218,13 +341,13 @@ function Block(ctx, b, doc, wires, z) {
     if (inPlan && next !== inPlan.title) ctx.strategy.apply(strategyOps.update(inPlan.id, { title: next }));
   };
   const tasks = b.kind === 'workplan' && inPlan ? taskSummary(ctx.strategy.doc, inPlan.id).total : null;
-  const el = h('div', { class: `block kind-${b.kind}${editable ? ' big' : ''}`, style: `left:${b.x}px;top:${b.y}px;--c:${color}`, 'data-id': b.id },
+  const el = h('div', { class: `block kind-${b.kind}${editable ? ' big' : ''}${inPlan?.draft ? ' is-draft' : ''}`, style: `left:${b.x}px;top:${b.y}px;--c:${color}`, 'data-id': b.id },
     k.inlet && h('span', { class: 'inlet', title: { goal: 'Inlet: wire ideas and workplans in', objective: 'Inlet: wire goals and ideas in', plan: 'Inlet: wire objectives in' }[b.kind] }),
     h('div', { class: 'block-head', onpointerdown: (e) => dragBlock(ctx, el, b, e, z) },
       h('span', {}, q ? q.label.replace(/s$/, '').replace(/ie$/, 'y') : k.label),
       editable && feeds > 0 && h('small', {}, `${feeds} in`),
       h('span', { class: 'spacer' }),
-      inPlan && h('a', { class: 'block-link', href: `strategy.html#${b.strategyId}`, title: 'In Strategy & Work: open it', onpointerdown: (e) => e.stopPropagation() }, '✓ in plan'),
+      inPlan && h('a', { class: 'block-link', href: `strategy.html#${b.strategyId}`, title: inPlan.draft ? 'A draft in Strategy & Work: open it to accept or discard' : 'In Strategy & Work: open it', onpointerdown: (e) => e.stopPropagation() }, inPlan.draft ? 'Draft' : '✓ in plan'),
       h('button', { class: 'block-x', title: 'Remove from the canvas', 'aria-label': 'Remove block', onpointerdown: (e) => e.stopPropagation(),
         onclick: () => {
           ctx.remove('wires', wires.filter((w) => w.from === b.id || w.to === b.id).map((w) => w.id));
@@ -250,7 +373,7 @@ function dragBlock(ctx, el, b, e, z) {
   el.classList.add('dragging');
   let pos = { x: b.x, y: b.y };
   const move = (ev) => {
-    pos = { x: Math.max(0, Math.min(W - 180, b.x + (ev.clientX - start.x) / z())), y: Math.max(0, Math.min(H - 60, b.y + (ev.clientY - start.y) / z())) };
+    pos = { x: Math.max(-340, Math.min(W - 180, b.x + (ev.clientX - start.x) / z())), y: Math.max(0, Math.min(H - 60, b.y + (ev.clientY - start.y) / z())) };
     el.style.left = `${pos.x}px`;
     el.style.top = `${pos.y}px`;
     ctx.redrawWires?.();
@@ -261,7 +384,7 @@ function dragBlock(ctx, el, b, e, z) {
     el.classList.remove('dragging');
     ctx.endDrag();
     if (pos.x !== b.x || pos.y !== b.y) ctx.put('blocks', b.id, { x: Math.round(pos.x), y: Math.round(pos.y) });
-    else ctx.render();
+    else { ctx.focusBlock = ctx.focusBlock === b.id ? null : b.id; ctx.render(); }
   };
   window.addEventListener('pointermove', move);
   window.addEventListener('pointerup', up);

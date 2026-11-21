@@ -112,7 +112,7 @@ function PlanBar(doc, p, now) {
 let sunPath = [];      // where the framework sunburst is zoomed, kept across redraws
 let sunPinned = null;  // a task picked in it
 function WholeSunburst(ctx, root, now) {
-  const doc = ctx.store.doc;
+  const doc = ctx.shown ? ctx.shown(ctx.store.doc) : ctx.store.doc;
   const toData = (n) => {
     const kids = childrenOf(doc, n.id);
     return kids.length ? { name: n.title || NODE_TYPES[n.type].label, id: n.id, children: kids.map(toData) } : { name: n.title || 'Untitled', id: n.id, value: 1 };

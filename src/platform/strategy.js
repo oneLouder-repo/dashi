@@ -244,6 +244,23 @@ export function statusAt(task, date, now = today()) {
  * The strategy without drafts the theory of change sent (and anything
  * under them), for reports, which show only what the team has accepted.
  */
+/**
+ * The theory of change's layers in the plan (0.2): drafts it sent carry
+ * the layer they came from (tocLayer). layersInPlan lists them with how
+ * many drafts each has; withoutLayers hides some, with everything under them.
+ */
+export function layersInPlan(doc) {
+  const out = {};
+  for (const n of Object.values(doc.nodes)) if (n.draft) { const id = n.tocLayer ?? 'toc'; out[id] = (out[id] ?? 0) + 1; }
+  return out;
+}
+export function withoutLayers(doc, hidden) {
+  if (!hidden?.size) return doc;
+  const off = (n) => { for (let p = n; p; p = doc.nodes[p.parentId]) if (p.draft && hidden.has(p.tocLayer ?? 'toc')) return true; return false; };
+  const out = {};
+  for (const n of Object.values(doc.nodes)) if (!off(n)) out[n.id] = n;
+  return { ...doc, nodes: out };
+}
 export function withoutDrafts(doc) {
   if (!Object.values(doc.nodes).some((n) => n.draft)) return doc;
   const out = {};
