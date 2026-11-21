@@ -84,7 +84,7 @@ function renderSide() {
   side = swapSide(side, SideNav({ label: 'Public Portal', sections: [
     { title: 'Public Portal', items: [
       { label: 'Overview', sub: 'Every site, and what is live', icon: 'home', href: '#sites', on: r === 'sites' },
-      { label: 'Look and feel', sub: org.theme?.palette ? `${paletteById[org.theme.palette]?.label ?? 'Your'} colours, ${shapeById[org.theme.shape]?.label?.toLowerCase() ?? 'rounded'}` : 'Colours and shapes', icon: 'palette', href: '#look', on: r === 'look' || r.startsWith('look/') },
+      { label: 'Look and feel', sub: org.theme?.palette ? `${org.theme.palette === 'custom' ? 'Your own' : paletteById[org.theme.palette]?.label ?? 'Your'} colours, ${shapeById[org.theme.shape]?.label?.toLowerCase() ?? 'rounded'}` : 'Colours and shapes', icon: 'palette', href: '#look', on: r === 'look' || r.startsWith('look/') },
       { label: 'Dashboards', sub: 'Data Workbench', icon: 'chart', href: 'palette.html#dashboards' },
       { label: 'Feedback forms', sub: 'Data Workbench', icon: 'chats', href: 'palette.html#feedback' },
       { label: 'Strategic plan', sub: 'Plan designer', icon: 'strategy', href: 'plandoc.html' },
@@ -462,7 +462,14 @@ function Look(siteId) {
             h('button', { type: 'button', role: 'radio', title: x.blurb, 'aria-checked': String(d.header === x.id), class: d.header === x.id ? 'on' : '', onclick: () => setLook({ header: x.id }) }, x.label))))),
       h('section', { class: 'lk-box' },
         h('div', { class: 'lk-box-head' }, h('h2', {}, 'Colours and shape'), h('span', { class: 'lk-shared' }, icon('globe', 12), 'Shared by all your sites')),
-        h('div', { class: 'palette-grid', role: 'radiogroup', 'aria-label': 'Colour palette' }, PALETTES.map((p) => {
+        h('div', { class: 'palette-grid', role: 'radiogroup', 'aria-label': 'Colour palette' }, th.colors && (() => {
+          // The org's own colours (set at intake; no maker yet). Kept when trying a preset, so you can come back.
+          const on = th.palette === 'custom';
+          const sw = h('button', { type: 'button', class: `palette-option${on ? ' on' : ''}`, role: 'radio', 'aria-checked': String(on), onclick: () => setTheme({ palette: 'custom' }) },
+            h('span', { class: 'swatches' }, ['primary', 'secondary', 'accent', 'neutral', 'base-200'].map((c) => h('span', { style: `background:${th.colors[c] ?? `var(--color-${c})`}` }))),
+            h('span', {}, 'Your own colours'));
+          return sw;
+        })(), PALETTES.map((p) => {
           const on = th.palette === p.id;
           const sw = h('button', { type: 'button', class: `palette-option${on ? ' on' : ''}`, role: 'radio', 'aria-checked': String(on), onclick: () => setTheme({ palette: p.id }) },
             h('span', { class: 'swatches' }, ['primary', 'secondary', 'accent', 'neutral', 'base-200'].map((c) => h('span', { style: `background:var(--color-${c})` }))),

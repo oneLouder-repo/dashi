@@ -5,6 +5,10 @@
  * border and depth variables on top.
  *
  * org.theme = { palette: 'corporate', shape: 'rounded' }
+ * A custom palette (no maker yet; set by a client's seed):
+ * org.theme = { palette: 'custom', base: 'light', colors: { primary: '#9b1d3a', 'primary-content': '#fff', … } }
+ *   base     the DaisyUI theme underneath, for anything colors leaves out
+ *   colors   DaisyUI colour names (primary, secondary, accent, neutral, base-100…) → CSS colours
  *
  * To offer another palette, add a DaisyUI theme name here (and make sure
  * vendor/daisyui/themes.css includes it).
@@ -35,8 +39,17 @@ export const paletteById = Object.fromEntries(PALETTES.map((p) => [p.id, p]));
 export const shapeById = Object.fromEntries(SHAPES.map((s) => [s.id, s]));
 
 /** Apply a theme to an element (usually <html> on a public site, or a preview box). */
+const COLOUR_KEYS = ['primary', 'primary-content', 'secondary', 'secondary-content', 'accent', 'accent-content', 'neutral', 'neutral-content', 'base-100', 'base-200', 'base-300', 'base-content', 'info', 'success', 'warning', 'error'];
+const isColour = (v) => typeof v === 'string' && /^(#[0-9a-f]{3,8}|(rgb|hsl|oklch)a?\([\d\s.,%/-]+\))$/i.test(v.trim());
+export const isCustomTheme = (theme = {}) => theme.palette === 'custom' && !!theme.colors;
+
 export function applyTheme(el, theme = {}) {
-  el.setAttribute('data-theme', paletteById[theme.palette] ? theme.palette : 'corporate');
+  const custom = isCustomTheme(theme);
+  const base = custom ? theme.base : theme.palette;
+  el.setAttribute('data-theme', paletteById[base] ? base : custom ? 'light' : 'corporate');
+  for (const k of COLOUR_KEYS) el.style.removeProperty(`--color-${k}`);
+  if (custom) for (const [k, v] of Object.entries(theme.colors)) if (COLOUR_KEYS.includes(k) && isColour(v)) el.style.setProperty(`--color-${k}`, v.trim());
+  el.dataset.palette = custom ? 'custom' : el.getAttribute('data-theme');
   const shape = shapeById[theme.shape] ?? SHAPES[0];
   for (const s of SHAPES) for (const k of Object.keys(s.vars)) el.style.removeProperty(k);
   for (const [k, v] of Object.entries(shape.vars)) el.style.setProperty(k, v);

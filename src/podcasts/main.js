@@ -705,7 +705,7 @@ function EpisodeForm(e, { seriesId, base, file: dropped = null }) {
   /* 1 · the audio */
   const fileInput = h('input', { type: 'file', class: 'sr-only', accept: '.mp3,.wav,audio/mpeg,audio/wav', 'aria-label': 'Audio file (.mp3 or .wav)' });
   const fileNote = h('span', {}, e ? (e.audio?.name ?? (e.audio?.mediaId ? 'Uploaded audio' : 'Sample audio')) : 'Drop the .mp3 or .wav here');
-  const fileSub = h('small', { class: 'muted' }, e ? `${fmtDuration(e.audio?.duration)} · drop or choose a file to replace it` : `or click to choose one · up to ${maxUploadMb()} MB`);
+  const fileSub = h('small', { class: 'muted' }, e ? `${e.audio?.url && !e.audio?.mediaId ? `Linked: ${e.audio.name ?? 'audio elsewhere'}` : fmtDuration(e.audio?.duration)} · drop or choose a file to replace it` : `or click to choose one · up to ${maxUploadMb()} MB`);
   const drop = h('label', { class: `pc-drop big${e ? ' has' : ''}` }, h('span', { class: 'pc-drop-icon' }, icon('music', 22)), h('span', { class: 'pc-drop-text' }, fileNote, fileSub), fileInput);
   const title = h('input', { class: 'input input-sm', name: 'ep-title', placeholder: 'What is this episode called?', required: true, value: e?.title ?? '' });
   const take = (file) => {

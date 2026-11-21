@@ -29,6 +29,12 @@ export const config = {
   dataDir: resolve(root, env.DATA_DIR || 'data'),
   /** Sign in as anyone from the sign-in page. Never on in production unless asked for. */
   devLogin: env.DEV_LOGIN ? env.DEV_LOGIN === 'true' : !production || env.STAGING === 'true',
+  /**
+   * Which test platform a fresh database gets: 'mock' (the six made-up
+   * orgs) or 'clients' (Social Justice Radio and Strategic AI at Actua,
+   * src/platform/clients). Use its own DATA_DIR: `npm run clients`.
+   */
+  testPlatform: env.TEST_PLATFORM === 'clients' ? 'clients' : 'mock',
   /** Create the example orgs on first start. */
   seedExamples: env.SEED_EXAMPLES ? env.SEED_EXAMPLES === 'true' : !production || env.STAGING === 'true',
   superAdmin: {
