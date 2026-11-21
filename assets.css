@@ -256,3 +256,51 @@ input.ah-d-title:focus { outline: none; border-color: var(--accent); background:
 .ah-thumb.pdf img { object-fit: cover; object-position: top center; background: #fff; }
 .ah-preview.page { background: color-mix(in oklab, var(--ink) 6%, var(--color-base-100)); padding: 10px; }
 .ah-preview.page img { width: 100%; height: 100%; object-fit: contain; object-position: top center; box-shadow: 0 1px 4px rgb(0 0 0 / 0.18); background: #fff; }
+
+/* Asset map, next generation (alpha 0.2): calm wedges, drill-down, grab-and-link */
+.ah-mapwrap2 { padding: 10px 12px 8px; background: radial-gradient(ellipse at 50% 45%, color-mix(in oklab, var(--panel) 92%, var(--accent)) 0, var(--panel) 70%); }
+.ah-map2 { max-height: calc(100vh - 250px); }
+.ah-map2.focused { animation: ah-zoom .28s ease-out; }
+@keyframes ah-zoom { from { opacity: .3; transform: scale(.94); } to { opacity: 1; transform: none; } }
+.ah-wedge2 { cursor: pointer; outline: none; }
+.ah-wedge-bg { stroke: color-mix(in oklab, var(--c) 35%, transparent); stroke-width: 1.2; transition: stroke-width .15s, filter .15s; }
+.ah-wedge2:hover .ah-wedge-bg, .ah-wedge2:focus-visible .ah-wedge-bg { stroke: var(--c); stroke-width: 2; filter: drop-shadow(0 4px 14px color-mix(in oklab, var(--c) 30%, transparent)); }
+.ah-wedge2.hot .ah-wedge-bg { stroke: var(--c); stroke-width: 3; fill: color-mix(in oklab, var(--c) 22%, transparent); }
+.ah-wedge-count { font-weight: 800; fill: var(--c); }
+.ah-wedge-name { font-size: 17px; font-weight: 650; fill: var(--ink); pointer-events: none; }
+.ah-map2 .ah-node-label { font-size: 13.5px; }
+.ah-map2 .ah-more { font-size: 14px; }
+.ah-map2 .ah-core-label { font-size: 15px; }
+.ah-wedge-hint { font-size: 12px; fill: var(--muted); pointer-events: none; }
+.ah-more { font-size: 12px; font-weight: 600; fill: var(--muted); pointer-events: none; }
+.ah-wedge-add circle { fill: var(--panel); stroke: var(--c); stroke-width: 1.5; transition: r .12s; }
+.ah-wedge-add path { stroke: var(--c); stroke-width: 2; stroke-linecap: round; }
+.ah-wedge-add { opacity: .55; transition: opacity .15s; }
+.ah-wedge2:hover .ah-wedge-add, .ah-wedge-add:focus-visible { opacity: 1; }
+.ah-wedge-add:hover circle { fill: var(--c); r: 14; } .ah-wedge-add:hover path { stroke: #fff; }
+.ah-core { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; filter: drop-shadow(0 2px 10px rgb(20 30 60 / .08)); }
+.ah-core-sub { font-size: 11px; fill: var(--muted); }
+.ah-tray-label { font-size: 12px; font-weight: 600; fill: var(--muted); }
+.ah-pill .ah-node-box { fill: var(--panel); stroke: color-mix(in oklab, var(--c) 45%, var(--line)); stroke-width: 1.2; filter: drop-shadow(0 2px 5px rgb(20 30 60 / .10)); transition: stroke-width .12s; }
+.ah-pill.quiet .ah-node-box { stroke-dasharray: 3 3; }
+.ah-pill.dragging { cursor: grabbing; } .ah-pill.dragging .ah-node-box { filter: drop-shadow(0 8px 18px rgb(20 30 60 / .25)); }
+.ah-pill.target .ah-node-box { stroke: var(--accent); stroke-width: 3; }
+.ah-link-ring { fill: var(--panel); stroke: var(--muted); stroke-width: 1.5; opacity: 0; cursor: crosshair; transition: opacity .12s; }
+.ah-pill:hover .ah-link-ring, .ah-pill:focus .ah-link-ring, .ah-map2.linking .ah-link-ring { opacity: 1; }
+.ah-link-ring:hover { stroke: var(--accent); fill: var(--accent); }
+.ah-band { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 6 5; pointer-events: none; animation: ah-march .6s linear infinite; }
+@keyframes ah-march { to { stroke-dashoffset: -22; } }
+.ah-line.related { fill: none; stroke: color-mix(in oklab, var(--accent) 55%, var(--muted)); stroke-opacity: .55; stroke-width: 1.6; }
+.ah-fan { stroke: color-mix(in oklab, var(--c) 35%, transparent); stroke-width: 1.2; }
+.ah-empty { font-size: 15px; fill: var(--muted); }
+.ah-focus-bar { display: flex; align-items: center; gap: 10px; padding: 2px 2px 8px; }
+.ah-focus-bar .spacer { flex: 1; }
+.ah-focus-title { display: inline-flex; align-items: center; gap: 8px; color: var(--c); }
+.ah-focus-title strong { font-size: 17px; }
+.ah-focus-title small { color: var(--muted); font-size: 12px; }
+.ah-chips { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 2px 6px; }
+.ah-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; border: 1px solid color-mix(in oklab, var(--c) 40%, var(--line)); background: color-mix(in oklab, var(--c) 8%, var(--panel)); color: var(--ink); font-size: 12px; font-weight: 600; cursor: pointer; transition: transform .12s, box-shadow .12s; }
+.ah-chip svg { color: var(--c); }
+.ah-chip small { color: var(--muted); font-weight: 500; }
+.ah-chip:hover { border-color: var(--c); }
+.ah-chip.hot { transform: scale(1.08); box-shadow: 0 0 0 3px color-mix(in oklab, var(--c) 35%, transparent); background: color-mix(in oklab, var(--c) 20%, var(--panel)); }

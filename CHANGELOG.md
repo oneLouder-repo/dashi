@@ -6,6 +6,25 @@ Dashi uses version numbers like `0.1.0-alpha.1`. While the first number is 0, an
 
 From 0.2 on, each alpha point version (0.2, 0.3…) is one major platform feature, and its sub-versions (0.2.1, 0.2.2…) are bug hunts and polish from live testing. 0.2 lands over several pull requests; this is the first.
 
+### Asset map and form designer (PR 4)
+
+**The asset map, calmer and hands-on** (Assets → Map):
+
+- **Click a wedge to drill in.** Each of the six ABCD types opens on its own, its assets laid out in tidy rows with their links drawn as soft curves. "All six" goes back.
+- **Less crowded.** The overview shows each wedge's name, count and its three most-linked assets, then "+ N more". No more clusters of dots.
+- **A clear way to add.** Every wedge has a + button, and the focused view has "Add …", for the name, what they bring and an optional link.
+- **Grab and link, like a mini mapper.** Drag from an asset's ring to another asset to link them (drag again to unlink). Drag an asset onto another type's chip, or into another wedge, to re-sort it. Positions are remembered.
+
+**Feedback forms, designed on the form itself** (Public Portal → Feedback forms → Design the form):
+
+- **WYSIWYG**: the designer shows the form exactly as visitors see it, in the site's own colours. Click any words (title, intro, questions, hints, the button) to change them.
+- **Add questions** from the palette: click to add after the selected one, or drag into place. Drag the grip to rearrange; duplicate or remove from each question's tools.
+- **New kinds of answer**: 0 to 10 scale with words at each end, pick several, and headings between questions, alongside stars, yes or no, pick one, and short or long words.
+- **Required questions** ("Needs an answer") and optional hints.
+- **Three layouts**: a card, plain on the page, or one question at a time with a progress bar.
+- **Try it** fills the form as a visitor would, without sending anything. The answers view adds bars for scales and "pick several".
+- Built as a dedicated, bespoke engine (`src/site/feedbackForm.js`) rather than a third-party form service, so answers stay anonymous and in Dashi. The public site and the designer render the very same form.
+
 ### Podcast Studio (PR 5)
 
 A multitrack editor inside Podcasts (Podcasts → Studio), for making an episode from start to finish in the browser.

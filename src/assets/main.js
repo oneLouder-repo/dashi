@@ -378,159 +378,291 @@ function ListView(list) {
 }
 
 /**
- * The asset map: six ABCD wedges around the organisation, each asset a
- * card in its wedge. Drag a card into another wedge to sort it there; drag
- * within a wedge to arrange (remembered for this view). Lines join related
- * assets, and actors that are linked on their ecosystem map.
+ * The asset map (alpha 0.2): six ABCD wedges around the organisation.
+ *
+ *   Overview   each wedge shows its count and a few leading assets (the most
+ *              connected), never a crowd of dots. Click a wedge to open it.
+ *   One wedge  every asset of that type, fanned out in calm rows. The other
+ *              five types sit along the top: drop an asset on one to re-sort it.
+ *
+ * Everywhere: drag an asset into another wedge to sort it; grab the small
+ * ring on an asset's right and drop it on another asset to link them (like
+ * a connector on the mapper); + adds an asset of that type.
  */
+let mapFocus = null;   // the ABCD type opened, or null for all six
 function AssetMap(list) {
-  const W = 1000, H = 800, cx = W / 2, cy = 372, R = 300, r0 = 88;
   const NS = 'http://www.w3.org/2000/svg';
-  const el = (tag, attrs = {}, parent) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); parent?.append(n); return n; };
-  const svgEl = el('svg', { viewBox: `0 0 ${W} ${H}`, class: 'ah-map', role: 'img', 'aria-label': 'Asset map: assets in the six ABCD wedges' });
-  const posKey = (scope().coll ?? 'all');
-  const saved = (hub.positions[posKey] ??= {});
-  const wedge = (i) => [(-90 + i * 60 - 30) * Math.PI / 180, (-90 + i * 60 + 30) * Math.PI / 180];
-  const pt = (a, r) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
-  ABCD.forEach((x, i) => {
-    const [a0, a1] = wedge(i);
-    const [x0, y0] = pt(a0, r0), [x1, y1] = pt(a0, R), [x2, y2] = pt(a1, R), [x3, y3] = pt(a1, r0);
-    el('path', { d: `M${x0},${y0} L${x1},${y1} A${R},${R} 0 0 1 ${x2},${y2} L${x3},${y3} A${r0},${r0} 0 0 0 ${x0},${y0} Z`, class: 'ah-wedge', style: `--c:${x.color}`, 'data-abcd': x.id }, svgEl);
-    const [lx, ly] = pt((a0 + a1) / 2, R + 26);
-    const t = el('text', { x: lx, y: ly, class: 'ah-wedge-label', 'text-anchor': lx < cx - 20 ? 'end' : lx > cx + 20 ? 'start' : 'middle', style: `fill:${x.color}` }, svgEl);
-    t.textContent = x.label;
+  const el = (tag, attrs = {}, parent) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) if (v != null) n.setAttribute(k, v); parent?.append(n); return n; };
+  if (mapFocus && !abcdById[mapFocus]) mapFocus = null;
+  const W = mapFocus ? 900 : 820, H = mapFocus ? 380 : 760;
+  const svgEl = el('svg', { viewBox: `0 0 ${W} ${H}`, class: `ah-map ah-map2${mapFocus ? ' focused' : ''}`, role: 'group', 'aria-label': mapFocus ? `Asset map: ${abcdById[mapFocus].label}` : 'Asset map: the six ABCD types' });
+  const defs = el('defs', {}, svgEl);
+  ABCD.forEach((x) => {
+    const g = el('radialGradient', { id: `ahg-${x.id}`, cx: '50%', cy: mapFocus ? '100%' : '50%', r: mapFocus ? '95%' : '55%' }, defs);
+    el('stop', { offset: '0%', 'stop-color': x.color, 'stop-opacity': '0.04' }, g);
+    el('stop', { offset: '100%', 'stop-color': x.color, 'stop-opacity': '0.18' }, g);
   });
-  el('circle', { cx, cy, r: r0 - 8, class: 'ah-core' }, svgEl);
-  const core = el('text', { x: cx, y: cy + 5, class: 'ah-core-label', 'text-anchor': 'middle' }, svgEl);
-  core.textContent = org.name.length > 22 ? `${org.name.slice(0, 20)}…` : org.name;
-
-  // Where each card sits: saved, or spread through its wedge (unsorted along the bottom).
-  const shown = list.slice(0, 160);
-  const byType = new Map();
-  shown.forEach((c) => byType.set(c.abcd ?? 'none', [...(byType.get(c.abcd ?? 'none') ?? []), c]));
+  const lines = el('g', { class: 'ah-lines' }, svgEl);
+  const layer = el('g', { class: 'ah-layer' }, svgEl);
+  const nodes = el('g', { class: 'ah-nodes' }, svgEl);
   const pos = new Map();
-  const compact = new Set();
-  const unsortedRows = Math.ceil((byType.get('none')?.length ?? 0) / 6);
-  if (unsortedRows) {
-    const t = el('text', { x: 24, y: H - 26 - unsortedRows * 30 + 6, class: 'ah-wedge-label muted-label' }, svgEl);
-    t.textContent = 'Not yet sorted: drag into a wedge';
+  const byType = (t) => list.filter((c) => (c.abcd ?? 'none') === t);
+  const linksOf = (c) => (c.item?.related ?? []).length + list.filter((x) => x.item?.related?.includes(c.key)).length;
+  const lead = (cs, n) => [...cs].sort((a, b) => linksOf(b) - linksOf(a) || (b.item?.updatedAt ?? '').localeCompare(a.item?.updatedAt ?? '')).slice(0, n);
+  const svgPoint = (e) => { const r = svgEl.getBoundingClientRect(); const vb = svgEl.viewBox.baseVal; return { x: ((e.clientX - r.left) / r.width) * vb.width, y: ((e.clientY - r.top) / r.height) * vb.height }; };
+  const short = (t, n = mapFocus ? 20 : 15) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
+
+  /* ---------- an asset, as a pill with a link ring */
+  function Pill(c, x, y, { quiet = false } = {}) {
+    pos.set(c.key, { x, y });
+    const colour = abcdById[c.abcd]?.color ?? '#8a93a8';
+    const label = short(c.title);
+    const w = Math.max(70, label.length * 7.6 + 38);
+    const g = el('g', { class: `ah-node ah-pill${selection.has(c.key) ? ' on' : ''}${quiet ? ' quiet' : ''}`, transform: `translate(${x},${y})`, tabindex: 0, role: 'button', 'aria-label': `${c.title}, ${c.kindLabel}`, 'data-key': c.key }, nodes);
+    el('rect', { x: -w / 2, y: -15, width: w, height: 30, rx: 15, class: 'ah-node-box', style: `--c:${colour}` }, g);
+    el('circle', { cx: -w / 2 + 15, cy: 0, r: 5.5, class: 'ah-node-dot', style: `fill:${colour}` }, g);
+    el('text', { x: -w / 2 + 27, y: 4.5, class: 'ah-node-label' }, g).textContent = label;
+    const ring = canEdit ? el('circle', { cx: w / 2 + 2, cy: 0, r: 7, class: 'ah-link-ring' }, g) : null;
+    if (ring) el('title', {}, ring).textContent = 'Drag to another asset to link them';
+    el('title', {}, g).textContent = `${c.title} · ${c.kindLabel}${linksOf(c) ? ` · ${linksOf(c)} links` : ''}`;
+    g.addEventListener('keydown', (e) => { if (e.key === 'Enter') select(c, e); });
+    g.addEventListener('pointerdown', (e) => (e.target === ring ? linkDrag(e, c, g) : moveDrag(e, c, g)));
+    return g;
   }
-  for (const [type, cs] of byType) {
-    const i = ABCD.findIndex((x) => x.id === type);
-    cs.forEach((c, j) => {
-      if (saved[c.key] && (i < 0 || wedgeAt(saved[c.key].x, saved[c.key].y) === type)) { pos.set(c.key, saved[c.key]); return; }
-      if (i < 0) { pos.set(c.key, { x: 94 + (j % 6) * 150, y: H - 26 - Math.floor(j / 6) * 30 }); return; }
-      const [a0, a1] = wedge(i);
-      if (cs.length > 5) {
-        // A crowded wedge: small dots spread evenly through it (sunflower-style), names on hover.
-        compact.add(c.key);
-        const inner = r0 + 22, outer = R - 16, f = (j + 0.5) / cs.length;
-        const rr = Math.sqrt(inner * inner + f * (outer * outer - inner * inner));
-        const a = a0 + 0.06 + (((j * 0.618034) % 1) * (a1 - a0 - 0.12));
-        pos.set(c.key, { x: cx + rr * Math.cos(a), y: cy + rr * Math.sin(a) });
+
+  /* ---------- grab-and-link */
+  function linkDrag(e, c, g) {
+    e.preventDefault(); e.stopPropagation();
+    const from = pos.get(c.key);
+    const band = el('path', { class: 'ah-band' }, lines);
+    g.setPointerCapture(e.pointerId);
+    svgEl.classList.add('linking');
+    const targetAt = (ev) => document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.ah-node[data-key]');
+    const move = (ev) => {
+      const q = svgPoint(ev);
+      const mx = (from.x + q.x) / 2, my = Math.min(from.y, q.y) - 40;
+      band.setAttribute('d', `M${from.x},${from.y} Q${mx},${my} ${q.x},${q.y}`);
+      nodes.querySelectorAll('.ah-node.target').forEach((n) => n.classList.remove('target'));
+      const t = targetAt(ev);
+      if (t && t !== g) t.classList.add('target');
+    };
+    const up = (ev) => {
+      g.removeEventListener('pointermove', move); g.removeEventListener('pointerup', up);
+      svgEl.classList.remove('linking');
+      band.remove();
+      const t = targetAt(ev);
+      nodes.querySelectorAll('.ah-node.target').forEach((n) => n.classList.remove('target'));
+      if (!t || t === g) return;
+      const other = list.find((x) => x.key === t.dataset.key);
+      if (!other) return;
+      const a = ensureItem(hub, c, me?.id), b = ensureItem(hub, other, me?.id);
+      const linked = a.related.includes(other.key);
+      a.related = linked ? a.related.filter((k) => k !== other.key) : [...a.related, other.key];
+      b.related = linked ? b.related.filter((k) => k !== c.key) : [...new Set([...b.related, c.key])];
+      touch(hub, a, me?.id); touch(hub, b, me?.id);
+      toast(linked ? `Unlinked “${c.title}” and “${other.title}”` : `Linked “${c.title}” and “${other.title}”`);
+      save(`${linked ? 'unlinked' : 'linked'} “${c.title}” and “${other.title}”`, a.id);
+    };
+    g.addEventListener('pointermove', move); g.addEventListener('pointerup', up);
+  }
+
+  /* ---------- drag to move or re-sort */
+  function moveDrag(e, c, g) {
+    e.preventDefault();
+    const start = svgPoint(e), orig = { ...pos.get(c.key) };
+    let moved = false;
+    // Bring it to the front first: moving it in the page later would drop the pointer capture.
+    if (nodes.lastChild !== g) nodes.append(g);
+    g.setPointerCapture(e.pointerId);
+    const move = (ev) => {
+      const q = svgPoint(ev);
+      if (!moved && Math.hypot(q.x - start.x, q.y - start.y) < 4) return;
+      if (!canEdit) return;
+      moved = true;
+      g.classList.add('dragging');
+      const np = { x: Math.max(30, Math.min(W - 30, orig.x + q.x - start.x)), y: Math.max(16, Math.min(svgEl.viewBox.baseVal.height - 16, orig.y + q.y - start.y)) };
+      pos.set(c.key, np);
+      g.setAttribute('transform', `translate(${np.x},${np.y})`);
+      const hot = dropType(np, ev);
+      svgEl.querySelectorAll('[data-abcd]').forEach((w) => w.classList.toggle('hot', w.dataset.abcd === hot));
+      wrap.querySelectorAll('[data-abcd-chip]').forEach((w) => w.classList.toggle('hot', w.dataset.abcdChip === hot));
+      drawLines();
+    };
+    const up = (ev) => {
+      g.removeEventListener('pointermove', move); g.removeEventListener('pointerup', up);
+      svgEl.querySelectorAll('.hot').forEach((w) => w.classList.remove('hot'));
+      wrap.querySelectorAll('.hot').forEach((w) => w.classList.remove('hot'));
+      if (!moved) return select(c, e);
+      const np = pos.get(c.key);
+      const type = dropType(np, ev);
+      if (type && type !== 'none' && type !== c.abcd) {
+        const it = ensureItem(hub, c, me?.id);
+        it.abcd = type;
+        touch(hub, it, me?.id);
+        toast(`“${c.title}” is now ${abcdById[type].label.toLowerCase()}`);
+        save(`sorted “${c.title}” as ${abcdById[type].label}`, c.key);
         return;
       }
-      const rows = Math.max(1, Math.ceil(Math.sqrt(cs.length / 2)));
-      const row = j % rows, k = Math.floor(j / rows), per = Math.ceil(cs.length / rows);
-      const rr = r0 + 46 + ((R - r0 - 80) * (row + 0.5)) / rows;
-      const a = a0 + ((a1 - a0) * (k + 0.5)) / per;
-      pos.set(c.key, { x: cx + rr * Math.cos(a), y: cy + rr * Math.sin(a) });
-    });
-  }
-  function wedgeAt(x, y) {
-    const d = Math.hypot(x - cx, y - cy);
-    if (d < r0 || d > R + 10) return 'none';
-    let a = Math.atan2(y - cy, x - cx) * 180 / Math.PI + 90 + 30;
-    a = ((a % 360) + 360) % 360;
-    return ABCD[Math.floor(a / 60)]?.id ?? 'none';
+      if (mapFocus) { (hub.positions[`focus:${mapFocus}`] ??= {})[c.key] = { x: Math.round(np.x), y: Math.round(np.y) }; save(); }
+      else drawMain(allCards());
+    };
+    g.addEventListener('pointermove', move); g.addEventListener('pointerup', up);
   }
 
-  // Lines: related assets, and actors linked on their map.
-  const lines = el('g', { class: 'ah-lines' }, svgEl);
-  const keys = new Set(shown.map((c) => c.key));
-  const pairs = [];
-  for (const c of shown) for (const k of c.item?.related ?? []) if (keys.has(k)) pairs.push([c.key, k, 'related']);
-  for (const [mapId, m] of Object.entries(docs.mapContents ?? {})) {
-    for (const conn of Object.values(m.connectors ?? {})) {
-      const a = `actor:${mapId}/${conn.from?.actorId}`, b = `actor:${mapId}/${conn.to?.actorId}`;
-      if (keys.has(a) && keys.has(b)) pairs.push([a, b, 'map']);
-    }
-  }
   const drawLines = () => {
-    lines.replaceChildren();
-    for (const [a, b, kind] of pairs) {
-      const p = pos.get(a), q = pos.get(b);
-      if (p && q) el('line', { x1: p.x, y1: p.y, x2: q.x, y2: q.y, class: `ah-line ${kind}` }, lines);
+    lines.querySelectorAll('.ah-line').forEach((n) => n.remove());
+    const seen = new Set();
+    for (const c of list) for (const k of c.item?.related ?? []) {
+      const id = [c.key, k].sort().join('|');
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const p = pos.get(c.key), q = pos.get(k);
+      if (!p || !q) continue;
+      // Curves bow towards the middle, so lines between wedges don't cross the labels.
+      const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
+      const [cx0, cy0] = mapFocus ? [W / 2, H + 200] : [W / 2, 360];
+      const bx = mx + (cx0 - mx) * 0.25, by = my + (cy0 - my) * 0.25;
+      el('path', { d: `M${p.x},${p.y} Q${bx},${by} ${q.x},${q.y}`, class: 'ah-line related' }, lines);
     }
   };
-  drawLines();
 
-  const nodes = el('g', {}, svgEl);
-  for (const c of shown) {
-    const p = pos.get(c.key);
-    const small = compact.has(c.key);
-    const g = el('g', { class: `ah-node${small ? ' compact' : ''}${selection.has(c.key) ? ' on' : ''}`, transform: `translate(${p.x},${p.y})`, tabindex: 0, role: 'button', 'aria-label': c.title }, nodes);
-    const label = c.title.length > 16 ? `${c.title.slice(0, 15)}…` : c.title;
-    const colour = abcdById[c.abcd]?.color ?? '#8a93a8';
-    if (small) {
-      el('circle', { r: 7.5, class: 'ah-node-pin', style: `fill:${colour}` }, g);
-      const tw = label.length * 6.6 + 16;
-      el('rect', { x: 11, y: -11, width: tw, height: 22, rx: 6, class: 'ah-node-tag' }, g);
-      const t = el('text', { x: 19, y: 4, class: 'ah-node-label' }, g);
-      t.textContent = label;
-    } else {
-      const w = Math.max(64, label.length * 6.6 + 30);
-      el('rect', { x: -w / 2, y: -13, width: w, height: 26, rx: 13, class: 'ah-node-box', style: `--c:${colour}` }, g);
-      el('circle', { cx: -w / 2 + 13, cy: 0, r: 5, class: 'ah-node-dot', style: `fill:${colour}` }, g);
-      const t = el('text', { x: -w / 2 + 24, y: 4, class: 'ah-node-label' }, g);
-      t.textContent = label;
-    }
-    el('title', {}, g).textContent = `${c.title} · ${c.kindLabel}`;
-    g.addEventListener('keydown', (e) => { if (e.key === 'Enter') select(c, e); });
-    if (small) { g.addEventListener('pointerenter', () => { if (nodes.lastChild !== g) nodes.append(g); }); g.addEventListener('focus', () => { if (nodes.lastChild !== g) nodes.append(g); }); }
-    g.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      const start = svgPoint(e), orig = { ...pos.get(c.key) };
-      let moved = false;
-      g.setPointerCapture(e.pointerId);
-      const move = (ev) => {
-        const q = svgPoint(ev);
-        if (!moved && Math.hypot(q.x - start.x, q.y - start.y) < 3) return;
-        moved = true;
-        const np = { x: Math.max(30, Math.min(W - 30, orig.x + q.x - start.x)), y: Math.max(16, Math.min(H - 16, orig.y + q.y - start.y)) };
-        pos.set(c.key, np);
-        g.setAttribute('transform', `translate(${np.x},${np.y})`);
-        svgEl.querySelectorAll('.ah-wedge').forEach((wg) => wg.classList.toggle('hot', wg.dataset.abcd === wedgeAt(np.x, np.y)));
-        drawLines();
-      };
-      const up = () => {
-        g.removeEventListener('pointermove', move);
-        g.removeEventListener('pointerup', up);
-        svgEl.querySelectorAll('.ah-wedge.hot').forEach((wg) => wg.classList.remove('hot'));
-        if (!moved) return select(c, e);
-        if (!canEdit) return;
-        const np = pos.get(c.key);
-        saved[c.key] = { x: Math.round(np.x), y: Math.round(np.y) };
-        const type = wedgeAt(np.x, np.y);
-        if (type !== 'none' && type !== c.abcd) {
-          const it = ensureItem(hub, c, me?.id);
-          it.abcd = type;
-          touch(hub, it, me?.id);
-          toast(`“${c.title}” is now ${abcdById[type].label.toLowerCase()}`);
-          save(`sorted “${c.title}” as ${abcdById[type].label}`, c.key);
-        } else save();
-      };
-      g.addEventListener('pointermove', move);
-      g.addEventListener('pointerup', up);
+  /* ---------- overview: six calm wedges */
+  let dropType;
+  const wrap = h('div', { class: 'ah-mapwrap ah-mapwrap2' });
+  if (!mapFocus) {
+    const cx = W / 2, cy = 350, R = 286, r0 = 78;
+    const wedge = (i) => [(-90 + i * 60 - 30) * Math.PI / 180, (-90 + i * 60 + 30) * Math.PI / 180];
+    const pt = (a, r) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+    const typeAt = (x, y) => {
+      const d = Math.hypot(x - cx, y - cy);
+      if (d < r0 || d > R + 10) return 'none';
+      let a = Math.atan2(y - cy, x - cx) * 180 / Math.PI + 90 + 30;
+      a = ((a % 360) + 360) % 360;
+      return ABCD[Math.floor(a / 60)]?.id ?? 'none';
+    };
+    dropType = (np) => typeAt(np.x, np.y);
+    const taken = [];
+    const fits = (qx, qy, w, hh) => taken.every(([tx, ty, tw, th]) => Math.abs(tx - qx) * 2 >= tw + w || Math.abs(ty - qy) * 2 >= th + hh);
+    ABCD.forEach((x, i) => {
+      const [a0, a1] = wedge(i);
+      const cs = byType(x.id);
+      const gap = 0.012;
+      const [x0, y0] = pt(a0 + gap, r0), [x1, y1] = pt(a0 + gap, R), [x2, y2] = pt(a1 - gap, R), [x3, y3] = pt(a1 - gap, r0);
+      const wg = el('g', { class: 'ah-wedge2', 'data-abcd': x.id, style: `--c:${x.color}`, tabindex: 0, role: 'button', 'aria-label': `Open ${x.label}: ${cs.length} assets` }, layer);
+      el('path', { d: `M${x0},${y0} L${x1},${y1} A${R},${R} 0 0 1 ${x2},${y2} L${x3},${y3} A${r0},${r0} 0 0 0 ${x0},${y0} Z`, class: 'ah-wedge-bg', fill: `url(#ahg-${x.id})` }, wg);
+      const mid = (a0 + a1) / 2;
+      // The name and count sit outside the ring, so the inside stays calm.
+      const [lx, ly] = pt(mid, R + 26);
+      const anchor = lx < cx - 30 ? 'end' : lx > cx + 30 ? 'start' : 'middle';
+      const lab = el('text', { x: lx, y: ly + (ly < cy ? -4 : 14), class: 'ah-wedge-name', 'text-anchor': anchor }, wg);
+      el('tspan', { class: 'ah-wedge-count' }, lab).textContent = `${cs.length} `;
+      el('tspan', {}, lab).textContent = x.label;
+      el('title', {}, wg).textContent = `${x.label}: ${x.hint}. Click to open.`;
+      // A clear way to add one of these.
+      if (canEdit) {
+        const [px, py] = pt(mid, r0 + 34);
+        taken.push([px, py, 30, 30]);
+        const add = el('g', { class: 'ah-wedge-add', transform: `translate(${px},${py})`, role: 'button', tabindex: 0, 'aria-label': `Add ${x.short.toLowerCase()}` }, wg);
+        el('circle', { r: 12 }, add);
+        el('path', { d: 'M-5,0 H5 M0,-5 V5' }, add);
+        el('title', {}, add).textContent = `Add to ${x.label}`;
+        add.addEventListener('click', (e) => { e.stopPropagation(); addAsset(x.id); });
+      }
+      wg.addEventListener('click', (e) => { if (e.target.closest('.ah-wedge-add')) return; mapFocus = x.id; drawMain(allCards()); });
+      wg.addEventListener('keydown', (e) => { if (e.key === 'Enter') { mapFocus = x.id; drawMain(allCards()); } });
+      // A few leading assets in the outer band; the rest wait inside.
+      // Up to three, wherever they fit without touching (nothing piles up).
+      const top = lead(cs, 3);
+      const span = a1 - a0;
+      const cands = [];
+      for (const rr of [R - 40, R - 92, R - 144]) for (const f of [0, -0.26, 0.26]) cands.push(pt(mid + f * span, rr));
+      for (const c of top) {
+        const w = Math.max(70, short(c.title).length * 7.6 + 38) + 18;
+        const spot = cands.find(([qx, qy]) => fits(qx, qy, w, 34) && typeAt(qx - w / 2 + 10, qy) !== 'none' && typeAt(qx + w / 2 - 10, qy) === x.id && typeAt(qx - w / 2 + 10, qy) === x.id);
+        if (!spot) continue;
+        taken.push([spot[0], spot[1], w, 34]);
+        Pill(c, spot[0], spot[1]);
+      }
+      const placed = top.filter((c) => pos.has(c.key)).length;
+      if (cs.length > placed) {
+        const [mx2, my2] = cands.find(([qx, qy]) => fits(qx, qy, 90, 22)) ?? pt(mid, R - 150);
+        taken.push([mx2, my2, 90, 22]);
+        const more = el('text', { x: mx2, y: my2 + 4, class: 'ah-more', 'text-anchor': 'middle' }, wg);
+        more.textContent = `+ ${cs.length - placed} more`;
+      }
     });
+    el('circle', { cx, cy, r: r0 - 10, class: 'ah-core' }, layer);
+    el('text', { x: cx, y: cy - 2, class: 'ah-core-label', 'text-anchor': 'middle' }, layer).textContent = short(org.name, 20);
+    el('text', { x: cx, y: cy + 16, class: 'ah-core-sub', 'text-anchor': 'middle' }, layer).textContent = `${list.filter((c) => c.abcd).length} assets`;
+    // Not yet sorted: a tray along the bottom, to drag into a wedge.
+    const loose = byType('none');
+    if (loose.length) {
+      el('text', { x: 24, y: H - 52, class: 'ah-tray-label' }, layer).textContent = `Not yet sorted (${loose.length}): drag into a wedge`;
+      let x = 60;
+      for (const c of loose.slice(0, 7)) { const w = Math.max(70, short(c.title).length * 7.6 + 38); if (x + w > W - 120) break; Pill(c, x + w / 2 - 36, H - 24, { quiet: true }); x += w + 14; }
+      if (loose.length > 7) el('text', { x: W - 24, y: H - 20, class: 'ah-more', 'text-anchor': 'end' }, layer).textContent = `+ ${loose.length - 7} more in the list`;
+    }
+    wrap.append(svgEl, h('p', { class: 'ah-map-note' }, 'Click a wedge to open it. Drag an asset into a wedge to sort it; drag the ring on its right onto another asset to link them.'));
+  } else {
+    /* ---------- one wedge, fanned out */
+    const x = abcdById[mapFocus];
+    const cs = byType(mapFocus);
+    const saved = hub.positions[`focus:${mapFocus}`] ?? {};
+    dropType = (np, ev) => document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-abcd-chip]')?.dataset.abcdChip ?? null;
+    // Calm rows, centred, curving gently like the wedge they came from.
+    const shown = cs.slice(0, 140);
+    const widths = shown.map((c) => Math.max(70, short(c.title).length * 7.6 + 38) + 22);
+    const rows = [];
+    let row = [], used = 0;
+    shown.forEach((c, j) => { if (row.length && used + widths[j] > W - 80) { rows.push(row); row = []; used = 0; } row.push(j); used += widths[j]; });
+    if (row.length) rows.push(row);
+    const cx = W / 2, top = 64, step = 54;
+    const fullH = Math.max(H, top + rows.length * step + 60);
+    svgEl.setAttribute('viewBox', `0 0 ${W} ${fullH}`);
+    el('path', { d: `M20,${fullH - 20} L20,70 Q${cx},-30 ${W - 20},70 L${W - 20},${fullH - 20} Z`, class: 'ah-fan', fill: `url(#ahg-${x.id})`, style: `--c:${x.color}` }, layer);
+    rows.forEach((r, ri) => {
+      const total = r.reduce((t, j) => t + widths[j], 0);
+      let px = cx - total / 2;
+      for (const j of r) {
+        const c = shown[j];
+        const mx = px + widths[j] / 2;
+        const curve = ((mx - cx) / (W / 2)) ** 2 * 26;
+        const sp = saved[c.key];
+        Pill(c, sp?.x ?? mx - 4, sp?.y ?? top + ri * step + curve);
+        px += widths[j];
+      }
+    });
+    if (!cs.length) el('text', { x: cx, y: 300, class: 'ah-empty', 'text-anchor': 'middle' }, layer).textContent = `No ${x.label.toLowerCase()} yet. ${x.hint}.`;
+    const others = ABCD.filter((o) => o.id !== mapFocus);
+    wrap.append(...[
+      h('div', { class: 'ah-focus-bar' },
+        h('button', { type: 'button', class: 'btn btn-sm btn-ghost', onclick: () => { mapFocus = null; drawMain(allCards()); } }, icon('chevronLeft', 14), 'All six'),
+        h('span', { class: 'ah-focus-title', style: `--c:${x.color}` }, icon(x.icon, 16), h('strong', {}, x.label), h('small', {}, `${cs.length} · ${x.hint}`)),
+        h('span', { class: 'spacer' }),
+        canEdit && h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => addAsset(mapFocus) }, icon('plus', 14), `Add ${x.short.toLowerCase()}`)),
+      h('div', { class: 'ah-chips', 'aria-label': 'Other types: drop an asset here to move it' }, others.map((o) =>
+        h('button', { type: 'button', class: 'ah-chip', 'data-abcd-chip': o.id, style: `--c:${o.color}`, onclick: () => { mapFocus = o.id; drawMain(allCards()); } }, icon(o.icon, 13), o.label, h('small', {}, String(byType(o.id).length))))),
+      svgEl,
+      cs.length > shown.length && h('p', { class: 'ah-map-note' }, `Showing ${shown.length} of ${cs.length}. Narrow with a collection or a search.`),
+      h('p', { class: 'ah-map-note' }, 'Drag to arrange (remembered). Drop an asset on a type above to re-sort it. Drag the ring on an asset onto another to link them.')].filter(Boolean));
   }
-  function svgPoint(e) {
-    const r = svgEl.getBoundingClientRect();
-    return { x: ((e.clientX - r.left) / r.width) * W, y: ((e.clientY - r.top) / r.height) * H };
-  }
-  return h('div', { class: 'ah-mapwrap' }, svgEl,
-    list.length > shown.length && h('p', { class: 'ah-map-note' }, `Showing the first ${shown.length} of ${list.length}. Narrow with a collection or a search.`),
-    h('p', { class: 'ah-map-note' }, 'Drag a card into a wedge to sort it. Lines show related assets and actors linked on their map.'));
+  drawLines();
+  return wrap;
+}
+
+/** Add an asset straight onto the map: a note (a person, a group, a place…) or a link, already sorted. */
+async function addAsset(abcd) {
+  const x = abcdById[abcd];
+  const v = await uiForm({ title: `Add to ${x.label}`, ok: 'Add', fields: [
+    { name: 'title', label: 'Name', required: true, placeholder: { individual: 'e.g. Marguerite, bannock and storytelling', association: 'e.g. Tuesday knitting circle', institution: 'e.g. St. Martha’s Hospital', physical: 'e.g. The community hall kitchen', economic: 'e.g. Saturday farmers’ market', cultural: 'e.g. Mi’kmaw language circle' }[abcd] },
+    { name: 'text', label: 'What they bring', type: 'textarea', rows: 3, placeholder: x.hint },
+    { name: 'url', label: 'Web address (optional)', type: 'url', placeholder: 'https://' },
+  ] });
+  if (!v) return;
+  const url = v.url?.trim();
+  const it = newItem(hub, { kind: url ? 'link' : 'note', ...(url ? { url, description: v.text } : { text: v.text }), title: v.title.trim(), abcd, collectionIds: scope().coll ? [scope().coll] : [] }, me?.id);
+  save(`added “${it.title}” to ${x.label}`, it.id);
+  select(allCards().find((c) => c.key === it.id));
 }
 
 /* ------------------------------------------------------------------ bulk */
