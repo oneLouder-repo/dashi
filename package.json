@@ -11,7 +11,7 @@
     "audit": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning server/audit-cli.js",
     "backup": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning -e \"import('./server/config.js').then(async ({config})=>{const {openDb}=await import('./server/db.js');const {backupNow}=await import('./server/backup.js');console.log(backupNow(openDb(config.dataDir)))})\"",
     "import": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning server/import-cli.js",
-    "clients": "TEST_PLATFORM=clients DATA_DIR=data-clients node --env-file-if-exists=.env --disable-warning=ExperimentalWarning server.js"
+    "clients": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning clients.js"
   },
   "engines": {
     "node": ">=22.13"
