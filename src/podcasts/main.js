@@ -31,6 +31,7 @@ import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
 import { PeoplePicker } from './people.js';
 import { linkTo } from '../plugins.js';
 import { StudioHome, StudioEditor } from './studio/Studio.js';
+import { FeaturedEpisodesBox, featureToggle } from './featured.js';
 import { StudioFiles } from './studio/Files.js';
 import { currentUser } from '../platform/session.js';
 import { projectLength, clock } from './studio/project.js';
@@ -455,6 +456,7 @@ function StationDesign() {
       h('section', { class: 'lk-box' },
         h('div', { class: 'lk-box-head' }, h('h2', {}, 'Cover art')),
         cards('Cover art', LOOKS.art, L.art, (art) => setLook({ art }), (id) => h('span', { class: `pd-sketch pd-art pd-art-${id}`, 'aria-hidden': 'true' }, h('i'), h('i'), h('i')))),
+      FeaturedEpisodesBox({ doc, store, col, update: (list) => update({ featuredEpisodes: list }), after: tell }),
       h('section', { class: 'lk-box' },
         h('div', { class: 'lk-box-head' }, h('h2', {}, 'Featured series'), h('span', { class: 'muted small' }, 'Starred series lead the page, in this order')),
         h('ol', { class: 'pd-shows' }, shows.map((x, i) => h('li', { class: x.featured ? 'on' : '' },
@@ -701,6 +703,7 @@ function episodeActions(e, base) {
     h('a', { class: 'btn btn-sm btn-primary', href: `#${base}/${e.id}/edit` }, icon('pencil', 14), 'Edit'),
     state !== 'live' && h('button', { class: 'btn btn-sm', onclick: () => setStatus('published', e.publishedAt > now ? now : e.publishedAt) }, 'Publish now'),
     state === 'live' && h('button', { class: 'btn btn-sm btn-ghost', onclick: () => setStatus('draft') }, 'Move to drafts'),
+    state === 'live' && featureToggle({ doc, store, col }, e),
     h('span', { class: 'spacer' }),
     publicHref && h('a', { class: 'btn btn-sm btn-ghost', href: publicHref, target: '_blank', rel: 'noopener', title: 'Its page on the public station' }, icon('globe', 14), 'Public page'),
     h('button', { class: 'btn btn-sm btn-ghost text-error', title: 'Delete', 'aria-label': `Delete ${e.title}`, onclick: () => removeEpisode(e, base) }, icon('trash', 14)),

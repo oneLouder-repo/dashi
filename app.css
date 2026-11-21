@@ -3156,3 +3156,15 @@ body.site-page.tpl-field { background: color-mix(in oklab, var(--color-primary) 
 .fb-scale-bars i { align-self: end; display: block; background: var(--accent); border-radius: 3px 3px 0 0; }
 @media (max-width: 1100px) { .fb-designer-grid { grid-template-columns: minmax(0, 1fr); } .fb-palette, .fb-inspector { position: static; } .fb-palette { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); } .fb-palette h3, .fb-palette p { grid-column: 1 / -1; } }
 .feedback-card [hidden] { display: none !important; }
+
+/* Featured episodes on the station's home (alpha 0.3). */
+.feat-ep-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 18px; }
+.feat-ep { display: grid; grid-template-columns: 132px 1fr; gap: 16px; padding: 14px; border-radius: var(--radius-box, 14px); background: var(--color-base-100, #fff); border: 1px solid color-mix(in oklab, currentColor 10%, transparent); }
+.feat-ep-art img, .feat-ep-art svg, .feat-ep-art > * { width: 132px; height: 132px; border-radius: 10px; object-fit: cover; display: block; }
+.feat-ep-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.feat-ep-show { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--color-primary, #b23a5b); }
+.feat-ep-title { font-weight: 700; font-size: 17px; line-height: 1.25; color: inherit; text-decoration: none; }
+.feat-ep-title:hover { text-decoration: underline; }
+.feat-ep-body p { margin: 2px 0 6px; font-size: 14px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.feat-ep-foot { margin-top: auto; display: flex; align-items: center; gap: 10px; font-size: 13px; }
+@media (max-width: 520px) { .feat-ep { grid-template-columns: 88px 1fr; } .feat-ep-art img, .feat-ep-art svg, .feat-ep-art > * { width: 88px; height: 88px; } }

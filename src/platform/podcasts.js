@@ -134,6 +134,7 @@ export function migratePodcasts(doc) {
   doc.episodes ??= {};
   doc.projects ??= {};
   doc.files ??= {};     // the studio's audio files (alpha 0.3, podcasts/studio/Files.js)
+  doc.station.featuredEpisodes ??= [];  // [{ episodeId, blurb }], the station's managed list (alpha 0.3)
   for (const p of Object.values(doc.podcasts)) {
     p.featured ??= false;
     p.order ??= 0;
@@ -217,6 +218,14 @@ export const seasonsOf = (doc, podcastId) =>
 
 export const showsInOrder = (doc) => Object.values(doc.podcasts).sort((a, b) => a.order - b.order || a.title.localeCompare(b.title));
 
+/** How many episodes the station's featured list holds: 3 to 7 read best. */
+export const FEATURED_MAX = 7;
+/** The station's featured episodes, in their order, with the blurb each one keeps (published ones only). */
+export const featuredEpisodes = (doc, today) => (doc.station?.featuredEpisodes ?? [])
+  .map((f) => ({ episode: doc.episodes[f.episodeId], blurb: f.blurb ?? '' }))
+  .filter((f) => f.episode && doc.podcasts[f.episode.podcastId] && (today == null || published(f.episode, today)))
+  .slice(0, FEATURED_MAX);
+
 /** Everything the public station page shows: the current episode, featured shows, and the archive. */
 export function stationView(doc, today) {
   const live = Object.values(doc.episodes).filter((e) => published(e, today) && doc.podcasts[e.podcastId])
@@ -225,6 +234,7 @@ export function stationView(doc, today) {
   const latestOf = (id) => live.find((e) => e.podcastId === id) ?? null;
   return {
     current: live[0] ?? null,
+    featuredEpisodes: featuredEpisodes(doc, today),
     featured: shows.filter((s) => s.featured).map((show) => ({ show, latest: latestOf(show.id), count: live.filter((e) => e.podcastId === show.id).length })),
     archive: shows.map((show) => ({
       show,

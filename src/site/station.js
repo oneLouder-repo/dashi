@@ -62,6 +62,18 @@ export function EpisodeCard(ctx, e, { showShow = true, embed = false } = {}) {
       e.description && h('p', {}, e.description)));
 }
 
+/** A featured episode on the station's home: its art, title, show and the blurb the station wrote for it. */
+export function FeaturedEpisodeCard(ctx, e, blurb = '') {
+  const show = ctx.doc.podcasts[e.podcastId];
+  return h('article', { class: 'feat-ep' },
+    h('a', { class: 'feat-ep-art', href: ctx.link({ episode: e.id }), 'aria-label': e.title, tabindex: -1 }, EpisodeArt(e, show, 132)),
+    h('div', { class: 'feat-ep-body' },
+      h('span', { class: 'feat-ep-show' }, show?.title ?? ''),
+      h('a', { class: 'feat-ep-title', href: ctx.link({ episode: e.id }) }, e.title),
+      h('p', {}, blurb || e.description || ''),
+      h('div', { class: 'feat-ep-foot' }, PlayButton(ctx, [e], e.title, 'sm'), h('span', { class: 'muted' }, meta(e, null)))));
+}
+
 /** A show, as a card: on the station page, or embedded in an article. */
 export function ShowCard(ctx, show, { latest, count } = {}) {
   const live = Object.values(ctx.doc.episodes).filter((e) => e.podcastId === show.id && published(e, ctx.today))
@@ -247,6 +259,9 @@ export function StationHome(ctx) {
 
   return h('div', { class: `station station-home st-hero-${look.hero} st-archive-${look.archive}` },
     hero,
+    v.featuredEpisodes.length > 0 && h('section', { class: 'featured-episodes' },
+      h('div', { class: 'section-head' }, h('h2', {}, 'Featured episodes')),
+      h('div', { class: 'feat-ep-grid' }, v.featuredEpisodes.map((f) => FeaturedEpisodeCard(ctx, f.episode, f.blurb)))),
     v.featured.length > 0 && h('section', {},
       h('div', { class: 'section-head' }, h('h2', {}, 'Featured shows')),
       h('div', { class: 'show-grid' }, v.featured.map((f) => ShowCard(ctx, f.show, f)))),

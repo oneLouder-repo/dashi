@@ -634,3 +634,16 @@ dialog.drawer-panel.pc-tray .drawer-body { padding-top: 16px; }
 .af-tools { white-space: nowrap; text-align: right; }
 .af-picker { display: grid; gap: 10px; }
 .af-pick li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+
+/* Featured episodes, in Design (alpha 0.3). */
+.fe-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.fe-item { display: grid; grid-template-columns: 48px 1fr auto auto; gap: 10px; align-items: start; padding: 8px; border-radius: 10px; background: var(--color-base-200, #f4f4f4); }
+.fe-item > img, .fe-item > svg, .fe-item > :first-child { width: 48px; height: 48px; border-radius: 8px; }
+.fe-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.fe-text strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fe-blurb { width: 100%; min-height: 0; font-size: 13px; margin-top: 3px; }
+.fe-add { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.fe-hint { color: var(--color-warning-content, #8a5a00); }
+.pc-feature.on { color: #c98a00; }
+.pc-feature.on svg { fill: currentColor; }
+.fe-blurb.textarea { max-width: none; width: 100%; }

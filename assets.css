@@ -308,3 +308,9 @@ input.ah-d-title:focus { outline: none; border-color: var(--accent); background:
 /* Photo library stand-ins (alpha 0.3): credit the photographer on the preview. */
 .ah-preview { position: relative; }
 .ah-photo-credit { position: absolute; right: 8px; bottom: 8px; padding: 2px 7px; border-radius: 6px; font-size: 11px; color: #fff; background: rgb(0 0 0 / 0.45); }
+.ah-preview.art { place-items: stretch; }
+.ah-preview-tile.ah-thumb.t-tile { border-bottom: 0; width: 100%; }
+.ah-preview-tile .ah-thumb-badge { width: 28px; height: 28px; }
+.ah-preview-host { position: absolute; left: 44px; bottom: 10px; display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #1d2230; background: rgb(255 255 255 / 0.92); text-decoration: none; }
+.ah-preview-host:hover { background: #fff; text-decoration: underline; }
+.ah-preview .ah-photo-credit { top: 8px; bottom: auto; }

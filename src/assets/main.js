@@ -312,7 +312,8 @@ function Thumb(card, size = 'tile') {
   const abcd = abcdById[card.abcd];
   const colour = abcd?.color ?? '#7f8ba3';
   const el = h('div', { class: `ah-thumb t-${size}`, style: `--abcd:${colour}` }, icon(card.icon, size === 'tile' ? 30 : 18));
-  const picture = (src) => el.replaceChildren(h('img', { src, alt: '', loading: 'lazy', draggable: false }));
+  const picture = (src) => el.replaceChildren(h('img', { src, alt: '', loading: 'lazy', draggable: false,
+    onerror: (e) => { const fb = standIn(card.key, colour); if (e.target.src !== fb && !e.target.src.startsWith('data:image/svg')) e.target.src = fb; } }));
   if (card.thumb) { picture(card.thumb); return el; }
   if (card.sensitivity === 'restricted' && card.file) { el.replaceChildren(icon('lock', size === 'tile' ? 26 : 16)); return el; }
   if (card.file && card.group === 'image') {
@@ -920,20 +921,22 @@ function Preview(c) {
     }).catch(() => {});
     return box;
   }
-  if (c.url) {
-    let host = '';
-    try { host = new URL(c.url).hostname.replace(/^www\./, ''); } catch { /* not a URL */ }
-    box.replaceChildren(h('div', { class: 'ah-preview-icon' }, icon('link', 36), h('small', {}, host)));
-    return box;
-  }
   if (c.source === 'map' && docs.mapContents?.[c.ref?.id]) {
     plain();
     MiniMap(docs.mapContents[c.ref.id], { width: 300, height: 190, label: c.title }).then((s) => { box.classList.add('map'); box.replaceChildren(s); }).catch(() => {});
     return box;
   }
+  // Everything else shows the same picture as its tile (a link's photo or
+  // stand-in, a note's page, a sticky), so the panel matches what was clicked.
+  const tile = Thumb(c, 'tile');
+  tile.classList.add('ah-preview-tile');
+  const photo = tile.classList.contains('photo') && photoOrNull(c.key);
+  if (photo) tile.querySelector('img')?.setAttribute('src', photoUrl(photo));
+  let host = '';
+  if (c.url) try { host = new URL(c.url, location.href).hostname.replace(/^www\./, ''); } catch { /* not a URL */ }
   box.classList.add('art');
-  const photo = photoOrNull(c.key);
-  box.replaceChildren(h('img', { src: photo ? photoUrl(photo) : standIn(c.key, abcd?.color ?? '#7f8ba3'), alt: '' }), h('span', { class: 'ah-thumb-badge' }, icon(c.icon, 16)),
+  box.replaceChildren(tile,
+    host && h('a', { class: 'ah-preview-host', href: c.url, target: '_blank', rel: 'noopener' }, icon('link', 13), host),
     photo && h('small', { class: 'ah-photo-credit' }, photoCredit(photo)));
   return box;
 }

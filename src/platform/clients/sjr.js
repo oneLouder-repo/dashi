@@ -283,6 +283,12 @@ export function sjrPodcasts() {
       siteId: 'site-main',
       cover: null,
       look: { player: 'bar', art: 'square', hero: 'masthead', archive: 'seasons', masthead: { preset: 'site', image: null, height: 'm', focus: 50 } },
+      featuredEpisodes: [
+        { episodeId: 'ep-sjr-s14-09', blurb: 'What an AI data centre means for water, power and the communities nearby: the newest show, and a good place to start.' },
+        { episodeId: 'ep-sjr-s14-07', blurb: 'The launch of Rooted in Struggle, with the voices behind the book.' },
+        { episodeId: 'ep-sjr-s14-03', blurb: 'John Gaventa on a just transition: power, participation and who gets a say.' },
+        { episodeId: 'ep-sjr-s14-06', blurb: 'Treaty Day, for radio: we are all treaty people.' },
+      ],
     },
     podcasts: {
       'pod-sjr': {
