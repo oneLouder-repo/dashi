@@ -17,21 +17,40 @@ import { icon } from './icons.js';
  *   panel.collapse(bool?)  panel.foldAll(bool)   panel.reset()   panel.reveal(id)
  *
  * Collapsed, the panel shrinks to a slim rail of section icons; clicking
- * one opens the panel at that section. The layout is remembered per browser.
+ * one opens the panel at that section. Drag a section by its grip to put it
+ * higher or lower, and drag the panel's edge to make it wider or narrower.
+ * The layout (order and width too) is remembered per browser.
  */
+const MIN_W = 220;
+const MAX_W = 460;
 export function MapperPanel(host, sections, { key = 'dashi.mapper.panel', onchange } = {}) {
   const defaults = () => ({
     side: 'left',
     collapsed: false,
     open: Object.fromEntries(sections.map((s) => [s.id, s.open !== false])),
     shown: Object.fromEntries(sections.map((s) => [s.id, true])),
+    order: sections.map((s) => s.id),
+    width: 284,
   });
   let state = load();
   const panel = h('aside', { class: 'mapper-panel', 'aria-label': 'Map panel' });
   const rail = h('div', { class: 'mp-rail', role: 'toolbar', 'aria-label': 'Panel sections' });
   const scroller = h('div', { class: 'mp-scroll' });
   const collapseBtn = h('button', { type: 'button', class: 'mp-collapse', onclick: () => api.collapse() });
-  panel.append(rail, scroller, collapseBtn);
+  const resizer = h('div', { class: 'mp-resize', role: 'separator', 'aria-orientation': 'vertical', 'aria-label': 'Drag to resize the panel', title: 'Drag to resize' });
+  panel.append(rail, scroller, collapseBtn, resizer);
+  resizer.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    resizer.setPointerCapture(e.pointerId);
+    resizer.classList.add('on');
+    const x0 = e.clientX; const w0 = panel.getBoundingClientRect().width;
+    const move = (ev) => { const d = (ev.clientX - x0) * (state.side === 'right' ? -1 : 1); panel.style.width = `${Math.max(MIN_W, Math.min(MAX_W, w0 + d))}px`; };
+    const up = () => {
+      resizer.removeEventListener('pointermove', move); resizer.removeEventListener('pointerup', up); resizer.classList.remove('on');
+      set({ width: Math.round(panel.getBoundingClientRect().width) });
+    };
+    resizer.addEventListener('pointermove', move); resizer.addEventListener('pointerup', up);
+  });
   host.append(panel);
 
   const els = new Map();
@@ -39,14 +58,51 @@ export function MapperPanel(host, sections, { key = 'dashi.mapper.panel', onchan
     const chevron = h('span', { class: 'mp-chev', 'aria-hidden': 'true' }, icon('chevronDown', 14));
     const head = h('button', { type: 'button', class: 'mp-head', 'aria-expanded': 'true', onclick: () => api.toggleSection(s.id) },
       chevron, icon(s.icon, 15), h('span', { class: 'mp-title' }, s.title), s.badge ? h('span', { class: 'mp-badge' }) : null);
-    const bar = h('div', { class: 'mp-bar' }, head,
+    const grip = h('span', { class: 'mp-grip', title: 'Drag to move this section', 'aria-hidden': 'true' }, '⋮⋮');
+    const bar = h('div', { class: 'mp-bar' }, grip, head,
       s.action && h('button', { type: 'button', class: 'mp-action', title: s.action.label, 'aria-label': s.action.label, onclick: s.action.onclick }, icon(s.action.icon ?? 'plus', 15)));
     const body = h('div', { class: 'mp-body', id: `mp-${s.id}` }, s.body);
     head.setAttribute('aria-controls', body.id);
     const el = h('section', { class: `mp-sec mp-${s.id}`, 'data-section': s.id }, bar, body);
     const railBtn = h('button', { type: 'button', class: 'mp-rail-btn', title: s.title, 'aria-label': `Open ${s.title}`, onclick: () => api.reveal(s.id) }, icon(s.icon, 18));
     els.set(s.id, { el, head, railBtn });
+    grip.addEventListener('pointerdown', (e) => startMove(e, s.id, el, grip));
   }
+
+  /** Drag a section by its grip; it drops above or below whichever section the pointer is over. */
+  function startMove(e, id, el, grip) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    grip.setPointerCapture(e.pointerId);
+    el.classList.add('dragging');
+    let target = null; let after = false;
+    const clear = () => scroller.querySelectorAll('.drop-before, .drop-after').forEach((x) => x.classList.remove('drop-before', 'drop-after'));
+    const move = (ev) => {
+      clear();
+      const over = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.mp-sec');
+      if (!over || over === el || !scroller.contains(over)) { target = null; return; }
+      const r = over.getBoundingClientRect();
+      after = ev.clientY > r.top + r.height / 2;
+      target = over.dataset.section;
+      over.classList.add(after ? 'drop-after' : 'drop-before');
+      // Near the panel's top or bottom edge, scroll it.
+      const b = scroller.getBoundingClientRect();
+      if (ev.clientY < b.top + 24) scroller.scrollTop -= 12; else if (ev.clientY > b.bottom - 24) scroller.scrollTop += 12;
+    };
+    const up = () => {
+      grip.removeEventListener('pointermove', move); grip.removeEventListener('pointerup', up);
+      el.classList.remove('dragging'); clear();
+      if (!target) return;
+      const order = state.order.filter((x) => x !== id);
+      order.splice(order.indexOf(target) + (after ? 1 : 0), 0, id);
+      set({ order });
+    };
+    grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up);
+  }
+  const ordered = () => {
+    const ids = [...(state.order ?? []).filter((id) => sections.some((s) => s.id === id)), ...sections.map((s) => s.id).filter((id) => !(state.order ?? []).includes(id))];
+    return ids.map((id) => sections.find((s) => s.id === id));
+  };
 
   function load() {
     const base = defaults();
@@ -66,7 +122,8 @@ export function MapperPanel(host, sections, { key = 'dashi.mapper.panel', onchan
     panel.classList.toggle('collapsed', state.collapsed);
     host.classList.toggle('panel-right', state.side === 'right');
     host.classList.toggle('panel-collapsed', state.collapsed);
-    const visible = sections.filter((s) => state.shown[s.id] !== false);
+    panel.style.width = state.collapsed ? '' : `${Math.max(MIN_W, Math.min(MAX_W, state.width ?? 284))}px`;
+    const visible = ordered().filter((s) => state.shown[s.id] !== false);
     scroller.replaceChildren(...visible.map((s) => els.get(s.id).el));
     rail.replaceChildren(...visible.map((s) => els.get(s.id).railBtn));
     for (const s of sections) {

@@ -7,9 +7,11 @@ import { icon } from './icons.js';
  * chooses, Dashi follows the device (and keeps following it live).
  */
 const KEY = 'dashi.mode';
+/** Dark mode is paused for now (see mode-boot.js): no switch, always light. */
+export const DARK_MODE = false;
 const saved = () => { try { const m = localStorage.getItem(KEY); return m === 'light' || m === 'dark' ? m : null; } catch { return null; } };
 const device = () => (globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-export const currentMode = () => saved() ?? device();
+export const currentMode = () => (DARK_MODE ? saved() ?? device() : 'light');
 export function setMode(mode) {
   try { localStorage.setItem(KEY, mode); } catch { /* private window: just for now */ }
   document.documentElement.setAttribute('data-mode', mode);
@@ -17,6 +19,7 @@ export function setMode(mode) {
 }
 let following = false;
 export function ModeToggle() {
+  if (!DARK_MODE) return null;
   const btn = h('button', { type: 'button', class: 'shell-icon shell-mode' });
   const draw = () => {
     const dark = currentMode() === 'dark';
@@ -30,7 +33,7 @@ export function ModeToggle() {
   if (!following) {
     following = true;
     globalThis.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
-      if (saved()) return;
+      if (!DARK_MODE || saved()) return;
       document.documentElement.setAttribute('data-mode', device());
       document.dispatchEvent(new CustomEvent('dashi:mode', { detail: { mode: device() } }));
     });

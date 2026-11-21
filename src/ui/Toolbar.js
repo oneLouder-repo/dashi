@@ -2,7 +2,9 @@ import { h } from './dom.js';
 import { icon } from './icons.js';
 
 /**
- * The mapper's tools, as a grid of buttons in the panel's Tools section.
+ * The mapper's tools, as a list in the panel's Tools section: one row per
+ * tool, the same kind of row as the layers below (0.2: no more tiles), with
+ * its shortcut key on the right.
  * Nothing here stays switched on except Pan and Data viz:
  *   Select          the usual pointer
  *   Actor, Agent    click to add a sticky note, or drag one onto the board
@@ -12,10 +14,10 @@ import { icon } from './icons.js';
  */
 export function Toolbar(el, ctx) {
   const { tools } = ctx;
-  el.classList.add('tool-grid');
+  el.classList.add('tool-list');
   el.setAttribute('role', 'toolbar');
   el.setAttribute('aria-label', 'Tools');
-  const label = (text, key) => h('span', { class: 'side-text' }, text, key && h('small', {}, key));
+  const label = (text, key) => [h('span', { class: 'tool-name' }, text), key && h('kbd', { class: 'tool-key' }, key)];
   const toolButton = (tool) => {
     const on = tool === tools.active;
     return h('button', {
@@ -24,7 +26,7 @@ export function Toolbar(el, ctx) {
       title: `${tool.label}${tool.key ? ` (${tool.key.toUpperCase()})` : ''}${tool.hint ? `: ${tool.hint}` : ''}`,
       'aria-pressed': tool.oneShot ? null : String(on),
       onclick: () => tools.toggle(tool.id),
-    }, icon(tool.icon, 20), label(tool.label, tool.key?.toUpperCase()));
+    }, icon(tool.icon, 16), ...label(tool.label, tool.key?.toUpperCase()));
   };
 
   const render = () => {
@@ -88,6 +90,6 @@ function AddButton(ctx, kind, text, key, label) {
         ctx.actions.addActorAt(w.x, w.y, kind);
       }
     },
-  }, icon(kind, 20), label(text, key));
+  }, icon(kind, 16), ...label(text, key));
   return button;
 }

@@ -18,7 +18,6 @@ export const HELP_SHOTS = {
   'plugins-tree': 'Organisation → Plugins: sub-plugins sit under their parent and only work when it does.',
   'access-one-person': 'Open a plugin to set it off (or on) for one person, whatever their role.',
   'domain-check': 'Organisation → Domain checks a new address as you type.',
-  'dark-mode': 'Dark mode, from the moon in the top bar.',
   'portal-data': 'The Data Workbench now lives in the Public Portal, under Data.',
   'studio-in-strategy': 'The Planning Studio now lives inside Strategy & Work.',
   'library-in-assets': 'The Library now lives inside Assets.',
@@ -65,10 +64,9 @@ export const HELP_SEED = {
 [[shot:studio-in-strategy]]
 
 # Also new
-- **Dark or light**: the moon (or sun) in the top bar switches, and Dashi remembers.
+- **A steadier screen**: every plugin's name is in the bar at the top, and the sidebar and the ribbon above each page stay the same size as you move around. The ribbon also links to the plugins this one works with, and to its help.
 - **Your Dashi address**: change it in **Organisation → Domain**. It's checked as you type.
-
-[[shot:dark-mode]]
+- **The mapper's panel**: tools are a list like the layers. Drag a section by its grip to reorder the panel, and drag its edge to resize it.
 
 # Version numbers
 From 0.2, each point version (0.2, 0.3…) is one big platform feature. Versions like 0.2.1 and 0.2.2 are fixes and polish from what you tell us.`,
