@@ -5,6 +5,7 @@ import { putMedia } from '../../platform/media.js';
 import { isAudioFile, slugify, nextNumber, seasonsOf, showsInOrder } from '../../platform/podcasts.js';
 import { today } from '../../strategy/dates.js';
 import * as P from './project.js';
+import { rememberFile, FilesPicker } from './Files.js';
 import { Transport, Recorder, loadBuffer, cachedBuffer, keepBuffer, sourceKey, mono, silencesOf, mixdown, playOnce, audioContext } from './audio.js';
 
 /**
@@ -278,8 +279,8 @@ export function StudioEditor(ctx, projectId) {
   /* ---------- the dock: clip, chapters, sound pads, episodes */
   function drawDock() {
     const c = project.clips[selected];
-    const tabs = [['clip', 'Clip'], ['chapters', `Chapters (${project.markers.length})`], ['pads', 'Sound pads'], ['library', 'From the station'], ['keys', 'Shortcuts']];
-    const body = dock === 'chapters' ? Chapters() : dock === 'pads' ? Pads() : dock === 'library' ? Library() : dock === 'keys' ? Keys() : ClipPanel(c);
+    const tabs = [['clip', 'Clip'], ['chapters', `Chapters (${project.markers.length})`], ['files', `Audio files (${Object.keys(ctx.doc().files ?? {}).length})`], ['pads', 'Sound pads'], ['library', 'From the station'], ['keys', 'Shortcuts']];
+    const body = dock === 'chapters' ? Chapters() : dock === 'files' ? FilesTab() : dock === 'pads' ? Pads() : dock === 'library' ? Library() : dock === 'keys' ? Keys() : ClipPanel(c);
     dockEl.replaceChildren(
       h('div', { class: 'st-tabs', role: 'tablist' }, tabs.map(([id, label]) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(dock === id), class: dock === id ? 'on' : '', onclick: () => { dock = id; drawDock(); } }, label))),
       h('div', { class: 'st-dock-body' }, body));
@@ -333,6 +334,22 @@ export function StudioEditor(ctx, projectId) {
           h('button', { type: 'button', 'aria-label': `Remove ${d.name}`, onclick: () => commit(P.removePad(project, d.id)) }, icon('close', 12))))),
       h('label', { class: 'st-pad st-pad-add' }, icon('plus', 18), h('small', {}, 'Add a jingle, sting or bed'), padIn),
       h('p', { class: 'muted small st-pads-note' }, 'Tap a pad to hear it; Insert drops it on the selected track at the playhead. Keys 1 to 9 play the first nine.'));
+  }
+
+  /** The org's audio files, a lighter chooser: hear one, add it at the playhead. */
+  function FilesTab() {
+    return FilesPicker(ctx, {
+      onUploaded: () => drawDock(),
+      onAdd: async (f) => {
+        say(`Loading ${f.name}…`);
+        try {
+          const source = { mediaId: f.mediaId };
+          const b = await loadBuffer(source, getEpisode);
+          commit(P.addClip(project, { trackId: track, source, name: f.name, start: playhead, length: b.duration, sourceLength: b.duration }));
+          say(`Added ${f.name} at ${P.clock(playhead)}.`);
+        } catch (err) { say(err.message); }
+      },
+    });
   }
 
   function Library() {
@@ -510,6 +527,8 @@ export function StudioEditor(ctx, projectId) {
       const mediaId = await putMedia(file, { onProgress: (f) => say(`Saving ${file.name}… ${Math.floor(f * 100)}%`) });
       const source = { mediaId };
       keepBuffer(source, buf);
+      // Every import is kept in the org's audio files, to use again in any session.
+      rememberFile(ctx, { mediaId, name: file.name.replace(/\.[a-z0-9]+$/i, ''), duration: buf.duration, size: file.size, type: file.type, origin: 'import' });
       say(`${file.name} is in.`);
       return { source, buffer: buf, name: file.name.replace(/\.[a-z0-9]+$/i, '') };
     } catch (err) { say(''); uiAlert(`Couldn’t bring in ${file.name}: ${err.message}`); return null; }
@@ -555,6 +574,7 @@ export function StudioEditor(ctx, projectId) {
       const file = new File([take.wav], `${slugify(project.title) || 'session'}-${slugify(name)}.wav`, { type: 'audio/wav' });
       const mediaId = await putMedia(file, { onProgress: (f) => say(`Saving the take… ${Math.floor(f * 100)}%`) });
       keepBuffer({ mediaId }, take.buffer);
+      rememberFile(ctx, { mediaId, name: `${project.title} · ${name}`, duration: take.duration, size: file.size, type: 'audio/wav', origin: 'recording' });
       const next = P.addClip(project, { trackId: track, source: { mediaId }, name, start: recStart, length: take.duration, sourceLength: take.duration });
       selected = next.lastId;
       playhead = recStart + take.duration;

@@ -619,3 +619,18 @@ dialog.drawer-panel.pc-tray .drawer-body { padding-top: 16px; }
   .st-toolbar .st-tool span { display: none; }
   .st-session { grid-template-columns: 1fr; }
 }
+
+/* The studio's audio files (alpha 0.3, podcasts/studio/Files.js). */
+.af { padding: 22px 28px 40px; display: grid; gap: 14px; align-content: start; }
+.af-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.af-head h1 { display: flex; align-items: center; gap: 10px; margin: 0 0 4px; }
+.af-head p { margin: 0; max-width: 62ch; }
+.af-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.af-search { width: min(320px, 100%); }
+.af-table { background: var(--sheet, #fff); border-radius: 12px; }
+.af-table td { vertical-align: middle; }
+.af-size { display: block; font-size: 12px; }
+.af-num { font-variant-numeric: tabular-nums; }
+.af-tools { white-space: nowrap; text-align: right; }
+.af-picker { display: grid; gap: 10px; }
+.af-pick li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; }

@@ -73,6 +73,7 @@ export const SOURCES = [
   { id: 'staff', label: 'People', icon: 'person', sub: 'Your staff and their gifts' },
   { id: 'library', label: 'Library', icon: 'sec-library', plugin: 'library', sub: 'Documents and references' },
   { id: 'episode', label: 'Podcast episodes', icon: 'sec-podcasts', plugin: 'podcasts', sub: 'Your stories, told aloud' },
+  { id: 'audio', label: 'Studio audio', icon: 'music', plugin: 'podcasts', sub: 'Recordings, imports and beds' },
 ];
 export const sourceById = Object.fromEntries(SOURCES.map((s) => [s.id, s]));
 
@@ -170,6 +171,12 @@ export function gatherAssets(hub, docs = {}, { plugins = null } = {}) {
       const show = docs.podcasts?.podcasts?.[e.podcastId];
       add({ type: 'episode', id: e.id }, { source: 'episode', title: e.title || 'Untitled episode', description: e.summary ?? e.description ?? '', href: episodeHref(e), kindLabel: 'Episode', icon: 'music', sub: show?.title, abcd: 'cultural', sensitivity: e.status === 'published' ? 'public' : 'internal', tagsFrom: e.tags ?? [],
         thumb: e.cover ?? show?.cover ?? (show ? coverArt({ ...show, title: e.title || show.title }, { label: show.title, seed: `${show.id}/${e.id}` }) : null) });
+    }
+  }
+  if (on('podcasts')) {
+    // The recording studio's audio files (alpha 0.3): live here, kept in the podcasts document.
+    for (const f of Object.values(docs.podcasts?.files ?? {})) {
+      add({ type: 'audio', id: f.id }, { source: 'audio', title: f.name || 'Untitled audio', description: '', href: linkTo('podcasts', '#studio/files'), file: { mediaId: f.mediaId, name: `${f.name}.${/mpeg|mp3/.test(f.type ?? '') ? 'mp3' : 'wav'}`, size: f.size, type: f.type || 'audio/wav' }, updatedAt: f.createdAt, by: f.createdBy, kindLabel: 'Studio audio', icon: 'music', group: 'audio', sub: { recording: 'Recorded in the studio', import: 'Imported to the studio', mixdown: 'Studio mixdown' }[f.origin] ?? 'Studio audio', abcd: 'cultural', tagsFrom: f.tags ?? [] });
     }
   }
   // Notes about things that have since been removed elsewhere: keep them, marked missing.

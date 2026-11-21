@@ -29,6 +29,8 @@ import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
 import { PeoplePicker } from './people.js';
 import { linkTo } from '../plugins.js';
 import { StudioHome, StudioEditor } from './studio/Studio.js';
+import { StudioFiles } from './studio/Files.js';
+import { currentUser } from '../platform/session.js';
 import { projectLength, clock } from './studio/project.js';
 
 /**
@@ -131,7 +133,8 @@ function render() {
       { label: 'Public station', sub: stationSite() ? `On ${stationSite().name}` : 'Not on a site yet', icon: 'globe', href: '#design', on: r.scope === 'design' },
     ] },
     { title: 'Studio', action: { label: 'New session', onclick: () => { location.hash = 'studio'; } }, items: [
-      { label: 'Studio', sub: 'Record, edit and mix in the browser', icon: 'mic', href: '#studio', on: r.scope === 'studio' && !r.projectId },
+      { label: 'Studio', sub: 'Record, edit and mix in the browser', icon: 'mic', href: '#studio', on: r.scope === 'studio' && !r.projectId && !r.page },
+      { label: 'Audio files', sub: `${Object.keys(doc().files ?? {}).length} recordings, imports and beds`, icon: 'waveform', href: '#studio/files', on: r.page === 'files' },
       ...Object.values(doc().projects ?? {}).sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')).slice(0, 6).map((p) => ({ label: p.title, sub: projectLength(p) ? clock(projectLength(p), { tenths: false }) : 'Empty', icon: 'waveform', href: `#studio/${p.id}`, on: r.projectId === p.id })),
     ] },
     { title: 'Series', action: { label: 'New series', onclick: newSeries }, items: [
@@ -156,8 +159,8 @@ function render() {
     else if (r.scope === 'station') panel.replaceChildren(Station());
     else if (r.scope === 'design') panel.replaceChildren(StationDesign());
     else if (r.scope === 'studio') {
-      const studio = { store, col, doc, org, go: (hash) => { location.hash = hash; } };
-      panel.replaceChildren(r.projectId ? StudioEditor(studio, r.projectId) : StudioHome(studio));
+      const studio = { store, col, doc, org, me: currentUser(org)?.id ?? null, go: (hash) => { location.hash = hash; } };
+      panel.replaceChildren(r.page === 'files' ? StudioFiles(studio) : r.projectId ? StudioEditor(studio, r.projectId) : StudioHome(studio));
       if (r.projectId) setCrumbs([{ label: doc().projects[r.projectId].title }]);
     }
     else panel.replaceChildren(EpisodesHome(r));

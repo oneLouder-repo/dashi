@@ -133,6 +133,7 @@ export function migratePodcasts(doc) {
   doc.podcasts ??= {};
   doc.episodes ??= {};
   doc.projects ??= {};
+  doc.files ??= {};     // the studio's audio files (alpha 0.3, podcasts/studio/Files.js)
   for (const p of Object.values(doc.podcasts)) {
     p.featured ??= false;
     p.order ??= 0;
@@ -183,6 +184,7 @@ export function podcastRoute(hash, doc) {
   const base = seriesId ? `series/${seriesId}` : scope;
   const [first, second] = parts.slice(seriesId ? 2 : 1);
   // The studio: #studio (sessions) or #studio/<session id>; no trays.
+  if (scope === 'studio' && first === 'files') return { scope, seriesId: null, base: 'studio/files', tray: null, projectId: null, page: 'files' };
   if (scope === 'studio') return { scope, seriesId: null, base: first && doc.projects?.[first] ? `studio/${first}` : 'studio', tray: null, projectId: doc.projects?.[first] ? first : null };
   let tray = null;
   if (first === 'new') tray = { kind: 'new', id: null };

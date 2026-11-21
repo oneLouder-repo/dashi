@@ -6,6 +6,13 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### PR 4: audio files in the recording studio
+
+- **Audio files** in Podcasts → Studio: every recording, import, jingle and music bed the station has, in one list to upload (several at once), play, rename, tag, search and delete, with where each came from and which sessions use it.
+- **Every import and every take lands there by itself**, so a sound recorded for one session can be used in any other.
+- **An Audio files tab in each session**: a lighter chooser to search, hear and add a file at the playhead, or upload more.
+- **Studio audio in Assets**: the files show in the Asset manager as their own kind (tag them, file them in collections, find them in search), the same way episodes do.
+
 ### PR 3: toolbars that fit the page, a CMS in the Portal, your own homepage
 
 - **The ribbon is a toolbar now.** "Works with" is gone from every plugin. Its right side has the actions people reach for most where they are: in Strategy & Work, Roadmap, Framework, Plan details and Plan designer; in Podcasts, New episode, Studio, Station and Design; in Assets, Asset map, Asset graph and Ecosystem map; and so on. The one for the page you're on drops out, and links to another plugin show only to people who can open it.
