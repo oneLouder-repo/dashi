@@ -129,13 +129,13 @@ function update() {
 }
 
 /** The light itself. Put one in a header; it keeps itself up to date. */
-export function NetLight() {
+export function NetLight({ compact = false } = {}) {
   const log = h('div', { class: 'netlight-log', role: 'dialog', 'aria-label': 'Recent server calls', hidden: true });
-  const button = h('button', { type: 'button', class: 'netlight', 'aria-live': 'polite', onclick: (e) => {
+  const button = h('button', { type: 'button', class: `netlight${compact ? ' netlight-compact' : ''}`, 'aria-live': 'polite', onclick: (e) => {
     e.stopPropagation();
     log.hidden = !log.hidden;
     if (!log.hidden) fill();
-  } }, h('span', { class: 'netlight-led', 'aria-hidden': 'true' }), h('span', { class: 'netlight-label' }, 'Saved'));
+  } }, h('span', { class: 'netlight-led', 'aria-hidden': 'true' }), h('span', { class: `netlight-label${compact ? ' sr-only' : ''}` }, 'Saved'));
   const wrap = h('span', { class: 'netlight-wrap' }, button, log);
   function fill() {
     const v = view();

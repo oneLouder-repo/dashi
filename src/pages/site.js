@@ -26,6 +26,7 @@ import { migrateDashboards } from '../platform/dashboards.js';
 import { applyTheme } from '../platform/themes.js';
 import { Logo, Avatar } from '../ui/Shell.js';
 import { Markdown } from '../ui/markdown.js';
+import { FormView } from '../site/feedbackForm.js';
 import { StationHome, ShowPage, EpisodePage, EpisodeCard, ShowCard, Player, lookClasses } from '../site/station.js';
 import { today, short } from '../strategy/dates.js';
 import { criticalOn, migrateCritical, onSiteFor, lessonsOf, suggestFor, STOP_THINK_CHECK, SIX_QUESTIONS, TRACE, CREDIT, DOC as CRITICAL_DOC } from '../platform/criticalMedia.js';
@@ -461,44 +462,19 @@ function Forms(siteId, place, { members = false } = {}) {
   return list.length ? list.map(FeedbackCard) : null;
 }
 function FeedbackCard(form) {
-  const answers = {};
-  const box = h('section', { class: 'feedback-card' });
-  const done = () => box.replaceChildren(h('div', { class: 'feedback-thanks' }, icon('check', 22), h('p', {}, form.thanks || 'Thank you.')));
-  const field = (q) => {
-    if (q.kind === 'rating') {
-      const stars = [1, 2, 3, 4, 5].map((n) => h('button', { type: 'button', class: 'fb-star', 'aria-label': `${n} of 5`, onclick: () => { answers[q.id] = n; stars.forEach((s, i) => s.classList.toggle('on', i < n)); } }, '★'));
-      return h('div', { class: 'fb-stars', role: 'group', 'aria-label': q.text }, stars);
-    }
-    if (q.kind === 'yesno' || q.kind === 'choice') {
-      const opts = q.kind === 'yesno' ? [['yes', 'Yes'], ['no', 'No']] : (q.options ?? []).map((o) => [o, o]);
-      const btns = opts.map(([v, label]) => h('button', { type: 'button', class: 'fb-pill', onclick: () => { answers[q.id] = v; btns.forEach((b) => b.classList.toggle('on', b === btn(v))); } }, label));
-      const btn = (v) => btns[opts.findIndex(([x]) => x === v)];
-      return h('div', { class: 'fb-pills', role: 'group', 'aria-label': q.text }, btns);
-    }
-    return h('textarea', { class: 'textarea fb-text', rows: 2, 'aria-label': q.text, maxlength: 1000, oninput: (e) => { answers[q.id] = e.target.value; } });
-  };
-  const send = async (e) => {
-    e.preventDefault();
+  // The same form the designer edits, ready to answer.
+  return FormView(form, { onSubmit: async (answers) => {
     const r = cleanResponse(form, answers, { siteId: form.siteId });
-    if (!r) return;
-    try {
-      if (isHosted()) {
-        const res = await fetch('/api/feedback', { method: 'POST', headers: { 'content-type': 'application/json', 'x-toolbox': '1' }, body: JSON.stringify({ formId: form.id, answers }) });
-        if (!res.ok) throw new Error((await res.json()).error ?? 'Not sent');
-      } else {
-        const fb = migrateFeedback(loadDoc('feedback'));
-        fb.responses[r.id] = r;
-        saveDoc('feedback', fb);
-      }
-      done();
-    } catch (err) { box.querySelector('.fb-error')?.remove(); box.append(h('p', { class: 'fb-error' }, `Sorry, that didn’t send: ${err.message}`)); }
-  };
-  box.append(h('form', { onsubmit: send },
-    h('div', { class: 'feedback-head' }, h('span', { class: 'feedback-icon' }, icon('chats', 20)), h('div', {}, h('h2', {}, form.title), form.intro && h('p', {}, form.intro))),
-    h('div', { class: 'feedback-qs' }, form.questions.map((q) => h('div', { class: 'fb-q' }, h('span', { class: 'fb-label' }, q.text), field(q)))),
-    h('input', { type: 'text', name: 'website', class: 'sr-only', tabindex: -1, autocomplete: 'off', 'aria-hidden': 'true' }),
-    h('div', { class: 'feedback-foot' }, h('button', { class: 'btn btn-primary btn-sm', type: 'submit' }, 'Send'), h('small', {}, 'Anonymous. We don’t ask for your name or email.'))));
-  return box;
+    if (!r) throw new Error('answer at least one question first');
+    if (isHosted()) {
+      const res = await fetch('/api/feedback', { method: 'POST', headers: { 'content-type': 'application/json', 'x-toolbox': '1' }, body: JSON.stringify({ formId: form.id, answers }) });
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Not sent');
+    } else {
+      const fb = migrateFeedback(loadDoc('feedback'));
+      fb.responses[r.id] = r;
+      saveDoc('feedback', fb);
+    }
+  } });
 }
 
 /* Critical Media on the public site: prompts that help visitors read what we publish. */

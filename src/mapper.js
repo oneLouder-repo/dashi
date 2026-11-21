@@ -298,6 +298,7 @@ ctx.tools = new ToolRegistry(ctx).register(SelectTool).register(ConnectTool).reg
 ctx.ui.editLabel = LabelEditor(ctx);
 
 // One panel down the side of the board, in folding sections: Tools, Layers, Inspector and Maps.
+// Since PR 10 it sits beside the board, outside the canvas, where every other plugin has its sidebar.
 const toolsEl = h('div');
 const layersEl = h('div', { class: 'side-layers' });
 const inspectorEl = h('div');
@@ -307,13 +308,13 @@ const drawMaps = () => mapsEl.replaceChildren(...Object.values(index.maps).map((
 drawMaps();
 document.addEventListener('dashi:map-renamed', drawMaps);
 const main = document.querySelector('main');
-ctx.panel = MapperPanel(main, [
+ctx.panel = MapperPanel(document.querySelector('#mapside') ?? main, [
   { id: 'tools', title: 'Tools', icon: 'select', body: toolsEl },
   { id: 'layers', title: 'Layers', icon: 'layers', body: layersEl, action: { label: 'Add layer', onclick: () => ctx.actions.addLayer() } },
   { id: 'inspector', title: 'Inspector', icon: 'notePencil', body: inspectorEl },
   { id: 'maps', title: 'Maps', icon: 'mapTrifold', body: mapsEl, open: false,
     action: { label: 'New map', onclick: async () => { const title = await uiPrompt('Name', 'Untitled map', { title: 'New ecosystem map', ok: 'Create map' }); if (title?.trim()) ctx.actions.newMap(title.trim()); } } },
-], { key: 'dashi.mapper.panel.v2' });
+], { key: 'dashi.mapper.panel.v3', outside: !!document.querySelector('#mapside'), onchange: () => requestAnimationFrame(() => stage.dispatchEvent('camera')) });
 Toolbar(toolsEl, ctx);
 ctx.inspector = InspectorPanel(inspectorEl, ctx);
 TopBar(document.querySelector('#topbar'), ctx);

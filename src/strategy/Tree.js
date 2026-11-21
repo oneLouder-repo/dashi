@@ -21,14 +21,14 @@ export function Tree(ctx) {
       : type.dated && n.start ? h('span', { class: 'tree-meta' }, `’${n.start.slice(2, 4)}–’${(n.end ?? '').slice(2, 4)}`)
       : null;
     return [
-      h('li', { class: `tree-row type-${n.type}${n.id === selectedId ? ' selected' : ''}${path.has(n.id) ? ' on-path' : ''}`, style: `padding-left:${4 + depth * 11}px`, title: `${type.label}: ${n.title}` },
+      h('li', { class: `tree-row type-${n.type}${n.draft ? ' is-draft' : ''}${n.id === selectedId ? ' selected' : ''}${path.has(n.id) ? ' on-path' : ''}`, style: `padding-left:${4 + depth * 11}px`, title: `${type.label}: ${n.title}` },
         kids.length
           ? h('button', { class: 'caret', 'aria-label': open ? 'Collapse' : 'Expand', 'aria-expanded': String(open),
               onclick: () => { open ? collapsed.add(n.id) : collapsed.delete(n.id); ctx.render(); } }, icon(open ? 'chevronDown' : 'chevronRight', 14))
           : h('span', { class: 'caret' }),
         levelIcon(n.type, 14),
         h('button', { class: 'tree-title', onclick: () => select(n.id) }, n.title || 'Untitled'),
-        meta,
+        n.draft ? h('span', { class: 'tree-draft', title: 'A draft from the theory of change' }, 'Draft') : meta,
         type.children.length > 0 && h('button', { class: 'tree-add', title: `Add ${NODE_TYPES[type.children.at(-1)].label.toLowerCase()}`,
           onclick: () => ctx.addChild(n.id, type.children.at(-1)) }, '+'),
       ),

@@ -6,6 +6,7 @@ import { Markdown } from '../ui/markdown.js';
 import { loadOrg } from '../platform/docs.js';
 import { can } from '../platform/session.js';
 import { loadHelp, saveHelp, resetHelp, helpId } from '../platform/help.js';
+import { HELP_SHOTS } from './library.js';
 import { PLUGINS } from '../plugins.js';
 import { loadLenses } from '../lenses/index.js';
 import { crosswalk } from '../lenses/crosswalk.js';
@@ -51,9 +52,14 @@ const DIAGRAMS = {
   plugins: () => h('div', { class: 'cards help-cards' }, PLUGINS.filter((p) => p.id !== 'help').map((p) =>
     h('a', { class: 'card', href: p.href }, h('h3', {}, icon(p.icon, 22), p.name), h('p', {}, p.blurb)))),
 };
+/* Screenshots that pages can embed: [[shot:id]] shows media/help/<id>.jpg with its caption. */
+const shot = (id) => HELP_SHOTS[id] && h('figure', { class: 'help-figure help-shot' },
+  h('a', { href: `media/help/${id}.jpg`, target: '_blank', rel: 'noopener', title: 'Open full size' },
+    h('img', { src: `media/help/${id}.jpg`, alt: HELP_SHOTS[id], loading: 'lazy' })),
+  h('figcaption', {}, HELP_SHOTS[id]));
 const body = (text) => Markdown(text, {
-  embeds: ['diagram'],
-  embed: ({ id }) => DIAGRAMS[id]?.() ?? null,
+  embeds: ['diagram', 'shot'],
+  embed: ({ kind, id }) => (kind === 'shot' ? shot(id) : DIAGRAMS[id]?.()) ?? null,
 });
 
 function route() {
@@ -249,6 +255,8 @@ function PageEditor(s, p) {
     h('div', { class: 'editor-bar' },
       h('span', { class: 'muted small' }, 'Insert a diagram:'),
       Object.keys(DIAGRAMS).map((id) => h('button', { class: 'btn btn-xs', onclick: () => insert(`[[diagram:${id}]]`) }, id)),
+      h('select', { class: 'select select-xs w-auto', 'aria-label': 'Insert a screenshot', onchange: (e) => { if (e.target.value) insert(`[[shot:${e.target.value}]]`); e.target.value = ''; } },
+        h('option', { value: '' }, 'Insert a screenshot…'), Object.keys(HELP_SHOTS).map((id) => h('option', { value: id }, id))),
       h('span', { class: 'spacer' }),
       h('span', { class: 'muted small' }, '# heading · **bold** · _italic_ · - list · 1. steps · > note · [link](https://…)')),
     h('div', { class: 'help-split' },

@@ -1,6 +1,6 @@
 import { h } from '../ui/dom.js';
 import { svg } from '../core/svg.js';
-import { NODE_TYPES, measureIndex, ancestors } from '../platform/strategy.js';
+import { NODE_TYPES, measureIndex, ancestors, withoutDrafts } from '../platform/strategy.js';
 import { measureFacts } from '../platform/data.js';
 import { roadmap, workplanProgress, lightOf, LIGHTS, PROGRESS_STATES } from '../platform/strategyReports.js';
 import { monthLabel, range, short, today } from './dates.js';
@@ -36,7 +36,7 @@ function Sparkline(points, w = 120, ht = 32) {
 
 /** Strategic data: every measure's latest value against its target, grouped by where it sits. */
 export function StrategicData(ctx) {
-  const doc = ctx.store.doc;
+  const doc = withoutDrafts(ctx.store.doc);
   const measures = Object.values(measureIndex(doc));
   if (!measures.length) return h('p', { class: 'empty' }, 'No measures yet. Add them to objectives and goals in the Framework tab.');
   const groups = new Map();
@@ -65,7 +65,7 @@ export function StrategicData(ctx) {
 
 /** Workplan completion: tasks done per workplan, against how far through its dates it is. */
 export function Completion(ctx) {
-  const doc = ctx.store.doc;
+  const doc = withoutDrafts(ctx.store.doc);
   const now = today();
   const rows = roadmap(doc).map((r) => ({ ...r, p: workplanProgress(doc, r.workplan.id, now) }));
   if (!rows.length) return h('p', { class: 'empty' }, 'No workplans yet.');
@@ -92,7 +92,7 @@ export function Completion(ctx) {
 
 /** The roadmap as traffic lights: one light per task, workplan by workplan. */
 export function Roadmap(ctx) {
-  const doc = ctx.store.doc;
+  const doc = withoutDrafts(ctx.store.doc);
   const rows = roadmap(doc);
   if (!rows.length) return h('p', { class: 'empty' }, 'No workplans yet.');
   const tasks = rows.flatMap((r) => r.tasks);

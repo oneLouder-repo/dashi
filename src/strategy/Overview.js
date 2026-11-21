@@ -1,8 +1,11 @@
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { rootOf, childrenOf, descendants, taskSummary, measureIndex, TASK_STATUSES } from '../platform/strategy.js';
-import { workplanProgress, PROGRESS_STATES, strategyCounts } from '../platform/strategyReports.js';
-import { LevelBadge, ProgressRing, AvatarStack, objectiveOrder, peopleOf } from '../ui/strategyLook.js';
+import { workplanProgress, PROGRESS_STATES, strategyCounts, LIGHTS, lightOf } from '../platform/strategyReports.js';
+import { NODE_TYPES, statusById } from '../platform/strategy.js';
+import { Sunburst } from '../ui/Sunburst.js';
+import { Drawer } from '../ui/drawer.js';
+import { LevelBadge, ProgressRing, AvatarStack, objectiveOrder, peopleOf, objectiveHue } from '../ui/strategyLook.js';
 import { RoadSvg, currentPlan } from './Road.js';
 import { range, short, today, daysBetween } from './dates.js';
 
@@ -56,6 +59,8 @@ export function Overview(ctx) {
           [['plan', counts.plan], ['objective', counts.objective], ['goal', counts.goal], ['workplan', counts.workplan]].map(([t, c]) => h('li', {}, h('strong', {}, String(c)), LevelBadge(t, { plain: true }))),
           h('li', {}, h('strong', {}, String(Object.keys(measureIndex(doc)).length)), h('span', { class: 'muted small' }, 'measures'))))),
 
+    WholeSunburst(ctx, root, now),
+
     h('div', { class: 'sw-section-head' }, h('h2', {}, 'Objectives and goals'), h('a', { class: 'small', href: '#framework' }, 'Open the framework →')),
     h('div', { class: 'sw-objectives' }, objectiveOrder(doc).map(({ node: o, hue }) => ObjectiveCard(ctx, o, hue, now))),
 
@@ -95,4 +100,61 @@ function PlanBar(doc, p, now) {
       h('i', { style: `width:${gone * 100}%` }),
       h('b', { style: `left:${gone * 100}%` })),
     h('span', { class: 'muted small sw-plan-done' }, `${s.done}/${s.total} tasks`));
+}
+
+/**
+ * The whole framework as a zoomable sunburst: plans, then objectives,
+ * goals, workplans and tasks, each sized by its tasks. Coloured by
+ * objective; a workplan's outline is its traffic light; drafts from the
+ * theory of change are striped. Click a task to see it in a tray.
+ */
+function WholeSunburst(ctx, root, now) {
+  const doc = ctx.store.doc;
+  const toData = (n) => {
+    const kids = childrenOf(doc, n.id);
+    return kids.length ? { name: n.title || NODE_TYPES[n.type].label, id: n.id, children: kids.map(toData) } : { name: n.title || 'Untitled', id: n.id, value: 1 };
+  };
+  const data = toData(root);
+  if (!data.children?.length) return null;
+  const tasks = descendants(doc, root.id).filter((n) => n.type === 'task').length;
+  const isDraft = (n) => { for (let p = n; p; p = doc.nodes[p.parentId]) if (p.draft) return true; return false; };
+  return h('section', { class: 'sw-card sw-sunburst-card' },
+    h('div', { class: 'sw-card-head' }, h('h3', {}, icon('target', 16), 'The whole framework'),
+      h('span', { class: 'muted small' }, `${tasks} tasks. Click a ring to zoom in, the centre to step out, a task to see it.`)),
+    h('div', { class: 'sw-sunburst-body' },
+      Sunburst({
+        data, size: 460, caption: root.title || 'Framework', label: 'The framework as a sunburst, from plans to tasks',
+        color: (d) => {
+          const n = doc.nodes[d.data.id];
+          if (!n) return '#9aa2b5';
+          if (n.type === 'plan') return '#59607a';
+          if (n.type === 'task') return statusById[n.status]?.color ?? '#9aa2b5';
+          return objectiveHue(doc, n);
+        },
+        edge: (d) => { const n = doc.nodes[d.data.id]; return n?.type === 'workplan' ? LIGHTS[PROGRESS_STATES[workplanProgress(doc, n.id, now).state].light].color : null; },
+        hatched: (d) => isDraft(doc.nodes[d.data.id]),
+        onLeaf: (leaf) => openTray(ctx, doc.nodes[leaf.id]),
+      }),
+      h('ul', { class: 'sw-sunburst-key' },
+        h('li', {}, h('i', { style: 'background:#59607a' }), 'Plans'),
+        objectiveOrder(doc).slice(0, 8).map(({ node, hue }) => h('li', {}, h('i', { style: `background:${hue}` }), node.title)),
+        h('li', { class: 'muted' }, h('i', { class: 'edge' }), 'Workplan outline: its traffic light'),
+        h('li', { class: 'muted' }, h('i', { class: 'hatch' }), 'Striped: a draft'))));
+}
+
+/** A task (or an empty item) in a tray, without leaving the overview. */
+function openTray(ctx, n) {
+  if (!n) return;
+  const doc = ctx.store.doc;
+  const path = [];
+  for (let p = doc.nodes[n.parentId]; p && p.type !== 'framework'; p = doc.nodes[p.parentId]) path.unshift(p);
+  const st = n.type === 'task' ? statusById[n.status] : null;
+  const d = Drawer({ title: n.title || 'Untitled', sub: NODE_TYPES[n.type].label,
+    body: h('div', { class: 'sw-tray' },
+      n.draft && h('p', { class: 'sw-tray-draft' }, 'A draft from the theory of change.'),
+      h('ol', { class: 'sw-tray-path' }, path.map((p) => h('li', {}, LevelBadge(p.type, { plain: true }), h('span', {}, p.title)))),
+      st && h('p', {}, h('span', { class: 'sw-dot', style: `background:${st.color}` }), ' ', st.label, n.type === 'task' && h('span', { class: 'muted' }, ` · light: ${LIGHTS[lightOf(n)].label.toLowerCase()}`)),
+      (n.start || n.end) && h('p', { class: 'muted small' }, range(n.start, n.end)),
+      n.notes && h('p', { class: 'sw-tray-notes' }, n.notes)),
+    actions: [h('button', { class: 'btn btn-ghost btn-sm', onclick: () => d.close() }, 'Close'), h('a', { class: 'btn btn-primary btn-sm', href: `#${n.id}`, onclick: () => d.close() }, `Open the ${NODE_TYPES[n.type].label.toLowerCase()}`)] });
 }

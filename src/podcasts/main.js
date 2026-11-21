@@ -28,6 +28,8 @@ import { today, short } from '../strategy/dates.js';
 import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
 import { PeoplePicker } from './people.js';
 import { linkTo } from '../plugins.js';
+import { StudioHome, StudioEditor } from './studio/Studio.js';
+import { projectLength, clock } from './studio/project.js';
 
 /**
  * Podcasts: the studio for an org's own podcast station.
@@ -128,6 +130,10 @@ function render() {
       { label: 'Station', sub: doc().station.name, icon: 'radio', href: '#station', on: r.scope === 'station' },
       { label: 'Public station', sub: stationSite() ? `On ${stationSite().name}` : 'Not on a site yet', icon: 'globe', href: '#design', on: r.scope === 'design' },
     ] },
+    { title: 'Studio', action: { label: 'New session', onclick: () => { location.hash = 'studio'; } }, items: [
+      { label: 'Studio', sub: 'Record, edit and mix in the browser', icon: 'mic', href: '#studio', on: r.scope === 'studio' && !r.projectId },
+      ...Object.values(doc().projects ?? {}).sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')).slice(0, 6).map((p) => ({ label: p.title, sub: projectLength(p) ? clock(projectLength(p), { tenths: false }) : 'Empty', icon: 'waveform', href: `#studio/${p.id}`, on: r.projectId === p.id })),
+    ] },
     { title: 'Series', action: { label: 'New series', onclick: newSeries }, items: [
       ...showsInOrder(doc()).map((p) => ({ label: p.title, sub: [countsOf(p.id).line, p.featured && 'featured'].filter(Boolean).join(' · '), lead: Cover(p, 28, 'side-cover'), href: `#series/${p.id}`, on: r.seriesId === p.id })),
       { label: 'New series', icon: 'plus', onclick: newSeries },
@@ -140,12 +146,20 @@ function render() {
   // The designer keeps its live preview: a change redraws only its controls.
   const designer = panel.querySelector('.pc-design');
   if (r.scope === 'design' && samePage && designer?.refresh) designer.refresh();
+  // The studio holds its own session while you work: a save doesn't redraw it.
+  else if (r.scope === 'studio' && r.projectId && samePage && panel.querySelector('.st')) { /* keep it */ }
   else {
+    panel.querySelector('.st')?.stop?.();
     setCrumbs([]);
     const show = doc().podcasts[r.seriesId];
     if (show) panel.replaceChildren(SeriesPage(show, r));
     else if (r.scope === 'station') panel.replaceChildren(Station());
     else if (r.scope === 'design') panel.replaceChildren(StationDesign());
+    else if (r.scope === 'studio') {
+      const studio = { store, col, doc, org, go: (hash) => { location.hash = hash; } };
+      panel.replaceChildren(r.projectId ? StudioEditor(studio, r.projectId) : StudioHome(studio));
+      if (r.projectId) setCrumbs([{ label: doc().projects[r.projectId].title }]);
+    }
     else panel.replaceChildren(EpisodesHome(r));
     if (samePage) { const m = panel.querySelector('.pc-main'); if (m) m.scrollTop = scroll; }
   }

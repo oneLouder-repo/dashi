@@ -11,16 +11,15 @@ import { SearchBox, wireSearchKey } from './SearchBox.js';
 import { setPlugin } from './crumbs.js';
 import { session } from '../platform/storage.js';
 import { orgList, openOrg, createOrg, currentUser, signInAs, can, signOut, signedInUser, platformUrl } from '../platform/session.js';
-import { ModeToggle } from './mode.js';
 
 /**
  * The header shared by every page, in two rows:
  *
- *   top    the dashi mark, the open organisation, then search, the save
- *          light, help and your profile (which holds the organisation
+ *   top    the dashi mark (with the server-call light, for the platform
+ *          admin), the open organisation, then search, help and your profile (which holds the organisation
  *          switcher, settings, "view as" and sign out)
- *   bar    the org's plugins as icons (names on hover; the open one shows
- *          its name)
+ *   bar    the org's plugins, each with its icon and full name (the open
+ *          one is lit; nothing changes size when you switch)
  *
  * Accounts are mocked locally: "Sign in as" picks a staff record, so you
  * can see the platform as anyone.
@@ -33,8 +32,8 @@ export function Shell(el, { current, org }) {
   const home = topOf(current);
   const link = (id, href, label, iconName) => {
     const on = id === home;
-    return h('a', { href, 'aria-label': label, 'data-tip': label, class: `shell-link${on ? ' active' : ''}`, style: `--tone:${toneFor(id)}`, 'aria-current': on ? 'page' : null },
-      icon(iconName, 18), on ? h('span', {}, label) : null);
+    return h('a', { href, class: `shell-link${on ? ' active' : ''}`, style: `--tone:${toneFor(id)}`, 'aria-current': on ? 'page' : null },
+      icon(iconName, 18), h('span', {}, label));
   };
   const orgs = orgList();
   const switcher = orgs.length > 1 || can.manageOrgs();
@@ -46,12 +45,12 @@ export function Shell(el, { current, org }) {
   el.replaceChildren(
     h('div', { class: 'shell-top' },
       h('a', { class: 'shell-home', href: 'index.html', title: 'Dashi home' }, RippleMark(26), h('span', { class: 'shell-word' }, 'dashi'), StageBadge()),
+      // The server-call light: for the platform admin only, a bare light beside the logo (click for the recent calls).
+      account?.isSuper && (netLight ??= NetLight({ compact: true })),
       h('span', { class: 'shell-slash', 'aria-hidden': 'true' }, '/'),
       h('a', { class: 'shell-orgname', href: 'org.html', title: `${org.name}: organisation settings` }, org.name),
       h('span', { class: 'shell-gap' }),
       SearchBox(org),
-      netLight ??= NetLight(),
-      ModeToggle(),
       h('a', { class: `shell-icon${current === 'help' ? ' active' : ''}`, href: 'help.html', 'aria-label': 'Help', 'data-tip': 'Help' }, icon('question', 19)),
       h('details', { class: 'dropdown dropdown-end shell-user' },
         h('summary', { title: 'Your profile', 'aria-label': 'Your profile and organisations' }, Avatar(me, 30)),
@@ -91,7 +90,7 @@ export function Shell(el, { current, org }) {
   if (session()?.staging) StagingBanner();
   if (session()?.banner) MaintenanceBanner(session().banner);
   if (session()?.legalDue?.length) LegalPrompt(session().legalDue);
-  else if (session()?.emailVerified === false) VerifyNote();
+  // The "confirm your email" note is paused until Dashi goes live (VerifyNote below).
   SkipLink(); // last, so it lands first in the page
   // A small note in the bottom-left corner when a change is saved, or when it couldn't be.
   // "Saved" shows on the save light in the header; a failure also gets a note.

@@ -1,117 +1,92 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { seedStudio, mergeStudio, sendToPlan, plansOf, canWire, blankStudio, bringInPlan, migrateStudio, quadrantAt, borderFor, freeSpot, studioOps } from '../src/platform/studio.js';
-import { seedStrategy } from '../src/platform/strategySeed.js';
-import { migrateStrategy, childrenOf } from '../src/platform/strategy.js';
-import { applyCollectionOp, col } from '../src/core/collections.js';
-import { settle } from '../src/studio/Results.js';
+import * as P from '../src/podcasts/studio/project.js';
+import { podcastRoute, migratePodcasts } from '../src/platform/podcasts.js';
 
-const strategy = () => migrateStrategy(seedStrategy());
+const withClip = (opts = {}) => {
+  const p = P.newProject({ template: 'interview' });
+  const host = p.tracks[0].id;
+  const out = P.addClip(p, { trackId: host, source: { mediaId: 'm1' }, name: 'Intro', start: 0, length: 10, sourceLength: 10, ...opts });
+  return { p: out, id: out.lastId, host };
+};
 
-test('the example studio plans the year-one plan, with a SOAR in every quadrant', () => {
-  const s = strategy();
-  const doc = seedStudio(s, { staff: ['s-ed', 's-eval'] });
-  const [planId] = Object.keys(doc.plans);
-  assert.equal(s.nodes[planId].type, 'plan');
-  assert.match(s.nodes[planId].title, /Year 1/, 'the plan running today');
-  for (const q of ['s', 'o', 'a', 'r']) assert.ok(Object.values(doc.cards).some((c) => c.quadrant === q), q);
-  assert.ok(Object.values(doc.wires).every((w) => canWire(doc.blocks[w.from], doc.blocks[w.to])), 'every example wire is allowed');
-  assert.ok(plansOf(s).every((p) => p.depth === 0), 'plans sit side by side');
-  assert.equal(plansOf(s).length, 2, 'Year 1 and Year 2 are sibling plans');
+test('a session starts from a template', () => {
+  const p = P.newProject({ template: 'panel', title: 'Panel' });
+  assert.deepEqual(p.tracks.map((t) => t.kind), ['voice', 'voice', 'voice', 'music', 'fx']);
+  assert.equal(p.tracks.find((t) => t.kind === 'music').duck, true);
+  assert.equal(P.projectLength(p), 0);
 });
 
-test('merging keeps the newer of each card, and deletions stick', () => {
-  const base = blankStudio();
-  base.cards.a = { id: 'a', text: 'old', at: 1 };
-  base.cards.b = { id: 'b', text: 'mine', at: 1 };
-  const theirs = structuredClone(base);
-  theirs.cards.a = { id: 'a', text: 'new', at: 5 };
-  theirs.cards.c = { id: 'c', text: 'theirs', at: 3 };
-  delete theirs.cards.b;
-  theirs.gone.b = 4;
-  const mine = structuredClone(base);
-  mine.cards.d = { id: 'd', text: 'also mine', at: 6 };
-  const out = mergeStudio(mine, theirs);
-  assert.equal(out.cards.a.text, 'new');
-  assert.equal(out.cards.b, undefined, 'their delete wins over an older card');
-  assert.equal(out.cards.c.text, 'theirs');
-  assert.equal(out.cards.d.text, 'also mine');
-  // A card changed after someone deleted it comes back.
-  mine.cards.b = { id: 'b', text: 'edited later', at: 9 };
-  assert.equal(mergeStudio(mine, theirs).cards.b.text, 'edited later');
-  assert.deepEqual(mergeStudio(out, out), out, 'merging is stable');
+test('split, trim and move keep the sound lined up', () => {
+  const { p, id } = withClip();
+  const { project, rightId } = P.splitClip(p, id, 4);
+  assert.equal(project.clips[id].length, 4);
+  assert.deepEqual([project.clips[rightId].start, project.clips[rightId].offset, project.clips[rightId].length], [4, 4, 6]);
+  // Trimming the left edge moves where the sound starts, never before the source begins.
+  const t = P.trimClip(project, rightId, 'start', 2);
+  assert.deepEqual([t.clips[rightId].start, t.clips[rightId].offset], [2, 2]);
+  assert.deepEqual([P.trimClip(project, rightId, 'start', -5).clips[rightId].offset], [0]);
+  const t2 = P.trimClip(project, rightId, 'end', 99);
+  assert.equal(P.clipEnd(t2.clips[rightId]), 10);
+  const m = P.moveClip(project, rightId, 20);
+  assert.equal(m.clips[rightId].start, 20);
+  assert.equal(p.clips[id].length, 10, 'edits never change the old project (undo)');
 });
 
-test('send to plan makes objectives and goals, then updates them', () => {
-  const s = strategy();
-  const doc = seedStudio(s, { staff: [] });
-  const [planId] = Object.keys(doc.plans);
-  const first = sendToPlan(doc, s, planId);
-  assert.equal(first.loose, 0);
-  // The example objective and one goal are already in the plan, so they update; the co-design goal is new.
-  assert.equal(first.updated, 2);
-  assert.equal(first.made, 1);
-  applyCollectionOp(s, col.batch(first.strategyOps));
-  applyCollectionOp(doc, col.batch(first.studioOps));
-  const goals = childrenOf(s, 'obj-equity').map((n) => n.title);
-  assert.ok(goals.includes('Co-design programs with Indigenous partners'));
-  const coDesign = childrenOf(s, 'obj-equity').find((n) => n.title.startsWith('Co-design'));
-  assert.match(coDesign.notes, /Opportunities: Indigenous-led programs/);
-  assert.equal(childrenOf(s, 'obj-equity').filter((n) => /girls/i.test(n.title)).length, 1, 'the goal already in the plan isn’t duplicated');
-  const again = sendToPlan(doc, s, planId);
-  assert.equal(again.made, 0, 'sending again updates rather than duplicates');
-  assert.equal(again.updated, 3);
+test('ripple delete takes time out of every track and closes the gap', () => {
+  let { p, id } = withClip();
+  p = P.addClip(p, { trackId: p.tracks[2].id, source: { url: 'music.mp3' }, name: 'Bed', start: 0, length: 12, sourceLength: 60 });
+  p = P.addMarker(p, 8, 'Second half');
+  const out = P.rippleDelete(p, 3, 5);
+  assert.equal(P.projectLength(out), 10);
+  const host = P.clipsOn(out, p.tracks[0].id);
+  assert.deepEqual(host.map((c) => [c.start, c.offset, c.length]), [[0, 0, 3], [3, 5, 5]]);
+  assert.equal(out.markers[0].at, 6);
+  assert.ok(p.clips[id]);
 });
 
-test('results that land on others push them down the grid', () => {
-  const cards = [{ id: 'a', x: 0, y: 0, w: 4, h: 3 }, { id: 'b', x: 2, y: 2, w: 4, h: 3 }, { id: 'c', x: 2, y: 5, w: 4, h: 2 }];
-  assert.deepEqual(settle(cards, 'a'), [['b', { y: 3 }], ['c', { y: 6 }]]);
+test('silence is found, and long pauses tighten', () => {
+  const sr = 1000;
+  const s = new Float32Array(sr * 6);
+  const loud = (a, b) => { for (let i = a * sr; i < b * sr; i++) s[i] = Math.sin(i) * 0.5; };
+  loud(0, 1); loud(3, 4); loud(4.2, 5);   // pauses: 1–3 (2 s), 4–4.2 (short)
+  const quiet = P.findSilences(s, sr, { minLength: 0.7 });
+  assert.equal(quiet.length, 2);          // 1–3 and the tail 5–6
+  assert.ok(Math.abs(quiet[0].from - 1) < 0.05 && Math.abs(quiet[0].to - 3) < 0.05);
+  const { p, id } = withClip({ length: 6, sourceLength: 6 });
+  const { project, removed } = P.tightenPauses(p, id, quiet, { keep: 0.5 });
+  assert.ok(Math.abs(removed - 2) < 0.1, String(removed));   // 1.5 s from the long pause, 0.5 s from the tail
+  assert.ok(Math.abs(P.projectLength(project) - (6 - removed)) < 0.01);
 });
 
-test('the SOAR canvas: quadrant by side, thicker borders nearer the centre, old cards moved onto it', () => {
-  assert.deepEqual([quadrantAt(-5, -5), quadrantAt(5, -5), quadrantAt(-5, 5), quadrantAt(5, 5)], ['s', 'o', 'a', 'r']);
-  assert.equal(borderFor({ wx: 100, wy: 80 }), 5);
-  assert.equal(borderFor({ wx: 2000, wy: 2000 }), 1);
-  assert.ok(borderFor({ wx: 400, wy: 300 }) < 5 && borderFor({ wx: 400, wy: 300 }) > borderFor({ wx: 800, wy: 600 }));
-  const old = blankStudio();
-  old.cards.a = { id: 'a', planId: 'p', quadrant: 'r', text: 'x', x: 0.2, y: 0.3, votes: [] };
-  const doc = migrateStudio(old);
-  assert.equal(quadrantAt(doc.cards.a.wx, doc.cards.a.wy), 'r', 'an old card stays in its quadrant');
-  const spot = freeSpot(doc, 'p', 's');
-  assert.equal(quadrantAt(spot.wx, spot.wy), 's');
+test('voices make the music duck, mute and solo decide what is heard', () => {
+  let { p, id, host } = withClip();
+  const spans = P.voiceSpans(p, { [id]: [{ from: 4, to: 6 }] });
+  assert.deepEqual(spans, [[0, 4], [6, 10]]);
+  p = P.updateTrack(p, host, { muted: true });
+  assert.deepEqual(P.voiceSpans(p, {}), []);
+  p = P.updateTrack(p, p.tracks[1].id, { solo: true });
+  assert.deepEqual([...P.audible(p)], [p.tracks[1].id]);
 });
 
-test('bring in the plan lays out objectives, goals and workplans, wired, and only once', () => {
-  const s = strategy();
-  const doc = blankStudio();
-  const [plan] = plansOf(s);
-  const ops = bringInPlan(doc, s, plan.id);
-  applyCollectionOp(doc, col.batch(ops));
-  const blocks = Object.values(doc.blocks);
-  const kinds = (k) => blocks.filter((b) => b.kind === k);
-  assert.equal(kinds('plan').length, 1);
-  assert.equal(kinds('objective').length, 3, 'the year-one objectives only; year two is its own plan');
-  assert.ok(kinds('workplan').length > 0, 'the example plan has workplans');
-  assert.ok(Object.values(doc.wires).every((w) => canWire(doc.blocks[w.from], doc.blocks[w.to])));
-  assert.equal(bringInPlan(doc, s, plan.id).length, 0, 'bringing it in again adds nothing');
-  // Sending it straight back makes nothing new and moves nothing out of the year-one plan.
-  const back = sendToPlan(doc, s, plan.id);
-  assert.equal(back.made, 0);
-  assert.ok(back.strategyOps.every((op) => op.data?.parentId === undefined && op.patch?.parentId === undefined), 'nothing is moved');
+test('levels, WAV files and the clock', () => {
+  assert.ok(Math.abs(P.normaliseGain(Float32Array.from([0.25, -0.5]), 0) - 2) < 1e-9);
+  const wav = new DataView(P.encodeWav([Float32Array.from([0, 1, -1])], 8000));
+  assert.equal(String.fromCharCode(wav.getUint8(0), wav.getUint8(1), wav.getUint8(2), wav.getUint8(3)), 'RIFF');
+  assert.equal(wav.byteLength, 44 + 6);
+  assert.equal(wav.getInt16(46, true), 32767);
+  assert.equal(P.clock(65.34), '1:05.3');
+  assert.equal(P.clock(3725, { tenths: false }), '1:02:05');
+  assert.equal(P.rulerStep(40), 2);
+  assert.deepEqual(P.chaptersOf(P.addMarker(P.newProject(), 61.4, 'News')), [{ at: 61, title: 'News' }]);
 });
 
-test('a new workplan wired into a goal is made under that goal', () => {
-  const s = strategy();
-  const doc = seedStudio(s, { staff: [] });
-  const [planId] = Object.keys(doc.plans);
-  const wp = studioOps.add('blocks', { planId, kind: 'workplan', title: 'Mentor network', ref: null, strategyId: null, x: 40, y: 600 });
-  applyCollectionOp(doc, wp);
-  applyCollectionOp(doc, studioOps.add('wires', { planId, from: wp.id, to: 'bl-8' }));
-  const out = sendToPlan(doc, s, planId);
-  applyCollectionOp(s, col.batch(out.strategyOps));
-  applyCollectionOp(doc, col.batch(out.studioOps));
-  const made = s.nodes[doc.blocks[wp.id].strategyId];
-  assert.equal(made.type, 'workplan');
-  assert.equal(made.title, 'Mentor network');
-  assert.match(s.nodes[made.parentId].title, /^Co-design/);
+test('the studio has its own address in Podcasts, and sessions stay private', () => {
+  const doc = migratePodcasts({ station: {}, podcasts: {}, episodes: {} });
+  assert.deepEqual(doc.projects, {});
+  doc.projects.proj_a = P.newProject();
+  doc.projects.proj_a.id = 'proj_a';
+  assert.deepEqual(podcastRoute('#studio', doc), { scope: 'studio', seriesId: null, base: 'studio', tray: null, projectId: null });
+  assert.equal(podcastRoute('#studio/proj_a', doc).projectId, 'proj_a');
+  assert.equal(podcastRoute('#studio/nope', doc).base, 'studio');
 });

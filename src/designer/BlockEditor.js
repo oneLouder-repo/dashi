@@ -92,7 +92,7 @@ export function BlockEditor(opts) {
         dragFrom = -1;
       } },
     h('div', { class: 'be-tools' },
-      h('span', { class: 'be-grip', title: 'Drag to move', 'aria-hidden': 'true' }, icon('grip', 14)),
+      h('span', { class: 'be-grip', title: 'Drag to move', 'aria-hidden': 'true' }, icon('dragHandle', 14)),
       h('button', { type: 'button', title: 'Move up', 'aria-label': 'Move up', disabled: i === 0, onclick: () => move(i, i - 1) }, icon('chevronUp', 13)),
       h('button', { type: 'button', title: 'Move down', 'aria-label': 'Move down', disabled: i === blocks.length - 1, onclick: () => move(i, i + 2) }, icon('chevronDown', 13)),
       h('button', { type: 'button', title: 'Remove this block', 'aria-label': 'Remove this block', onclick: () => { blocks.splice(i, 1); commit(); draw(); } }, icon('trash', 13))),

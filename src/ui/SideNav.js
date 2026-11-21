@@ -42,6 +42,7 @@ export function SideNav({ label, sections }) {
     } }, h('span', { 'aria-hidden': 'true' }, '‹'));
   sections = sections.map(keepSection).filter(Boolean);
   nav.append(toggle, ...sections.map(Section));
+  keepScroll(nav, label);
   // The open item is the second step of the page's breadcrumb trail.
   const all = sections.flatMap((s) => (s.items ?? []).filter((it) => it && !(it instanceof Node)));
   const on = all.find((it) => it.on);
@@ -68,7 +69,7 @@ export function Item(it) {
   ];
   const props = {
     class: [it.on && 'menu-active', it.className].filter(Boolean).join(' ') || null,
-    title: it.title ?? it.label,
+    title: it.title ?? (it.sub ? `${it.label}: ${it.sub}` : it.label),
     'aria-current': it.on ? 'page' : null,
     ...(it.props ?? {}),
   };
@@ -78,7 +79,37 @@ export function Item(it) {
 
 /** Put a freshly drawn sidebar in place of the old one, keeping its scroll. */
 export function swapSide(old, next) {
-  next.scrollTop = old.scrollTop;
+  // Swap first: an element that isn't on the page can't be scrolled, so setting it before did nothing.
+  const top = old.scrollTop;
   old.replaceWith(next);
+  if (next.isConnected) next.scrollTop = top;
   return next;
+}
+
+/*
+ * The sidebar keeps its place: clicking far down a long list (a tag in
+ * Assets, say) opens the next page with the sidebar where it was, not
+ * back at the top. Kept per sidebar, for this tab only.
+ */
+const scrollKey = (label) => `dashi.side-scroll:${label}`;
+function keepScroll(nav, label) {
+  let t = 0;
+  nav.addEventListener('scroll', () => {
+    clearTimeout(t);
+    t = setTimeout(() => { try { sessionStorage.setItem(scrollKey(label), String(Math.round(nav.scrollTop))); } catch { /* private window */ } }, 80);
+  }, { passive: true });
+  nav.addEventListener('click', () => { try { sessionStorage.setItem(scrollKey(label), String(Math.round(nav.scrollTop))); } catch { /* private window */ } });
+  // A fresh page: put the sidebar back where it was once it's on the page (swapSide handles redraws).
+  requestAnimationFrame(() => {
+    if (!nav.isConnected || nav.scrollTop) return;
+    let top = 0;
+    try { top = Number(sessionStorage.getItem(scrollKey(label))) || 0; } catch { /* private window */ }
+    if (top) nav.scrollTop = top;
+    // Whatever happens, the open item is in view.
+    const on = nav.querySelector('.menu-active');
+    if (on) {
+      const a = on.getBoundingClientRect(); const b = nav.getBoundingClientRect();
+      if (a.top < b.top || a.bottom > b.bottom) on.scrollIntoView({ block: 'nearest' });
+    }
+  });
 }

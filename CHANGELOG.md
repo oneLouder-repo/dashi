@@ -1,10 +1,88 @@
 # Changelog
 
-Dashi uses version numbers like `0.1.0-alpha.1`. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
+Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and so on). Each point version (0.2, 0.3…) is one major platform feature; 0.2.1-alpha, 0.2.2-alpha… are fixes and polish from testing. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
-## Alpha 0.2 (in progress): plugins that own their data, screens and designer
+## 0.2.0-alpha (2026-11-21): plugins that own their data, screens and designer
 
-From 0.2 on, each alpha point version (0.2, 0.3…) is one major platform feature, and its sub-versions (0.2.1, 0.2.2…) are bug hunts and polish from live testing. 0.2 lands over several pull requests; this is the first.
+From 0.2 on, each alpha point version (0.2, 0.3…) is one major platform feature, and its sub-versions (0.2.1, 0.2.2…) are bug hunts and polish from live testing. 0.2 landed over several pull requests, newest first below.
+
+### Planning that starts from the plan, sunbursts and one layout for every plugin (PR 9 and 10)
+
+**Strategic planning, Actua first**
+
+- **Actua starts fresh on each new PR** while we test creating plans: its Strategy & Work and Planning Studio go back to the seeded versions once per release mark (`CLIENT_RESET`), with a backup of what was there first in the data folder’s `backups/`.
+- **The Planning Studio is filled in from the plan**: Actua's SOAR board, Assemble canvas (the assembled plan, with SOAR cards wired into the goals and objectives they feed) and Results are seeded from its strategy. The theory of change starts blank, like an organisation that has a plan but no theory yet.
+- **Theory layers.** The theory of change has a layers strip: **From the plan** (what the plan already says, brought in with one click), **New thinking**, and any layers you name. Show or hide each one, and pick where new boxes go. An empty theory now says when the plan is already in place and offers to bring it in.
+- **Send to plan, as drafts.** A tray previews what the theory would make: lasting changes become objectives, early changes goals, what you do workplans, what it produces tasks (Planned), each under what it leads to; the change you seek fills an empty vision. Assumptions and signposts go in the notes. Sending again updates the same drafts.
+- **Drafts in Strategy & Work**: marked in the outline, with **Accept**, **Discard** and **Accept all** above the item. Reports and the roadmap leave drafts out until they're accepted.
+- **Results, reworked**: grouped by objective, with what each comes from (plan, objective, goal, workplan or a single task), baseline to target, how often and whether it uses live data. Edit one in a tray.
+
+**The roadmap and two sunbursts**
+
+- **The roadmap is shorter and duskier**, with less sky and grass. Strategic objectives get **green signposts** (O1, O2…, like freeway signs), goals keep their white signs, and workplans stay traffic lights.
+- **The asset map opens as a zoomable sunburst** (all assets, then the ABCD types, then collections, then assets), sized by count or by links. Click to zoom, the centre to step out, an asset to open it. **Arrange** keeps the wedge map from PR 4.
+- **The Strategy & Work overview has the whole framework as a sunburst**, from plans to tasks, coloured by objective, with each workplan's traffic light as its outline and drafts striped. Click a task to see it in a tray.
+- D3 v7.9.0 is vendored in `vendor/d3/` and loads only when a sunburst is shown; `src/ui/Sunburst.js` is shared.
+
+**One layout for every plugin**
+
+- **The mapper's panel sits beside the board**, outside the canvas, where every other plugin has its sidebar, so switching plugins no longer shifts the screen.
+- **The mapper's top bar is styled like the page ribbon**, with the same hover colours and a **Works with** section. **Share** replaces File, Connect and People.
+- **The ribbon no longer has a help button** (help is the **?** in the top bar), and in pages whose column pads itself, like the Public Portal, it now runs edge to edge at the top, at the same height and place as everywhere else.
+- Help: a new section, **New in 0.2: planning and maps**, with screenshots.
+
+### A steadier screen (PR 8)
+
+- **The sidebar doesn't move under you.** Every item is the same height, with or without a line of explanation; the label and that line each stay on one line (the full text shows on hover); the open item is no longer bolder, so words don't re-wrap when you click.
+- **The sidebar keeps its place.** Clicking far down a long list (a tag in Assets, say) opens the next page with the sidebar where it was. Redraws used to lose the place too: the old code set the scroll before the new sidebar was on the page.
+- **The plugin bar shows every plugin's full name**, and switching never changes the bar's size.
+- **A ribbon at the top of every plugin page**, like the mapper's top bar: the trail on the left, and on the right the plugins this one works with (only those you can open) and its help. It's there on a plugin's home page too, so pages no longer jump up and down as you move between them. Pages can add their own tools to it (`setRibbon`).
+- **The top bar is quieter**: search, help and your profile. Dark mode and its switch are paused (everything is light for now). The server-call light is a bare green or red light beside the logo, for the platform admin only; click it for the recent calls. The "confirm your email" ribbon is paused until Dashi goes live.
+- **The mapper's panel**: tools are a list, the same kind of row as the layers below, with their shortcut key. Drag a section by its grip to reorder the panel, and drag the panel's edge to resize it. Both are remembered.
+- **Fixed**: text marked to sit on its own line (a workplan's path in Workplan completion, and about 25 other places) was floating over the rows below, because the Planning Studio's canvas blocks shared its class name.
+
+### Help tutorials and the 0.2.0-alpha release (PR 6)
+
+- **New in alpha 0.2**, a new Help section at the top: step-by-step guides with screenshots for plugin access, your own colours, live edit, the Podcast Studio, the asset map and the form designer, plus where things moved. It reaches servers whose help was already edited, too.
+- Help pages can show screenshots with `[[shot:<id>]]` (files in `media/help/`, captions in `HELP_SHOTS`), and the help editor has an **Insert a screenshot** menu.
+- Known limits now mention the studio's WAV-only export.
+- The version is now **0.2.0-alpha**. Fixes and polish from testing will be 0.2.1-alpha, 0.2.2-alpha and so on.
+
+### Asset map and form designer (PR 4)
+
+**The asset map, calmer and hands-on** (Assets → Map):
+
+- **Click a wedge to drill in.** Each of the six ABCD types opens on its own, its assets laid out in tidy rows with their links drawn as soft curves. "All six" goes back.
+- **Less crowded.** The overview shows each wedge's name, count and its three most-linked assets, then "+ N more". No more clusters of dots.
+- **A clear way to add.** Every wedge has a + button, and the focused view has "Add …", for the name, what they bring and an optional link.
+- **Grab and link, like a mini mapper.** Drag from an asset's ring to another asset to link them (drag again to unlink). Drag an asset onto another type's chip, or into another wedge, to re-sort it. Positions are remembered.
+
+**Feedback forms, designed on the form itself** (Public Portal → Feedback forms → Design the form):
+
+- **WYSIWYG**: the designer shows the form exactly as visitors see it, in the site's own colours. Click any words (title, intro, questions, hints, the button) to change them.
+- **Add questions** from the palette: click to add after the selected one, or drag into place. Drag the grip to rearrange; duplicate or remove from each question's tools.
+- **New kinds of answer**: 0 to 10 scale with words at each end, pick several, and headings between questions, alongside stars, yes or no, pick one, and short or long words.
+- **Required questions** ("Needs an answer") and optional hints.
+- **Three layouts**: a card, plain on the page, or one question at a time with a progress bar.
+- **Try it** fills the form as a visitor would, without sending anything. The answers view adds bars for scales and "pick several".
+- Built as a dedicated, bespoke engine (`src/site/feedbackForm.js`) rather than a third-party form service, so answers stay anonymous and in Dashi. The public site and the designer render the very same form.
+
+### Podcast Studio (PR 5)
+
+A multitrack editor inside Podcasts (Podcasts → Studio), for making an episode from start to finish in the browser.
+
+- **Sessions from templates**: Interview, Solo show, Panel, Radio hour or Blank, each with voice, music and effects tracks. Sessions are kept in the podcasts document (`projects`), never public.
+- **Record** on the selected track from the microphone, hearing the rest of the session as you go, with a live level meter. Takes are saved as WAV, like episode audio.
+- **Import** .mp3 and .wav files (button, or drop them on a track). Bring in a station episode's audio for trailers and "previously on…" clips.
+- **Arrange and edit**: drag clips between tracks with snapping, trim either edge, split at the playhead (S) or by double-clicking, duplicate, and delete. Drag fade handles or use Quick fades. Set clip volume in dB.
+- **Take out a stretch of time** across every track and close the gap (drag across the ruler, then Delete). Insert silence at the playhead.
+- **The toolbox**: Normalise, Tighten pauses (shortens every pause longer than half a second and keeps all tracks in step), and Trim the quiet ends.
+- **Mixing**: mute, solo, volume and pan per track. Music tracks duck under voices automatically. A gentle limiter keeps the mix from clipping.
+- **Chapters** from markers (M), named and moved in the Chapters tab.
+- **Sound pads**: a sound board of jingles, stings and beds. Tap to play (keys 1 to 9), or insert at the playhead.
+- **Undo and redo** for every edit, plus keyboard shortcuts for the rest (listed in the Shortcuts tab).
+- **Out**: download the mix as WAV, or **send it to the station** as a draft episode with its chapters (or update the episode it became). WAV only for now; MP3 needs an encoder we haven't added yet.
+- The server's permissions policy now lets Dashi's own pages use the microphone (`microphone=(self)`). Camera, location and payment stay off.
 
 ### Palette builder, the station's own colours, live edit (PR 3)
 
