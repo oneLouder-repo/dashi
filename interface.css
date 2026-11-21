@@ -700,3 +700,35 @@ input.toc-layer-name:focus { outline: 1px dashed hsl(var(--lh) 50% 60%); outline
 .sw-tray-notes { white-space: pre-wrap; font-size: 13px; }
 .sw-tray-draft { padding: 6px 10px; border-radius: 8px; background: #fff4df; color: #6b4700; font-size: 13px; }
 @media (max-width: 860px) { .sw-sunburst-body { grid-template-columns: 1fr; } }
+
+/* ---------- The mapper, like every other plugin (alpha 0.2, PR 10) ----------
+   The panel sits beside the board, outside the canvas, where the other plugins have
+   their sidebar; the top bar is styled like their page ribbon. */
+body.mapper-page { grid-template: 'shell shell' auto 'side top' 44px 'side board' 1fr / auto minmax(0, 1fr) !important; column-gap: 16px !important; padding: 0 16px 16px; }
+body.mapper-page.mp-right { grid-template: 'shell shell' auto 'top side' 44px 'board side' 1fr / minmax(0, 1fr) auto !important; }
+#mapside { grid-area: side; min-height: 0; display: flex; flex-direction: column; }
+.mapper-panel.outside { position: relative; top: auto; left: auto; right: auto; bottom: auto; flex: 1; min-height: 0; width: 260px; background: transparent; border: 0; border-radius: 0; box-shadow: none; padding-top: 4px; }
+.mapper-panel.outside.collapsed { width: 52px; flex: none; }
+.mapper-panel.outside .mp-sec { border-color: var(--rule, var(--line-soft)); }
+.mapper-panel.outside .mp-resize { right: -10px; width: 8px; }
+.mapper-panel.outside.right .mp-resize { left: -10px; right: auto; }
+body.mapper-page #topbar { grid-area: top; height: 44px; min-height: 44px; padding: 0 12px 0 14px; border-radius: var(--r-sheet, 14px) var(--r-sheet, 14px) 0 0; background: var(--sheet); border-bottom: 1px solid var(--rule); box-shadow: none; }
+body.mapper-page > main { border-radius: 0 0 var(--r-sheet, 14px) var(--r-sheet, 14px); }
+#topbar .btn-ghost, #topbar .tb-menu-btn { height: 30px; min-height: 30px; border-radius: 8px; font-weight: 600; color: var(--ink-2); }
+#topbar .btn-ghost:hover, #topbar .tb-menu-btn:hover { background: color-mix(in oklab, var(--tone, #1d8a7a) 9%, transparent); color: var(--ink-1); border-color: transparent; }
+#topbar { --tone: #1d8a7a; }
+#topbar .tb-share { --tone: #3d63dd; }
+#topbar .map-name { font-size: 15px; }
+#topbar .ribbon-group { margin-left: 4px; }
+@media (max-width: 760px) {
+  body.mapper-page, body.mapper-page.mp-right { grid-template: 'shell' auto 'top' 44px 'board' 1fr / minmax(0, 1fr) !important; padding: 0; }
+  #mapside { position: fixed; z-index: 6; left: 8px; top: 120px; bottom: 8px; }
+  .mapper-panel.outside { background: var(--sheet); border-radius: 14px; box-shadow: var(--lift-float); }
+}
+.mapper-panel.outside .mp-sec, .mapper-panel.outside .mp-bar, .mapper-panel.outside .mp-head, .mapper-panel.outside .mp-scroll { background: transparent; }
+.mapper-panel.outside .mp-collapse { background: transparent; border-top: 0; }
+#topbar .topbar-sep { margin: 0 2px; }
+@media (max-width: 1500px) { #topbar .ribbon-link span { display: none; } #topbar .ribbon-link { padding: 0 7px; } }
+@media (max-width: 1200px) { #topbar .tb-zoom .btn-square, #topbar .ribbon-label { display: none; } }
+.mapper-panel.outside .mp-bar { background: var(--paper, #f3f1ec); }
+@media (max-width: 1500px) { #topbar .map-name { max-width: 20ch; } #topbar .lens-select { max-width: 160px; } #topbar .tb-zoom .btn-square { display: none; } }

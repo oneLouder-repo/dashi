@@ -23,17 +23,17 @@ import { icon } from './icons.js';
  */
 const MIN_W = 220;
 const MAX_W = 460;
-export function MapperPanel(host, sections, { key = 'dashi.mapper.panel', onchange } = {}) {
+export function MapperPanel(host, sections, { key = 'dashi.mapper.panel', onchange, outside = false } = {}) {
   const defaults = () => ({
     side: 'left',
     collapsed: false,
     open: Object.fromEntries(sections.map((s) => [s.id, s.open !== false])),
     shown: Object.fromEntries(sections.map((s) => [s.id, true])),
     order: sections.map((s) => s.id),
-    width: 284,
+    width: outside ? 260 : 284,
   });
   let state = load();
-  const panel = h('aside', { class: 'mapper-panel', 'aria-label': 'Map panel' });
+  const panel = h('div', { class: `mapper-panel${outside ? ' outside' : ''}`, role: 'complementary', 'aria-label': 'Map panel' });
   const rail = h('div', { class: 'mp-rail', role: 'toolbar', 'aria-label': 'Panel sections' });
   const scroller = h('div', { class: 'mp-scroll' });
   const collapseBtn = h('button', { type: 'button', class: 'mp-collapse', onclick: () => api.collapse() });
@@ -119,6 +119,7 @@ export function MapperPanel(host, sections, { key = 'dashi.mapper.panel', onchan
 
   function render() {
     panel.classList.toggle('right', state.side === 'right');
+    if (outside) { document.body.classList.toggle('mp-right', state.side === 'right'); document.body.classList.toggle('mp-collapsed', !!state.collapsed); }
     panel.classList.toggle('collapsed', state.collapsed);
     host.classList.toggle('panel-right', state.side === 'right');
     host.classList.toggle('panel-collapsed', state.collapsed);
@@ -155,6 +156,7 @@ export function MapperPanel(host, sections, { key = 'dashi.mapper.panel', onchan
     },
     /** How much of the board the panel covers, in px from its side (for fitting the view). */
     inset() {
+      if (outside) return 0;   // beside the board, it covers none of it
       const r = panel.getBoundingClientRect();
       const b = host.getBoundingClientRect();
       return state.side === 'right' ? Math.max(0, b.right - r.left) : Math.max(0, r.right - b.left);

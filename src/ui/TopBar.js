@@ -10,6 +10,7 @@ import { enabledPlugins, linkTo } from '../plugins.js';
 import { linkToStrategy, addToAssets, strategyUses } from './MapConnections.js';
 import { saveDoc } from '../platform/storage.js';
 import { mapDocName } from '../platform/maps.js';
+import { worksWith } from './crumbs.js';
 
 /**
  * The mapper's top bar, left to right in the order you reach for things:
@@ -17,11 +18,13 @@ import { mapDocName } from '../platform/maps.js';
  *   name · map type        what you're looking at (click the name to rename)
  *   undo redo              history
  *   fit · tidy ▾           arranging the board
- *   View ▾                 the panel and its sections, the board's grid and hover cards, zoom
- *   File ▾                 new, open, save a copy, picture, keep in the library
- *   Connect ▾              using this map with Strategy, Assets and the Library
- *   People                 the owner and members who can edit it
- *   ?                      help on this map type and the mapper
+ *   View ▾                 the panel and its sections, the board's grid and hover cards, zoom, help
+ *   Share ▾                people who can edit it, files and pictures, and the map in
+ *                          Strategy, Assets and the Library (File, Connect and People until PR 10)
+ *   Works with             Assets and Strategy & Work, as in every plugin's ribbon
+ *
+ * Since PR 10 it is styled like the page ribbon other plugins have, and,
+ * like it, has no help button: help is in the top bar (and View ▾).
  */
 export function TopBar(el, ctx) {
   const { store, ops, mapView } = ctx;
@@ -87,26 +90,24 @@ export function TopBar(el, ctx) {
     { label: 'Fit the map', icon: 'fit', kbd: 'F', onclick: () => ctx.actions.fitView() },
     { label: 'Zoom in', icon: 'zoomIn', kbd: '+', keepOpen: true, onclick: () => ctx.actions.zoom(1.2) },
     { label: 'Zoom out', icon: 'zoomOut', kbd: '−', keepOpen: true, onclick: () => ctx.actions.zoom(1 / 1.2) },
+    'sep',
+    { label: 'About this map type', icon: 'help', hint: 'How to read and use it', onclick: () => MapHelp(ctx) },
   ] });
 
-  // File: making, opening and keeping copies of maps.
-  const fileMenu = Menu({ label: 'File', icon: 'folder', title: 'New, open, save a copy, export', items: () => [
-    { label: 'New map…', icon: 'plus', onclick: async () => { const t = await uiPrompt('Name', 'Untitled map', { title: 'New ecosystem map', ok: 'Create map' }); if (t?.trim()) ctx.actions.newMap(t.trim()); } },
-    { label: 'Open a map file…', icon: 'folderOpen', hint: 'A .dashi-map.json file', onclick: () => fileInput.click() },
-    'sep',
-    { label: 'Save a copy as a file', icon: 'download', hint: 'To keep offline, archive or send', onclick: () => exportMap(store.map, { entry: ctx.index.maps[ctx.mapId], org: ctx.org }) },
-    { label: 'Export a picture (PNG)', icon: 'image', hint: 'For documents, slides and emails', onclick: () => exportPicture(ctx) },
-    'sep',
-    { label: 'Map details…', icon: 'notePencil', hint: 'Title, description, owner and members', onclick: () => MapDetails(ctx) },
-  ] });
-
-  // Connect: this map in Dashi's other tools.
-  const connectMenu = Menu({ label: 'Connect', icon: 'flow', title: 'Use this map with Strategy, Assets and the Library', align: 'end', items: () => {
+  // Share: who can edit it, copies and pictures, and the map in Dashi's other tools.
+  const shareMenu = Menu({ label: 'Share', icon: 'share', title: 'People, files and pictures, and this map in Strategy, Assets and the Library', align: 'end', className: 'tb-share', items: () => {
     const sel = mapView.selectedItems();
     const actor = sel.actorIds.length === 1 && sel.connectorIds.length === 0 ? store.map.actors[sel.actorIds[0]] : null;
     const uses = has('strategy') ? strategyUses(ctx.mapId) : [];
     return [
-      { note: 'This map stays live where you use it: rename or change it here and it updates there.' },
+      { heading: 'People' },
+      { label: 'Owner and members…', icon: 'users', hint: 'Who can see and edit it, and its title and description', onclick: () => MapDetails(ctx) },
+      { heading: 'File' },
+      { label: 'Save a copy as a file', icon: 'download', hint: 'To keep offline, archive or send', onclick: () => exportMap(store.map, { entry: ctx.index.maps[ctx.mapId], org: ctx.org }) },
+      { label: 'Export a picture (PNG)', icon: 'image', hint: 'For documents, slides and emails', onclick: () => exportPicture(ctx) },
+      { label: 'Open a map file…', icon: 'folderOpen', hint: 'A .dashi-map.json file', onclick: () => fileInput.click() },
+      { label: 'New map…', icon: 'plus', onclick: async () => { const t = await uiPrompt('Name', 'Untitled map', { title: 'New ecosystem map', ok: 'Create map' }); if (t?.trim()) ctx.actions.newMap(t.trim()); } },
+      (has('strategy') || has('assets') || has('library')) && 'sep',
       has('strategy') && { heading: 'Strategy & Work' },
       has('strategy') && { label: 'Link the map to workplans or tasks…', icon: 'sec-strategy', hint: uses.length ? `Used ${uses.length} time${uses.length === 1 ? '' : 's'}: ${[...new Set(uses.map((u) => u.node.title))].slice(0, 3).join(', ')}` : 'List it among their assets', onclick: () => linkToStrategy(ctx) },
       has('strategy') && actor && { label: `Link “${actor.label || 'Untitled'}” to workplans or tasks…`, icon: actor.kind === 'agent' ? 'agent' : 'actor', onclick: () => linkToStrategy(ctx, { actor }) },
@@ -119,7 +120,7 @@ export function TopBar(el, ctx) {
         try { toast((await ctx.actions.saveToLibrary()) === 'added' ? 'Saved to the library as a map file' : 'Updated the map file in the library'); }
         catch (err) { toast(`Couldn’t save to the library: ${err.message}`, 'error'); }
       } },
-      !has('strategy') && !has('assets') && !has('library') && { note: 'Switch on Strategy, Assets or the Library (Organisation → Plugins) to use maps there.' },
+      (has('strategy') || has('assets') || has('library')) && { note: 'The map stays live where you use it: change it here and it updates there.' },
     ];
   } });
 
@@ -141,10 +142,8 @@ export function TopBar(el, ctx) {
       h('button', { class: 'btn btn-sm btn-ghost icon-text', title: 'Fit the whole map on screen (F)', onclick: () => ctx.actions.fitView() }, icon('fit', 16), h('span', {}, 'Fit')),
       h('div', { class: 'join tidy-split', title: 'Space the notes out evenly for this map type. Undo or “Back to my layout” puts them back.' }, tidyBtn, tidyMenu)),
     h('div', { class: 'spacer' }),
-    h('div', { class: 'tb-group' }, viewMenu, fileMenu, connectMenu),
-    h('span', { class: 'topbar-sep' }),
-    h('button', { class: 'btn btn-sm btn-primary icon-text tb-people', title: 'Owner and members: who can edit this map', onclick: () => MapDetails(ctx) }, icon('users', 16), h('span', {}, 'People')),
-    h('button', { class: 'btn btn-sm btn-ghost btn-square', title: 'About this map type, and how to use the mapper', 'aria-label': 'Help', onclick: () => MapHelp(ctx) }, icon('help', 18)),
+    h('div', { class: 'tb-group' }, viewMenu, shareMenu),
+    worksWith('mapper'),
     fileInput,
   );
 
