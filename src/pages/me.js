@@ -135,7 +135,7 @@ function render() {
           ? h('ul', { class: 'me-links' }, myDashboards.map((d) => h('li', {}, h('a', { href: `palette.html#${d.id}` }, d.title), h('small', {}, `${d.widgets.length} widgets · ${d.visibility}`))))
           : empty('Make one from an objective in Strategy & Work, or in the Data Workbench.'), { icon: 'sec-data' }),
         myShows.length > 0 && card('Shows I host', myShows.length,
-          h('ul', { class: 'me-links' }, myShows.map((p) => h('li', {}, h('a', { href: `podcasts.html#${p.id}` }, p.title), h('small', {}, p.category)))), { icon: 'sec-podcasts' }))),
+          h('ul', { class: 'me-links' }, myShows.map((p) => h('li', {}, h('a', { href: `podcasts.html#series/${p.id}` }, p.title), h('small', {}, p.category)))), { icon: 'sec-podcasts' }))),
     h('p', { class: 'note' }, session() ? 'Your name, title, picture, contact details, bio and the areas you follow are yours to change. Your role and teams are set by your organisation’s admin.' : 'Accounts are mocked for now: use the menu under your picture (top right) to see the platform as anyone in the org.'),
   ));
 }

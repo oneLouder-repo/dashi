@@ -2,7 +2,19 @@
 
 Dashi uses version numbers like `0.1.0-alpha.1`. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
-## Unreleased (alpha.10 fixes)
+## Unreleased (alpha.10 fixes, and podcasts with the episode first)
+
+### Podcasts: the episode first
+
+- **Episodes are home.** Podcasts opens on every episode: what's coming up and drafts, then what's out, narrowed by series, state or a word. Your station sits alongside at the top, with ways to its details and its public page.
+- **Add an episode from anywhere**: the button on every page, or drop an .mp3 or .wav on the "Add an episode" card. It opens a tray from the side in four steps: the audio; what it is (series, season, title, summary, art, tags); who is in it; and when it goes out (publish now, schedule, or save as a draft). Episode notes, chapters, the transcript, the type and links into Dashi wait under "More details". You can start a new series right from the form.
+- **Choosing who is in an episode**: the people so far as chips, the series' hosts marked and ready to add with one click, and a box that finds anyone on staff as you type (arrow keys and Enter work). People heard most on the series come first. Type a name that isn't on staff to add them as a guest; guests are named on the episode's public page too.
+- **No more jumps.** An episode, its edit form and a series' settings all open in trays over the page you're on, and closing one puts you back where you were. Links from search, the dashboard and the palette open the right tray.
+- **Series, not shows.** A podcast's collections are called series, so "your show was great last night" never means two things. The sidebar has Episodes, Station and Public station, then your series. "Show notes" are now "Episode notes" in the studio.
+- **Station** holds the station's name, art and line-up of series (star to feature, arrows to reorder), beside a glimpse of the public station.
+- On a phone, Podcasts' side list sits above the page, and side trays across the app use the whole width.
+
+### Fixes from alpha.10
 
 - **Links on Look and feel no longer stall.** Each site preview on the page held its own live-update connection to the server open, and browsers allow only six at a time, so following a link had to wait for one to free up. Previews now get their updates from the page around them, and pages let go of their connection when you leave.
 - **Breadcrumbs line up** with the page on Podcasts (show settings, Public station), Organisation and everywhere else, instead of sitting in the corner.

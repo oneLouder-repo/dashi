@@ -2442,7 +2442,7 @@ a.cc-tile:hover { border-color: var(--accent); }
 @media (max-width: 960px) { .cc-security { grid-template-columns: 1fr; } }
 
 /* ---------- Side drawer (src/ui/drawer.js): edit one thing beside its list ---------- */
-dialog.drawer-panel { position: fixed; inset: 0 0 0 auto; margin: 0; height: 100dvh; max-height: none; width: min(460px, 100vw); border: none; padding: 0; background: var(--color-base-100); color: var(--ink); box-shadow: -18px 0 50px rgb(20 22 30 / 0.16); display: flex; flex-direction: column; animation: drawer-in 200ms ease-out; }
+dialog.drawer-panel { position: fixed; inset: 0 0 0 auto; margin: 0; height: 100dvh; max-height: none; max-width: 100vw; width: min(460px, 100vw); border: none; padding: 0; background: var(--color-base-100); color: var(--ink); box-shadow: -18px 0 50px rgb(20 22 30 / 0.16); display: flex; flex-direction: column; animation: drawer-in 200ms ease-out; }
 dialog.drawer-panel:not([open]) { display: none; }
 dialog.drawer-panel.wide { width: min(620px, 100vw); }
 dialog.drawer-panel::backdrop { background: rgb(28 30 38 / 0.28); animation: dui-fade 160ms ease-out; }

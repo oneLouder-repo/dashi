@@ -15,7 +15,7 @@
  *           links: { website, apple, spotify, youtube } }            where else to listen
  * Episode { podcastId, season, number, title, slug, description, notes,
  *           type: 'full' | 'trailer' | 'bonus', status: 'published' | 'scheduled' | 'draft', publishedAt,
- *           audio: { url | mediaId, duration, mimetype, size }, personIds: [staff ids],
+ *           audio: { url | mediaId, duration, mimetype, size }, personIds: [staff ids], guests: [names of people from outside],
  *           cover,                         its own art, else the show's
  *           chapters: [{ at, title }],     at = seconds from the start
  *           transcript, tags: [..], explicit,
@@ -141,6 +141,7 @@ export function migratePodcasts(doc) {
     e.season ??= 1;
     e.notes ??= '';
     e.personIds ??= [];
+    e.guests ??= [];
     e.cover ??= null;
     e.chapters ??= [];
     e.transcript ??= '';
@@ -155,8 +156,34 @@ export function migratePodcasts(doc) {
 
 export const slugify = (s) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_-]+/g, '-');
 
-/** Where an episode opens in the Podcasts plugin. */
-export const episodeHref = (e) => `podcasts.html#${e.podcastId ?? ''}/${e.id}`;
+/** Where an episode opens in the Podcasts plugin: in a tray over the episode list. */
+export const episodeHref = (e) => `podcasts.html#episodes/${e.id}`;
+/** Where a series opens in the Podcasts plugin. */
+export const seriesHref = (p) => `podcasts.html#series/${p.id}`;
+
+/**
+ * Reads a Podcasts address: { scope, seriesId, base, tray }. `base` is the
+ * page behind (what a tray closes back to); `tray` is null or
+ * { kind: 'episode' | 'edit' | 'new' | 'settings', id }. Older addresses
+ * (#<series>/<episode>) still land in the right place, and anything
+ * unknown lands on the episode list.
+ */
+const SCOPES = ['episodes', 'series', 'station', 'design'];
+export function podcastRoute(hash, doc) {
+  let parts = decodeURIComponent(String(hash ?? '').replace(/^#/, '')).split('/').filter(Boolean);
+  if (parts[0] && !SCOPES.includes(parts[0]) && doc.podcasts[parts[0]]) parts = ['series', ...parts];
+  if (!SCOPES.includes(parts[0])) parts = ['episodes'];
+  const scope = parts[0];
+  const seriesId = scope === 'series' && doc.podcasts[parts[1]] ? parts[1] : null;
+  if (scope === 'series' && !seriesId) return { scope: 'episodes', seriesId: null, base: 'episodes', tray: null };
+  const base = seriesId ? `series/${seriesId}` : scope;
+  const [first, second] = parts.slice(seriesId ? 2 : 1);
+  let tray = null;
+  if (first === 'new') tray = { kind: 'new', id: null };
+  else if (first === 'settings' && seriesId) tray = { kind: 'settings', id: seriesId };
+  else if (first && doc.episodes[first]) tray = { kind: second === 'edit' ? 'edit' : 'episode', id: first };
+  return { scope, seriesId, base, tray };
+}
 
 /** "1:05" or "1:02:03" ⇄ seconds, for chapter times. */
 export const toClock = (sec = 0) => { const s = Math.max(0, Math.round(sec)); return (s >= 3600 ? `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}` : `${Math.floor(s / 60)}`) + `:${String(s % 60).padStart(2, '0')}`; };

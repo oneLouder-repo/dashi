@@ -21,7 +21,7 @@ test('search finds titles, raw text, actors and episodes across plugins', () => 
   assert.ok(hit('polar night').includes('Robots in the Arctic'), 'episode description');
   assert.ok(hit('amara').includes('Amara Okafor'), 'staff');
   const ep = search(idx, 'arctic').find((r) => r.entry.title === 'Robots in the Arctic');
-  assert.equal(ep.entry.href, 'podcasts.html#pod-stem-voices/ep-sv-1');
+  assert.equal(ep.entry.href, 'podcasts.html#episodes/ep-sv-1');
 });
 
 test('tag: and in: narrow a search; every word must appear', () => {
@@ -55,7 +55,7 @@ test('podcast episodes carry chapters, tags and links into Dashi; clock times ro
   assert.equal(doc.podcasts.p.links.spotify, '');
   assert.equal(episodeCode(doc.episodes.e), 'S2 · E3');
   assert.equal(episodeCode({ type: 'trailer', season: 1 }), 'S1 · Trailer');
-  assert.equal(episodeHref(doc.episodes.e), 'podcasts.html#p/e');
+  assert.equal(episodeHref(doc.episodes.e), 'podcasts.html#episodes/e');
   assert.equal(toClock(65), '1:05');
   assert.equal(toClock(3723), '1:02:03');
   assert.equal(fromClock('1:02:03'), 3723);
