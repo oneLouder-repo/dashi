@@ -27,6 +27,12 @@ export const WHEEL = [
 ];
 /** The black of Dashi's lines and type. */
 export const INK = '#16181d';
+/**
+ * The systems-change palette (d, alpha 0.3 PR 8) for the radial lenses:
+ * green for macro / cultural, through yellow, to red for micro / internal.
+ * Each hue has a solid step and a lighter one; rings in one group alternate.
+ */
+export const SYSTEMS = { green: ['#65a464', '#90c092'], yellow: ['#e9ac52', '#efc581'], red: ['#b94d38', '#cd8071'] };
 export const HARMONIES = ['complementary', 'analogous', 'monochromatic', 'split', 'triadic', 'square'];
 
 const rgb = (hex) => { const n = parseInt(String(hex).replace('#', '').slice(0, 6), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };

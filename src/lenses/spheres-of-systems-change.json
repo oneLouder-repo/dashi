@@ -2,7 +2,7 @@
   "id": "spheres-of-systems-change",
   "name": "Spheres of Systems Change (NPC)",
   "description": "NPC's eight spheres of systems change, from your inner world at the centre out to culture and society, grouped as micro, meso and macro. Influence runs both ways between neighbouring spheres.",
-  "harmony": { "scheme": "triadic", "start": "orange" },
+  "palette": { "name": "systems", "order": ["red", "yellow", "green"] },
   "layout": "rings",
   "center": { "x": 0, "y": 0 },
   "labelSize": "small",

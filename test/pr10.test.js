@@ -19,7 +19,7 @@ test('Actua is seeded with a planning studio from its plan and a blank theory of
   assert.ok(Object.keys(studio.results).length > 5, 'results');
   assert.equal(Object.keys(studio.toc).length, 0, 'no theory of change yet');
   assert.ok(plansOf(strategy).length >= 1);
-  assert.deepEqual(CLIENT_RESET.docs['org-actua-ai'], ['strategy', 'studio', 'plandocs']);
+  assert.deepEqual(CLIENT_RESET.clear['org-actua-ai'], { studio: ['toc', 'tocLinks'] });
 });
 
 test('the theory of change goes to the plan as drafts, placed under what each leads to', () => {

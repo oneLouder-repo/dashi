@@ -8,7 +8,7 @@ import { MiniMap } from '../ui/MiniMap.js';
 import { Sunburst } from '../ui/Sunburst.js';
 import { pdfFirstPage } from '../ui/pdfPage.js';
 import { standIn } from '../ui/standIn.js';
-import { photoOrNull, photoThumb, photoUrl, photoCredit } from '../platform/photos.js';
+import { photoOrNull, photoThumb, photoUrl, photoCredit, photoById } from '../platform/photos.js';
 import { uiConfirm, uiForm, uiPrompt } from '../ui/dialog.js';
 import { uid } from '../core/ops.js';
 import { saveDoc, onDocChange, session } from '../platform/storage.js';
@@ -314,6 +314,8 @@ function Thumb(card, size = 'tile') {
   const el = h('div', { class: `ah-thumb t-${size}`, style: `--abcd:${colour}` }, icon(card.icon, size === 'tile' ? 30 : 18));
   const picture = (src) => el.replaceChildren(h('img', { src, alt: '', loading: 'lazy', draggable: false,
     onerror: (e) => { const fb = standIn(card.key, colour); if (e.target.src !== fb && !e.target.src.startsWith('data:image/svg')) e.target.src = fb; } }));
+  const chosen = card.photoId && photoById[card.photoId];
+  if (chosen) { picture(card.thumb); el.classList.add('photo'); el.title = photoCredit(chosen); return el; }
   if (card.thumb) { picture(card.thumb); return el; }
   if (card.sensitivity === 'restricted' && card.file) { el.replaceChildren(icon('lock', size === 'tile' ? 26 : 16)); return el; }
   if (card.file && card.group === 'image') {
@@ -909,7 +911,7 @@ function Preview(c) {
     box.replaceChildren(h('div', { class: 'ah-preview-icon' }, icon('lock', 36), h('small', {}, 'Restricted: open it on purpose')));
     return box;
   }
-  if (c.thumb) { box.replaceChildren(h('img', { src: c.thumb, alt: '' })); return box; }
+  if (c.thumb && !c.photoId) { box.replaceChildren(h('img', { src: c.thumb, alt: '' })); return box; }
   if (c.file) {
     plain();
     mediaUrl(c.file.mediaId).then((url) => {
@@ -930,7 +932,7 @@ function Preview(c) {
   // stand-in, a note's page, a sticky), so the panel matches what was clicked.
   const tile = Thumb(c, 'tile');
   tile.classList.add('ah-preview-tile');
-  const photo = tile.classList.contains('photo') && photoOrNull(c.key);
+  const photo = tile.classList.contains('photo') && ((c.photoId && photoById[c.photoId]) || photoOrNull(c.key));
   if (photo) tile.querySelector('img')?.setAttribute('src', photoUrl(photo));
   let host = '';
   if (c.url) try { host = new URL(c.url, location.href).hostname.replace(/^www\./, ''); } catch { /* not a URL */ }

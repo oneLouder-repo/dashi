@@ -6,6 +6,12 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### PR 8: the systems-change palette, a blank theory of change, photos on Kestrel's assets
+- **Systems-change palette** on the radial and water lenses (micro/meso/macro, spheres of systems change, water of systems change): green for macro / cultural, through yellow, to red for micro / internal, each with a solid and a lighter step (`SYSTEMS` in `src/ui/wheel.js`, `lens.palette` in the lens files). SOAR keeps its colours.
+- **A blank theory of change again** in all three client orgs: on its next start, `npm run clients` empties the theory of change (saving a copy in backups) and keeps SOAR, Assemble and results. `CLIENT_RESET` can now empty collections inside a document (`clear`), not just reseed whole documents.
+- **Photos on assets**: any asset can wear a library photo (`photoId`). Kestrel Bay's library items, actors and maps take one until 58% of its assets show a picture, counting the episodes' cover art.
+- Fixed: downloading a file whose name has a non-ASCII character (like "2024–2027") failed with a server error. The header now carries an ASCII name plus the real one.
+
 ### PR 7: a third client org, Kestrel Bay, and the Social Media Integrator
 - **Kestrel Bay Community Foundation** (`kestrel.<base>` on `npm run clients`): a made-up org built to test the edge of a client org's size. 36 people, three ecosystem maps, a custom plan with every plugin switched on, and a three-year plan finishing (2024–2027) that overlaps a new five-year plan (2026–2031). Library files are generated on first start.
 - **A busy public portal**: a homepage that is a page (stats, a live dashboard, stories, the latest episode, the plan), 14 blog posts, Vital Signs as a second public site with two dashboards, government documents, and a members-only board site with 14 sets of minutes plus governance and finance papers. The podcast station (three series, 56 episodes, four featured) has its own page, not the homepage.

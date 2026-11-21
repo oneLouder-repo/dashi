@@ -18,11 +18,18 @@ import { kestrelBundle } from './kestrel.js';
 /**
  * A fresh start for testing (0.2, PR 9): when this mark changes, the client
  * test platform puts these documents back to their seeded versions on its
- * next start (after saving a copy in the data folder's backups). Bump it in
+ * next start (after saving a copy in the data folder's backups), or empties
+ * the collections named in `clear`. Bump it in
  * a PR that should start clean; restarts within a PR keep your work.
  * Only the client test platform (npm run clients) does this, never a hosted server.
  */
-export const CLIENT_RESET = { mark: 'pr11', docs: { 'org-actua-ai': ['strategy', 'studio', 'plandocs'] } };
+export const CLIENT_RESET = {
+  mark: 'a03-pr8',
+  // Whole documents put back to their seeded versions.
+  docs: {},
+  // Collections emptied inside a document, keeping the rest (alpha 0.3 PR 8: a blank theory of change in every client org, SOAR and Assemble kept).
+  clear: Object.fromEntries(['org-sjr', 'org-actua-ai', 'org-kestrel'].map((id) => [id, { studio: ['toc', 'tocLinks'] }])),
+};
 
 export const CLIENT_ORGS = [
   { id: 'org-sjr', slug: 'sjr', name: 'Social Justice Radio', plan: 'standard', docs: sjrDocs },

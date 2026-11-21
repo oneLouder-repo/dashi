@@ -2,6 +2,7 @@ import { coverArt } from '../ui/standIn.js';
 import { episodeHref } from './podcasts.js';
 import { uid } from '../core/ops.js';
 import { linkTo } from '../plugins.js';
+import { photoById, photoThumb } from './photos.js';
 
 /**
  * The Asset manager's document ('assets'): everything an organisation has
@@ -114,10 +115,17 @@ function actorAbcd(a) {
 /**
  * Every asset the org can see, as one flat list of cards:
  *   { key, item?, source, title, description, tags, collectionIds, abcd, sensitivity,
- *     file?, url?, href, thumb?, updatedAt, by, kindLabel, icon }
+ *     file?, url?, href, thumb?, photoId?, updatedAt, by, kindLabel, icon }
+ * An item's photoId (alpha 0.3 PR 8) picks a library photo as its picture.
  * `docs` is { maps, mapContents, org, library, podcasts } (any may be missing).
  * Things elsewhere in Dashi take tags, collections and notes from their `ref` item, if one exists.
  */
+/** A library photo chosen for an item: its id and thumbnail, to spread over a card. */
+function photoOf(it) {
+  const p = it?.photoId && photoById[it.photoId];
+  return p ? { photoId: p.id, thumb: photoThumb(p) } : {};
+}
+
 export function gatherAssets(hub, docs = {}, { plugins = null } = {}) {
   const on = (id) => !plugins || plugins.has(id);
   const refs = new Map();
@@ -134,6 +142,7 @@ export function gatherAssets(hub, docs = {}, { plugins = null } = {}) {
       kindLabel: it.kind === 'file' ? (g?.label.replace(/s$/, '') ?? 'File') : it.kind === 'link' ? 'Link' : 'Note',
       icon: it.kind === 'file' ? g?.icon ?? 'file' : it.kind === 'link' ? 'link' : 'note',
       group: g?.id ?? null, pinned: !!it.pinned,
+      ...photoOf(it),
     });
   }
   const add = (ref, card) => {
@@ -146,6 +155,7 @@ export function gatherAssets(hub, docs = {}, { plugins = null } = {}) {
       ...card,
       abcd: it?.abcd ?? card.abcd ?? null,
       description: it?.description || card.description || '',
+      ...photoOf(it),
     });
   };
   if (on('mapper')) {

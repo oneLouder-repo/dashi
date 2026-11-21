@@ -109,3 +109,35 @@ test('Kestrel Bay is a big client org: every plugin, overlapping plans, three si
   assert.ok(Object.values(docs.library.items).some((i) => i.tags?.includes('minutes')));
   assert.ok(files.length > 0);
 });
+
+test('the systems-change lenses run green (macro) through yellow to red (micro)', async () => {
+  const { zoneColours } = await import('../src/display/LensView.js');
+  const { SYSTEMS } = await import('../src/ui/wheel.js');
+  const { readFileSync } = await import('node:fs');
+  const lens = (id) => JSON.parse(readFileSync(new URL(`../src/lenses/${id}.json`, import.meta.url)));
+  const mmm = zoneColours(lens('micro-meso-macro'));
+  assert.equal(mmm.get('micro'), SYSTEMS.red[0]);
+  assert.equal(mmm.get('meso'), SYSTEMS.yellow[0]);
+  assert.equal(mmm.get('macro'), SYSTEMS.green[0]);
+  const spheres = zoneColours(lens('spheres-of-systems-change'));
+  assert.equal(spheres.get('internal'), SYSTEMS.red[0]);
+  assert.ok(SYSTEMS.green.includes(spheres.get('cultural')));
+  assert.equal(zoneColours(lens('water-of-systems-change')).get('structural'), SYSTEMS.green[0]);
+});
+
+test('an asset can wear a library photo, and Kestrel Bay has photos on over half its assets', async () => {
+  const { gatherAssets, blankAssets } = await import('../src/platform/assetHub.js');
+  const hub = blankAssets();
+  hub.items.a = { id: 'a', kind: 'ref', ref: { type: 'staff', id: 's1' }, tags: [], collectionIds: [], photoId: 'john-lee-omne' };
+  const [card] = gatherAssets(hub, { org: { staff: { s1: { id: 's1', name: 'Sam' } } } });
+  assert.equal(card.photoId, 'john-lee-omne');
+  assert.match(card.thumb, /john-lee-omne-thumb\.jpg$/);
+  const { kestrelBundle } = await import('../src/platform/clients/kestrel.js');
+  const d = kestrelBundle().docs;
+  const mapContents = Object.fromEntries(Object.keys(d).filter((k) => k.startsWith('map/')).map((k) => [k.slice(4), d[k]]));
+  const cards = gatherAssets(d.assets, { maps: d.maps, mapContents, org: d.org, library: d.library, podcasts: d.podcasts });
+  const pictured = cards.filter((c) => c.photoId || c.source === 'episode').length / cards.length;
+  assert.ok(pictured >= 0.5 && pictured <= 0.6, `pictured ${pictured}`);
+  assert.equal(cards.filter((c) => c.missing).length, 0);
+  assert.equal(Object.keys(d.studio.toc).length, 0, 'a blank theory of change');
+});

@@ -2,7 +2,7 @@
   "id": "micro-meso-macro",
   "name": "Micro / Meso / Macro",
   "description": "Three tiers of change after van Wijk et al. (2019), drawn as rings: individual practice at the centre, negotiated collaboration around it, structural change at the edge.",
-  "harmony": { "scheme": "triadic", "start": "orange" },
+  "palette": { "name": "systems", "order": ["red", "yellow", "green"] },
   "layout": "rings",
   "center": {
     "x": 0,

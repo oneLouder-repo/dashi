@@ -55,6 +55,12 @@ import { recordError, checkMailDns, mailDomain, litestreamStatus, serverHealth }
 import { LEGAL_KINDS, COMPANY_DEFAULTS, versionsOf, currentVersion, fillLegal, publishLegal, dueFor, securityTxt } from '../src/platform/legal.js';
 import { mailEnabled } from './mail.js';
 
+/** A file name for Content-Disposition: an ASCII fallback plus the real name (RFC 6266), so names like "2024–2027" don't break the header. */
+export const dispositionName = (name = 'file') => {
+  const plain = String(name).normalize('NFKD').replace(/[^\x20-\x7e]/g, '-').replace(/["\\]/g, '');
+  return `filename="${plain}"; filename*=UTF-8''${encodeURIComponent(String(name)).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)}`;
+};
+
 const scrypt = promisify(scryptCb);
 const COOKIE = 'tb_session';
 const ROLES = ['admin', 'lead', 'staff', 'board', 'guest', 'viewer'];
@@ -1598,7 +1604,7 @@ export function createApp(db, options = {}) {
     res.writeHead(200, {
       'content-type': 'application/zip',
       'content-length': zipSize(entries),
-      'content-disposition': `attachment; filename="${plan.filename}"`,
+      'content-disposition': `attachment; ${dispositionName(plan.filename)}`,
       'cache-control': a.member ? 'private, no-store' : 'public, max-age=600',
     });
     if (req.method === 'HEAD') return res.end();
@@ -1621,7 +1627,7 @@ export function createApp(db, options = {}) {
       return sendFile(req, res, join(config.dataDir, 'media', a.org.id, row.id), {
         type: row.mimetype, cache: a.member ? 'private, max-age=3600' : 'public, max-age=3600',
         // Audio, video, PDFs, images and plain text open in the browser; anything else downloads.
-        headers: { 'content-disposition': `${/^(audio|image|video)\/|^application\/pdf|^text\/plain/.test(row.mimetype) && !new URL(req.url, 'http://x').searchParams.has('download') ? 'inline' : 'attachment'}; filename="${row.filename.replace(/"/g, '')}"` },
+        headers: { 'content-disposition': `${/^(audio|image|video)\/|^application\/pdf|^text\/plain/.test(row.mimetype) && !new URL(req.url, 'http://x').searchParams.has('download') ? 'inline' : 'attachment'}; ${dispositionName(row.filename)}` },
       });
     }
     if ((m = path.match(/^\/podcasts\/([\w-]+)\.zip$/))) return showZip(req, res, a, m[1]);

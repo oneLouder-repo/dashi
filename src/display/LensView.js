@@ -1,6 +1,6 @@
 import { Sprite } from '../core/Sprite.js';
 import { bandsOf } from '../lenses/index.js';
-import { scheme, harmonyFor, tint, inkOn, snap } from '../ui/wheel.js';
+import { scheme, harmonyFor, tint, inkOn, snap, SYSTEMS } from '../ui/wheel.js';
 
 /**
  * Draws the active lens as the board's backdrop, one renderer per lens
@@ -110,16 +110,21 @@ export const solid = (hex, k = 0) => { const h = hsl(hex); return h == null ? he
  * Alpha 0.3 colour wheel: a lens's zones take their colours from the wheel
  * by a harmony rule (lens.harmony = { scheme, start }, or one chosen by how
  * many groups it has). Regions in one group share a hue, every other one a
- * step lighter; white gaps keep zones apart.
+ * step lighter; white gaps keep zones apart. The systems-change lenses use
+ * the green-yellow-red SYSTEMS palette instead (lens.palette).
  */
 export function zoneColours(lens) {
   const groups = [];
   for (const r of lens.regions) { const g = r.group ?? r.id; if (!groups.includes(g)) groups.push(g); }
   const hues = scheme(lens.harmony?.scheme ?? harmonyFor(groups.length), lens.harmony?.start ?? 'orange', groups.length);
+  // A named palette (lens.palette = { name: 'systems', order: [hue per group] }) wins over the harmony rule.
+  const named = lens.palette?.name === 'systems' ? lens.palette.order : null;
   const seen = {};
   return new Map(lens.regions.map((r) => {
     const g = groups.indexOf(r.group ?? r.id);
     const k = (seen[g] = (seen[g] ?? -1) + 1);
+    const steps = named && SYSTEMS[named[g]];
+    if (steps) return [r.id, steps[k % 2]];
     return [r.id, k % 2 ? tint(hues[g], 0.3) : hues[g]];
   }));
 }

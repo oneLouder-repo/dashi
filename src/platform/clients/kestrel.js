@@ -24,7 +24,8 @@ import { mockDocs } from '../mockOrgs.js';
 import { migratePages, slugify } from '../pages.js';
 import { migratePodcasts } from '../podcasts.js';
 import { blankMeta } from '../library.js';
-import { photoMasthead, photoById } from '../photos.js';
+import { photoMasthead, photoById, photoFor } from '../photos.js';
+import { gatherAssets, blankAssets, migrateAssets } from '../assetHub.js';
 import { migrateSocial, mockPush } from '../social.js';
 
 export const KESTREL_SPEC = {
@@ -283,6 +284,27 @@ function shapeSocial(docs, latest) {
 }
 
 /* ---------------------------------------------------------------- everything */
+/**
+ * Photos on the assets (alpha 0.3 PR 8): with the episodes' cover art, a
+ * little over half of the Asset manager's tiles show a picture. Library
+ * items, map actors and maps take a library photo (from the nature folder)
+ * until 55% of them have one; people keep their faces and episodes their art.
+ */
+function shapeAssets(docs) {
+  const hub = migrateAssets(docs.assets ?? blankAssets());
+  const mapContents = Object.fromEntries(Object.keys(docs).filter((k) => k.startsWith('map/')).map((k) => [k.slice(4), docs[k]]));
+  const cards = gatherAssets(hub, { maps: docs.maps, mapContents, org: docs.org, library: docs.library, podcasts: docs.podcasts })
+    .filter((c) => ['library', 'actor', 'map'].includes(c.source) && !c.file?.type?.startsWith('image/'));
+  const score = (key) => { let x = 2166136261; for (const ch of key) { x ^= ch.charCodeAt(0); x = Math.imul(x, 16777619); } return x >>> 0; };
+  const picked = [...cards].sort((a, b) => score(a.key) - score(b.key)).slice(0, Math.ceil(cards.length * 0.55));
+  const at = '2026-11-01T12:00:00.000Z';
+  picked.forEach((c, i) => {
+    const id = `asset-photo-${i + 1}`;
+    hub.items[id] = { id, kind: 'ref', ref: c.ref, title: c.title, description: '', tags: [], collectionIds: [], abcd: c.abcd ?? null, sensitivity: c.sensitivity ?? 'internal', photoId: photoFor(c.key).id, createdAt: at, createdBy: null };
+  });
+  return migrateAssets(hub);
+}
+
 /** The org's documents and the generated library files, ready for the test platform. */
 export function kestrelBundle() {
   const { docs, files } = mockDocs(KESTREL_SPEC);
@@ -317,5 +339,8 @@ export function kestrelBundle() {
       meta: blankMeta({ type: 'report', title, creators: [{ role: 'author', literal: publisher }], issued, publisher, URL: url, abstract, language: 'en', keywords: ['government'] }) };
   }
   docs.social = shapeSocial(docs, latest);
+  // A blank theory of change, to start from the plan (alpha 0.3 PR 8).
+  if (docs.studio) Object.assign(docs.studio, { toc: {}, tocLinks: {} });
+  docs.assets = shapeAssets(docs);
   return { docs, files };
 }

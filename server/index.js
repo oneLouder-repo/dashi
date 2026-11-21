@@ -112,7 +112,7 @@ async function seedClientPlatform(db, app) {
 
 /**
  * A fresh start for testing: when CLIENT_RESET's mark is new, put its
- * documents back to their seeded versions, saving the old ones first in
+ * documents back to their seeded versions (and empty its `clear` collections), saving the old ones first in
  * <data>/backups/. The mark is kept in platform_docs, so it happens once.
  */
 export function resetClientDocs(db, app, reset = CLIENT_RESET) {
@@ -134,6 +134,21 @@ export function resetClientDocs(db, app, reset = CLIENT_RESET) {
       else db.prepare('DELETE FROM docs WHERE org_id = ? AND name = ?').run(orgId, name);
     }
     done.push(`${spec.name} (fresh ${names.join(' and ')} for ${reset.mark})`);
+  }
+  for (const [orgId, byDoc] of Object.entries(reset.clear ?? {})) {
+    if (!db.prepare('SELECT 1 FROM orgs WHERE id = ?').get(orgId)) continue;
+    const dir = join(config.dataDir, 'backups');
+    for (const [name, collections] of Object.entries(byDoc)) {
+      const old = db.prepare('SELECT json FROM docs WHERE org_id = ? AND name = ?').get(orgId, name);
+      if (!old) continue;
+      const doc = JSON.parse(old.json);
+      if (!collections.some((c) => Object.keys(doc[c] ?? {}).length)) continue;
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, `${orgId}-${name}-before-${reset.mark}-${stamp.replace(/[:.]/g, '-')}.json`), old.json);
+      for (const c of collections) doc[c] = {};
+      app.writeDoc(orgId, name, doc);
+      done.push(`${orgId} (empty ${collections.join(' and ')} in ${name} for ${reset.mark})`);
+    }
   }
   db.prepare('INSERT INTO platform_docs (name, json, updated_at, updated_by) VALUES (?, ?, ?, NULL) ON CONFLICT(name) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at')
     .run('clients-reset', JSON.stringify({ mark: reset.mark, at: stamp }), stamp);
