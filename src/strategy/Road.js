@@ -58,8 +58,15 @@ export function roadModel(doc, planId, now = today()) {
     if (!wps.length) return null;
     return { node: g, date: wps.map((w) => w.end).sort().at(-1), lights: wps.map((w) => posts.find((p) => p.node === w).light), hue: objectiveHue(doc, g) };
   }).filter(Boolean);
+  // Objective signposts: green, like a freeway sign, numbered in plan order.
+  const objectives = all.filter((n) => n.type === 'objective');
+  const objSigns = objectives.map((o, i) => {
+    const wps = workplans.filter((wp) => descendants(doc, o.id).includes(wp));
+    if (!wps.length) return null;
+    return { node: o, n: i + 1, date: wps.map((w) => w.end).sort().at(-1), start: wps.map((w) => w.start).sort()[0], hue: objectiveHue(doc, o) };
+  }).filter(Boolean);
   const plans = all.filter((n) => n.type === 'plan' && n.end);
-  return { top, from: addDays(from, -20), to: addDays(to, 40), now, posts, tasks, milestones, signs, plans };
+  return { top, from: addDays(from, -20), to: addDays(to, 40), now, posts, tasks, milestones, signs, objSigns, plans };
 }
 
 export const LIGHT_COLOR = { green: LIGHTS.green.color, amber: LIGHTS.amber.color, red: LIGHTS.red.color };
@@ -76,8 +83,10 @@ export function RoadSvg(doc, planId, { compact = false, dayPx = DAY_PX[zoom], on
   const days = daysBetween(m.from, m.to);
   const runW = compact ? 640 : Math.max(900, Math.round(days * dayPx));
   const W = compact ? runW : runW + 220; // room past the last date for signs
-  const H = compact ? 150 : 470;
-  const mid = compact ? 88 : 232;
+  // Shorter than it was (PR 10): lights above the road, then a row of green
+  // objective signposts and a row of white goal signs below it.
+  const H = compact ? 150 : 352;
+  const mid = compact ? 88 : 168;
   const xOf = (d) => (daysBetween(m.from, d) / days) * runW;
   const amp = compact ? 10 : 22;
   const period = compact ? 320 : 760;
@@ -104,7 +113,7 @@ export function RoadSvg(doc, planId, { compact = false, dayPx = DAY_PX[zoom], on
   svg('stop', { offset: '0', class: 'road-sky-top' }, grad);
   svg('stop', { offset: '1', class: 'road-sky-bottom' }, grad);
   svg('rect', { class: 'road-sky', x: 0, y: 0, width: W, height: H, fill: `url(#${gid})` }, el);
-  const horizon = mid + (compact ? 16 : 44);
+  const horizon = mid + (compact ? 16 : 24);
   svg('rect', { class: 'road-ground', x: 0, y: horizon, width: W, height: H - horizon }, el);
   svg('line', { class: 'road-horizon', x1: 0, x2: W, y1: horizon, y2: horizon }, el);
 
@@ -157,7 +166,7 @@ export function RoadSvg(doc, planId, { compact = false, dayPx = DAY_PX[zoom], on
     const showLabel = !compact && tier >= 0;
     if (tier < 0) tier = i % postTiers.length;
     const base = yOf(x) - 8;
-    const len = compact ? 16 + tier * 12 : 30 + tier * 50;
+    const len = compact ? 16 + tier * 12 : 22 + tier * 38;
     const top = base - len;
     const a = node(p.node, `road-post light-${p.light}`);
     svg('title', {}, a).textContent = `${p.node.title}: ${p.progress.done}/${p.progress.total} tasks done · ends ${short(p.date)}`;
@@ -191,15 +200,15 @@ export function RoadSvg(doc, planId, { compact = false, dayPx = DAY_PX[zoom], on
   }
   // Goal road signs stand below the road, one light per workplan. When the
   // tiers are full at a goal's end date, the sign moves on down the road.
-  const signTiers = tiers(2);
+  const signTiers = tiers(1);
   const signDraws = [];
   if (!compact) m.signs.sort((a, b) => a.date.localeCompare(b.date)).forEach((s) => {
-    const sw = 176, sh = 54;
+    const sw = 176, sh = 50;
     let x = xOf(s.date) + 14, tier = -1;
-    for (let tries = 0; tries < 12 && tier < 0; tries++) { tier = claim(signTiers, x - 6, x + sw + 6); if (tier < 0) x += sw / 2 + 8; }
+    for (let tries = 0; tries < 24 && tier < 0; tries++) { tier = claim(signTiers, x - 6, x + sw + 6); if (tier < 0) x += sw / 3; }
     if (tier < 0) tier = 0;
     signDraws.push({ tier, draw: () => {
-      const top = horizon + 14 + tier * (sh + 14);
+      const top = horizon + 58 + tier * (sh + 14);
       const a = node(s.node, 'road-sign');
       svg('title', {}, a).textContent = `Goal: ${s.node.title} · its work ends ${short(s.date)}`;
       svg('line', { class: 'road-sign-post', x1: x + 14, x2: x + 14, y1: yOf(x + 14) + 10, y2: top }, a);
@@ -216,6 +225,23 @@ export function RoadSvg(doc, planId, { compact = false, dayPx = DAY_PX[zoom], on
   });
   // Lower signs first, so the posts of the lower row pass behind the upper row.
   signDraws.sort((a, b) => b.tier - a.tier).forEach((d) => d.draw());
+  // Green objective signposts in front of the goal signs' posts.
+  const objTier = tiers(1);
+  if (!compact) m.objSigns.sort((a, b) => a.date.localeCompare(b.date)).forEach((o) => {
+    const label = o.node.title.length > 30 ? `${o.node.title.slice(0, 29)}…` : o.node.title;
+    const sw = 44 + label.length * 6.4, sh = 28;
+    let x = xOf(o.date) - sw - 10;
+    for (let tries = 0; tries < 20 && claim(objTier, x - 6, x + sw + 6) < 0; tries++) x += 40;
+    const top = horizon + 16;
+    const a = node(o.node, 'road-obj');
+    svg('title', {}, a).textContent = `Strategic objective ${o.n}: ${o.node.title} · its work ends ${short(o.date)}`;
+    svg('line', { class: 'road-obj-post', x1: x + sw / 2, x2: x + sw / 2, y1: yOf(x + sw / 2) + 12, y2: top }, a);
+    svg('rect', { class: 'road-obj-board', x, y: top, width: sw, height: sh, rx: 5 }, a);
+    svg('rect', { class: 'road-obj-rim', x: x + 2, y: top + 2, width: sw - 4, height: sh - 4, rx: 4 }, a);
+    svg('rect', { class: 'road-obj-shield', x: x + 7, y: top + 6, width: 24, height: 16, rx: 4, fill: '#fff' }, a);
+    svg('text', { class: 'road-obj-num', x: x + 19, y: top + 18, 'text-anchor': 'middle', fill: o.hue }, a).textContent = `O${o.n}`;
+    svg('text', { class: 'road-obj-text', x: x + 38, y: top + 18.5 }, a).textContent = label;
+  });
   // Plan ends: a slim chequered post.
   for (const p of m.plans) {
     const x = xOf(p.end);
@@ -335,6 +361,7 @@ export function RoadmapRoad(ctx) {
       h('span', {}, h('i', { class: 'lg-light', style: `--c:${LIGHT_COLOR.red}` }), 'Still ahead, or missed'),
       h('span', {}, h('i', { class: 'lg-eye' }), 'Small lights are tasks'),
       h('span', {}, h('i', { class: 'lg-flag' }), 'Milestone'),
+      h('span', {}, h('i', { class: 'lg-obj' }), 'Strategic objective signpost'),
       h('span', {}, h('i', { class: 'lg-sign' }), 'Goal sign: one light per workplan'),
       h('span', {}, h('i', { class: 'lg-now' }), 'Today'),
       h('span', {}, h('i', { class: 'lg-finish' }), 'Plan ends')),
