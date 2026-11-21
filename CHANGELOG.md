@@ -1,10 +1,17 @@
 # Changelog
 
-Dashi uses version numbers like `0.1.0-alpha.1`. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
+Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and so on). Each point version (0.2, 0.3…) is one major platform feature; 0.2.1-alpha, 0.2.2-alpha… are fixes and polish from testing. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
-## Alpha 0.2 (in progress): plugins that own their data, screens and designer
+## 0.2.0-alpha (2026-11-21): plugins that own their data, screens and designer
 
-From 0.2 on, each alpha point version (0.2, 0.3…) is one major platform feature, and its sub-versions (0.2.1, 0.2.2…) are bug hunts and polish from live testing. 0.2 lands over several pull requests; this is the first.
+From 0.2 on, each alpha point version (0.2, 0.3…) is one major platform feature, and its sub-versions (0.2.1, 0.2.2…) are bug hunts and polish from live testing. 0.2 landed over several pull requests, newest first below.
+
+### Help tutorials and the 0.2.0-alpha release (PR 6)
+
+- **New in alpha 0.2**, a new Help section at the top: step-by-step guides with screenshots for plugin access, your own colours, live edit, the Podcast Studio, the asset map and the form designer, plus where things moved. It reaches servers whose help was already edited, too.
+- Help pages can show screenshots with `[[shot:<id>]]` (files in `media/help/`, captions in `HELP_SHOTS`), and the help editor has an **Insert a screenshot** menu.
+- Known limits now mention the studio's WAV-only export.
+- The version is now **0.2.0-alpha**. Fixes and polish from testing will be 0.2.1-alpha, 0.2.2-alpha and so on.
 
 ### Asset map and form designer (PR 4)
 

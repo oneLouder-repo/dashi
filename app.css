@@ -734,6 +734,9 @@ body.podcasts-page { height: 100vh; display: flex; flex-direction: column; overf
 .help-cards .card p { font-size: 13px; }
 .help-figure { margin: 18px 0; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-box); padding: 14px; }
 .help-figure figcaption { color: var(--muted); font-size: 13px; margin-top: 8px; }
+.help-shot { padding: 8px; }
+.help-shot img { display: block; width: 100%; height: auto; max-height: 640px; object-fit: contain; object-position: left top; border-radius: calc(var(--radius-box) * .6); background: var(--color-base-200); }
+.help-shot figcaption { padding: 0 6px 4px; }
 .diagram-scroll, .table-scroll { overflow-x: auto; }
 .diagram { display: block; width: 100%; min-width: 760px; height: auto; font-family: inherit; }
 .dg-axis { stroke: var(--muted); stroke-width: 1.5; }

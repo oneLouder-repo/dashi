@@ -145,7 +145,19 @@ test('a help library saved before the testing guide existed gets it, once', asyn
   const { withNewSections } = await import('../src/platform/help.js');
   const old = { version: 1, sections: [{ id: 'mine', title: 'Ours', pages: [] }] };
   const next = withNewSections(old);
-  assert.deepEqual(next.sections.map((s) => s.id), ['alpha', 'mine'], 'new sections go on top');
-  assert.ok(next.sections[0].pages.some((p) => p.id === 'reporting'));
-  assert.equal(withNewSections({ version: 2, sections: [] }).sections.length, 0, 'one the admin deleted after that stays deleted');
+  assert.deepEqual(next.sections.map((s) => s.id), ['new-in-0-2', 'alpha', 'mine'], 'new sections go on top');
+  assert.ok(next.sections[1].pages.some((p) => p.id === 'reporting'));
+  assert.deepEqual(withNewSections({ version: 2, sections: [] }).sections.map((s) => s.id), ['new-in-0-2'], 'a 0.1 library gets the 0.2 guides');
+  assert.equal(withNewSections({ version: 3, sections: [] }).sections.length, 0, 'one the admin deleted after that stays deleted');
+});
+
+test('every screenshot a help page shows exists, with a caption', async () => {
+  const { HELP_SEED, HELP_SHOTS } = await import('../src/help/library.js');
+  const { existsSync } = await import('node:fs');
+  const used = HELP_SEED.sections.flatMap((s) => s.pages).flatMap((p) => [...p.body.matchAll(/^\[\[shot:([\w-]+)\]\]$/gm)].map((m) => m[1]));
+  assert.ok(used.length >= 10);
+  for (const id of used) {
+    assert.ok(HELP_SHOTS[id], `${id} has a caption`);
+    assert.ok(existsSync(new URL(`../media/help/${id}.jpg`, import.meta.url)), `media/help/${id}.jpg exists`);
+  }
 });
