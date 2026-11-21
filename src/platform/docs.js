@@ -24,6 +24,7 @@ import { addBoardDocs } from './boardSeed.js';
 import { migratePlanDocs, seedPlanDocs } from './plandocs.js';
 import { blankAssets, migrateAssets } from './assetHub.js';
 import { defaultGraphSettings } from './graph.js';
+import { blankSocial, migrateSocial } from './social.js';
 
 const seedFor = (doc) => SEEDS[activeOrg()]?.[doc];
 
@@ -59,6 +60,9 @@ export function loadLibrary() {
 export const loadAssets = () => migrateAssets(loadOrSeed('assets', blankAssets));
 /** The asset graph's settings: which vocabularies it speaks, and what it takes in. */
 export const loadGraphSettings = () => ({ ...defaultGraphSettings(), ...loadOrSeed('graph', defaultGraphSettings) });
+
+/** The Social Media Integrator's posts and channels (alpha 0.3). */
+export const loadSocial = () => migrateSocial(loadOrSeed('social', blankSocial));
 
 /** Plan documents. Every org with a plan starts with a draft of one; example orgs publish it to their public site. */
 export const loadPlanDocs = () => migratePlanDocs(loadOrSeed('plandocs', () => seedPlanDocs(loadStrategy(), loadData(), loadOrg(), { publish: !!seedFor('strategy') })), loadStrategy());

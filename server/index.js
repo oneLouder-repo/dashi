@@ -37,7 +37,7 @@ export async function start({ port = config.port, quiet = false, resolver } = {}
   // The test platform, to try everything out. A database from an earlier
   // version gets the test orgs it doesn't have yet; nothing already there changes.
   if (config.seedExamples) {
-    const added = config.testPlatform === 'clients' ? seedClientPlatform(db, app) : await seedTestPlatform(db, app);
+    const added = config.testPlatform === 'clients' ? await seedClientPlatform(db, app) : await seedTestPlatform(db, app);
     if (added.length) log(`Added test organisations: ${added.join(', ')}.`);
   }
   // SJR's real audio files, from media/podBeam/ (loose files or the SJR site's zips).
@@ -84,7 +84,7 @@ export async function start({ port = config.port, quiet = false, resolver } = {}
   if (!quiet) {
     const orgs = db.prepare('SELECT slug, name FROM orgs ORDER BY name').all();
     log(`\nDashi is running.\n  Platform:      ${urlFor()}`);
-    for (const o of orgs) log(`  ${o.name.padEnd(30).slice(0, 30)} ${urlFor(orgHost(o.slug))}`);
+    for (const o of orgs) log(`  ${o.name.padEnd(34).slice(0, 34)} ${urlFor(orgHost(o.slug))}`);
     log(config.devLogin ? '\nDev sign-in is on: the sign-in page lets you be anyone.' : '');
   }
   return { server, db, app, port: actual };
@@ -94,11 +94,16 @@ export async function start({ port = config.port, quiet = false, resolver } = {}
  * The client test platform: just the client orgs (src/platform/clients),
  * each on its own subdomain. An org already there is left alone.
  */
-function seedClientPlatform(db, app) {
+async function seedClientPlatform(db, app) {
   const added = [];
   for (const spec of CLIENT_ORGS) {
     if (db.prepare('SELECT 1 FROM orgs WHERE id = ? OR slug = ?').get(spec.id, spec.slug)) continue;
-    app.createOrg({ id: spec.id, slug: spec.slug, name: spec.name, plan: spec.plan, docs: spec.docs() });
+    // A client with generated library files (Kestrel Bay) gives a bundle: its documents and the files to write.
+    const { docs, files = [] } = spec.bundle ? spec.bundle() : { docs: spec.docs() };
+    const made = files.length ? await mockFiles(files, spec.name) : [];
+    if (made.length) fitSizes(docs.library, made);
+    app.createOrg({ id: spec.id, slug: spec.slug, name: spec.name, plan: spec.plan, docs });
+    if (made.length) writeMediaFiles(db, spec.id, made);
     added.push(spec.name);
   }
   added.push(...resetClientDocs(db, app));
@@ -135,6 +140,25 @@ export function resetClientDocs(db, app, reset = CLIENT_RESET) {
   return done;
 }
 
+/** Write generated library files to the org's media folder and the media table. */
+function writeMediaFiles(db, orgId, made, stamp = new Date().toISOString()) {
+  const dir = join(config.dataDir, 'media', orgId);
+  mkdirSync(dir, { recursive: true });
+  for (const f of made) {
+    writeFileSync(join(dir, f.mediaId), f.bytes);
+    db.prepare('INSERT OR IGNORE INTO media (id, org_id, filename, mimetype, size, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)').run(f.mediaId, orgId, f.name, f.mimetype, f.bytes.length, stamp, null);
+  }
+}
+
+/** Make the library's file sizes and types match the generated files. */
+function fitSizes(library, made) {
+  const sizes = Object.fromEntries(made.map((f) => [f.mediaId, f]));
+  for (const it of Object.values(library?.items ?? {})) {
+    const f = it.file && sizes[it.file.mediaId];
+    if (f) Object.assign(it.file, { size: f.bytes.length, type: f.mimetype.split(';')[0] });
+  }
+}
+
 /**
  * A fresh database gets the test platform (src/platform/mockOrgs.js): six
  * example orgs on all four plans, with their documents, library files and,
@@ -143,21 +167,7 @@ export function resetClientDocs(db, app, reset = CLIENT_RESET) {
 async function seedTestPlatform(db, app) {
   const stamp = new Date().toISOString();
   const added = [];
-  const writeFiles = (orgId, made) => {
-    const dir = join(config.dataDir, 'media', orgId);
-    mkdirSync(dir, { recursive: true });
-    for (const f of made) {
-      writeFileSync(join(dir, f.mediaId), f.bytes);
-      db.prepare('INSERT OR IGNORE INTO media (id, org_id, filename, mimetype, size, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)').run(f.mediaId, orgId, f.name, f.mimetype, f.bytes.length, stamp, null);
-    }
-  };
-  const fitSizes = (library, made) => {
-    const sizes = Object.fromEntries(made.map((f) => [f.mediaId, f]));
-    for (const it of Object.values(library.items)) {
-      const f = it.file && sizes[it.file.mediaId];
-      if (f) Object.assign(it.file, { size: f.bytes.length, type: f.mimetype.split(';')[0] });
-    }
-  };
+  const writeFiles = (orgId, made) => writeMediaFiles(db, orgId, made, stamp);
   for (const spec of MOCK_ORGS) {
     const existing = db.prepare('SELECT id FROM orgs WHERE id = ? OR slug = ?').get(spec.id, spec.slug);
     if (existing) {

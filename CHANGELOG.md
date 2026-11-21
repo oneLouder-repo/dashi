@@ -6,6 +6,13 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### PR 7: a third client org, Kestrel Bay, and the Social Media Integrator
+- **Kestrel Bay Community Foundation** (`kestrel.<base>` on `npm run clients`): a made-up org built to test the edge of a client org's size. 36 people, three ecosystem maps, a custom plan with every plugin switched on, and a three-year plan finishing (2024–2027) that overlaps a new five-year plan (2026–2031). Library files are generated on first start.
+- **A busy public portal**: a homepage that is a page (stats, a live dashboard, stories, the latest episode, the plan), 14 blog posts, Vital Signs as a second public site with two dashboards, government documents, and a members-only board site with 14 sets of minutes plus governance and finance papers. The podcast station (three series, 56 episodes, four featured) has its own page, not the homepage.
+- **The Social Media Integrator** (experimental, under the Public Portal, `social.html`): make a post from an episode (with an audiogram), a blog post, a data card, a dashboard or just words; pick networks (Instagram, Facebook, TikTok, YouTube, LinkedIn, Bluesky, Mastodon); write a version per network; see each preview with length and media checks; schedule, push now, or copy. Queue, calendar, posted (with numbers), channels and insights views.
+- **Pushing is mocked**: nothing leaves Dashi. A push writes a pretend `*.example` permalink and pretend numbers that grow over a week; scheduled posts go out when the page opens. Real connections (OAuth apps, review, rate limits) come later.
+- The integrator only shows episodes to people who have the podcast plugin, so switching podcasts off for a role still hides them.
+
 ### PR 6: featured episodes, the colour wheel, matching thumbnails
 
 - **Featured episodes**: Podcasts → Design has a managed list of up to seven episodes (three to seven read best), each with its own blurb, in the order you set. They lead the public station's home as "Featured episodes", above Featured shows. A Feature star on each published episode adds or removes it.

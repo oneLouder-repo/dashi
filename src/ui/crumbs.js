@@ -34,7 +34,8 @@ const RELATED = {
   strategy: ['studio', 'assets', 'pages'],
   studio: ['strategy', 'assets'],
   podcasts: ['pages', 'assets'],
-  pages: ['palette', 'podcasts'],
+  pages: ['palette', 'podcasts', 'social'],
+  social: ['pages', 'podcasts'],
   palette: ['strategy', 'pages'],
   org: ['pages'],
 };
@@ -124,6 +125,12 @@ const ACTIONS = {
     { label: 'Pages', icon: 'doc', href: own('pages', '#cms/pages'), here: '#cms/pages' },
     { label: 'News', icon: 'news', href: own('pages', '#cms/news'), here: '#cms/news' },
     { label: 'Look and feel', icon: 'palette', href: own('pages', '#look'), here: '#look' },
+    { label: 'Social media', icon: 'share', href: linkTo('social') },
+  ],
+  social: () => [
+    { label: 'Create a post', icon: 'plus', href: own('social', '#compose'), here: '#compose' },
+    { label: 'Calendar', icon: 'calendar', href: own('social', '#calendar'), here: '#calendar' },
+    { label: 'Public Portal', icon: 'globe', href: linkTo('pages') },
   ],
   palette: () => [
     { label: 'Dashboards', icon: 'chart', href: own('palette', '#dashboards'), here: '#dashboards' },

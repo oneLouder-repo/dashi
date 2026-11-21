@@ -168,6 +168,18 @@ const BUILT_IN = {
     dataModel: { docs: [{ name: 'pages', label: 'Pages and news', collections: [
       { id: 'pages', label: 'Pages and articles', fields: [f('kind', 'Kind', 'select', { options: ['page', 'article'] }), f('title', 'Title', 'text', { required: true }), f('slug', 'Address'), f('siteId', 'Site', 'reference'), f('status', 'Status', 'select', { options: ['draft', 'published'] }), f('body', 'Body', 'longtext')] }] }] },
   },
+  social: {
+    category: 'Publishing',
+    features: [
+      feat('compose', 'Create once', 'Posts from episodes, blog posts, data cards and dashboards, with pictures made for you.'),
+      feat('networks', 'Every network', 'Instagram, Facebook, TikTok, YouTube, LinkedIn, Bluesky and Mastodon, each with its own words and limits.'),
+      feat('schedule', 'Queue and calendar', 'Drafts, scheduled posts and a month view.'),
+      feat('insights', 'Insights', 'Reach by network and kind of post (pretend numbers in this alpha).'),
+    ],
+    dataModel: { docs: [{ name: 'social', label: 'Social media', collections: [
+      { id: 'posts', label: 'Posts', fields: [f('kind', 'Kind', 'select', { options: ['episode', 'article', 'datacard', 'dashboard', 'note'] }), f('title', 'Name', 'text'), f('text', 'Text', 'longtext'), f('networks', 'Networks', 'list'), f('status', 'Status', 'select', { options: ['draft', 'scheduled', 'posted', 'failed'] }), f('scheduledAt', 'Goes out', 'date')] },
+      { id: 'channels', label: 'Channels', fields: [f('network', 'Network'), f('handle', 'Handle'), f('connected', 'Connected', 'boolean')] }] }] },
+  },
   org: {
     category: 'Platform',
     features: [feat('people', 'People and teams', 'Staff, roles and teams.'), feat('sites', 'Public sites', 'Sites and their look, in the Public Portal.'), feat('domains', 'Own domains', 'yourorg.org', { plans: { free: false, basic: false, standard: false, custom: true } })],

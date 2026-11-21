@@ -6,8 +6,8 @@ import { SJR_SEASONS, RADIO_ADA } from '../src/platform/clients/sjrArchive.js';
 import { actuaDocs, ACTUA_TAGS } from '../src/platform/clients/actua.js';
 import { fmtDuration } from '../src/site/station.js';
 
-test('two client orgs, each on its own subdomain', () => {
-  assert.deepEqual(CLIENT_ORGS.map((o) => o.slug), ['sjr', 'actua-ai']);
+test('three client orgs, each on its own subdomain', () => {
+  assert.deepEqual(CLIENT_ORGS.map((o) => o.slug), ['sjr', 'actua-ai', 'kestrel']);
   for (const o of CLIENT_ORGS) {
     const docs = o.docs();
     assert.equal(docs.org.id, o.id);

@@ -68,3 +68,44 @@ test('the station features published episodes in order, up to seven', async () =
   assert.deepEqual(got.map((f) => f.episode.id), ['b', 'a', 'd', 'e', 'f', 'g', 'h']);
   assert.equal(got[0].blurb, 'why b');
 });
+
+test('the Social Media Integrator fits a post to each network and pretends to push it', async () => {
+  const { textFor, problemsFor, mockPush, totalStats, duePosts, migrateSocial } = await import('../src/platform/social.js');
+  const settings = { hashtags: ['KestrelBay'], signoff: 'Give local.' };
+  const post = { id: 'p1', kind: 'note', text: 'x'.repeat(290), media: null, networks: ['bluesky', 'instagram', 'linkedin'], perNetwork: {} };
+  assert.match(textFor(post, 'bluesky', settings), /Give local\.\n\n#KestrelBay$/);
+  assert.doesNotMatch(textFor(post, 'linkedin', settings), /#KestrelBay/);
+  assert.match(problemsFor(post, 'bluesky', settings)[0], /too long for Bluesky/);
+  assert.ok(problemsFor(post, 'instagram', settings).some((p) => /needs a picture/.test(p)));
+  post.perNetwork.bluesky = { text: 'Short and sweet.' };
+  assert.deepEqual(problemsFor(post, 'bluesky', settings), []);
+  const a = mockPush(post, 'bluesky', { handle: '@kb' }, '2026-11-01T12:00:00Z');
+  assert.equal(a.mock, true);
+  assert.match(a.permalink, /^https:\/\/bsky\.example\/profile\/kb\/post\//);
+  assert.deepEqual(mockPush(post, 'bluesky', { handle: '@kb' }, '2026-11-01T12:00:00Z').permalink, a.permalink);
+  assert.ok(totalStats({ results: { bluesky: a } }).views > 0);
+  const doc = migrateSocial({ posts: { s: { id: 's', status: 'scheduled', scheduledAt: '2026-11-20T10:00:00Z' }, t: { id: 't', status: 'scheduled', scheduledAt: '2026-12-20T10:00:00Z' } } });
+  assert.deepEqual(duePosts(doc, new Date('2026-11-21')).map((p) => p.id), ['s']);
+});
+
+test('Kestrel Bay is a big client org: every plugin, overlapping plans, three sites and a busy queue', async () => {
+  const { CLIENT_ORGS } = await import('../src/platform/clients/index.js');
+  const spec = CLIENT_ORGS.find((o) => o.id === 'org-kestrel');
+  assert.equal(spec.plan, 'custom');
+  const { docs, files } = spec.bundle();
+  assert.ok(Object.keys(docs.org.staff).length >= 30 && Object.keys(docs.org.staff).length <= 40);
+  assert.equal(Object.keys(docs).filter((k) => k.startsWith('map/')).length, 3);
+  const plans = Object.values(docs.strategy.nodes).filter((n) => n.type === 'plan');
+  assert.equal(plans.length, 2);
+  const [old, next] = plans.sort((x, y) => x.start.localeCompare(y.start));
+  assert.ok(old.end > next.start, 'the three-year plan overlaps the five-year plan');
+  assert.ok(Object.values(docs.org.plugins).every(Boolean));
+  assert.deepEqual(Object.keys(docs.org.sites).sort(), ['site-board', 'site-data', 'site-main']);
+  assert.equal(docs.org.sites['site-main'].home.kind, 'page');
+  assert.ok(Object.values(docs.podcasts.episodes).length > 40);
+  assert.ok(docs.podcasts.station.featuredEpisodes.length >= 3);
+  const statuses = Object.values(docs.social.posts).map((p) => p.status);
+  for (const s of ['posted', 'scheduled', 'draft']) assert.ok(statuses.includes(s), s);
+  assert.ok(Object.values(docs.library.items).some((i) => i.tags?.includes('minutes')));
+  assert.ok(files.length > 0);
+});
