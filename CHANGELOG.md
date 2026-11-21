@@ -11,6 +11,8 @@ Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the
 - **A photo library**: 17 royalty-free photos from Unsplash (nature, community and abstract), resized for the web, with the photographer credited.
 - **About half the Asset manager's stand-in thumbnails are photos now**, for variety; the rest keep the drawn scenes in their ABCD colour. The preview credits the photographer.
 - **Pick a banner photo in every designer**: Public Portal → Look and feel and Podcasts → Station design have a photo row (All, Nature, Community, Abstract) under the drawn banners. The Plan designer's picture chooser has a Photo library tab.
+- **podBeam, SJR's own audio files** (client test platform): put .mp3, .wav or .m4a files, or the zips the SJR site gives out, in `media/podBeam/` (git ignores it). `npm run clients` opens the zips, stores every audio file as an upload, lists it in Audio files (tagged #podBeam), and points the episode with the same original file name at it; the old link stays as `audio.linkedUrl`. Files already brought in are skipped, so running it again only picks up new ones.
+- **Audio files shows which episode plays a file**, next to the sessions that use it.
 
 ### PR 4: audio files in the recording studio
 

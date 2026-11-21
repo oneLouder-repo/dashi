@@ -54,6 +54,9 @@ export async function uploadFiles(ctx, fileList, say = () => {}) {
 export const usesOf = (doc, file) => Object.values(doc.projects ?? {}).filter((p) =>
   Object.values(p.clips ?? {}).some((c) => c.source?.mediaId === file.mediaId) || (p.pads ?? []).some((d) => d.source?.mediaId === file.mediaId));
 
+/** The episodes that play a file (podBeam imports, mixdowns published as episodes). */
+export const episodesOf = (doc, file) => Object.values(doc.episodes ?? {}).filter((e) => e.audio?.mediaId === file.mediaId);
+
 /** A small play button that plays a file (one at a time across the page). */
 let playing = null;
 function PlayButton(file) {
@@ -96,7 +99,10 @@ export function StudioFiles(ctx) {
           h('td', {}, h('strong', {}, f.name), h('small', { class: 'muted af-size' }, [prettySize(f.size), (f.tags ?? []).map((t) => `#${t}`).join(' ')].filter(Boolean).join(' · '))),
           h('td', { class: 'af-num' }, clock(f.duration ?? 0, { tenths: false })),
           h('td', {}, ORIGINS[f.origin] ?? 'Imported'),
-          h('td', {}, uses.length ? uses.slice(0, 2).map((p, i) => [i ? ', ' : '', h('a', { href: `#studio/${p.id}` }, p.title)]) : h('span', { class: 'muted' }, 'Not used yet')),
+          h('td', {}, (() => {
+            const links = [...episodesOf(doc, f).map((e) => h('a', { href: `#episodes/${e.id}` }, `Episode ${e.season ? `S${e.season} ` : ''}E${e.number ?? ''}`.trim())), ...uses.map((p) => h('a', { href: `#studio/${p.id}` }, p.title))];
+            return links.length ? links.slice(0, 2).map((a, i) => [i ? ', ' : '', a]) : h('span', { class: 'muted' }, 'Not used yet');
+          })()),
           h('td', { class: 'af-tools' },
             h('button', { type: 'button', class: 'btn btn-ghost btn-xs', onclick: async () => { const n = await uiPrompt('Name', f.name, { title: 'Rename the file', ok: 'Rename' }); if (n?.trim()) { ctx.store.apply(ctx.col.update('files', f.id, { name: n.trim() })); draw(); } } }, 'Rename'),
             h('button', { type: 'button', class: 'btn btn-ghost btn-xs', onclick: async () => { const t = await uiPrompt('Tags, separated by commas', (f.tags ?? []).join(', '), { title: 'Tag the file', ok: 'Save' }); if (t != null) { ctx.store.apply(ctx.col.update('files', f.id, { tags: t.split(',').map((x) => x.trim().replace(/^#/, '')).filter(Boolean) })); draw(); } } }, 'Tags'),

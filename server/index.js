@@ -15,6 +15,8 @@ import { CLIENT_ORGS, CLIENT_RESET } from '../src/platform/clients/index.js';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { scheduleBackups } from './backup.js';
+import { importPodBeam } from './podBeam.js';
+import { fileURLToPath } from 'node:url';
 
 export async function start({ port = config.port, quiet = false, resolver } = {}) {
   const db = openDb(config.dataDir);
@@ -37,6 +39,13 @@ export async function start({ port = config.port, quiet = false, resolver } = {}
   if (config.seedExamples) {
     const added = config.testPlatform === 'clients' ? seedClientPlatform(db, app) : await seedTestPlatform(db, app);
     if (added.length) log(`Added test organisations: ${added.join(', ')}.`);
+  }
+  // SJR's real audio files, from media/podBeam/ (loose files or the SJR site's zips).
+  if (config.testPlatform === 'clients') {
+    try {
+      const said = importPodBeam(db, { dir: fileURLToPath(new URL('../media/podBeam', import.meta.url)), orgId: 'org-sjr', dataDir: config.dataDir, log });
+      if (said) log(said);
+    } catch (err) { log(`podBeam: ${err.message}`); }
   }
 
   // A database snapshot now if there's none from today, then daily.
