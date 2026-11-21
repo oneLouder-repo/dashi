@@ -2,7 +2,20 @@
 
 Dashi uses version numbers like `0.1.0-alpha.1`. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
-## Unreleased (alpha.10 fixes, and podcasts with the episode first)
+## Unreleased (alpha.10 fixes, podcasts with the episode first, and the Planning Studio)
+
+### Planning Studio: one plan level, an easier way in, and a theory of change
+
+- **Plans no longer sit inside plans.** The framework is the root (one per organisation) and plans sit side by side under it, each holding objectives. The example's Year 1 and Year 2 plans are folded into its 2026–2030 strategic plan. Any older plan inside a plan folds the same way when it opens: its objectives move up, its milestones and notes join the plan around it, and the dashboards, plan documents and Studio work that pointed at it follow along.
+- **The side list stays in the Studio.** Every plan is listed, and under the open plan sit its tools in the order a planning season runs: SOAR board, Assemble, Theory of change, Results. A plan opens where you last left it ("Pick up in Assemble"). Strategy & Work and the Plan designer sit apart at the bottom under "Elsewhere in Dashi", so it's clear they open another plugin.
+- On the front page each plan card has a row of its tools and a "Continue" button back to where you were. The SOAR board has Board, Strengths, Opportunities and Aspirations views in one switch.
+- **Theory of change**, a new planning tool. The plan reads left to right in five columns: what we do, what it produces, early changes, lasting changes, and the change we seek. "Lay it out from the plan" puts the workplans, goals, objectives and the framework's vision in place, linked the way the plan nests them. Pick a box to say where it leads, and for each "so that":
+  - the assumption behind it
+  - how sure you are (untested, some evidence, tested)
+  - the evidence, from anything the asset chooser finds
+  - a signpost: the plan measure you'll watch, and what would make you change course
+
+  A readiness strip counts how many links have each of these. "Read as pathways" writes one pathway per lasting change, ready to copy into a plan document, a proposal or a board pack.
 
 ### Podcasts: the episode first
 

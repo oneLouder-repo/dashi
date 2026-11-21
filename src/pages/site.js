@@ -64,12 +64,12 @@ import { criticalOn, migrateCritical, onSiteFor, lessonsOf, suggestFor, STOP_THI
 const docs = {
   org: loadOrg(), strategy: loadStrategy(), data: loadData(), dashboards: loadDashboards(),
   podcasts: loadPodcasts(), pages: loadPages(),
-  // Visitors get only published plan documents from the server; staff previews read their own.
-  plandocs: migratePlanDocs((!isHosted() || session()?.member ? loadPlanDocs() : loadDoc('plandocs')) ?? { docs: {} }),
   critical: migrateCritical(loadDoc(CRITICAL_DOC)),
   // Members read the library for a board portal; visitors never get it.
   library: staffMember() ? loadLibrary() : migrateLibrary({}),
 };
+// Visitors get only published plan documents from the server; staff previews read their own.
+docs.plandocs = migratePlanDocs((!isHosted() || session()?.member ? loadPlanDocs() : loadDoc('plandocs')) ?? { docs: {} }, docs.strategy);
 function staffMember() { return !isHosted() || !!session()?.member; }
 /** Critical Media prompts on this site, if the org has the plugin on: its settings, else null. */
 const media = (siteId) => (criticalOn(docs.org) && onSiteFor(docs.critical.settings, siteId) ? docs.critical.settings : null);

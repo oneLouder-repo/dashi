@@ -1,5 +1,5 @@
 import { uid } from '../core/ops.js';
-import { childrenOf, rootOf } from './strategy.js';
+import { childrenOf, rootOf, liveNodeId } from './strategy.js';
 import { measureFacts, seriesOf } from './data.js';
 
 /**
@@ -183,9 +183,10 @@ export function headlineMeasures(snap, max = 6) {
   return snap.objectives.flatMap((o) => [...o.measures, ...o.goals.flatMap((g) => g.measures)]).filter((m) => m.facts).slice(0, max);
 }
 
-export function migratePlanDocs(doc) {
+export function migratePlanDocs(doc, strategy = null) {
   doc.docs ??= {};
   for (const pd of Object.values(doc.docs)) {
+    if (strategy?.folded && pd.planId) pd.planId = liveNodeId(strategy, pd.planId);
     pd.text ??= {};
     pd.hidden ??= {};
     pd.images ??= {};

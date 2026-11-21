@@ -20,6 +20,7 @@ import { SoarBoard } from './SoarBoard.js';
 import { SoarList } from './SoarList.js';
 import { Results } from './Results.js';
 import { Assemble } from './Assemble.js';
+import { Change } from './Change.js';
 import { uiPrompt } from '../ui/dialog.js';
 
 /**
@@ -31,20 +32,33 @@ import { uiPrompt } from '../ui/dialog.js';
  *   #<planId>/s|o|a        Strengths, Opportunities, Aspirations as lists, with assets
  *   #<planId>/results      the results framework, on a grid
  *   #<planId>/assemble     the canvas where ideas are wired into goals and objectives
+ *   #<planId>/change       the theory of change: "so that" pathways, assumptions, evidence, signposts
+ *
+ * The side list keeps you inside the Studio: every plan, and under the open
+ * one its planning tools in the order a planning season runs. A plan opens
+ * where you last left it. Strategy & Work and the Plan designer sit apart at
+ * the bottom, marked as other plugins.
  *
  * The framework and plans are Strategy & Work's (the strategy document);
  * the planning around them is the studio document (platform/studio.js).
  * Other people's saves merge in as they arrive, so a session can run live.
  */
 export const TABS = [
-  { id: 'home', label: 'Plan home', icon: 'home' },
-  { id: 'soar', label: 'SOAR board', icon: 'workbench' },
-  { id: 's', label: 'Strengths', icon: 'star' },
-  { id: 'o', label: 'Opportunities', icon: 'globe' },
-  { id: 'a', label: 'Aspirations', icon: 'eye' },
-  { id: 'results', label: 'Results', icon: 'chart' },
-  { id: 'assemble', label: 'Assemble', icon: 'connect' },
+  { id: 'home', label: 'Plan home', icon: 'home', blurb: 'Dates, context and team' },
+  { id: 'soar', label: 'SOAR board', icon: 'workbench', blurb: 'Strengths, opportunities, aspirations, results' },
+  { id: 's', label: 'Strengths', icon: 'star', list: true },
+  { id: 'o', label: 'Opportunities', icon: 'globe', list: true },
+  { id: 'a', label: 'Aspirations', icon: 'eye', list: true },
+  { id: 'assemble', label: 'Assemble', icon: 'connect', blurb: 'Wire ideas into objectives and goals' },
+  { id: 'change', label: 'Theory of change', icon: 'flow', blurb: 'Why it works, and what you watch' },
+  { id: 'results', label: 'Results', icon: 'chart', blurb: 'Outcomes and indicators' },
 ];
+const TOOL_TABS = TABS.filter((t) => !t.list);
+const TAB_LABEL = { s: 'Strengths', o: 'Opportunities', a: 'Aspirations' };
+/** Where each plan was last left, so it opens there again. */
+const lastTab = (planId) => { try { return localStorage.getItem(`dashi.studio.last.${planId}`) || 'home'; } catch { return 'home'; } };
+const rememberTab = (planId, tab) => { try { localStorage.setItem(`dashi.studio.last.${planId}`, tab); } catch { /* private window */ } };
+const tabHref = (planId, tab) => `#${planId}${tab === 'home' ? '' : `/${tab}`}`;
 
 const org = loadOrg();
 Shell(document.querySelector('#shell'), { current: 'studio', org });
@@ -115,20 +129,35 @@ ctx.savePlan = (planId, patch) => (store.doc.plans[planId] ? ctx.put('plans', pl
 function drawSide({ planId, tab }) {
   const plans = plansOf(strategy.doc);
   const count = (id, c) => ofPlan(store.doc, c, id).length;
+  const badge = (pid, t) => {
+    if (t === 'soar') return count(pid, 'cards') || null;
+    if (t === 'change') return count(pid, 'toc') || null;
+    if (t === 'results') return count(pid, 'results') || null;
+    if (t === 'assemble') return count(pid, 'blocks') || null;
+    return null;
+  };
+  const planItems = plans.flatMap((p) => {
+    const open = p.id === planId;
+    const last = lastTab(p.id);
+    const resume = TABS.find((t) => t.id === last && t.id !== 'home');
+    return [
+      { label: p.title, sub: open ? [p.start, p.end].filter(Boolean).map(short).join(' – ') || 'Plan home' : resume ? `Pick up in ${resume.label}` : [p.start, p.end].filter(Boolean).map(short).join(' – '),
+        icon: 'mapTrifold', href: open ? tabHref(p.id, 'home') : tabHref(p.id, last), on: open && tab === 'home', className: open ? 'side-plan open' : 'side-plan' },
+      ...(open ? TOOL_TABS.filter((t) => t.id !== 'home').map((t) => ({
+        label: t.label, icon: t.icon, href: tabHref(p.id, t.id), on: t.id === tab || (t.id === 'soar' && ['s', 'o', 'a'].includes(tab)),
+        badge: badge(p.id, t.id) ? String(badge(p.id, t.id)) : null, className: 'side-indent side-tool',
+      })) : []),
+    ];
+  });
   side = swapSide(side, SideNav({ label: 'Planning Studio', sections: [
     { title: 'Planning Studio', items: [
       { label: 'Framework and plans', sub: 'Mission, vision, values', icon: 'strategy', href: '#framework', on: tab === 'framework' },
-      { label: 'Plan designer', sub: 'Designed plans to print or publish', icon: 'brush', href: 'plandoc.html' },
-      { label: 'Strategy & Work', sub: 'The plans as work', icon: 'mapTrifold', href: 'strategy.html' },
     ] },
-    { title: 'Plans', action: { label: 'New plan', onclick: newPlan }, items: plans.map((p) => ({
-      label: p.title, sub: count(p.id, 'cards') ? `${count(p.id, 'cards')} SOAR cards` : [p.start, p.end].filter(Boolean).map(short).join(' – '),
-      icon: 'mapTrifold', href: `#${p.id}`, on: p.id === planId && tab === 'home', className: p.depth ? 'side-indent' : null,
-    })) },
-    planId && { title: 'This plan', items: TABS.filter((t) => t.id !== 'home').map((t) => ({
-      label: t.label, icon: t.icon, href: `#${planId}/${t.id}`, on: t.id === tab,
-      badge: ['s', 'o', 'a'].includes(t.id) ? String(ofPlan(store.doc, 'cards', planId).filter((c) => c.quadrant === t.id).length) : null,
-    })) },
+    { title: 'Plans', action: { label: 'New plan', onclick: newPlan }, items: planItems },
+    { title: 'Elsewhere in Dashi', className: 'side-elsewhere', items: [
+      { label: 'Strategy & Work', sub: planId ? 'This plan as work: goals, tasks, timelines' : 'The plans as work', icon: 'share', href: `strategy.html${planId ? `#${planId}` : ''}` },
+      { label: 'Plan designer', sub: 'Pages to print or publish', icon: 'share', href: 'plandoc.html' },
+    ] },
   ] }));
 }
 
@@ -177,17 +206,23 @@ function Framework() {
       total > 0 && h('div', { class: 'sw-plan-time', title: `${Math.round(gone * 100)}% of the way through its dates` }, h('i', { style: `width:${gone * 100}%` }), h('b', { style: `left:${gone * 100}%` })),
       objectives.length > 0 && h('div', { class: 'studio-plan-objs' }, objectives.map(({ node, hue }) => h('a', { class: 'studio-obj-chip', href: `strategy.html#${node.id}`, style: `--hue:${hue}` }, node.title))),
       h('div', { class: 'soar-mini' }, QUADRANTS.map((q) => h('a', { href: `#${p.id}/${q.id === 'r' ? 'results' : ['s', 'o', 'a'].includes(q.id) ? q.id : 'soar'}`, style: `--q:${q.color}` }, h('strong', {}, String(q.id === 'r' ? results || cards.filter((c) => c.quadrant === 'r').length : cards.filter((c) => c.quadrant === q.id).length)), q.label))),
+      h('nav', { class: 'studio-plan-tools', 'aria-label': `Planning tools for ${p.title}` },
+        TOOL_TABS.filter((t) => t.id !== 'home').map((t) => h('a', { class: `studio-tool${lastTab(p.id) === t.id ? ' last' : ''}`, href: tabHref(p.id, t.id), title: t.blurb }, icon(t.icon, 15), h('span', {}, t.label), badgeFor(p.id, t.id)))),
       h('footer', { class: 'studio-plan-foot' },
         AvatarStack(team, { max: 6, size: 24 }),
         h('span', { class: 'spacer' }),
-        h('a', { class: 'btn btn-xs btn-ghost', href: `#${p.id}/soar` }, icon('workbench', 13), 'SOAR'),
-        h('a', { class: 'btn btn-xs btn-ghost', href: `strategy.html#${p.id}` }, icon('mapTrifold', 13), 'Work'),
+        h('a', { class: 'btn btn-xs btn-ghost', href: `strategy.html#${p.id}`, title: 'Opens Strategy & Work' }, icon('share', 13), 'Work'),
         design ? h('a', { class: 'btn btn-xs btn-ghost', href: `plandoc.html#${design.id}` }, icon('brush', 13), design.status === 'published' ? 'Design · published' : 'Design')
-          : h('a', { class: 'btn btn-xs btn-ghost', href: 'plandoc.html', title: 'Make a designed plan document from this plan' }, icon('brush', 13), 'Design it')));
+          : h('a', { class: 'btn btn-xs btn-ghost', href: 'plandoc.html', title: 'Make a designed plan document from this plan' }, icon('brush', 13), 'Design it'),
+        h('a', { class: 'btn btn-xs btn-primary', href: tabHref(p.id, lastTab(p.id)) }, lastTab(p.id) === 'home' ? 'Open the plan' : `Continue: ${TABS.find((t) => t.id === lastTab(p.id))?.label ?? 'Plan home'}`, icon('chevronRight', 13))));
+  };
+  const badgeFor = (pid, t) => {
+    const k = { soar: ofPlan(store.doc, 'cards', pid).length, change: ofPlan(store.doc, 'toc', pid).length, results: ofPlan(store.doc, 'results', pid).length, assemble: ofPlan(store.doc, 'blocks', pid).length }[t];
+    return k ? h('small', {}, String(k)) : null;
   };
   return h('div', { class: 'studio-page-body studio-front' },
     PluginHeader('studio', { actions: [
-      h('a', { class: 'btn btn-sm btn-ghost', href: 'plandoc.html' }, icon('brush', 14), 'Plan designer'),
+      h('a', { class: 'btn btn-sm btn-ghost', href: 'plandoc.html', title: 'Opens the Plan designer' }, icon('share', 14), 'Plan designer'),
       h('button', { class: 'btn btn-sm btn-primary', onclick: newPlan }, icon('plus', 14), 'New plan')] }),
     !root ? h('p', { class: 'empty' }, 'Start a framework in Strategy & Work first.') : [
       h('section', { class: 'sw-hero' },
@@ -209,7 +244,7 @@ function Framework() {
 }
 const ancestorsOf = (id) => { const out = []; let n = strategy.doc.nodes[id]; while (n?.parentId) { out.push(n.parentId); n = strategy.doc.nodes[n.parentId]; } return out; };
 
-const VIEWS = { home: PlanHome, soar: SoarBoard, s: SoarList, o: SoarList, a: SoarList, results: Results, assemble: Assemble };
+const VIEWS = { home: PlanHome, soar: SoarBoard, s: SoarList, o: SoarList, a: SoarList, results: Results, assemble: Assemble, change: Change };
 
 function render() {
   if (ctx.dragging) { ctx.pending = true; return; }
@@ -229,9 +264,15 @@ function render() {
           h('span', { class: 'spacer' }),
           live.el,
           AvatarStack(ctx.planRecord(plan.id).team.map((t) => org.staff[t.staffId]), { max: 8, size: 28 })),
-        h('div', { role: 'tablist', class: 'tabs tabs-border studio-tabs' }, TABS.map((t) =>
-          h('a', { role: 'tab', class: `tab${t.id === route.tab ? ' tab-active' : ''}`, href: `#${plan.id}${t.id === 'home' ? '' : `/${t.id}`}`, 'aria-selected': String(t.id === route.tab) }, icon(t.icon, 15), t.label)))),
+        h('div', { role: 'tablist', class: 'tabs tabs-border studio-tabs' }, TOOL_TABS.map((t) => {
+          const on = t.id === route.tab || (t.id === 'soar' && TAB_LABEL[route.tab]);
+          return h('a', { role: 'tab', class: `tab${on ? ' tab-active' : ''}`, href: tabHref(plan.id, t.id), 'aria-selected': String(!!on) }, icon(t.icon, 15), t.label);
+        })),
+        (route.tab === 'soar' || TAB_LABEL[route.tab]) && h('div', { class: 'device-toggle xs studio-soar-views', role: 'radiogroup', 'aria-label': 'SOAR view' },
+          [['soar', 'Board'], ['s', 'Strengths'], ['o', 'Opportunities'], ['a', 'Aspirations']].map(([id, label]) =>
+            h('button', { type: 'button', role: 'radio', 'aria-checked': String(route.tab === id), class: route.tab === id ? 'on' : '', onclick: () => ctx.go(tabHref(plan.id, id).slice(1)) }, label)))),
       VIEWS[route.tab](ctx, plan, route.tab)));
+    rememberTab(plan.id, route.tab);
   }
   main.scrollTop = scroll;
   if (focused) {

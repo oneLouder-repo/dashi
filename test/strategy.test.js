@@ -15,7 +15,8 @@ test('the example strategy is one tree from framework to tasks', () => {
   assert.equal(root.type, 'framework');
   const master = childrenOf(doc, root.id)[0];
   assert.equal(master.type, 'plan');
-  assert.equal(childrenOf(doc, master.id)[0].type, 'plan', 'plans nest inside plans');
+  assert.equal(childrenOf(doc, master.id)[0].type, 'objective');
+  assert.ok(Object.values(doc.nodes).filter((n) => n.type === 'plan').every((p) => doc.nodes[p.parentId].type === 'framework'), 'plans never sit inside plans');
   const tasks = descendants(doc, root.id).filter((n) => n.type === 'task');
   assert.ok(tasks.length >= 20);
 });

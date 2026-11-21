@@ -20,13 +20,10 @@ const lightDot = (state) => h('span', { class: `sw-wp-light l-${PROGRESS_STATES[
 export function Lanes(ctx, node) {
   const doc = ctx.store.doc;
   const now = today();
-  // Which level makes the lanes: skip nested plans down to the first objectives.
+  // Which level makes the lanes: a framework's lanes are its plans' objectives.
   const lanesOf = (n) => {
     const kids = childrenOf(doc, n.id);
-    if (n.type === 'plan' || n.type === 'framework') {
-      const objectives = kids.filter((k) => k.type === 'objective');
-      return [...objectives, ...kids.filter((k) => k.type === 'plan').flatMap(lanesOf)];
-    }
+    if (n.type === 'framework') return kids.flatMap((k) => (k.type === 'plan' ? childrenOf(doc, k.id) : [k]));
     return kids;
   };
   const lanes = lanesOf(node);
