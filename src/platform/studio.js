@@ -491,3 +491,59 @@ export function tocStory(doc, planId) {
   });
 }
 export const tocMarkdown = (story) => story.map((p) => `**${p.title}**\n\n${p.lines.map(([k, v]) => `- ${k}: ${v}`).join('\n')}`).join('\n\n');
+
+/**
+ * A Planning Studio for an org that already has its plans in Strategy &
+ * Work (0.2, PR 10): each plan gets its operating context, SOAR cards, a
+ * result for every measure under it, and the plan assembled on the
+ * Assemble canvas, with the cards wired into the goals they feed. The
+ * theory of change is left blank, as an org with a plan but no theory yet.
+ *
+ *   studioFromPlans(strategy, { [planId]: { team, notes, context: [[kind, text]], cards: { s: [text|{text, feeds}] … } } })
+ *
+ * `feeds` is a pattern for the goal (or objective) a card feeds; the card
+ * goes on the canvas wired into it. Pure apart from the generated ids.
+ */
+export function studioFromPlans(strategy, spec = {}) {
+  const doc = blankStudio();
+  const at = 1;
+  const apply = (op) => { if (op.op === 'add') doc[op.collection][op.id] = { ...op.data, id: op.id, at }; };
+  for (const [planId, p] of Object.entries(spec)) {
+    const plan = strategy.nodes[planId];
+    if (!plan) continue;
+    doc.plans[planId] = { id: planId, at, notes: p.notes ?? '', team: p.team ?? [] };
+    (p.context ?? []).forEach(([kind, text], i) => { const id = `cx-${planId}-${i + 1}`; doc.context[id] = { id, planId, kind, text, at }; });
+    // SOAR cards: spread out from the centre, the first (most important) closest in.
+    for (const [q, list] of Object.entries(p.cards ?? {})) list.forEach((c, i) => {
+      const card = typeof c === 'string' ? { text: c } : c;
+      const id = `card-${planId}-${q}${i + 1}`;
+      const r = 260 + i * 190;
+      const angle = ((20 + ((i * 29) % 50)) * Math.PI) / 180;
+      const [sx, sy] = [q === 's' || q === 'a' ? -1 : 1, q === 's' || q === 'o' ? -1 : 1];
+      doc.cards[id] = { id, planId, quadrant: q, text: card.text, detail: card.detail ?? '', wx: Math.round(sx * r * Math.cos(angle)), wy: Math.round(sy * r * Math.sin(angle)), by: (p.team?.[i % Math.max(1, p.team.length)]?.staffId) ?? null, votes: [], assets: [], feeds: card.feeds ?? null, at };
+    });
+    // A result for every measure under the plan, from the node that holds it (and its first task, if any).
+    let ri = 0;
+    for (const n of [plan, ...descendants(strategy, planId)]) for (const mz of n.measures ?? []) {
+      const id = `res-${planId}-${++ri}`;
+      const task = descendants(strategy, n.id).find((x) => x.type === 'task');
+      doc.results[id] = { id, planId, title: mz.name, indicator: mz.name, baseline: mz.baseline ?? '', target: mz.target ?? '', unit: mz.unit ?? '', source: '', frequency: 'Quarterly', measureId: mz.id, cardId: null, nodeId: n.id, taskId: task?.id ?? null, x: ((ri - 1) % 3) * 4, y: Math.floor((ri - 1) / 3) * 5, w: 4, h: 5, at };
+    }
+    // Assemble: the plan as it stands, then the cards that feed a goal, to its left, wired in.
+    for (const op of bringInPlan(doc, strategy, planId)) apply(op);
+    const blocks = ofPlan(doc, 'blocks', planId);
+    let y = 40;
+    for (const card of ofPlan(doc, 'cards', planId).filter((c) => c.feeds)) {
+      const re = new RegExp(card.feeds, 'i');
+      const target = blocks.find((b) => (b.kind === 'goal' || b.kind === 'objective') && re.test(b.title));
+      if (!target) continue;
+      const id = `bl-${card.id}`;
+      doc.blocks[id] = { id, planId, kind: 'card', ref: card.id, title: null, strategyId: null, x: -320, y, at };
+      y += 110;
+      const wid = `wi-${card.id}`;
+      doc.wires[wid] = { id: wid, planId, from: id, to: target.id, at };
+    }
+    for (const c of ofPlan(doc, 'cards', planId)) delete c.feeds;
+  }
+  return doc;
+}

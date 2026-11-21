@@ -16,6 +16,7 @@
 import { migrateOrg } from '../org.js';
 import { seedStrategy } from '../strategySeed.js';
 import { migrateStrategy } from '../strategy.js';
+import { studioFromPlans, plansOf } from '../studio.js';
 import { migratePages, slugify } from '../pages.js';
 import { mapEntry, mapDocName } from '../maps.js';
 import { createMap, ops, applyOp } from '../../core/ops.js';
@@ -467,11 +468,78 @@ export function actuaPages() {
   ]) });
 }
 
+/**
+ * The Planning Studio around Actua's two plans (0.2, PR 10): context, SOAR
+ * cards from the mapping sessions and public sources, a result for every
+ * measure, and each plan assembled on the canvas. The theory of change is
+ * left blank on purpose: Actua has a plan but no theory yet, to try
+ * "Lay it out from the plan" and "Send to plan" on.
+ */
+export function actuaStudio(strategy) {
+  const plans = plansOf(strategy);
+  const main = plans.find((p) => /AI-Ready/.test(p.title));
+  const pilot = plans.find((p) => /pilot/i.test(p.title));
+  const team = (ids) => ids.map(([staffId, role]) => ({ staffId, role }));
+  const spec = {};
+  if (main) spec[main.id] = {
+    notes: 'Worked out with the leadership team and the youth advisory, alongside the CanCode phase 5 workbook (to March 2028).',
+    team: team([['a-vpo', 'lead'], ['a-ai', 'facilitator'], ['a-research', 'member'], ['a-network', 'member'], ['a-advisor', 'advisor']]),
+    context: [
+      ['political', 'Canada’s national AI strategy (AI for All) names youth AI literacy; CanCode phase 5 funds it to March 2028.'],
+      ['economic', 'CanCode phase 5: $30M for 2026–28 across all recipients, aiming at 1.1M students and 76,000 teachers.'],
+      ['social', 'Parents worry about AI and want to be part of it: Ready for AI? found only 38% of educators feel confident.'],
+      ['technology', 'Free AI teacher guides from Apple and Common Sense Media, MIT RAISE Day of AI, and Amii’s national initiative.'],
+      ['internal', 'A national office supporting 40+ university and college members who run the camps and clubs.'],
+    ],
+    cards: {
+      s: [
+        { text: 'A national network of 40+ members in every province and territory', feeds: 'Every member runs AI-Ready' },
+        { text: 'Decades of hands-on STEM camps and clubs young people love', feeds: 'Every member runs AI-Ready' },
+        { text: 'Trusted InSTEM relationships with Indigenous communities', feeds: 'Land-based' },
+        'Our own evidence: the Ready for AI? survey of youth, parents and educators',
+      ],
+      o: [
+        { text: 'CanCode phase 5 puts AI at the centre (Streams 1 and 2)', feeds: 'Every member runs AI-Ready' },
+        { text: 'Apple’s free AI teacher guides with Common Sense Media', feeds: 'Apple' },
+        { text: 'MIT RAISE Day of AI, ready to adapt for Canada', feeds: 'MIT RAISE' },
+        { text: 'Amii’s National AI Literacy Initiative for K-12', feeds: 'Amii' },
+      ],
+      a: [
+        { text: 'AI literacy as family and community literacy', feeds: 'next step from every' },
+        { text: 'Youth furthest from opportunity reached first', feeds: 'priority groups' },
+        'Every educator confident to use AI with students',
+      ],
+      r: [
+        'Youth in AI-Ready programming each year, most from priority groups',
+        'Educators who feel confident using AI with students, up from 38%',
+        'Parents telling us what they need, in their own words',
+      ],
+    },
+  };
+  if (pilot) spec[pilot.id] = {
+    notes: 'A fully articulated but limited probe from the mapping sessions, across Micro, Meso and Macro.',
+    team: team([['a-research', 'lead'], ['a-network', 'member'], ['a-advisor', 'advisor']]),
+    context: [
+      ['social', 'Families meet AI through schools, libraries, faith and newcomer groups as much as through Actua.'],
+      ['internal', 'Members bring venues, relationships and logistics; the national office brings content, speakers and research design.'],
+    ],
+    cards: {
+      s: [{ text: 'Members already hold the local relationships', feeds: 'Members bring venue' }],
+      o: [{ text: 'Libraries and newcomer centres asking for family AI sessions', feeds: 'Family AI Literacy Tour' }],
+      a: [{ text: 'One national question asked the same way at every stop', feeds: 'Design measurement' }],
+      r: ['Tour stops held, and what families told us at each'],
+    },
+  };
+  return studioFromPlans(strategy, spec);
+}
+
 export function actuaDocs() {
   const map = actuaMap();
+  const strategy = actuaStrategy();
   return {
     org: actuaOrg(),
-    strategy: actuaStrategy(),
+    strategy,
+    studio: actuaStudio(strategy),
     maps: { maps: { 'map-actua-ai': mapEntry({ id: 'map-actua-ai', title: 'Actua AI literacy ecosystem', description: 'Who shapes youth AI literacy in Canada, and how they relate to Actua. Speculative links are marked.', ownerId: 'a-research', memberIds: ['a-ceo', 'a-vpo', 'a-vpd', 'a-ai', 'a-advisor'] }) } },
     [mapDocName('map-actua-ai')]: map,
     library: actuaLibrary(),

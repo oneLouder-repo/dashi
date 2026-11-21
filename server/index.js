@@ -11,7 +11,7 @@ import { createApp, hashPassword } from './app.js';
 import { exampleDocs } from '../src/platform/seeds.js';
 import { MOCK_ORGS, mockDocs, mockFiles } from '../src/platform/mockOrgs.js';
 import { seedPlanDocs } from '../src/platform/plandocs.js';
-import { CLIENT_ORGS } from '../src/platform/clients/index.js';
+import { CLIENT_ORGS, CLIENT_RESET } from '../src/platform/clients/index.js';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { scheduleBackups } from './backup.js';
@@ -92,7 +92,36 @@ function seedClientPlatform(db, app) {
     app.createOrg({ id: spec.id, slug: spec.slug, name: spec.name, plan: spec.plan, docs: spec.docs() });
     added.push(spec.name);
   }
+  added.push(...resetClientDocs(db, app));
   return added;
+}
+
+/**
+ * A fresh start for testing: when CLIENT_RESET's mark is new, put its
+ * documents back to their seeded versions, saving the old ones first in
+ * <data>/backups/. The mark is kept in platform_docs, so it happens once.
+ */
+export function resetClientDocs(db, app, reset = CLIENT_RESET) {
+  const done = [];
+  const row = db.prepare("SELECT json FROM platform_docs WHERE name = 'clients-reset'").get();
+  if (JSON.parse(row?.json ?? 'null')?.mark === reset.mark) return done;
+  const stamp = new Date().toISOString();
+  for (const [orgId, names] of Object.entries(reset.docs)) {
+    const spec = CLIENT_ORGS.find((o) => o.id === orgId);
+    if (!spec || !db.prepare('SELECT 1 FROM orgs WHERE id = ?').get(orgId)) continue;
+    const fresh = spec.docs();
+    const dir = join(config.dataDir, 'backups');
+    mkdirSync(dir, { recursive: true });
+    for (const name of names) {
+      const old = db.prepare('SELECT json FROM docs WHERE org_id = ? AND name = ?').get(orgId, name);
+      if (old) writeFileSync(join(dir, `${orgId}-${name}-before-${reset.mark}-${stamp.replace(/[:.]/g, '-')}.json`), old.json);
+      if (fresh[name]) app.writeDoc(orgId, name, fresh[name]);
+    }
+    done.push(`${spec.name} (fresh ${names.join(' and ')} for ${reset.mark})`);
+  }
+  db.prepare('INSERT INTO platform_docs (name, json, updated_at, updated_by) VALUES (?, ?, ?, NULL) ON CONFLICT(name) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at')
+    .run('clients-reset', JSON.stringify({ mark: reset.mark, at: stamp }), stamp);
+  return done;
 }
 
 /**
