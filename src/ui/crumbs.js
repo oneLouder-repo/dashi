@@ -65,8 +65,9 @@ function queue() {
 function draw() {
   const el = trail();
   const box = bar();
-  const p = PLUGINS.find((x) => x.id === plugin);
-  if (!p || p.id === 'home') { box.remove(); return; }
+  // Home (alpha 0.3 PR 9) has the ribbon too, so it sits like every plugin.
+  const p = plugin === 'home' ? { id: 'home', name: 'Home', href: 'index.html' } : PLUGINS.find((x) => x.id === plugin);
+  if (!p) { box.remove(); return; }
   // A sub-plugin's trail starts at its parent: Public Portal / Data Workbench / Dashboards.
   const parent = p.parent && PLUGINS.find((x) => x.id === p.parent);
   // The studio is part of Strategy & Work now (0.2), so its own name drops out: Strategy & Work / Framework and plans.
@@ -90,6 +91,11 @@ function draw() {
  */
 const own = (pid, hash) => linkTo(pid, hash);
 const ACTIONS = {
+  home: () => [
+    { label: 'My work', icon: 'checklist', href: 'me.html' },
+    { label: 'People', icon: 'people', href: 'org.html#people' },
+    { label: 'Search', icon: 'search', href: 'search.html' },
+  ],
   strategy: () => [
     { label: 'Roadmap', icon: 'mapTrifold', href: own('strategy', '#roadmap'), here: '#roadmap' },
     { label: 'Framework', icon: 'strategy', href: own('strategy', '#framework'), here: '#framework' },

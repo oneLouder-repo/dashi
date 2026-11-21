@@ -616,3 +616,7 @@ body.mapper-page { grid-template: 'shell' auto 'top' 52px 'board' 1fr / minmax(0
 .actor.selected .actor-note { stroke: var(--accent); stroke-width: 3.2; }
 .actor .actor-label { fill: #16181d; }
 #board { --connector: #16181d; }
+
+/* Home, laid out like a plugin (alpha 0.3 PR 9): side nav, header and ribbon. */
+.home-app .home-col .page.home { padding: 0; max-width: none; margin: 0; }
+.home-app .home-col .plugin-header { margin-bottom: 18px; }

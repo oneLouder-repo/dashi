@@ -6,6 +6,10 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### PR 9: Home laid out like a plugin
+- **A left side nav on Home**, folding by section like every plugin's: Home (overview, my work, people), Quick actions (map, task, upload, reading, episode), Your tasks, Recently changed, Plugins (six, then All plugins) and Tags. Each section stays short.
+- **Home has the plugin header and the ribbon** (with My work, People and Search), at the same place and height as in every plugin. The quick-start buttons moved from the header into the side nav.
+
 ### PR 8: the systems-change palette, a blank theory of change, photos on Kestrel's assets
 - **Systems-change palette** on the radial and water lenses (micro/meso/macro, spheres of systems change, water of systems change): green for macro / cultural, through yellow, to red for micro / internal, each with a solid and a lighter step (`SYSTEMS` in `src/ui/wheel.js`, `lens.palette` in the lens files). SOAR keeps its colours.
 - **A blank theory of change again** in all three client orgs: on its next start, `npm run clients` empties the theory of change (saving a copy in backups) and keeps SOAR, Assemble and results. `CLIENT_RESET` can now empty collections inside a document (`clear`), not just reseed whole documents.

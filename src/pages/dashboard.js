@@ -8,11 +8,15 @@ import { statusById } from '../platform/strategy.js';
 import { addDays, short, today } from '../strategy/dates.js';
 import { libraryTags } from '../platform/library.js';
 import { MiniMap } from '../ui/MiniMap.js';
+import { SideNav } from '../ui/SideNav.js';
+import { PluginHeader } from '../ui/PluginHeader.js';
 
 /**
  * The organisation's home: what needs you, what's moving, where the
  * strategy stands, the ecosystem at a glance, the team and what you're
- * reading, then the plugins.
+ * reading, then the plugins. Alpha 0.3 PR 9: laid out like a plugin, with
+ * a left side nav of the things people reach for most (quick actions, your
+ * tasks, recent assets, plugins and tags) and the plugin header and ribbon.
  */
 const docs = loadAll();
 const { org, strategy, dashboards } = docs;
@@ -132,34 +136,58 @@ function Sites() {
 
 /* Quick starts for the things people come to do. */
 const QUICK = [
-  { plugin: 'mapper', label: 'Map the ecosystem', glyph: 'sec-mapper', href: linkTo('mapper') },
-  { plugin: 'strategy', label: 'Add a task', glyph: 'checklist', href: linkTo('strategy', '#workplans') },
-  { plugin: 'library', label: 'Add a reading', glyph: 'books', href: linkTo('library', '#files/all') },
-  { plugin: 'assets', label: 'Upload assets', glyph: 'cloudUpload', href: linkTo('assets') },
-  { plugin: 'podcasts', label: 'New episode', glyph: 'mic', href: linkTo('podcasts') },
+  { plugin: 'mapper', label: 'Map the ecosystem', sub: 'Add actors and links', glyph: 'sec-mapper', href: linkTo('mapper') },
+  { plugin: 'strategy', label: 'Add a task', sub: 'In a workplan', glyph: 'checklist', href: linkTo('strategy', '#workplans') },
+  { plugin: 'assets', label: 'Upload assets', sub: 'Files, photos, audio', glyph: 'cloudUpload', href: linkTo('assets') },
+  { plugin: 'library', label: 'Add a reading', sub: 'A paper, report or link', glyph: 'books', href: linkTo('library', '#files/all') },
+  { plugin: 'podcasts', label: 'New episode', sub: 'Record, upload or link', glyph: 'mic', href: linkTo('podcasts') },
+  { plugin: 'social', label: 'Create a post', sub: 'For every network at once', glyph: 'share', href: linkTo('social', '#compose') },
 ];
 
-document.querySelector('#app').replaceChildren(
-  h('div', { class: 'page home' },
-    h('header', { class: 'home-head' },
-      h('div', {},
-        h('p', { class: 'home-hello' }, me ? `${hello}, ${me.name.split(' ')[0]}` : hello),
-        h('h1', {}, org.name),
-        org.mission && h('p', { class: 'lede' }, org.mission)),
-      h('div', { class: 'home-quick' }, QUICK.filter((q) => has(q.plugin)).map((q) => h('a', { class: 'home-quick-btn', href: q.href, style: `--tone:${tone(q.plugin)}` }, icon(q.glyph, 16), q.label)))),
-    h('div', { class: 'home-grid' },
-      h('div', { class: 'home-main' }, MyWork(), Moving(), Strategy()),
-      h('div', { class: 'home-side' }, Ecosystem(), Team(), Reading(), Sites())),
-    h('h2', { class: 'home-plugins-title' }, 'Your plugins'),
-    h('div', { class: 'home-plugins' },
-      // Sub-plugins show inside their parent's tile (0.2: Data Workbench in the Portal, Library in Assets, Studio in Strategy).
-      plugins.filter((p) => !p.parent).map((p) => {
-        const kids = plugins.filter((k) => k.parent === p.id);
-        return h('div', { class: 'plugin-tile', style: `--tone:${p.tone ?? 'var(--accent)'}` },
-          h('a', { class: 'plugin-tile-main', href: p.href },
-            h('span', { class: 'tone-tile', 'aria-hidden': 'true' }, icon(p.icon, 20)),
-            h('span', { class: 'plugin-tile-text' }, h('strong', {}, p.name), h('small', {}, p.stats(docs)))),
-          kids.length > 0 && h('span', { class: 'plugin-tile-kids' }, kids.map((k) => h('a', { href: k.href, title: k.stats(docs) }, icon(k.icon, 13), k.name))));
-      })),
-    h('p', { class: 'note' }, 'Dashi is in alpha. Something odd, or an idea? Use Feedback at the bottom right of any page.')),
+/* The side nav: a few of the things people reach for most, kept short. */
+function HomeNav() {
+  const mine = has('strategy') ? nodes.filter((n) => n.type === 'task' && n.status !== 'done' && (n.assigneeIds ?? []).includes(me?.id)).sort((a, b) => (a.end ?? '9').localeCompare(b.end ?? '9')) : [];
+  const recent = [];
+  for (const [id, m] of Object.entries(docs.maps?.maps ?? {})) if (has('mapper')) recent.push({ at: m.updatedAt, label: m.title, sub: 'Ecosystem map', icon: 'sec-mapper', href: linkTo('mapper', `#${id}`) });
+  for (const it of Object.values(docs.library?.items ?? {})) if (has('library')) recent.push({ at: it.updatedAt, label: it.meta?.title || 'Untitled', sub: it.kind === 'doc' ? 'Dashi doc' : 'Reading', icon: it.kind === 'doc' ? 'doc' : 'books', href: linkTo('library', `#item/${it.id}`) });
+  for (const e of Object.values(docs.podcasts?.episodes ?? {})) if (has('podcasts') && e.publishedAt) recent.push({ at: e.publishedAt, label: e.title, sub: 'Episode', icon: 'mic', href: linkTo('podcasts', `#episodes/${e.id}`) });
+  const t = (x) => (typeof x.at === 'number' ? x.at : new Date(x.at ?? 0).getTime()) || 0;
+  const tags = has('library') ? libraryTags(docs.library).slice(0, 5) : [];
+  const top = plugins.filter((p) => !p.parent);
+  return SideNav({ label: 'Home', sections: [
+    { title: 'Home', items: [
+      { label: 'Overview', sub: me ? `${hello}, ${me.name.split(' ')[0]}` : 'Your organisation today', icon: 'home', href: 'index.html', on: true },
+      has('strategy') && { label: 'My work', sub: mine.length ? `${mine.length} open task${mine.length === 1 ? '' : 's'}` : 'Nothing assigned to you', icon: 'checklist', href: 'me.html' },
+      { label: 'People', sub: `${Object.keys(org.staff ?? {}).length} people · ${Object.keys(org.teams ?? {}).length} teams`, icon: 'people', href: 'org.html#people' },
+    ] },
+    { title: 'Quick actions', items: QUICK.filter((q) => has(q.plugin)).slice(0, 5).map((q) => ({ label: q.label, sub: q.sub, icon: q.glyph, href: q.href })) },
+    mine.length > 0 && { title: 'Your tasks', items: mine.slice(0, 3).map((n) => ({ label: n.title, sub: n.end ? (n.end < now ? `Overdue · ${short(n.end)}` : `Due ${short(n.end)}`) : 'No date', icon: 'check', href: linkTo('strategy', `#${n.id}`) })) },
+    recent.length > 0 && { title: 'Recently changed', items: recent.sort((a, b) => t(b) - t(a)).slice(0, 4).map(({ at, ...x }) => ({ ...x, sub: `${x.sub} · ${ago(at)}` })) },
+    { title: 'Plugins', items: top.slice(0, 6).map((p) => ({ label: p.name, sub: p.stats(docs) || p.blurb || '', icon: p.icon, href: p.href })).concat(top.length > 6 ? [{ label: 'All plugins', sub: `${top.length} on for you`, icon: 'sec-plugins', href: '#plugins' }] : []) },
+    tags.length > 0 && { title: 'Tags', items: tags.map((x) => ({ label: x.tag, sub: `${x.n} reading${x.n === 1 ? '' : 's'}`, icon: 'tag', href: linkTo('library', `#tag/${encodeURIComponent(x.tag)}`) })) },
+  ].filter(Boolean) });
+}
+
+const app = document.querySelector('#app');
+app.classList.add('frame', 'home-app');
+app.replaceChildren(
+  HomeNav(),
+  h('section', { class: 'palette-main home-col' },
+    PluginHeader('home', { title: org.name, blurb: org.mission || 'Your organisation today: what needs you, what’s moving, where the plan stands and who is around.' }),
+    h('div', { class: 'page home' },
+      h('div', { class: 'home-grid' },
+        h('div', { class: 'home-main' }, MyWork(), Moving(), Strategy()),
+        h('div', { class: 'home-side' }, Ecosystem(), Team(), Reading(), Sites())),
+      h('h2', { class: 'home-plugins-title', id: 'plugins' }, 'Your plugins'),
+      h('div', { class: 'home-plugins' },
+        // Sub-plugins show inside their parent's tile (0.2: Data Workbench in the Portal, Library in Assets, Studio in Strategy).
+        plugins.filter((p) => !p.parent).map((p) => {
+          const kids = plugins.filter((k) => k.parent === p.id);
+          return h('div', { class: 'plugin-tile', style: `--tone:${p.tone ?? 'var(--accent)'}` },
+            h('a', { class: 'plugin-tile-main', href: p.href },
+              h('span', { class: 'tone-tile', 'aria-hidden': 'true' }, icon(p.icon, 20)),
+              h('span', { class: 'plugin-tile-text' }, h('strong', {}, p.name), h('small', {}, p.stats(docs)))),
+            kids.length > 0 && h('span', { class: 'plugin-tile-kids' }, kids.map((k) => h('a', { href: k.href, title: k.stats(docs) }, icon(k.icon, 13), k.name))));
+        })),
+      h('p', { class: 'note' }, 'Dashi is in alpha. Something odd, or an idea? Use Feedback at the bottom right of any page.'))),
 );
