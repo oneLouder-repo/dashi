@@ -2,6 +2,7 @@ import { h } from '../ui/dom.js';
 import { ART_STYLES, artUrl } from '../ui/art.js';
 import { readImage } from '../ui/images.js';
 import { paletteColours } from './render.js';
+import { PHOTOS, photoUrl, photoThumb, photoCredit } from '../platform/photos.js';
 
 /**
  * Choose a picture for a plan document: art made in your colours, an
@@ -13,7 +14,7 @@ import { paletteColours } from './render.js';
 export function ImagePicker({ current, seed = 1, palette, slotLabel = 'this picture', onPick }) {
   const colours = paletteColours(palette);
   const body = h('div', { class: 'ip-body' });
-  const tabs = [['art', 'Made for you'], ['open', 'Open photos'], ['upload', 'Upload'], ['url', 'Web address']];
+  const tabs = [['art', 'Made for you'], ['library', 'Photo library'], ['open', 'Open photos'], ['upload', 'Upload'], ['url', 'Web address']];
   let tab = current?.kind === 'url' ? 'open' : 'art';
   const tabBar = h('div', { role: 'tablist', class: 'tabs tabs-border ip-tabs' });
   const pick = (img) => { onPick(img); dialog.close(); };
@@ -26,6 +27,12 @@ export function ImagePicker({ current, seed = 1, palette, slotLabel = 'this pict
         h('p', { class: 'muted' }, 'Abstract pictures drawn in this document’s colours. They’re yours to use anywhere, with nothing to credit.'),
         h('div', { class: 'ip-grid' }, ART_STYLES.map((a) => h('button', { type: 'button', class: `ip-tile${current?.kind !== 'url' && current?.art === a.id ? ' on' : ''}`, onclick: () => pick({ kind: 'art', art: a.id }) },
           h('img', { src: artUrl(a.id, colours, seed + 1, 600, 400), alt: '' }), h('span', {}, a.label)))));
+    } else if (t === 'library') {
+      const abs = (u) => new URL(u, location.origin).href;
+      body.replaceChildren(
+        h('p', { class: 'muted' }, 'Photos chosen for Dashi, free to use anywhere. The photographer is credited with the picture.'),
+        h('div', { class: 'ip-grid' }, PHOTOS.map((p) => h('button', { type: 'button', class: `ip-tile${current?.url === abs(photoUrl(p)) ? ' on' : ''}`, title: photoCredit(p), onclick: () => pick({ kind: 'url', url: abs(photoUrl(p)), alt: p.title, credit: photoCredit(p), license: 'Unsplash', source: 'library' }) },
+          h('img', { src: photoThumb(p), alt: '', loading: 'lazy' }), h('span', {}, p.title)))));
     } else if (t === 'open') {
       const q = h('input', { class: 'input input-sm grow', name: 'ip-q', placeholder: 'Search: community garden, river, youth, prairie…', value: '' });
       const results = h('div', { class: 'ip-grid' });

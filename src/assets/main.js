@@ -8,6 +8,7 @@ import { MiniMap } from '../ui/MiniMap.js';
 import { Sunburst } from '../ui/Sunburst.js';
 import { pdfFirstPage } from '../ui/pdfPage.js';
 import { standIn } from '../ui/standIn.js';
+import { photoOrNull, photoThumb, photoUrl, photoCredit } from '../platform/photos.js';
 import { uiConfirm, uiForm, uiPrompt } from '../ui/dialog.js';
 import { uid } from '../core/ops.js';
 import { saveDoc, onDocChange, session } from '../platform/storage.js';
@@ -341,7 +342,10 @@ function Thumb(card, size = 'tile') {
     return el;
   }
   el.classList.add('art');
-  picture(standIn(card.key, colour));
+  // About half the stand-ins are a photo from the library, for variety.
+  const photo = photoOrNull(card.key);
+  picture(photo ? photoThumb(photo) : standIn(card.key, colour));
+  if (photo) { el.classList.add('photo'); el.title = photoCredit(photo); }
   el.append(h('span', { class: 'ah-thumb-badge' }, icon(card.icon, 14)));
   return el;
 }
@@ -928,7 +932,9 @@ function Preview(c) {
     return box;
   }
   box.classList.add('art');
-  box.replaceChildren(h('img', { src: standIn(c.key, abcd?.color ?? '#7f8ba3'), alt: '' }), h('span', { class: 'ah-thumb-badge' }, icon(c.icon, 16)));
+  const photo = photoOrNull(c.key);
+  box.replaceChildren(h('img', { src: photo ? photoUrl(photo) : standIn(c.key, abcd?.color ?? '#7f8ba3'), alt: '' }), h('span', { class: 'ah-thumb-badge' }, icon(c.icon, 16)),
+    photo && h('small', { class: 'ah-photo-credit' }, photoCredit(photo)));
   return box;
 }
 

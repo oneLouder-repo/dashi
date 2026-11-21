@@ -6,6 +6,12 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### PR 5: a photo library, and SJR's own audio files
+
+- **A photo library**: 17 royalty-free photos from Unsplash (nature, community and abstract), resized for the web, with the photographer credited.
+- **About half the Asset manager's stand-in thumbnails are photos now**, for variety; the rest keep the drawn scenes in their ABCD colour. The preview credits the photographer.
+- **Pick a banner photo in every designer**: Public Portal → Look and feel and Podcasts → Station design have a photo row (All, Nature, Community, Abstract) under the drawn banners. The Plan designer's picture chooser has a Photo library tab.
+
 ### PR 4: audio files in the recording studio
 
 - **Audio files** in Podcasts → Studio: every recording, import, jingle and music bed the station has, in one list to upload (several at once), play, rename, tag, search and delete, with where each came from and which sessions use it.

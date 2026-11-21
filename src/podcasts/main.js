@@ -1,5 +1,7 @@
 import { h, options } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
+import { PhotoRow } from '../ui/PhotoRow.js';
+import { photoMasthead } from '../platform/photos.js';
 import { Shell, Avatar } from '../ui/Shell.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
 import { Store } from '../core/Store.js';
@@ -396,7 +398,7 @@ function StationDesign() {
     openLink.href = stationUrl();
     openLink.hidden = !site;
     const upload = h('input', { type: 'file', accept: 'image/*', class: 'sr-only', 'aria-label': 'Upload a banner picture', onchange: async (e) => {
-      try { setMast({ preset: 'upload', image: await readImage(e.target.files[0], 2000) }); } catch (err) { uiAlert(err.message); }
+      try { setMast({ preset: 'upload', image: await readImage(e.target.files[0], 2000), photoId: null, credit: null }); } catch (err) { uiAlert(err.message); }
     } });
     const mastArt = (preset) => { const art = themed(h('span', { class: 'lk-mast-art mh' })); art.innerHTML = mastheadSvg(preset); return art; };
     const siteArt = () => (siteMast?.preset === 'upload' && siteMast.image ? h('span', { class: 'lk-mast-art' }, h('img', { src: siteMast.image, alt: '' }))
@@ -428,8 +430,9 @@ function StationDesign() {
           MASTHEADS.map((m) => choice(L.masthead.preset === m.id, { class: 'lk-mast', title: m.blurb, onclick: () => setMast({ preset: m.id }) }, mastArt(m.id), h('small', {}, m.label))),
           h('label', { class: `lk-mast lk-mast-upload${L.masthead.preset === 'upload' ? ' on' : ''}`, title: 'A wide picture, 2000 pixels across or more, works best' },
             L.masthead.image ? h('span', { class: 'lk-mast-art' }, h('img', { src: L.masthead.image, alt: '' })) : h('span', { class: 'lk-mast-art lk-mast-add' }, icon('upload', 18)),
-            h('small', {}, L.masthead.image ? 'Your picture' : 'Upload your own'), upload),
+            h('small', {}, L.masthead.photoId ? 'Library photo' : L.masthead.image ? 'Your picture' : 'Upload your own'), upload),
           choice(L.masthead.preset === 'none', { class: 'lk-mast', onclick: () => setMast({ preset: 'none' }) }, h('span', { class: 'lk-mast-art lk-mast-none' }, 'None'), h('small', {}, 'No banner'))),
+        PhotoRow({ current: L.masthead.preset === 'upload' ? L.masthead.photoId : null, label: 'Or a photo from the library', pick: (ph) => setMast(photoMasthead(ph)) }),
         L.masthead.preset !== 'none' && h('div', { class: 'lk-row' },
           h('span', { class: 'lk-label' }, 'Height'),
           h('div', { class: 'device-toggle xs', role: 'radiogroup', 'aria-label': 'Banner height' }, MASTHEAD_HEIGHTS.map((x) =>
