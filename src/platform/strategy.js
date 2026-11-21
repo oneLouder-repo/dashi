@@ -195,16 +195,21 @@ export function flattenPlans(doc) {
 /**
  * The STEM example once kept Year 1 and Year 2 inside a 2026–2030 plan, and
  * flattenPlans folded them into it. The example now keeps them as sibling
- * plans: if that folded plan is still as the example left it, it becomes
- * the Year 1 plan (keeping its id, so its studio work, plan document and
+ * plans: when the Year 2 objective still sits in the same plan as the
+ * Year 1 objectives, and that plan runs past Year 1, the plan becomes the
+ * Year 1 plan (keeping its id, so its studio work, plan document and
  * dashboards stay with it) and the Year 2 objective moves to a new plan
- * beside it. Runs once, and never on a plan someone has renamed.
+ * beside it. The plan's title can be anything (people shorten it); it is
+ * renamed only while it still reads "Strategic Plan 2026–2030". Runs once.
  */
-const FOLDED_TITLE = 'Strategic Plan 2026–2030: From pipelines to systems';
+const isScale = (n) => n.type === 'objective' && (n.id === 'obj-scale' || n.title?.trim() === 'Grow what works, with partners');
 export function splitExampleYears(doc) {
-  const y1 = doc.nodes[doc.nodes['obj-equity']?.parentId];
-  const scale = doc.nodes['obj-scale'];
-  if (doc.yearsSplit || !y1 || !scale || y1.type !== 'plan' || scale.parentId !== y1.id || y1.title !== FOLDED_TITLE) return doc;
+  if (doc.yearsSplit) return doc;
+  const scale = doc.nodes['obj-scale'] ?? Object.values(doc.nodes).find(isScale);
+  const y1 = doc.nodes[scale?.parentId];
+  if (!scale || y1?.type !== 'plan' || doc.nodes['plan-year-2']) return doc;
+  const others = childrenOf(doc, y1.id).filter((c) => c.type === 'objective' && c.id !== scale.id);
+  if (!others.length || (y1.end && y1.end <= '2027-03-31')) return doc;
   const root = doc.nodes[y1.parentId];
   // A fixed id, so a page that migrates without saving finds the same plan next time.
   const { data } = strategyOps.addNode(doc, { type: 'plan', parentId: y1.parentId, title: 'Year 2 plan: Growth', start: '2027-04-01', end: '2028-03-31', theme: 'Growth',
@@ -213,7 +218,8 @@ export function splitExampleYears(doc) {
   doc.nodes[y2.id] = y2;
   scale.parentId = y2.id;
   scale.order = 0;
-  Object.assign(y1, { title: 'Year 1 plan: Foundations', theme: 'Foundations', start: '2026-04-01', end: '2027-03-31', milestones: (y1.milestones ?? []).filter((m) => m.date <= '2027-03-31') });
+  if (!y1.title || /^Strategic Plan 2026[–-]2030/i.test(y1.title.trim())) Object.assign(y1, { title: 'Year 1 plan: Foundations', theme: 'Foundations' });
+  Object.assign(y1, { start: '2026-04-01', end: '2027-03-31', milestones: (y1.milestones ?? []).filter((m) => m.date <= '2027-03-31') });
   if (root?.type === 'framework' && root.title === 'Strategic framework') root.title = 'Strategic framework 2026–2030: From pipelines to systems';
   doc.yearsSplit = true;
   return doc;
