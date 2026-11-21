@@ -63,6 +63,7 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
     .attr('pointer-events', (d) => (visible(d.current) ? 'auto' : 'none'))
     .attr('stroke', (d) => (edge?.(d) ?? null))
     .attr('stroke-width', (d) => (edge?.(d) ? 2 : null))
+    .attr('stroke-opacity', (d) => +visible(d.current))
     .attr('tabindex', (d) => (visible(d.current) ? 0 : -1))
     .attr('role', 'button')
     .attr('aria-label', (d) => `${d.data.name}: ${d.value}${d.children ? ', open' : ''}`)
@@ -112,6 +113,7 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
       .tween('data', (d) => { const i = d3.interpolate(d.current, d.target); return (tt) => { d.current = i(tt); }; })
       .filter(function (d) { return +this.getAttribute('fill-opacity') || visible(d.target); })
       .attr('fill-opacity', (d) => (visible(d.target) ? (sel === path ? (d.children ? 0.85 : 0.65) : 1) : 0))
+      .attr('stroke-opacity', (d) => +visible(d.target))
       .attrTween('d', (d) => () => arc(d.current));
     path.attr('pointer-events', (d) => (visible(d.target) ? 'auto' : 'none')).attr('tabindex', (d) => (visible(d.target) ? 0 : -1));
     tweenArc(path);
