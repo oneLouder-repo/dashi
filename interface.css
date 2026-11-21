@@ -672,12 +672,12 @@ input.toc-layer-name:focus { outline: 1px dashed hsl(var(--lh) 50% 60%); outline
 .road-stage::after { background: linear-gradient(270deg, rgb(38 42 54 / 0.75), transparent); }
 
 /* ---------- Sunburst (alpha 0.2, PR 10) ---------- */
-.sunburst { width: min(100%, var(--sb-size)); margin: 0 auto; aspect-ratio: 1; display: grid; place-items: center; }
+.sunburst { position: relative; width: min(100%, var(--sb-size)); margin: 0 auto; aspect-ratio: 1; display: grid; place-items: center; }
 .sunburst-svg { width: 100%; height: 100%; font: 600 10.5px/1 var(--font-sans, inherit); }
 .sb-arc { transition: fill-opacity .15s; outline: none; }
-.sb-arc:hover, .sb-arc:focus-visible { fill-opacity: 1 !important; }
+.sb-arc:hover, .sb-arc:focus-visible { filter: brightness(1.08) saturate(1.08); }
 .sb-arc:focus-visible { stroke: #1d2230; stroke-width: 2; }
-.sb-label { fill: #1d2230; font-size: 10.5px; }
+.sb-label { font-size: 10.5px; font-weight: 650; }
 .sb-centre { fill: var(--color-base-100, #fff); cursor: pointer; outline: none; }
 .sb-centre:hover, .sb-centre:focus-visible { fill: var(--color-base-200, #f4f5f9); }
 .sb-caption { font-size: 14px; font-weight: 700; fill: #1d2230; }
@@ -687,7 +687,7 @@ input.toc-layer-name:focus { outline: 1px dashed hsl(var(--lh) 50% 60%); outline
 .ah-map-size { display: inline-flex; align-items: center; gap: 6px; }
 .ah-map-hint { margin-left: auto; }
 .sw-sunburst-card { margin-top: 4px; }
-.sw-sunburst-body { display: grid; grid-template-columns: minmax(0, 460px) minmax(180px, 1fr); gap: 20px; align-items: center; }
+.sw-sunburst-body { display: grid; grid-template-columns: minmax(0, 480px) minmax(240px, 1fr); gap: 24px; align-items: start; }
 .sw-sunburst-key { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 12.5px; }
 .sw-sunburst-key li { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .sw-sunburst-key i { width: 12px; height: 12px; border-radius: 3px; flex: none; }
@@ -732,3 +732,49 @@ body.mapper-page > main { border-radius: 0 0 var(--r-sheet, 14px) var(--r-sheet,
 @media (max-width: 1200px) { #topbar .tb-zoom .btn-square, #topbar .ribbon-label { display: none; } }
 .mapper-panel.outside .mp-bar { background: var(--paper, #f3f1ec); }
 @media (max-width: 1500px) { #topbar .map-name { max-width: 20ch; } #topbar .lens-select { max-width: 160px; } #topbar .tb-zoom .btn-square { display: none; } }
+
+.sb-tip { position: absolute; z-index: 5; transform: translate(14px, -50%); max-width: 260px; display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; background: #1d2230; color: #fff; font-size: 12px; line-height: 1.35; box-shadow: 0 6px 20px rgb(0 0 0 / .18); pointer-events: none; }
+.sb-tip.flip { transform: translate(calc(-100% - 14px), -50%); }
+.sb-tip strong { font-size: 13px; }
+.sb-tip span { color: #c9cfdb; }
+.sb-tip span:empty { display: none; }
+.sb-tip small { color: #9aa3b5; font-size: 11px; }
+
+/* ---------- Asset map: Arrange as bold as the sunburst, and the burst between views (PR 10 touch-up) ---------- */
+.ah-map2:not(.focused) .ah-wedge-bg { stroke: #fff; stroke-width: 1.5; }
+.ah-map2:not(.focused) .ah-wedge2:hover .ah-wedge-bg { stroke: #fff; filter: brightness(1.06) drop-shadow(0 4px 14px color-mix(in oklab, var(--c) 35%, transparent)); }
+.ah-map2:not(.focused) .ah-more { fill: #fff; font-weight: 700; }
+.ah-map2:not(.focused) .ah-wedge-add { opacity: .9; }
+.ah-map2 .ah-wedge2 { transform-box: view-box; transform-origin: 410px 350px; transition: scale .38s cubic-bezier(.3,.7,.2,1), opacity .3s ease; }
+.ah-map2.bursting .ah-wedge2 { opacity: 0; scale: .7; }
+.ah-map2.bursting .ah-wedge2.burst { opacity: 1; scale: 2.4; }
+.ah-map2.bursting .ah-node, .ah-map2.bursting .ah-lines, .ah-map2.bursting .ah-core, .ah-map2.bursting .ah-core-label, .ah-map2.bursting .ah-core-sub, .ah-map2.bursting .ah-fan { opacity: 0; transition: opacity .2s; }
+.ah-map2.focused .ah-fan { transform-box: fill-box; transform-origin: 50% 0%; }
+.ah-map2.emerging .ah-fan { animation: ah-fan-in .42s cubic-bezier(.3,.7,.2,1) both; }
+.ah-map2.emerging:not(.focused) .ah-wedge2 { animation: ah-wedge-in .42s cubic-bezier(.3,.7,.2,1) both; animation-delay: calc(var(--i) * 30ms); }
+.ah-map2.emerging .ah-pill { transform-box: fill-box; transform-origin: center; animation: ah-pop .32s cubic-bezier(.3,1.4,.5,1) both; animation-delay: calc(180ms + min(var(--i), 40) * 16ms); }
+.ah-map2.emerging .ah-lines { animation: ah-fade .3s ease both; animation-delay: .5s; }
+@keyframes ah-fan-in { from { scale: 1.6 .4; opacity: 0; } to { scale: 1; opacity: 1; } }
+@keyframes ah-wedge-in { from { scale: .55; opacity: 0; } to { scale: 1; opacity: 1; } }
+@keyframes ah-pop { from { scale: .2; opacity: 0; } to { scale: 1; opacity: 1; } }
+@keyframes ah-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ah-map2 .ah-wedge2 { transition: none; } .ah-map2.emerging * { animation: none !important; } }
+.ah-sb-arrange { margin-left: 0; }
+
+/* The framework sunburst's details panel (PR 10 touch-up) */
+.sw-sb-side { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.sw-sb-panel { display: grid; gap: 8px; align-content: start; min-height: 250px; padding: 14px 16px; border-radius: 14px; background: var(--color-base-200, #f4f5f9); border-left: 4px solid var(--sb-hue, #4f566b); }
+.sw-sb-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 26px; }
+.sw-sb-title { margin: 0; font-size: 17px; line-height: 1.3; font-weight: 750; color: var(--ink-1, #1d2230); }
+.sw-sb-path { margin: 0; font-size: 12px; color: var(--ink-3, #6a7183); }
+.sw-sb-bar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; background: #e3e6ee; gap: 2px; }
+.sw-sb-bar i { display: block; min-width: 4px; }
+.sw-sb-stats { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; font-size: 12.5px; }
+.sw-sb-stats li { display: flex; align-items: center; gap: 6px; }
+.sw-sb-stats strong { font-variant-numeric: tabular-nums; min-width: 2ch; }
+.sw-sb-status { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+.sw-sb-notes { margin: 0; font-size: 13px; white-space: pre-wrap; color: var(--ink-2); }
+.sw-sb-open { justify-self: start; margin-top: 4px; }
+.sw-sunburst-key { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 12px; font-size: 12px; }
+.sw-sunburst-key li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-tip[hidden] { display: none; }

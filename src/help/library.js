@@ -107,12 +107,12 @@ The assumptions behind each link, and any signposts, go into the draft's notes.`
 [[shot:roadmap-dusk]]
 
 # The asset map as a sunburst
-**Assets → Asset map** opens as a sunburst: all assets in the middle, then the six kinds of asset, then collections, then the assets. Click a ring to zoom in, the centre to step out, an asset to open it. **Size by links** makes the best-connected assets bigger. **Arrange** is the wedge map, for sorting and linking by hand.
+**Assets → Asset map** opens as a sunburst: all assets in the middle, then the six kinds of asset, then collections, then the assets. Click a ring to zoom in, the centre to step out, an asset to open it beside the map. Inside one type, **Arrange … by hand** opens its wedge. **Size by links** makes the best-connected assets bigger. **Arrange** is the wedge map, for sorting and linking by hand.
 
 [[shot:asset-sunburst]]
 
 # The whole framework as a sunburst
-The **Strategy & Work overview** has the whole framework as a sunburst: plans, objectives, goals, workplans and tasks, coloured by objective. A workplan's outline is its traffic light, drafts are striped, and clicking a task shows it in a tray.
+The **Strategy & Work overview** has the whole framework as a sunburst: plans, objectives, goals, workplans and tasks, coloured by objective. A workplan's outline is its traffic light and drafts are striped. The panel beside it shows what's in the middle, or whatever you point at, with its progress; click a task to keep it there.
 
 [[shot:framework-sunburst]]`,
         },

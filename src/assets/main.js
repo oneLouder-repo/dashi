@@ -408,12 +408,37 @@ function MapView(list, cards) {
     return { name: k.label, kind: k.id, color: k.color, children: only ? mine.map(leaf) : [...groups].map(([name, cs]) => ({ name, kind: k.id, children: cs.map(leaf) })) };
   }).filter((k) => k.children.length) };
   const kindColor = Object.fromEntries(kinds.map((k) => [k.id, k.color]));
+  const kindOfLabel = Object.fromEntries(kinds.map((k) => [k.label, k.id]));
+  // Zoomed into one type: offer to arrange it by hand, with the burst into its wedge.
+  const arrangeBtn = h('button', { type: 'button', class: 'btn btn-sm ah-sb-arrange', hidden: true }, icon('mapTrifold', 14), h('span', {}));
+  const showArrange = (path) => {
+    const kind = kindOfLabel[path[0]];
+    arrangeBtn.hidden = !kind || kind === 'none';
+    if (arrangeBtn.hidden) return;
+    arrangeBtn.lastChild.textContent = `Arrange ${path[0].toLowerCase()} by hand`;
+    arrangeBtn.onclick = () => { prefs.mapMode = 'arrange'; savePrefs(); mapFocus = kind; mapEmerge = true; drawMain(allCards()); };
+  };
+  showArrange(sunFocus);
+  bar.append(arrangeBtn);
   return h('div', { class: 'ah-mapview' }, bar, Sunburst({
     data, size: 520, caption: 'All assets', label: 'Asset map: a sunburst of every asset by ABCD type',
-    color: (d) => { const c = kindColor[d.data.kind] ?? '#8a93a8'; return d.depth === 1 ? c : d.children ? mix(c, 0.18) : mix(c, 0.34); },
-    onLeaf: (leaf, e) => { const c = list.find((x) => x.key === leaf.key); if (c) select(c, e); },
+    focus: sunFocus,
+    onZoom: (path) => { sunFocus = path; showArrange(path); },
+    tip: (d) => d.children ? `${d.value} asset${d.value === 1 ? '' : 's'} · click to open` : `${kinds.find((k) => k.id === d.data.kind)?.label ?? ''}${d.parent?.depth === 2 ? ` · ${d.parent.data.name}` : ''}\nClick to see it`,
+    // Bold at every depth: each ring a step lighter, but never washed out.
+    color: (d) => { const c = kindColor[d.data.kind] ?? '#8a93a8'; return d.depth === 1 ? c : d.children ? mix(c, 0.12) : mix(c, d.depth === 2 ? 0.12 : 0.24); },
+    // Opening an asset shows it beside the map, and the sunburst stays where it is.
+    onLeaf: (leaf, e) => {
+      const c = list.find((x) => x.key === leaf.key);
+      if (!c) return;
+      selection = new Set([c.key]);
+      focusKey = c.key;
+      history.replaceState(null, '', `#${new URLSearchParams({ ...Object.fromEntries(Object.entries(scope()).filter(([k, v]) => v && k !== 'key')), key: c.key })}`);
+      drawDetail(allCards());
+    },
   }));
 }
+let sunFocus = [];   // the names from the centre to the ring the asset sunburst is zoomed into
 /** A colour lifted towards white by t (0–1). */
 const mix = (hex, t) => { const n = parseInt(hex.slice(1), 16); const ch = (s) => Math.round(((n >> s) & 255) + (255 - ((n >> s) & 255)) * t); return `rgb(${ch(16)},${ch(8)},${ch(0)})`; };
 
@@ -430,18 +455,34 @@ const mix = (hex, t) => { const n = parseInt(hex.slice(1), 16); const ch = (s) =
  * a connector on the mapper); + adds an asset of that type.
  */
 let mapFocus = null;   // the ABCD type opened, or null for all six
+let mapEmerge = false; // just opened (or closed) a wedge: let the next view grow in
+const quietMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+/**
+ * Open a wedge (or go back to all six) the way the sunburst does: the wedge
+ * bursts outward to fill the map, then its assets emerge one after another.
+ */
+function burstTo(svgEl, type, wg = null) {
+  const go = () => { mapFocus = type; mapEmerge = true; drawMain(allCards()); };
+  if (quietMotion() || !svgEl.isConnected) { go(); return; }
+  svgEl.classList.add('bursting');
+  wg?.classList.add('burst');
+  setTimeout(go, 380);
+}
 function AssetMap(list) {
   const NS = 'http://www.w3.org/2000/svg';
   const el = (tag, attrs = {}, parent) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) if (v != null) n.setAttribute(k, v); parent?.append(n); return n; };
   if (mapFocus && !abcdById[mapFocus]) mapFocus = null;
   const W = mapFocus ? 900 : 820, H = mapFocus ? 380 : 760;
-  const svgEl = el('svg', { viewBox: `0 0 ${W} ${H}`, class: `ah-map ah-map2${mapFocus ? ' focused' : ''}`, role: 'group', 'aria-label': mapFocus ? `Asset map: ${abcdById[mapFocus].label}` : 'Asset map: the six ABCD types' });
+  const svgEl = el('svg', { viewBox: `0 0 ${W} ${H}`, class: `ah-map ah-map2${mapFocus ? ' focused' : ''}${mapEmerge && !quietMotion() ? ' emerging' : ''}`, role: 'group', 'aria-label': mapFocus ? `Asset map: ${abcdById[mapFocus].label}` : 'Asset map: the six ABCD types' });
   const defs = el('defs', {}, svgEl);
   ABCD.forEach((x) => {
     const g = el('radialGradient', { id: `ahg-${x.id}`, cx: '50%', cy: mapFocus ? '100%' : '50%', r: mapFocus ? '95%' : '55%' }, defs);
-    el('stop', { offset: '0%', 'stop-color': x.color, 'stop-opacity': '0.04' }, g);
-    el('stop', { offset: '100%', 'stop-color': x.color, 'stop-opacity': '0.18' }, g);
+    // As bold as the sunburst's rings (PR 10 touch-up); the fanned-out view stays lighter, under its assets.
+    el('stop', { offset: '0%', 'stop-color': x.color, 'stop-opacity': mapFocus ? '0.10' : '0.78' }, g);
+    el('stop', { offset: '100%', 'stop-color': x.color, 'stop-opacity': mapFocus ? '0.32' : '1' }, g);
   });
+  mapEmerge = false;
+  let pillN = 0;
   const lines = el('g', { class: 'ah-lines' }, svgEl);
   const layer = el('g', { class: 'ah-layer' }, svgEl);
   const nodes = el('g', { class: 'ah-nodes' }, svgEl);
@@ -458,7 +499,7 @@ function AssetMap(list) {
     const colour = abcdById[c.abcd]?.color ?? '#8a93a8';
     const label = short(c.title);
     const w = Math.max(70, label.length * 7.6 + 38);
-    const g = el('g', { class: `ah-node ah-pill${selection.has(c.key) ? ' on' : ''}${quiet ? ' quiet' : ''}`, transform: `translate(${x},${y})`, tabindex: 0, role: 'button', 'aria-label': `${c.title}, ${c.kindLabel}`, 'data-key': c.key }, nodes);
+    const g = el('g', { class: `ah-node ah-pill${selection.has(c.key) ? ' on' : ''}${quiet ? ' quiet' : ''}`, transform: `translate(${x},${y})`, style: `--i:${pillN++}`, tabindex: 0, role: 'button', 'aria-label': `${c.title}, ${c.kindLabel}`, 'data-key': c.key }, nodes);
     el('rect', { x: -w / 2, y: -15, width: w, height: 30, rx: 15, class: 'ah-node-box', style: `--c:${colour}` }, g);
     el('circle', { cx: -w / 2 + 15, cy: 0, r: 5.5, class: 'ah-node-dot', style: `fill:${colour}` }, g);
     el('text', { x: -w / 2 + 27, y: 4.5, class: 'ah-node-label' }, g).textContent = label;
@@ -608,8 +649,9 @@ function AssetMap(list) {
         el('title', {}, add).textContent = `Add to ${x.label}`;
         add.addEventListener('click', (e) => { e.stopPropagation(); addAsset(x.id); });
       }
-      wg.addEventListener('click', (e) => { if (e.target.closest('.ah-wedge-add')) return; mapFocus = x.id; drawMain(allCards()); });
-      wg.addEventListener('keydown', (e) => { if (e.key === 'Enter') { mapFocus = x.id; drawMain(allCards()); } });
+      wg.style.setProperty('--i', String(i));
+      wg.addEventListener('click', (e) => { if (e.target.closest('.ah-wedge-add')) return; burstTo(svgEl, x.id, wg); });
+      wg.addEventListener('keydown', (e) => { if (e.key === 'Enter') burstTo(svgEl, x.id, wg); });
       // A few leading assets in the outer band; the rest wait inside.
       // Up to three, wherever they fit without touching (nothing piles up).
       const top = lead(cs, 3);
@@ -676,12 +718,12 @@ function AssetMap(list) {
     const others = ABCD.filter((o) => o.id !== mapFocus);
     wrap.append(...[
       h('div', { class: 'ah-focus-bar' },
-        h('button', { type: 'button', class: 'btn btn-sm btn-ghost', onclick: () => { mapFocus = null; drawMain(allCards()); } }, icon('chevronLeft', 14), 'All six'),
+        h('button', { type: 'button', class: 'btn btn-sm btn-ghost', onclick: () => burstTo(svgEl, null) }, icon('chevronLeft', 14), 'All six'),
         h('span', { class: 'ah-focus-title', style: `--c:${x.color}` }, icon(x.icon, 16), h('strong', {}, x.label), h('small', {}, `${cs.length} · ${x.hint}`)),
         h('span', { class: 'spacer' }),
         canEdit && h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => addAsset(mapFocus) }, icon('plus', 14), `Add ${x.short.toLowerCase()}`)),
       h('div', { class: 'ah-chips', 'aria-label': 'Other types: drop an asset here to move it' }, others.map((o) =>
-        h('button', { type: 'button', class: 'ah-chip', 'data-abcd-chip': o.id, style: `--c:${o.color}`, onclick: () => { mapFocus = o.id; drawMain(allCards()); } }, icon(o.icon, 13), o.label, h('small', {}, String(byType(o.id).length))))),
+        h('button', { type: 'button', class: 'ah-chip', 'data-abcd-chip': o.id, style: `--c:${o.color}`, onclick: () => burstTo(svgEl, o.id) }, icon(o.icon, 13), o.label, h('small', {}, String(byType(o.id).length))))),
       svgEl,
       cs.length > shown.length && h('p', { class: 'ah-map-note' }, `Showing ${shown.length} of ${cs.length}. Narrow with a collection or a search.`),
       h('p', { class: 'ah-map-note' }, 'Drag to arrange (remembered). Drop an asset on a type above to re-sort it. Drag the ring on an asset onto another to link them.')].filter(Boolean));

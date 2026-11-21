@@ -22,6 +22,9 @@ From 0.2 on, each alpha point version (0.2, 0.3…) is one major platform featur
 - **The roadmap is shorter and duskier**, with less sky and grass. Strategic objectives get **green signposts** (O1, O2…, like freeway signs), goals keep their white signs, and workplans stay traffic lights.
 - **The asset map opens as a zoomable sunburst** (all assets, then the ABCD types, then collections, then assets), sized by count or by links. Click to zoom, the centre to step out, an asset to open it. **Arrange** keeps the wedge map from PR 4.
 - **The Strategy & Work overview has the whole framework as a sunburst**, from plans to tasks, coloured by objective, with each workplan's traffic light as its outline and drafts striped. Click a task to see it in a tray.
+- **Sunburst touch-ups**: labels are cut to fit their ring, with a floating tooltip for the whole name; every ring is equally bold (no paler veil as you dig in, and labels switch to white on strong colours); opening an asset keeps the sunburst where it is, with an **Arrange … by hand** button when you're inside one type.
+- **Arrange** uses the sunburst's bold colours, and opening a wedge bursts it outward before its assets pop in one after another (and the same back to all six).
+- **The framework sunburst has a details panel** where the legend was: what's in the middle, or whatever you point at, with its task progress, traffic light and path; click a task to keep it there, and open it from the panel.
 - D3 v7.9.0 is vendored in `vendor/d3/` and loads only when a sunburst is shown; `src/ui/Sunburst.js` is shared.
 
 **One layout for every plugin**

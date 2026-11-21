@@ -3,8 +3,7 @@ import { icon } from '../ui/icons.js';
 import { rootOf, childrenOf, descendants, taskSummary, measureIndex, TASK_STATUSES } from '../platform/strategy.js';
 import { workplanProgress, PROGRESS_STATES, strategyCounts, LIGHTS, lightOf } from '../platform/strategyReports.js';
 import { NODE_TYPES, statusById } from '../platform/strategy.js';
-import { Sunburst } from '../ui/Sunburst.js';
-import { Drawer } from '../ui/drawer.js';
+import { Sunburst, tint } from '../ui/Sunburst.js';
 import { LevelBadge, ProgressRing, AvatarStack, objectiveOrder, peopleOf, objectiveHue } from '../ui/strategyLook.js';
 import { RoadSvg, currentPlan } from './Road.js';
 import { range, short, today, daysBetween } from './dates.js';
@@ -104,10 +103,14 @@ function PlanBar(doc, p, now) {
 
 /**
  * The whole framework as a zoomable sunburst: plans, then objectives,
- * goals, workplans and tasks, each sized by its tasks. Coloured by
- * objective; a workplan's outline is its traffic light; drafts from the
- * theory of change are striped. Click a task to see it in a tray.
+ * goals, workplans and tasks, each sized by its tasks and coloured by its
+ * objective, a step lighter each level down (never washed out). A
+ * workplan's outline is its traffic light; drafts from the theory of change
+ * are striped. Beside it, a details panel: what's in the middle, or what
+ * the pointer is on, with its progress; click a task to keep it there.
  */
+let sunPath = [];      // where the framework sunburst is zoomed, kept across redraws
+let sunPinned = null;  // a task picked in it
 function WholeSunburst(ctx, root, now) {
   const doc = ctx.store.doc;
   const toData = (n) => {
@@ -116,45 +119,82 @@ function WholeSunburst(ctx, root, now) {
   };
   const data = toData(root);
   if (!data.children?.length) return null;
-  const tasks = descendants(doc, root.id).filter((n) => n.type === 'task').length;
   const isDraft = (n) => { for (let p = n; p; p = doc.nodes[p.parentId]) if (p.draft) return true; return false; };
+  const STEP = { objective: 0, goal: 0.14, workplan: 0.26, task: 0.38 };
+  const lightOfWp = (n) => LIGHTS[PROGRESS_STATES[workplanProgress(doc, n.id, now).state].light];
+  let centre = doc.nodes[data.id];
+  const findByPath = () => { let n = root; for (const name of sunPath) { const k = childrenOf(doc, n.id).find((c) => (c.title || NODE_TYPES[c.type].label) === name); if (!k) break; n = k; } return n; };
+  centre = findByPath();
+  if (sunPinned && !doc.nodes[sunPinned]) sunPinned = null;
+
+  const panel = h('aside', { class: 'sw-sb-panel', 'aria-live': 'polite' });
+  const show = (n, { hovering = false } = {}) => n && panel.style.setProperty('--sb-hue', n.type === 'framework' || n.type === 'plan' ? '#4f566b' : objectiveHue(doc, n)) !== 0 && panel.replaceChildren(...Details(ctx, n, now, { hovering, isDraft, lightOfWp, pinned: n.id === sunPinned, unpin: () => { sunPinned = null; show(centre); } }));
+  show(sunPinned ? doc.nodes[sunPinned] : centre);
+
+  const objectives = objectiveOrder(doc);
   return h('section', { class: 'sw-card sw-sunburst-card' },
     h('div', { class: 'sw-card-head' }, h('h3', {}, icon('target', 16), 'The whole framework'),
-      h('span', { class: 'muted small' }, `${tasks} tasks. Click a ring to zoom in, the centre to step out, a task to see it.`)),
+      h('span', { class: 'muted small' }, 'Click a ring to zoom in, the centre to step out. Point at anything for its details; click a task to keep it there.')),
     h('div', { class: 'sw-sunburst-body' },
-      Sunburst({
-        data, size: 460, caption: root.title || 'Framework', label: 'The framework as a sunburst, from plans to tasks',
-        color: (d) => {
-          const n = doc.nodes[d.data.id];
-          if (!n) return '#9aa2b5';
-          if (n.type === 'plan') return '#59607a';
-          if (n.type === 'task') return statusById[n.status]?.color ?? '#9aa2b5';
-          return objectiveHue(doc, n);
-        },
-        edge: (d) => { const n = doc.nodes[d.data.id]; return n?.type === 'workplan' ? LIGHTS[PROGRESS_STATES[workplanProgress(doc, n.id, now).state].light].color : null; },
-        hatched: (d) => isDraft(doc.nodes[d.data.id]),
-        onLeaf: (leaf) => openTray(ctx, doc.nodes[leaf.id]),
-      }),
-      h('ul', { class: 'sw-sunburst-key' },
-        h('li', {}, h('i', { style: 'background:#59607a' }), 'Plans'),
-        objectiveOrder(doc).slice(0, 8).map(({ node, hue }) => h('li', {}, h('i', { style: `background:${hue}` }), node.title)),
-        h('li', { class: 'muted' }, h('i', { class: 'edge' }), 'Workplan outline: its traffic light'),
-        h('li', { class: 'muted' }, h('i', { class: 'hatch' }), 'Striped: a draft'))));
+      h('div', { class: 'sw-sb-chart' },
+        Sunburst({
+          data, size: 480, caption: root.title || 'Framework', label: 'The framework as a sunburst, from plans to tasks',
+          focus: sunPath,
+          onZoom: (path, d) => { sunPath = path; centre = doc.nodes[d.id] ?? root; sunPinned = null; show(centre); },
+          onHover: (d) => { if (d) show(doc.nodes[d.id], { hovering: true }); else show(sunPinned ? doc.nodes[sunPinned] : centre); },
+          tip: (d) => { const n = doc.nodes[d.data.id]; return `${NODE_TYPES[n?.type]?.label ?? ''}${d.children ? ` · ${d.value} task${d.value === 1 ? '' : 's'}` : n?.type === 'task' ? ` · ${statusById[n.status]?.label ?? ''}` : ''}${n?.draft ? ' · draft' : ''}`; },
+          color: (d) => {
+            const n = doc.nodes[d.data.id];
+            if (!n) return '#8a90a0';
+            if (n.type === 'plan') return '#4f566b';
+            return tint(objectiveHue(doc, n), STEP[n.type] ?? 0);
+          },
+          edge: (d) => { const n = doc.nodes[d.data.id]; return n?.type === 'workplan' ? lightOfWp(n).color : null; },
+          hatched: (d) => isDraft(doc.nodes[d.data.id]),
+          onLeaf: (leaf) => { sunPinned = leaf.id; show(doc.nodes[leaf.id]); },
+        })),
+      h('div', { class: 'sw-sb-side' },
+        panel,
+        h('ul', { class: 'sw-sunburst-key' },
+          h('li', {}, h('i', { style: 'background:#4f566b' }), 'Plans'),
+          objectives.slice(0, 8).map(({ node, hue }) => h('li', { title: node.title }, h('i', { style: `background:${hue}` }), h('span', {}, node.title))),
+          h('li', { class: 'muted' }, h('i', { class: 'edge' }), 'Outline: the workplan’s traffic light'),
+          h('li', { class: 'muted' }, h('i', { class: 'hatch' }), 'Striped: a draft')))));
 }
 
-/** A task (or an empty item) in a tray, without leaving the overview. */
-function openTray(ctx, n) {
-  if (!n) return;
+/** The details panel's contents for one item. */
+function Details(ctx, n, now, { hovering, isDraft, lightOfWp, pinned, unpin }) {
+  if (!n) return [];
   const doc = ctx.store.doc;
   const path = [];
   for (let p = doc.nodes[n.parentId]; p && p.type !== 'framework'; p = doc.nodes[p.parentId]) path.unshift(p);
-  const st = n.type === 'task' ? statusById[n.status] : null;
-  const d = Drawer({ title: n.title || 'Untitled', sub: NODE_TYPES[n.type].label,
-    body: h('div', { class: 'sw-tray' },
-      n.draft && h('p', { class: 'sw-tray-draft' }, 'A draft from the theory of change.'),
-      h('ol', { class: 'sw-tray-path' }, path.map((p) => h('li', {}, LevelBadge(p.type, { plain: true }), h('span', {}, p.title)))),
-      st && h('p', {}, h('span', { class: 'sw-dot', style: `background:${st.color}` }), ' ', st.label, n.type === 'task' && h('span', { class: 'muted' }, ` · light: ${LIGHTS[lightOf(n)].label.toLowerCase()}`)),
+  const hue = n.type === 'framework' || n.type === 'plan' ? '#4f566b' : objectiveHue(doc, n);
+  const out = [
+    h('div', { class: 'sw-sb-top', style: `--hue:${hue}` },
+      LevelBadge(n.type, { long: true }),
+      hovering ? h('span', { class: 'muted small' }, 'Pointing at') : pinned ? h('button', { class: 'btn btn-ghost btn-xs', onclick: unpin }, icon('close', 12), 'Unpin') : h('span', { class: 'muted small' }, 'In the middle')),
+    h('h4', { class: 'sw-sb-title', style: `--hue:${hue}` }, n.title || 'Untitled'),
+    path.length > 0 && h('p', { class: 'sw-sb-path' }, path.map((p) => p.title).join(' › ')),
+    isDraft(n) && h('p', { class: 'sw-tray-draft' }, 'A draft from the theory of change: accept or discard it in the framework.'),
+  ];
+  if (n.type === 'task') {
+    const st = statusById[n.status];
+    out.push(h('p', { class: 'sw-sb-status' }, h('span', { class: 'sw-dot', style: `background:${st?.color}` }), st?.label ?? '', h('span', { class: 'muted' }, ` · ${LIGHTS[lightOf(n)].label}`)),
       (n.start || n.end) && h('p', { class: 'muted small' }, range(n.start, n.end)),
-      n.notes && h('p', { class: 'sw-tray-notes' }, n.notes)),
-    actions: [h('button', { class: 'btn btn-ghost btn-sm', onclick: () => d.close() }, 'Close'), h('a', { class: 'btn btn-primary btn-sm', href: `#${n.id}`, onclick: () => d.close() }, `Open the ${NODE_TYPES[n.type].label.toLowerCase()}`)] });
+      n.notes && h('p', { class: 'sw-sb-notes' }, n.notes.length > 220 ? `${n.notes.slice(0, 219)}…` : n.notes));
+  } else {
+    const s = taskSummary(doc, n.id);
+    const kids = descendants(doc, n.id);
+    const count = (t) => kids.filter((k) => k.type === t).length;
+    out.push(
+      h('div', { class: 'sw-sb-bar', role: 'img', 'aria-label': `${s.done} of ${s.total} tasks done` },
+        TASK_STATUSES.map((t) => s[t.id] ? h('i', { style: `flex:${s[t.id]};background:${t.color}`, title: `${t.label}: ${s[t.id]}` }) : null)),
+      h('ul', { class: 'sw-sb-stats' },
+        TASK_STATUSES.map((t) => h('li', {}, h('span', { class: 'sw-dot', style: `background:${t.color}` }), h('strong', {}, String(s[t.id] ?? 0)), h('span', {}, t.label)))),
+      h('p', { class: 'muted small' }, [['objective', 'objectives'], ['goal', 'goals'], ['workplan', 'workplans']].map(([t, w]) => count(t) ? `${count(t)} ${count(t) === 1 ? t : w}` : null).filter(Boolean).join(' · ') || `${s.total} tasks`),
+      n.type === 'workplan' && h('p', { class: 'sw-sb-status' }, h('span', { class: 'sw-dot', style: `background:${lightOfWp(n).color}` }), PROGRESS_STATES[workplanProgress(doc, n.id, now).state].label),
+      n.measures?.length > 0 && h('p', { class: 'muted small' }, `Measures: ${n.measures.map((m) => m.name).join(', ')}`));
+  }
+  out.push(h('a', { class: 'btn btn-sm sw-sb-open', href: `#${n.id}` }, `Open the ${NODE_TYPES[n.type].label.toLowerCase()}`, icon('chevronRight', 13)));
+  return out.filter(Boolean);
 }
