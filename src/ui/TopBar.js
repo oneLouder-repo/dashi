@@ -60,14 +60,7 @@ export function TopBar(el, ctx) {
   // View: the panel, its sections, and how the board looks.
   const panel = () => ctx.panel;
   const viewMenu = Menu({ label: 'View', icon: 'eye', title: 'The panel, its sections, the board’s look and zoom', items: () => [
-    { heading: 'Panel sections' },
-    ...panel().sections.map((s) => ({ label: s.title, checked: panel().state.shown[s.id] !== false, onclick: () => panel().showSection(s.id) })),
-    'sep',
-    { label: 'Panel on the right', checked: panel().state.side === 'right', onclick: () => panel().setSide(panel().state.side === 'right' ? 'left' : 'right') },
-    { label: 'Tuck the panel away', checked: panel().state.collapsed, kbd: '\\', onclick: () => panel().collapse() },
-    { label: 'Unfold every section', icon: 'arrowsIn', keepOpen: true, onclick: () => panel().foldAll(false) },
-    { label: 'Fold every section', icon: 'rows', keepOpen: true, onclick: () => panel().foldAll(true) },
-    { label: 'Reset the panel', icon: 'refresh', onclick: () => panel().reset() },
+    { label: 'Fold the side nav', icon: 'sidebar', kbd: '\\', onclick: () => panel().collapse() },
     'sep',
     { heading: 'Board' },
     { label: 'Dotted grid', checked: ctx.view.grid, onclick: () => ctx.actions.setView({ grid: !ctx.view.grid }) },

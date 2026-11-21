@@ -12,11 +12,10 @@ import DataVizTool from './tools/DataVizTool.js';
 import { Toolbar } from './ui/Toolbar.js';
 import { TopBar } from './ui/TopBar.js';
 import { ItemDetails } from './ui/Inspector.js';
-import { MapperPanel } from './ui/MapperPanel.js';
+import { SideNav, swapSide } from './ui/SideNav.js';
 import { InspectorPanel } from './ui/InspectorPanel.js';
 import { HoverCard } from './ui/HoverCard.js';
 import { Tooltips } from './ui/Tooltip.js';
-import { SelectionBar } from './ui/SelectionBar.js';
 import { LayersPanel } from './ui/LayersPanel.js';
 import { LabelEditor } from './ui/LabelEditor.js';
 import { migrateMap } from './seed.js';
@@ -77,9 +76,8 @@ function fitView() {
   const { clientWidth, clientHeight } = stage.svgEl;
   if (!clientWidth || !clientHeight) return;
   const box = stage.svgEl.getBoundingClientRect();
-  const covered = ctx.panel?.inset() ?? 0;
-  const side = ctx.panel?.state.side ?? 'left';
-  const left = side === 'left' ? covered : 0, right = side === 'right' ? covered : 0;
+  // The side nav sits beside the board (alpha 0.3), so it covers none of it.
+  const left = 0, right = 0;
   void box;
   const pad = 28;
   const w = clientWidth - left - right - pad * 2, h = clientHeight - pad * 2 - 44; // room for the selection bar
@@ -297,32 +295,49 @@ const ctx = {
 ctx.tools = new ToolRegistry(ctx).register(SelectTool).register(ConnectTool).register(PanTool).register(DataVizTool);
 ctx.ui.editLabel = LabelEditor(ctx);
 
-// One panel down the side of the board, in folding sections: Tools, Layers, Inspector and Maps.
-// Since PR 10 it sits beside the board, outside the canvas, where every other plugin has its sidebar.
-const toolsEl = h('div');
+// Alpha 0.3: the mapper uses the platform side nav, like every other plugin:
+// Tools, Layers, Inspector and Maps as folding sections. Folded, it's the
+// same icon rail (with tooltips) as everywhere else, so no tuck-away of its own.
+const toolsEl = h('ul');
 const layersEl = h('div', { class: 'side-layers' });
-const inspectorEl = h('div');
-const mapsEl = h('ul', { class: 'menu side-menu dock-maps' });
-const drawMaps = () => mapsEl.replaceChildren(...Object.values(index.maps).map((m) =>
-  h('li', {}, h('a', { href: `#${m.id}`, class: m.id === mapId ? 'menu-active' : null, title: m.description || m.title }, m.title))));
-drawMaps();
-document.addEventListener('dashi:map-renamed', drawMaps);
+const inspectorEl = h('div', { class: 'side-inspector' });
 const main = document.querySelector('main');
-ctx.panel = MapperPanel(document.querySelector('#mapside') ?? main, [
-  { id: 'tools', title: 'Tools', icon: 'select', body: toolsEl },
-  { id: 'layers', title: 'Layers', icon: 'layers', body: layersEl, action: { label: 'Add layer', onclick: () => ctx.actions.addLayer() } },
-  { id: 'inspector', title: 'Inspector', icon: 'notePencil', body: inspectorEl },
-  { id: 'maps', title: 'Maps', icon: 'mapTrifold', body: mapsEl, open: false,
-    action: { label: 'New map', onclick: async () => { const title = await uiPrompt('Name', 'Untitled map', { title: 'New ecosystem map', ok: 'Create map' }); if (title?.trim()) ctx.actions.newMap(title.trim()); } } },
-], { key: 'dashi.mapper.panel.v3', outside: !!document.querySelector('#mapside'), onchange: () => requestAnimationFrame(() => stage.dispatchEvent('camera')) });
+const newMapItem = { label: 'New map', sub: 'Start an empty map', icon: 'plus', onclick: async () => { const title = await uiPrompt('Name', 'Untitled map', { title: 'New ecosystem map', ok: 'Create map' }); if (title?.trim()) ctx.actions.newMap(title.trim()); } };
+const mapItems = () => Object.values(index.maps).map((m) => ({ label: m.title || 'Untitled map', sub: m.id === mapId ? 'Open now' : (m.description || 'Ecosystem map').split(/[.\n]/)[0], icon: 'mapTrifold', href: `#${m.id}`, on: m.id === mapId }));
+const sideHost = document.querySelector('#mapside');
+let side = null;
+const drawSide = () => {
+  const next = SideNav({ label: 'Ecosystem Mapper', sections: [
+    { title: 'Tools', menu: toolsEl },
+    { title: 'Layers', body: layersEl, action: { icon: 'plus', label: 'Add layer', onclick: () => ctx.actions.addLayer() } },
+    { title: 'Inspector', body: inspectorEl },
+    { title: 'Maps', items: [...mapItems(), newMapItem] },
+  ] });
+  if (side) side = swapSide(side, next); else { side = next; sideHost.append(side); }
+};
+drawSide();
+document.addEventListener('dashi:map-renamed', drawSide);
+document.addEventListener('dashi:side-fold', () => requestAnimationFrame(() => { stage.dispatchEvent('camera'); }));
+/** What the rest of the mapper asks of its panel: open a section, fold the nav. */
+ctx.panel = {
+  el: sideHost,
+  reveal(title) {
+    const nav = sideHost.querySelector('.side-nav');
+    if (nav?.classList.contains('folded')) nav.querySelector('.side-fold')?.click();
+    const sec = [...sideHost.querySelectorAll('.side-section')].find((s) => s.querySelector('.side-title-text')?.textContent.toLowerCase() === String(title).toLowerCase());
+    if (sec?.classList.contains('section-folded')) sec.querySelector('.side-section-fold')?.click();
+    sec?.scrollIntoView({ block: 'nearest' });
+  },
+  collapse() { sideHost.querySelector('.side-fold')?.click(); },
+};
 Toolbar(toolsEl, ctx);
 ctx.inspector = InspectorPanel(inspectorEl, ctx);
 TopBar(document.querySelector('#topbar'), ctx);
 LayersPanel(layersEl, ctx);
-SelectionBar(main, ctx);
+// No selection bar at the bottom any more (alpha 0.3): the inspector in the side nav has it all.
 ctx.hoverCard = HoverCard(ctx);
 ctx.hoverCard.enabled = ctx.view.hoverCards;
-Tooltips('#topbar, .mapper-panel, .selection-bar');
+Tooltips('#topbar, .selection-bar');
 
 // The dotted grid moves and scales with the board.
 function paintGrid() {

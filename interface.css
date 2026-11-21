@@ -730,9 +730,9 @@ body.mapper-page > main { border-radius: 0 0 var(--r-sheet, 14px) var(--r-sheet,
 .mapper-panel.outside .mp-collapse { background: transparent; border-top: 0; }
 #topbar .topbar-sep { margin: 0 2px; }
 @media (max-width: 1500px) { #topbar .ribbon-link span { display: none; } #topbar .ribbon-link { padding: 0 7px; } }
-@media (max-width: 1200px) { #topbar .tb-zoom .btn-square, #topbar .ribbon-label { display: none; } }
+@media (max-width: 1200px) { #topbar .ribbon-label { display: none; } }
 .mapper-panel.outside .mp-bar { background: var(--paper, #f3f1ec); }
-@media (max-width: 1500px) { #topbar .map-name { max-width: 20ch; } #topbar .lens-select { max-width: 160px; } #topbar .tb-zoom .btn-square { display: none; } }
+@media (max-width: 1500px) { #topbar .map-name { max-width: 20ch; } }
 
 .sb-tip { position: absolute; z-index: 5; transform: translate(14px, -50%); max-width: 260px; display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; background: #1d2230; color: #fff; font-size: 12px; line-height: 1.35; box-shadow: 0 6px 20px rgb(0 0 0 / .18); pointer-events: none; }
 .sb-tip.flip { transform: translate(calc(-100% - 14px), -50%); }
@@ -890,3 +890,50 @@ body.mapper-page > main { border-radius: 0 0 var(--r-sheet, 14px) var(--r-sheet,
 .side-section.foldable .side-title-text:hover { color: var(--ink); }
 /* The framework sunburst's details panel holds one size, so pointing around the rings never moves the page. */
 .sw-sb-panel { height: 300px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+
+/* ---------- Alpha 0.3: the mapper on the platform side nav ----------
+   #mapside holds the same SideNav every plugin has; the tools are its rows. */
+#mapside > .side-nav { flex: 1; min-height: 0; padding-top: 4px; }
+#mapside > .side-nav:not(.folded) { width: 268px; }
+.tool-menu li > button.tool { border: 0; background: transparent; font: inherit; cursor: pointer; }
+.tool-menu li > button.tool-add { cursor: grab; }
+.tool-menu .tool-key { flex: none; min-width: 22px; padding: 1px 5px; border-radius: 5px; border: 1px solid var(--line-soft, var(--line)); background: var(--color-base-100); color: var(--muted); font: 600 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; text-align: center; }
+.tool-menu li > .tool-add.actor .icon { color: #b8860b !important; }
+.side-nav.folded .tool-key { display: none; }
+.side-inspector { font-size: 13px; }
+.side-nav .side-body.side-layers, .side-nav .side-layers { padding: 0 8px; }
+
+/* Folded side nav: the toggle sits at the top as an obvious "open" button, and
+   every row shows a tooltip (ui/SideNav.js) with its name and second line. */
+.side-nav.folded .side-fold { width: 36px; height: 32px; border-radius: 9px; background: var(--sheet, #fff); box-shadow: 0 1px 2px rgb(0 0 0 / .08); color: var(--ink-2); }
+.side-tip { position: fixed; z-index: 90; left: 0; top: 0; pointer-events: none; max-width: 260px; padding: 7px 10px; border-radius: 9px; background: #1d2230; color: #fff; font-size: 12.5px; line-height: 1.3; box-shadow: 0 6px 18px rgb(0 0 0 / .2); }
+.side-tip b { display: block; font-weight: 650; }
+.side-tip small { display: block; opacity: .75; font-size: 11.5px; margin-top: 1px; }
+.side-tip::before { content: ''; position: absolute; left: -5px; top: 50%; margin-top: -5px; border: 5px solid transparent; border-left: 0; border-right-color: #1d2230; }
+
+/* Phone width (alpha 0.3): the side nav sits above the page. Open, it's the full list
+   (at most a third of the screen); folded, one row of icons that scrolls sideways.
+   The fold button always shows, so a folded nav can always be opened again. */
+@media (max-width: 760px) {
+  .side-fold { display: flex !important; }
+  .side-nav.folded { width: auto !important; max-height: none !important; display: flex; align-items: center; gap: 4px; overflow-x: auto; overflow-y: hidden; padding: 6px 4px !important; scrollbar-width: none; }
+  .side-nav.folded .side-fold { position: static; order: -1; flex: none; margin: 0 4px 0 0; transform: rotate(-90deg); }
+  .side-nav:not(.folded) .side-fold { transform: rotate(90deg); }
+  .side-nav.folded .side-section { display: contents; }
+  .side-nav.folded .side-menu { display: flex; flex-direction: row; flex-wrap: nowrap; width: auto; padding: 0; gap: 2px; }
+  .side-nav.folded .side-menu li > :where(a, button) { width: 42px; height: 40px; padding: 0; justify-content: center; }
+  .side-nav.folded .side-head { display: none; }
+  /* The mapper too: its side nav sits above the board as a row, like every plugin's. */
+  body.mapper-page, body.mapper-page.mp-right { grid-template: 'shell' auto 'side' auto 'top' 44px 'board' 1fr / minmax(0, 1fr) !important; }
+  #mapside { position: static !important; }
+  #mapside > .side-nav:not(.folded) { width: auto; max-height: 34vh; }
+}
+.side-nav.folded .side-section:not(:has(.side-menu)) { display: none; }
+
+/* Mapper top bar (alpha 0.3): the map type always shows its whole name (the title gives way
+   first), and zoom always has its − and + buttons. */
+#topbar .tb-what { min-width: 0; flex: 0 1 auto; }
+#topbar .tb-what .map-title { min-width: 6ch; flex: 0 1 auto; }
+#topbar .tb-lens { flex: none; }
+#topbar .tb-lens .lens-select { field-sizing: content; width: auto; min-width: 180px; max-width: 340px !important; padding-right: 2rem; }
+#topbar .tb-zoom .btn-square { display: inline-flex !important; }

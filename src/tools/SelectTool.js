@@ -137,7 +137,9 @@ export default {
   },
 
   onDoubleClick(e, ctx) {
-    if (e.view) { ctx.mapView.select([e.view.id]); ctx.actions.openDetails(); }
+    // A sticky note: type on it in place. A link or group: its name in the inspector.
+    if (e.view?.kind === 'actor') { ctx.mapView.select([e.view.id]); ctx.ui.editLabel(e.view.id); }
+    else if (e.view) { ctx.mapView.select([e.view.id]); ctx.panel?.reveal('inspector'); ctx.inspector?.focusName(); }
     else if (!e.view) ctx.actions.addActorAt(e.worldX, e.worldY);
   },
 

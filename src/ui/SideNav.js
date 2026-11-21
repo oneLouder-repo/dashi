@@ -33,14 +33,21 @@ const keepSection = (s) => {
 const folded = () => { try { return localStorage.getItem(KEY) === '1'; } catch { return false; } };
 
 export function SideNav({ label, sections }) {
+  foldTips();
   const nav = h('nav', { class: `side-nav${folded() ? ' folded' : ''}`, 'aria-label': label });
-  const toggle = h('button', { class: 'btn btn-ghost btn-xs btn-square side-fold', title: 'Fold the sidebar', 'aria-label': 'Fold the sidebar', 'aria-expanded': String(!folded()),
+  const toggleLabel = () => (nav.classList.contains('folded') ? 'Open the side nav' : 'Fold the side nav');
+  const toggle = h('button', { class: 'btn btn-ghost btn-xs btn-square side-fold', 'aria-expanded': String(!folded()),
     onclick: () => {
       const now = !nav.classList.toggle('folded') ? '0' : '1';
       try { localStorage.setItem(KEY, now); } catch { /* private window: fold just for now */ }
       toggle.setAttribute('aria-expanded', String(now === '0'));
+      toggle.setAttribute('aria-label', toggleLabel());
+      toggle.dataset.tip = toggleLabel();
+      hideTip();
       document.dispatchEvent(new CustomEvent('dashi:side-fold'));
     } }, h('span', { 'aria-hidden': 'true' }, '‹'));
+  toggle.setAttribute('aria-label', toggleLabel());
+  toggle.dataset.tip = toggleLabel();
   sections = sections.map(keepSection).filter(Boolean)
     // Every titled section folds, like the mapper's tool panel, unless it says not to (fold: false).
     .map((sec) => (sec.fold === undefined && sec.title ? { ...sec, fold: `${label}:${sec.title}`.toLowerCase().replace(/[^\w:]+/g, '-') } : sec));
@@ -51,6 +58,49 @@ export function SideNav({ label, sections }) {
   const on = all.find((it) => it.on);
   if (on) setSection({ label: on.label, href: on.href }, { isHome: on === all[0] });
   return nav;
+}
+
+/*
+ * Alpha 0.3: a folded side nav is only icons, so every row (and the open
+ * button) shows a tooltip beside it, quickly, with the row's name and its
+ * second line. Keyboard focus shows it too. One listener for every side
+ * nav on the page, the mapper's included.
+ */
+let tipEl = null, tipTimer = 0, tipFor = null;
+const hideTip = () => { clearTimeout(tipTimer); tipFor = null; if (tipEl) tipEl.hidden = true; };
+function showTip(el) {
+  tipEl ??= document.body.appendChild(h('div', { class: 'side-tip', role: 'tooltip', hidden: true }));
+  // Keep the words off `title` so the browser's slow tooltip doesn't show as well.
+  if (el.hasAttribute('title')) { el.dataset.sideTitle = el.getAttribute('title'); el.removeAttribute('title'); }
+  const text = el.querySelector(':scope > .side-text');
+  const name = text ? text.firstChild?.textContent : el.dataset.tip ?? el.dataset.sideTitle ?? el.getAttribute('aria-label') ?? '';
+  const sub = text?.querySelector('small')?.textContent ?? '';
+  if (!name) return;
+  tipEl.replaceChildren(h('b', {}, name), sub && h('small', {}, sub));
+  tipEl.hidden = false;
+  const r = el.getBoundingClientRect(), t = tipEl.getBoundingClientRect();
+  const y = Math.max(8, Math.min(innerHeight - t.height - 8, r.top + r.height / 2 - t.height / 2));
+  tipEl.style.transform = `translate(${Math.round(r.right + 10)}px, ${Math.round(y)}px)`;
+}
+let tipsOn = false;
+function foldTips() {
+  if (tipsOn || typeof document === 'undefined') return;
+  tipsOn = true;
+  const target = (e) => e.target.closest?.('.side-nav.folded :where(.side-menu li > a, .side-menu li > button, .side-fold)');
+  document.addEventListener('pointerover', (e) => {
+    if (e.pointerType === 'touch') return;
+    const el = target(e);
+    if (el === tipFor) return;
+    hideTip();
+    if (!el) return;
+    tipFor = el;
+    tipTimer = setTimeout(() => showTip(el), 120);
+  });
+  document.addEventListener('pointerout', (e) => { if (tipFor && !tipFor.contains(e.relatedTarget)) hideTip(); });
+  document.addEventListener('focusin', (e) => { const el = target(e); if (el?.matches(':focus-visible')) { tipFor = el; showTip(el); } });
+  document.addEventListener('focusout', hideTip);
+  document.addEventListener('pointerdown', hideTip, true);
+  addEventListener('scroll', hideTip, true);
 }
 
 /** A section that folds (`fold: '<key>'`), like the mapper's tool panel: remembered per browser. */

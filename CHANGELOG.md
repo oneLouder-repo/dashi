@@ -6,6 +6,16 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### PR 2: one side nav everywhere
+
+- **The Ecosystem Mapper uses the platform side nav**, like every other plugin: Tools, Layers, Inspector and Maps are its folding sections, and the tools are ordinary two-line rows with their shortcut keys. Its own tuck-away, resizing and left/right switch are gone; View ▾ has **Fold the side nav** (\\).
+- **A folded side nav can always be opened again**: the open button is a clear button at the top, on desktop and on phones. Before, phones hid the button, so a nav folded elsewhere stayed folded.
+- **Tooltips on the folded side nav**: point at an icon (or tab to it) and its name and second line show beside it, quickly. This covers the mapper too.
+- **Phones**: the side nav sits above the page. Open, it's the full list; folded, one row of icons that scrolls sideways. The mapper does the same.
+- **Mapper top bar**: the map type picker always shows its whole name (the title gives way first), and zoom always has its − and + buttons.
+- **No more bar at the bottom of the board** when you click something: the inspector has it all, including Group and Delete for several things.
+- **Double-click a sticky note to type on it**, like a whiteboard: the box covers the note (and grows when you're zoomed out), Enter keeps it, Shift+Enter is a new line, Escape puts it back. Double-click a link or group to name it in the inspector. The in-place editor also shows again for new notes (it was hidden behind the board).
+
 ### PR 1: the finish line, solid colour, one sunburst look
 
 - **The roadmap's finish line is the tallest signpost**: a white board tipped with checkers, up at the Today label's level above the road, so it no longer lands on a traffic light. The road has a clear band across the top for the two of them; the finish pole stands behind the lights.
