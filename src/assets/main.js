@@ -5,6 +5,7 @@ import { PluginHeader } from '../ui/PluginHeader.js';
 import { Menu } from '../ui/Menu.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
 import { MiniMap } from '../ui/MiniMap.js';
+import { Sunburst } from '../ui/Sunburst.js';
 import { pdfFirstPage } from '../ui/pdfPage.js';
 import { standIn } from '../ui/standIn.js';
 import { uiConfirm, uiForm, uiPrompt } from '../ui/dialog.js';
@@ -235,7 +236,7 @@ function drawMain(cards) {
           h('button', { type: 'button', class: `btn btn-sm join-item${prefs.view === id ? ' btn-active' : ''}`, 'aria-pressed': String(prefs.view === id), title: label, onclick: () => { prefs.view = id; savePrefs(); drawMain(allCards()); } }, icon(glyph, 16), h('span', {}, label)))))),
     bulk,
     list.length
-      ? (prefs.view === 'list' ? ListView(list) : prefs.view === 'map' ? AssetMap(list, cards) : TileView(list))
+      ? (prefs.view === 'list' ? ListView(list) : prefs.view === 'map' ? MapView(list, cards) : TileView(list))
       : Empty());
 }
 
@@ -376,6 +377,45 @@ function ListView(list) {
       return tr;
     }))));
 }
+
+/**
+ * The asset map opens as a zoomable sunburst (PR 10): all assets in the
+ * centre, then the six ABCD types, then collections (or the first tag),
+ * then the assets themselves. Click a ring to zoom in, the centre to step
+ * out, an asset to open it. "Arrange" is the wedge map below, for sorting
+ * and linking by hand.
+ */
+function MapView(list, cards) {
+  const mode = prefs.mapMode === 'arrange' ? 'arrange' : 'sunburst';
+  const by = prefs.mapSize === 'links' ? 'links' : 'count';
+  const seg = (items, cur, set) => h('div', { class: 'device-toggle xs', role: 'radiogroup' }, items.map(([id, label]) =>
+    h('button', { type: 'button', role: 'radio', 'aria-checked': String(cur === id), class: cur === id ? 'on' : '', onclick: () => { set(id); savePrefs(); drawMain(allCards()); } }, label)));
+  const bar = h('div', { class: 'ah-map-bar' },
+    seg([['sunburst', 'Sunburst'], ['arrange', 'Arrange']], mode, (v) => { prefs.mapMode = v; }),
+    mode === 'sunburst' && h('span', { class: 'ah-map-size' }, h('span', { class: 'muted small' }, 'Size by'), seg([['count', 'Count'], ['links', 'Links']], by, (v) => { prefs.mapSize = v; })),
+    h('span', { class: 'muted small ah-map-hint' }, mode === 'sunburst' ? 'Click a ring to zoom in, the centre to step out, an asset to open it.' : 'Drag to sort, or grab the ring on an asset to link it.'));
+  if (mode === 'arrange') return h('div', { class: 'ah-mapview' }, bar, AssetMap(list, cards));
+  const linksOf = (c) => (c.item?.related ?? []).length + list.filter((x) => x.item?.related?.includes(c.key)).length;
+  const groupOf = (c) => (c.collectionIds[0] && hub.collections[c.collectionIds[0]] ? hub.collections[c.collectionIds[0]].name : c.tags[0] ? `#${c.tags[0]}` : 'Not filed');
+  const kinds = [...ABCD, { id: 'none', label: 'Not yet sorted', color: '#8a93a8' }];
+  const data = { name: 'All assets', children: kinds.map((k) => {
+    const mine = list.filter((c) => (c.abcd ?? 'none') === k.id);
+    const groups = new Map();
+    for (const c of mine) { const g = groupOf(c); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(c); }
+    const leaf = (c) => ({ name: c.title, key: c.key, kind: k.id, value: by === 'links' ? 1 + linksOf(c) : 1 });
+    // Nothing filed in this type? Its assets sit straight under it, without a "Not filed" ring.
+    const only = groups.size === 1 && groups.has('Not filed');
+    return { name: k.label, kind: k.id, color: k.color, children: only ? mine.map(leaf) : [...groups].map(([name, cs]) => ({ name, kind: k.id, children: cs.map(leaf) })) };
+  }).filter((k) => k.children.length) };
+  const kindColor = Object.fromEntries(kinds.map((k) => [k.id, k.color]));
+  return h('div', { class: 'ah-mapview' }, bar, Sunburst({
+    data, size: 520, caption: 'All assets', label: 'Asset map: a sunburst of every asset by ABCD type',
+    color: (d) => { const c = kindColor[d.data.kind] ?? '#8a93a8'; return d.depth === 1 ? c : d.children ? mix(c, 0.18) : mix(c, 0.34); },
+    onLeaf: (leaf, e) => { const c = list.find((x) => x.key === leaf.key); if (c) select(c, e); },
+  }));
+}
+/** A colour lifted towards white by t (0–1). */
+const mix = (hex, t) => { const n = parseInt(hex.slice(1), 16); const ch = (s) => Math.round(((n >> s) & 255) + (255 - ((n >> s) & 255)) * t); return `rgb(${ch(16)},${ch(8)},${ch(0)})`; };
 
 /**
  * The asset map (alpha 0.2): six ABCD wedges around the organisation.
