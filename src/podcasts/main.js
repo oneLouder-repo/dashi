@@ -26,6 +26,7 @@ import { PluginHeader } from '../ui/PluginHeader.js';
 import { today, short } from '../strategy/dates.js';
 import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
 import { PeoplePicker } from './people.js';
+import { linkTo } from '../plugins.js';
 
 /**
  * Podcasts: the studio for an org's own podcast station.
@@ -108,8 +109,8 @@ function relatedChoices() {
   const lib = safe(loadLibrary);
   const maps = safe(loadMaps);
   relatedCache = [
-    ...Object.values(maps?.maps ?? {}).map((m) => ({ key: `map:${m.id}`, label: m.name || 'Untitled map', group: 'Ecosystem maps', href: `mapper.html#${m.id}`, icon: 'mapper' })),
-    ...Object.values(lib?.items ?? {}).map((it) => ({ key: `library:${it.id}`, label: it.meta?.title || 'Untitled', group: 'Library', href: `library.html#item/${it.id}`, icon: 'book' })),
+    ...Object.values(maps?.maps ?? {}).map((m) => ({ key: `map:${m.id}`, label: m.name || 'Untitled map', group: 'Ecosystem maps', href: linkTo('mapper', `#${m.id}`), icon: 'mapper' })),
+    ...Object.values(lib?.items ?? {}).map((it) => ({ key: `library:${it.id}`, label: it.meta?.title || 'Untitled', group: 'Library', href: linkTo('library', `#item/${it.id}`), icon: 'book' })),
   ];
   return relatedCache;
 }

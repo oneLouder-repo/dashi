@@ -12,6 +12,7 @@ import { statusById, taskSummary, ancestors, NODE_TYPES } from '../platform/stra
 import { mapsFor } from '../platform/maps.js';
 import { short, today, addDays } from '../strategy/dates.js';
 import { uiAlert, uiForm, uiPanel } from '../ui/dialog.js';
+import { linkTo } from '../plugins.js';
 
 /**
  * My profile: the signed-in person's picture and details, the strategic
@@ -95,7 +96,7 @@ function render() {
                 h('ul', { class: 'me-tasks' }, g.tasks.map((t) => h('li', { class: t.status === 'done' ? 'done' : '' },
                   h('span', { class: 'me-dot', style: `background:${statusById[t.status].color}`, title: statusById[t.status].label }),
                   h('div', { class: 'me-task-text' },
-                    h('a', { href: `strategy.html#${t.id}` }, t.title),
+                    h('a', { href: linkTo('strategy', `#${t.id}`) }, t.title),
                     h('small', {}, docs.strategy.nodes[t.parentId]?.title ?? '')),
                   h('span', { class: `me-when ${g.id}` }, t.end ? short(t.end) : 'No date')))))))
           : empty('No tasks assigned to you. When someone assigns you one in Strategy & Work, it shows here.'),
@@ -105,7 +106,7 @@ function render() {
               const s = taskSummary(docs.strategy, w.id);
               const pct = s.total ? Math.round((s.done / s.total) * 100) : 0;
               return h('li', {},
-                h('a', { href: `strategy.html#${w.id}`, class: 'me-wp-title' }, w.title),
+                h('a', { href: linkTo('strategy', `#${w.id}`), class: 'me-wp-title' }, w.title),
                 h('small', { class: 'muted' }, ancestors(docs.strategy, w.id).filter((a) => a.type === 'goal' || a.type === 'objective').map((a) => a.title).join(' › ')),
                 h('div', { class: 'me-wp-bar' }, h('progress', { class: 'progress progress-primary', value: s.done, max: s.total || 1, 'aria-label': `${s.done} of ${s.total} tasks done` }), h('span', {}, `${s.done}/${s.total} · ${pct}%`)));
             }))
@@ -122,20 +123,20 @@ function render() {
                 const s = taskSummary(docs.strategy, n.id);
                 return h('li', {},
                   h('span', { class: 'glyph' }, NODE_TYPES[n.type].glyph),
-                  h('div', { class: 'me-area-text' }, h('a', { href: `strategy.html#${n.id}` }, n.title),
+                  h('div', { class: 'me-area-text' }, h('a', { href: linkTo('strategy', `#${n.id}`) }, n.title),
                     h('div', { class: 'me-wp-bar' }, h('progress', { class: 'progress progress-primary', value: s.done, max: s.total || 1 }), h('span', {}, `${s.done}/${s.total}`))));
               }))
             : empty('Follow the objectives and goals you care about to see their progress here.')),
           { icon: 'target', action: h('button', { class: 'btn btn-xs', onclick: () => chooseAreas(me, areas, update) }, followed.length ? 'Change' : 'Choose') }),
         card('My ecosystem maps', myMaps.length, myMaps.length
-          ? h('ul', { class: 'me-links' }, myMaps.map((m) => h('li', {}, h('a', { href: `mapper.html#${m.id}` }, m.title),
+          ? h('ul', { class: 'me-links' }, myMaps.map((m) => h('li', {}, h('a', { href: linkTo('mapper', `#${m.id}`) }, m.title),
               h('small', {}, `${Object.keys(docs.mapContents[m.id]?.actors ?? {}).length} actors · ${m.ownerId === me.id ? 'owner' : 'member'}`))))
           : empty('You don’t own or belong to any maps yet.'), { icon: 'sec-mapper' }),
         card('Dashboards I made', myDashboards.length, myDashboards.length
-          ? h('ul', { class: 'me-links' }, myDashboards.map((d) => h('li', {}, h('a', { href: `palette.html#${d.id}` }, d.title), h('small', {}, `${d.widgets.length} widgets · ${d.visibility}`))))
+          ? h('ul', { class: 'me-links' }, myDashboards.map((d) => h('li', {}, h('a', { href: linkTo('palette', `#${d.id}`) }, d.title), h('small', {}, `${d.widgets.length} widgets · ${d.visibility}`))))
           : empty('Make one from an objective in Strategy & Work, or in the Data Workbench.'), { icon: 'sec-data' }),
         myShows.length > 0 && card('Shows I host', myShows.length,
-          h('ul', { class: 'me-links' }, myShows.map((p) => h('li', {}, h('a', { href: `podcasts.html#series/${p.id}` }, p.title), h('small', {}, p.category)))), { icon: 'sec-podcasts' }))),
+          h('ul', { class: 'me-links' }, myShows.map((p) => h('li', {}, h('a', { href: linkTo('podcasts', `#series/${p.id}`) }, p.title), h('small', {}, p.category)))), { icon: 'sec-podcasts' }))),
     h('p', { class: 'note' }, session() ? 'Your name, title, picture, contact details, bio and the areas you follow are yours to change. Your role and teams are set by your organisation’s admin.' : 'Accounts are mocked for now: use the menu under your picture (top right) to see the platform as anyone in the org.'),
   ));
 }

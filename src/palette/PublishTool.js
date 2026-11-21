@@ -1,6 +1,7 @@
 import { h, options } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { col } from '../core/collections.js';
+import { linkTo } from '../plugins.js';
 
 /**
  * Publishing mini-tool: everything the Workbench makes that can go on a site
@@ -38,10 +39,10 @@ export function PublishTool(ctx) {
 
   return h('div', { class: 'pub' },
     h('h1', {}, 'Publishing'),
-    h('p', { class: 'lede' }, 'Everything the Workbench makes that can go on a site, in one place: switch it on, and choose the site. To change a site itself (its look, its address, who can open it), go to the ', h('a', { href: 'pages.html' }, 'Public Portal'), '.'),
+    h('p', { class: 'lede' }, 'Everything the Workbench makes that can go on a site, in one place: switch it on, and choose the site. To change a site itself (its look, its address, who can open it), go to the ', h('a', { href: linkTo('pages') }, 'Public Portal'), '.'),
     h('div', { class: 'pub-sites' }, Object.values(sites).map((s) => {
       const on = items.filter((it) => liveOn(it)?.id === s.id);
-      return h('a', { class: `pub-site ${s.visibility}`, href: `pages.html#site/${s.id}` },
+      return h('a', { class: `pub-site ${s.visibility}`, href: linkTo('pages', `#site/${s.id}`) },
         h('span', { class: 'pub-site-icon' }, icon(s.visibility === 'private' ? 'lock' : s.visibility === 'unlisted' ? 'eyeOff' : 'globe', 16)),
         h('span', { class: 'pub-site-text' }, h('strong', {}, s.name), h('small', {}, s.visibility === 'private' ? 'Members only' : s.visibility === 'unlisted' ? 'Unlisted' : 'Public')),
         h('span', { class: 'pub-site-n' }, String(on.length), h('small', {}, ' on it')));

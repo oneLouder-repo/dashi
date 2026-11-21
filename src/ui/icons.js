@@ -7,6 +7,8 @@ import { PHOSPHOR } from './phosphor.js';
  * SVG path data.
  */
 export const ICONS = {
+  sun: 'M12 3 V5 M12 19 V21 M3 12 H5 M19 12 H21 M5.6 5.6 L7 7 M17 17 L18.4 18.4 M5.6 18.4 L7 17 M17 7 L18.4 5.6 M12 8 A4 4 0 1 0 12 16 A4 4 0 1 0 12 8 Z',
+  moon: 'M19.5 14.6 A7.5 7.5 0 0 1 9.4 4.5 A7.5 7.5 0 1 0 19.5 14.6 Z',
   listBullets: 'M9.5 6 H20 M9.5 12 H20 M9.5 18 H20 M4.6 5.4 h0.8 v0.8 h-0.8 Z M4.6 11.4 h0.8 v0.8 h-0.8 Z M4.6 17.4 h0.8 v0.8 h-0.8 Z',
   listNumbers: 'M10 6 H20 M10 12 H20 M10 18 H20 M4 4.8 L5.4 4 V8.4 M3.8 14.6 Q5.4 13.4 6.2 14.6 Q6.6 15.6 3.8 18.8 H6.4',
   alignLeft: 'M4 6 H20 M4 10 H14 M4 14 H20 M4 18 H14',

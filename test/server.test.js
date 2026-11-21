@@ -225,7 +225,7 @@ test('the platform admin switches plugins on for an org, or pauses them', async 
   await plugins('org-example', { plugin: 'pages', on: false });
   const member = (await call(EX, 'GET', '/api/session', { cookie: amara })).json;
   assert.equal(member.docs.org.platform.paused.pages, true);
-  assert.ok(Object.keys(member.docs.pages.pages).length > 0, 'the pages are still there');
+  assert.equal(member.docModes.pages, 'public', 'members get only the public copy of a paused plugin’s documents (0.2)');
   assert.equal(Object.keys((await call(EX, 'GET', '/api/session')).json.docs.pages.pages).length, 0, 'but not on the public site');
   // An org can't unpause itself by writing its own org doc.
   const doc = { ...member.docs.org, platform: { paused: {} } };
@@ -233,6 +233,7 @@ test('the platform admin switches plugins on for an org, or pauses them', async 
   assert.equal((await call(EX, 'GET', '/api/session', { cookie: amara })).json.docs.org.platform.paused.pages, true);
   await plugins('org-example', { plugin: 'pages', on: true });
   assert.ok(Object.keys((await call(EX, 'GET', '/api/session')).json.docs.pages.pages).length > 0);
+  assert.ok(Object.values((await call(EX, 'GET', '/api/session', { cookie: amara })).json.docs.pages.pages).some((p) => p.status === 'draft'), 'the pages were kept, drafts and all');
 });
 
 test('only the platform admin edits the help library', async () => {
@@ -380,7 +381,7 @@ test('plans set what an org can add; the platform admin changes them', async () 
   strategy.nodes['fw-1'] = { id: 'fw-1', type: 'framework', parentId: null, order: 9, title: 'A framework' };
   const refused = await call('tiny.localhost', 'PUT', '/api/docs/strategy', { cookie: lead, body: strategy });
   assert.equal(refused.status, 403);
-  assert.match(refused.json.error, /Free plan doesn’t include strategic frameworks/);
+  assert.match(refused.json.error, /isn’t switched on|Free plan doesn’t include strategic frameworks/, 'Free has no Strategy & Work, so its document is closed');
 
   // Five people on Free: a sixth with an email is refused.
   const orgDoc = session.docs.org;
@@ -393,7 +394,11 @@ test('plans set what an org can add; the platform admin changes them', async () 
   // The admin gives Free one framework for everyone; then it saves.
   const { json: plans } = await call('localhost', 'GET', '/api/admin/plans', { cookie: admin });
   assert.equal(plans.plans.basic.limits.plans, 2);
-  await call('localhost', 'PUT', '/api/admin/plans', { cookie: admin, body: { free: { limits: { frameworks: 5 } } } });
+  // (0.2: Free has no Strategy & Work, so its plan must include it before the strategy saves at all.)
+  await call('localhost', 'PUT', '/api/admin/plans', { cookie: admin, body: { free: { plugins: { strategy: true } } } });
+  const capped = await call('tiny.localhost', 'PUT', '/api/docs/strategy', { cookie: lead, body: strategy });
+  assert.match(capped.json.error, /Free plan doesn’t include strategic frameworks/, 'then the plan’s limits apply');
+  await call('localhost', 'PUT', '/api/admin/plans', { cookie: admin, body: { free: { plugins: { strategy: true }, limits: { frameworks: 5 } } } });
   assert.equal((await call('tiny.localhost', 'PUT', '/api/docs/strategy', { cookie: lead, body: strategy })).status, 200);
 
   // A Custom org's own limits, over the tier's.
@@ -654,4 +659,39 @@ test('plugins: the platform admin designs, releases, packages and rolls back; or
   assert.equal(inst.json.plugin.href, 'plugin.html?id=grants');
   assert.equal((await api('DELETE', '/api/admin/plugins/grants')).status, 200);
   assert.equal((await api('GET', '/api/admin/plugins/grants')).status, 404);
+});
+
+test('alpha 0.2: the server enforces plugin access on every document', async () => {
+  const amara = await signIn('amara@example.org');
+  const ben = await signIn('ben@example.org'); // staff, s-part
+  const getOrg = async () => (await call(EX, 'GET', '/api/docs/org', { cookie: amara })).json;
+  const putOrg = async (fn) => { const o = await getOrg(); fn(o); assert.equal((await call(EX, 'PUT', '/api/docs/org', { body: o, cookie: amara })).status, 200); };
+  const original = await getOrg();
+  const pods = (await call(EX, 'GET', '/api/docs/podcasts', { cookie: ben })).json;
+  assert.equal((await call(EX, 'PUT', '/api/docs/podcasts', { body: pods, cookie: ben })).status, 200, 'staff use Podcasts by default');
+
+  // Switched off for the staff role: Ben sees only what the public sees, and can't save.
+  await putOrg((o) => { o.pluginRoles = { ...o.pluginRoles, podcasts: { staff: false } }; });
+  const s = (await call(EX, 'GET', '/api/session', { cookie: ben })).json;
+  assert.equal(s.docModes.podcasts, 'public');
+  assert.equal(s.docModes.strategy, 'write');
+  const today = new Date().toISOString().slice(0, 10);
+  assert.ok(!Object.values(s.docs.podcasts.episodes).some((e) => e.status === 'draft' || (e.status === 'scheduled' && e.publishedAt > today)), 'no drafts reach him');
+  const got = await call(EX, 'GET', '/api/docs/podcasts', { cookie: ben });
+  assert.equal(got.headers['x-doc-version'], undefined, 'the public copy, not the document');
+  assert.equal((await call(EX, 'PUT', '/api/docs/podcasts', { body: pods, cookie: ben })).status, 403);
+
+  // His own exception wins over the role.
+  await putOrg((o) => { o.pluginPeople = { podcasts: { 's-part': true } }; });
+  assert.equal((await call(EX, 'PUT', '/api/docs/podcasts', { body: pods, cookie: ben })).status, 200, 'a person’s own switch wins');
+  await putOrg((o) => { o.pluginPeople = { strategy: { 's-part': false } }; });
+  assert.equal((await call(EX, 'GET', '/api/session', { cookie: ben })).json.docModes.strategy, 'read', 'Strategy off for him, but a plugin he has (Data Workbench) reads it');
+
+  // Off for the whole org: nobody saves its documents, admins included.
+  await putOrg((o) => { o.plugins = { ...o.plugins, palette: false }; });
+  const dash = (await call(EX, 'GET', '/api/docs/dashboards', { cookie: amara })).json;
+  assert.equal((await call(EX, 'PUT', '/api/docs/dashboards', { body: dash, cookie: amara })).status, 403);
+
+  await putOrg((o) => { o.plugins = original.plugins; o.pluginRoles = original.pluginRoles; delete o.pluginPeople; });
+  assert.equal((await call(EX, 'PUT', '/api/docs/dashboards', { body: dash, cookie: amara })).status, 200);
 });

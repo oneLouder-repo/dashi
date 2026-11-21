@@ -333,6 +333,14 @@ body.mapper-page > main { box-shadow: var(--lift-sheet); }
 .rp-drawer .org-plug-feats li.off { color: var(--ink-4); }
 .rp-who { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .rp-who li { display: flex; align-items: center; justify-content: space-between; }
+/* 0.2: sub-plugins sit under their parent; people set apart from their role. */
+.rp-table tr.rp-sub .rp-plugin { padding-left: 34px; position: relative; }
+.rp-table tr.rp-sub .rp-plugin::before { content: ""; position: absolute; left: 20px; top: 0; bottom: 50%; width: 10px; border-left: 1.5px solid var(--rule); border-bottom: 1.5px solid var(--rule); border-bottom-left-radius: 6px; }
+.rp-people { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.rp-people li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 6px; border-radius: 8px; }
+.rp-people li.apart { background: color-mix(in oklab, var(--tone, var(--accent)) 8%, transparent); }
+.rp-person { display: flex; flex-direction: column; min-width: 0; }
+.rp-person small { font-size: 11.5px; }
 
 /* A plugin outside your role's palette. */
 .role-gate { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: color-mix(in oklab, var(--paper) 82%, transparent); backdrop-filter: blur(6px); }
@@ -442,3 +450,56 @@ body.mapper-page > main { box-shadow: var(--lift-sheet); }
 .page-preview-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .page-preview-phone { display: flex; justify-content: center; padding: 16px; border-radius: var(--r-card); background: var(--paper); box-shadow: inset 0 0 0 1px var(--rule); }
 .dv-live .page-preview { border: 0; border-radius: 0; max-height: none; height: 100%; overflow: visible; padding: 8px 18px 24px; }
+
+/* ── Dark (0.2) ─────────────────────────────────────────────────────── */
+/* Each person's choice (header switch, src/ui/mode.js). The same warm
+   system, at night: deep ink paper, sheets a step lighter, hairlines of
+   light instead of shadow. Public sites keep their own look. */
+[data-theme='toolbox'][data-mode='dark'] {
+  color-scheme: dark;
+  --paper: #17181b;
+  --sheet: #1f2124;
+  --well: #26282c;
+  --ink-1: #eceae6;
+  --ink-2: #c9c6c0;
+  --ink-3: #9a978f;
+  --ink-4: #6d6b66;
+  --rule: rgb(255 250 240 / 0.09);
+  --rule-soft: rgb(255 250 240 / 0.05);
+  --rule-strong: rgb(255 250 240 / 0.16);
+  --lift-sheet: 0 0 0 1px rgb(255 250 240 / 0.06);
+  --lift-float: 0 0 0 1px rgb(255 250 240 / 0.09), 0 16px 36px -8px rgb(0 0 0 / 0.55);
+  --color-base-100: var(--sheet);
+  --color-base-200: var(--paper);
+  --color-base-300: #34363b;
+  --color-base-content: var(--ink-1);
+  --color-neutral: #eceae6;
+  --color-neutral-content: #17181b;
+  --line: #34363b;
+  --line-soft: var(--rule);
+  --panel-shadow: var(--lift-sheet);
+  --tone-soft: color-mix(in oklab, var(--color-primary) 16%, var(--sheet));
+  --accent-soft: color-mix(in oklab, var(--color-primary) 18%, var(--sheet));
+}
+[data-mode='dark'] body { background: var(--paper); color: var(--ink-2); }
+[data-mode='dark'] :where(.card, .panel, .menu.dropdown-content, .dropdown-content, .modal-box, .drawer-panel, .side-nav, .shell-menu, .tile, .wv-card, .page-card) { background-color: var(--sheet); color: var(--ink-2); }
+[data-mode='dark'] :where(.input, .select, .textarea, input[type='text'], input[type='search'], input[type='email'], input[type='number'], input[type='url'], input[type='date'], select, textarea) { background-color: var(--well); color: var(--ink-1); border-color: var(--rule-strong); }
+[data-mode='dark'] .shell-link:hover, [data-mode='dark'] .shell-brand:hover, [data-mode='dark'] .shell-user summary:hover, [data-mode='dark'] .shell-icon:hover { background: rgb(255 255 255 / 0.06); }
+[data-mode='dark'] :where(.muted, small) { color: var(--ink-3); }
+[data-mode='dark'] .rp-table thead th { background: var(--sheet); }
+[data-mode='dark'] :where(svg.map-svg, .stage-svg) { background: var(--paper); }
+[data-mode='dark'] img:not([src$='.svg']) { filter: brightness(0.92); }
+.shell-mode .icon { stroke-width: 1.6; }
+
+/* Organisation → Domain: the Dashi address with its live check (0.2). */
+.domain-page { display: grid; gap: 16px; max-width: 760px; }
+.addr-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; }
+.addr-field { display: flex; align-items: center; border: 1px solid var(--rule-strong); border-radius: var(--r-control); background: var(--well); padding-right: 10px; min-width: 0; flex: 1 1 260px; }
+.addr-field .addr-input { border: 0; background: transparent; box-shadow: none; flex: 1; min-width: 0; font-weight: 650; }
+.addr-field:focus-within { box-shadow: var(--ripple); }
+.addr-base { color: var(--ink-3); white-space: nowrap; font-size: 13.5px; }
+.addr-status { min-height: 1.4em; margin: 2px 0 0; }
+.addr-status.ok { color: var(--color-success); }
+.addr-status.bad { color: var(--color-error); }
+.domain-own-title { font-size: 1rem; font-weight: 750; margin: 8px 0 4px; }
+[data-mode='dark'] .stage-badge { background: color-mix(in oklab, #e0a52b 22%, var(--sheet)); color: #f0c868; border-color: transparent; }

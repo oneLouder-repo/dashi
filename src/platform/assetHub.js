@@ -1,6 +1,7 @@
 import { coverArt } from '../ui/standIn.js';
 import { episodeHref } from './podcasts.js';
 import { uid } from '../core/ops.js';
+import { linkTo } from '../plugins.js';
 
 /**
  * The Asset manager's document ('assets'): everything an organisation has
@@ -150,9 +151,9 @@ export function gatherAssets(hub, docs = {}, { plugins = null } = {}) {
     for (const [mapId, entry] of Object.entries(docs.maps?.maps ?? {})) {
       const content = docs.mapContents?.[mapId];
       const n = Object.keys(content?.actors ?? {}).length;
-      add({ type: 'map', id: mapId }, { source: 'map', title: entry.title, description: entry.description, href: `mapper.html#${mapId}`, updatedAt: entry.updatedAt, by: entry.ownerId, kindLabel: 'Ecosystem map', icon: 'sec-mapper', sub: `${n} actor${n === 1 ? '' : 's'}`, abcd: null });
+      add({ type: 'map', id: mapId }, { source: 'map', title: entry.title, description: entry.description, href: linkTo('mapper', `#${mapId}`), updatedAt: entry.updatedAt, by: entry.ownerId, kindLabel: 'Ecosystem map', icon: 'sec-mapper', sub: `${n} actor${n === 1 ? '' : 's'}`, abcd: null });
       for (const a of Object.values(content?.actors ?? {})) {
-        add({ type: 'actor', id: a.id, mapId }, { source: 'actor', title: a.label || 'Untitled', description: a.meta?.description ?? '', href: `mapper.html#${mapId}`, kindLabel: a.kind === 'agent' ? 'Agent' : 'Actor', icon: a.kind === 'agent' ? 'agent' : 'actor', sub: entry.title, abcd: actorAbcd(a) });
+        add({ type: 'actor', id: a.id, mapId }, { source: 'actor', title: a.label || 'Untitled', description: a.meta?.description ?? '', href: linkTo('mapper', `#${mapId}`), kindLabel: a.kind === 'agent' ? 'Agent' : 'Actor', icon: a.kind === 'agent' ? 'agent' : 'actor', sub: entry.title, abcd: actorAbcd(a) });
       }
     }
   }
@@ -161,7 +162,7 @@ export function gatherAssets(hub, docs = {}, { plugins = null } = {}) {
   }
   if (on('library')) {
     for (const li of Object.values(docs.library?.items ?? {})) {
-      add({ type: 'library', id: li.id }, { source: 'library', title: li.meta?.title || li.file?.name || 'Untitled', description: li.meta?.abstract ?? '', href: `library.html#item/${li.id}`, file: li.file ?? null, url: li.url ?? null, updatedAt: li.updatedAt ? new Date(li.updatedAt).toISOString() : null, by: li.createdBy, kindLabel: li.kind === 'doc' ? 'Dashi doc' : li.kind === 'file' ? (fileGroup(li.file)?.label.replace(/s$/, '') ?? 'File') : 'Reference', icon: li.kind === 'doc' ? 'notePencil' : li.kind === 'file' ? fileGroup(li.file)?.icon ?? 'file' : 'book', group: li.file ? fileGroup(li.file)?.id : null, abcd: 'cultural', tagsFrom: li.tags, text: li.kind === 'doc' ? li.body ?? null : null });
+      add({ type: 'library', id: li.id }, { source: 'library', title: li.meta?.title || li.file?.name || 'Untitled', description: li.meta?.abstract ?? '', href: linkTo('library', `#item/${li.id}`), file: li.file ?? null, url: li.url ?? null, updatedAt: li.updatedAt ? new Date(li.updatedAt).toISOString() : null, by: li.createdBy, kindLabel: li.kind === 'doc' ? 'Dashi doc' : li.kind === 'file' ? (fileGroup(li.file)?.label.replace(/s$/, '') ?? 'File') : 'Reference', icon: li.kind === 'doc' ? 'notePencil' : li.kind === 'file' ? fileGroup(li.file)?.icon ?? 'file' : 'book', group: li.file ? fileGroup(li.file)?.id : null, abcd: 'cultural', tagsFrom: li.tags, text: li.kind === 'doc' ? li.body ?? null : null });
     }
   }
   if (on('podcasts')) {

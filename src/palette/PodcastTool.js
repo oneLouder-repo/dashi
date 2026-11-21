@@ -6,6 +6,7 @@ import { putMedia, audioDuration, maxUploadMb } from '../platform/media.js';
 import { fmtDuration, Cover, EpisodeArt } from '../site/station.js';
 import { today, short } from '../strategy/dates.js';
 import { uiAlert } from '../ui/dialog.js';
+import { linkTo } from '../plugins.js';
 
 
 /**
@@ -32,23 +33,23 @@ export function PodcastTool(ctx) {
       h('small', { class: 'muted' }, [showOf(e).title, `S${e.season} · E${e.number ?? '?'}`, fmtDuration(e.audio?.duration)].filter(Boolean).join(' · '))),
     h('span', { class: `pq-when ${e.status === 'draft' ? 'draft' : e.publishedAt > now ? 'soon' : 'out'}` }, e.status === 'draft' ? 'Draft' : e.publishedAt > now ? `Out ${short(e.publishedAt)}` : short(e.publishedAt)),
     action,
-    h('a', { class: 'btn btn-xs btn-ghost', href: `podcasts.html#episodes/${e.id}/edit`, title: 'Notes, guests and chapters' }, 'Edit'));
+    h('a', { class: 'btn btn-xs btn-ghost', href: linkTo('podcasts', `#episodes/${e.id}/edit`), title: 'Notes, guests and chapters' }, 'Edit'));
 
   return h('div', { class: 'pq' },
     h('div', { class: 'pq-head' },
       h('div', {},
         h('h1', {}, 'Podcast publishing'),
-        h('p', { class: 'lede' }, 'Drop an episode in and put it out, or send a draft live. Series, seasons and how the station looks are in ', h('a', { href: 'podcasts.html' }, 'Podcasts'), '.')),
+        h('p', { class: 'lede' }, 'Drop an episode in and put it out, or send a draft live. Series, seasons and how the station looks are in ', h('a', { href: linkTo('podcasts') }, 'Podcasts'), '.')),
       h('div', { class: 'pq-head-actions' },
         site ? h('a', { class: 'btn btn-sm', href: stationUrl, target: '_blank', rel: 'noopener' }, icon('globe', 14), 'Station page') : h('span', { class: 'muted small' }, 'The station isn’t on a site yet.'),
-        h('a', { class: 'btn btn-sm btn-ghost', href: 'podcasts.html' }, icon('mic', 14), 'Open Podcasts'))),
+        h('a', { class: 'btn btn-sm btn-ghost', href: linkTo('podcasts') }, icon('mic', 14), 'Open Podcasts'))),
     h('div', { class: 'pq-stats' },
       h('div', {}, h('strong', {}, String(shows.length)), h('small', {}, shows.length === 1 ? 'show' : 'shows')),
       h('div', {}, h('strong', {}, String(Object.values(doc.episodes).filter((e) => published(e, now)).length)), h('small', {}, 'episodes out')),
       h('div', {}, h('strong', {}, String(waiting.length)), h('small', {}, 'waiting')),
       h('div', {}, h('strong', {}, next ? short(next.publishedAt) : '—'), h('small', {}, next ? `next: ${next.title}` : 'nothing scheduled'))),
     h('div', { class: 'pq-grid' },
-      shows.length ? QuickPublish(ctx, shows, now) : h('p', { class: 'empty' }, 'No shows yet. Make one in ', h('a', { href: 'podcasts.html' }, 'Podcasts'), ' first.'),
+      shows.length ? QuickPublish(ctx, shows, now) : h('p', { class: 'empty' }, 'No shows yet. Make one in ', h('a', { href: linkTo('podcasts') }, 'Podcasts'), ' first.'),
       h('div', { class: 'pq-lists' },
         h('section', { class: 'pq-box' },
           h('h2', {}, 'Waiting to go out', h('span', { class: 'dg-count' }, String(waiting.length))),

@@ -1,4 +1,5 @@
 import { NODE_TYPES } from './strategy.js';
+import { linkTo } from '../plugins.js';
 
 /**
  * Org-wide search: one list of everything an organisation has written down,
@@ -35,23 +36,23 @@ export function buildIndex(docs = {}, { plugins = null } = {}) {
   if (on('maps')) {
     for (const [mapId, entry] of Object.entries(docs.maps?.maps ?? {})) {
       const m = docs.mapContents?.[mapId] ?? {};
-      add({ id: `map:${mapId}`, kind: 'Map', group: 'maps', title: entry.title || 'Untitled map', text: entry.description ?? '', href: `mapper.html#${mapId}`, icon: 'sec-mapper', sub: `${Object.keys(m.actors ?? {}).length} actors` });
+      add({ id: `map:${mapId}`, kind: 'Map', group: 'maps', title: entry.title || 'Untitled map', text: entry.description ?? '', href: linkTo('mapper', `#${mapId}`), icon: 'sec-mapper', sub: `${Object.keys(m.actors ?? {}).length} actors` });
       for (const a of Object.values(m.actors ?? {})) {
-        add({ id: `actor:${mapId}/${a.id}`, kind: a.kind === 'agent' ? 'Agent' : 'Actor', group: 'maps', title: a.label || 'Untitled', text: [a.meta?.description, a.meta?.notes, ...Object.values(a.meta?.facts ?? {})].filter(Boolean).join(' · '), tags: a.tags ?? [], href: `mapper.html#${mapId}/${a.id}`, icon: a.kind === 'agent' ? 'agent' : 'actor', sub: entry.title });
+        add({ id: `actor:${mapId}/${a.id}`, kind: a.kind === 'agent' ? 'Agent' : 'Actor', group: 'maps', title: a.label || 'Untitled', text: [a.meta?.description, a.meta?.notes, ...Object.values(a.meta?.facts ?? {})].filter(Boolean).join(' · '), tags: a.tags ?? [], href: linkTo('mapper', `#${mapId}/${a.id}`), icon: a.kind === 'agent' ? 'agent' : 'actor', sub: entry.title });
       }
       for (const c of Object.values(m.connectors ?? {})) {
         if (!c.label && !c.meta?.notes) continue;
         const from = m.actors?.[c.from?.actorId]?.label, to = m.actors?.[c.to?.actorId]?.label;
-        add({ id: `conn:${mapId}/${c.id}`, kind: 'Link', group: 'maps', title: c.label || `${from ?? '?'} → ${to ?? '?'}`, text: [from && to ? `${from} → ${to}` : '', c.meta?.notes].filter(Boolean).join(' · '), href: `mapper.html#${mapId}/${c.id}`, icon: 'connect', sub: entry.title });
+        add({ id: `conn:${mapId}/${c.id}`, kind: 'Link', group: 'maps', title: c.label || `${from ?? '?'} → ${to ?? '?'}`, text: [from && to ? `${from} → ${to}` : '', c.meta?.notes].filter(Boolean).join(' · '), href: linkTo('mapper', `#${mapId}/${c.id}`), icon: 'connect', sub: entry.title });
       }
       for (const g of Object.values(m.groups ?? {})) {
-        add({ id: `group:${mapId}/${g.id}`, kind: 'Group', group: 'maps', title: g.label || g.name || 'Group', text: g.meta?.notes ?? '', href: `mapper.html#${mapId}/${g.id}`, icon: 'collection', sub: entry.title });
+        add({ id: `group:${mapId}/${g.id}`, kind: 'Group', group: 'maps', title: g.label || g.name || 'Group', text: g.meta?.notes ?? '', href: linkTo('mapper', `#${mapId}/${g.id}`), icon: 'collection', sub: entry.title });
       }
     }
   }
   if (on('strategy')) {
     for (const n of Object.values(docs.strategy?.nodes ?? {})) {
-      add({ id: `node:${n.id}`, kind: NODE_TYPES[n.type]?.label ?? 'Item', group: 'strategy', title: n.title || 'Untitled', text: [n.notes, n.description, ...(n.measures ?? []).map((m) => m.name)].filter(Boolean).join(' · '), tags: n.tags ?? [], href: `strategy.html#${n.id}`, icon: n.type === 'task' ? 'checklist' : 'sec-strategy', sub: docs.strategy.nodes[n.parentId]?.title ?? '', due: n.end ?? n.due ?? null, status: n.status ?? null, ownerId: n.ownerId ?? null });
+      add({ id: `node:${n.id}`, kind: NODE_TYPES[n.type]?.label ?? 'Item', group: 'strategy', title: n.title || 'Untitled', text: [n.notes, n.description, ...(n.measures ?? []).map((m) => m.name)].filter(Boolean).join(' · '), tags: n.tags ?? [], href: linkTo('strategy', `#${n.id}`), icon: n.type === 'task' ? 'checklist' : 'sec-strategy', sub: docs.strategy.nodes[n.parentId]?.title ?? '', due: n.end ?? n.due ?? null, status: n.status ?? null, ownerId: n.ownerId ?? null });
     }
   }
   if (on('library')) {
@@ -59,27 +60,27 @@ export function buildIndex(docs = {}, { plugins = null } = {}) {
       const m = it.meta ?? {};
       const authors = (m.creators ?? []).map((c) => c.literal ?? [c.given, c.family].filter(Boolean).join(' ')).join(', ');
       add({ id: `lib:${it.id}`, kind: it.kind === 'doc' ? 'Dashi doc' : it.kind === 'file' ? 'Document' : 'Reference', group: 'library', title: m.title || it.file?.name || 'Untitled',
-        text: [authors, m.abstract, plain(it.body), ...(it.notes ?? []).flatMap((x) => [x.quote, x.text])].filter(Boolean).join(' · '), tags: [...(it.tags ?? []), ...(m.keywords ?? [])], href: `library.html#item/${it.id}`, icon: it.kind === 'doc' ? 'notePencil' : 'book', sub: [authors, (m.issued ?? '').slice(0, 4)].filter(Boolean).join(' · ') });
+        text: [authors, m.abstract, plain(it.body), ...(it.notes ?? []).flatMap((x) => [x.quote, x.text])].filter(Boolean).join(' · '), tags: [...(it.tags ?? []), ...(m.keywords ?? [])], href: linkTo('library', `#item/${it.id}`), icon: it.kind === 'doc' ? 'notePencil' : 'book', sub: [authors, (m.issued ?? '').slice(0, 4)].filter(Boolean).join(' · ') });
     }
     for (const b of Object.values(docs.library?.bibs ?? {})) {
-      add({ id: `bib:${b.id}`, kind: 'Bibliography', group: 'library', title: b.title, text: [b.description, ...Object.values(b.annotations ?? {}).map((a) => a.text)].filter(Boolean).join(' · '), href: `library.html#bib/${b.id}`, icon: 'news', sub: `${b.itemIds?.length ?? 0} sources` });
+      add({ id: `bib:${b.id}`, kind: 'Bibliography', group: 'library', title: b.title, text: [b.description, ...Object.values(b.annotations ?? {}).map((a) => a.text)].filter(Boolean).join(' · '), href: linkTo('library', `#bib/${b.id}`), icon: 'news', sub: `${b.itemIds?.length ?? 0} sources` });
     }
   }
   if (on('assets')) {
     for (const it of Object.values(docs.assets?.items ?? {})) {
       if (it.kind === 'ref') continue; // notes on Dashi things are found with the thing itself
-      add({ id: `asset:${it.id}`, kind: it.kind === 'file' ? 'File' : it.kind === 'link' ? 'Link' : 'Note', group: 'assets', title: it.title || it.file?.name || 'Untitled', text: [it.description, it.text, it.file?.name, it.url].filter(Boolean).join(' · '), tags: it.tags ?? [], href: `assets.html#key=${encodeURIComponent(it.id)}`, icon: it.kind === 'file' ? 'file' : it.kind === 'link' ? 'link' : 'note' });
+      add({ id: `asset:${it.id}`, kind: it.kind === 'file' ? 'File' : it.kind === 'link' ? 'Link' : 'Note', group: 'assets', title: it.title || it.file?.name || 'Untitled', text: [it.description, it.text, it.file?.name, it.url].filter(Boolean).join(' · '), tags: it.tags ?? [], href: linkTo('assets', `#key=${encodeURIComponent(it.id)}`), icon: it.kind === 'file' ? 'file' : it.kind === 'link' ? 'link' : 'note' });
     }
   }
   for (const s of Object.values(docs.org?.staff ?? {})) {
     add({ id: `staff:${s.id}`, kind: 'Person', group: 'people', title: s.name, text: [s.title, s.bio, s.email].filter(Boolean).join(' · '), href: `org.html#people/${s.id}`, icon: 'person', sub: s.title ?? '', person: s });
   }
   if (on('podcasts')) {
-    for (const p of Object.values(docs.podcasts?.podcasts ?? {})) add({ id: `show:${p.id}`, kind: 'Series', group: 'podcasts', title: p.title || 'Untitled series', text: p.description ?? '', href: `podcasts.html#series/${p.id}`, icon: 'sec-podcasts' });
-    for (const e of Object.values(docs.podcasts?.episodes ?? {})) add({ id: `ep:${e.id}`, kind: 'Episode', group: 'podcasts', title: e.title || 'Untitled episode', tags: e.tags ?? [], text: [e.summary, e.description, e.notes, e.transcript, ...(e.chapters ?? []).map((c) => c.title)].filter(Boolean).join(' · '), href: `podcasts.html#episodes/${e.id}`, icon: 'music', sub: docs.podcasts.podcasts?.[e.podcastId]?.title ?? '' });
+    for (const p of Object.values(docs.podcasts?.podcasts ?? {})) add({ id: `show:${p.id}`, kind: 'Series', group: 'podcasts', title: p.title || 'Untitled series', text: p.description ?? '', href: linkTo('podcasts', `#series/${p.id}`), icon: 'sec-podcasts' });
+    for (const e of Object.values(docs.podcasts?.episodes ?? {})) add({ id: `ep:${e.id}`, kind: 'Episode', group: 'podcasts', title: e.title || 'Untitled episode', tags: e.tags ?? [], text: [e.summary, e.description, e.notes, e.transcript, ...(e.chapters ?? []).map((c) => c.title)].filter(Boolean).join(' · '), href: linkTo('podcasts', `#episodes/${e.id}`), icon: 'music', sub: docs.podcasts.podcasts?.[e.podcastId]?.title ?? '' });
   }
   if (on('pages')) {
-    for (const p of Object.values(docs.pages?.pages ?? {})) add({ id: `page:${p.id}`, kind: p.kind === 'article' ? 'News article' : 'Page', group: 'pages', title: p.title || 'Untitled', text: [p.summary, plain(p.body)].filter(Boolean).join(' · '), href: `pages.html#${p.id}`, icon: 'fileText' });
+    for (const p of Object.values(docs.pages?.pages ?? {})) add({ id: `page:${p.id}`, kind: p.kind === 'article' ? 'News article' : 'Page', group: 'pages', title: p.title || 'Untitled', text: [p.summary, plain(p.body)].filter(Boolean).join(' · '), href: linkTo('pages', `#${p.id}`), icon: 'fileText' });
   }
   return out;
 }

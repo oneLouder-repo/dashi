@@ -1,7 +1,7 @@
 import { h, options } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { Shell } from '../ui/Shell.js';
-import { SideNav, swapSide } from '../ui/SideNav.js';
+import { SideNav, swapSide, reachable } from '../ui/SideNav.js';
 import { Store } from '../core/Store.js';
 import { applyCollectionOp, col } from '../core/collections.js';
 import { autosaveDoc, loadDoc, saveDoc } from '../platform/storage.js';
@@ -28,6 +28,7 @@ import { EpisodeCard, ShowCard, Player } from '../site/station.js';
 import { today, short } from '../strategy/dates.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
 import { uiAlert, uiConfirm, uiPrompt, uiPanel } from '../ui/dialog.js';
+import { linkTo } from '../plugins.js';
 
 /**
  * Public Portal (formerly Web views, and before that Sites & Pages): one
@@ -85,10 +86,10 @@ function renderSide() {
     { title: 'Public Portal', items: [
       { label: 'Overview', sub: 'Every site, and what is live', icon: 'home', href: '#sites', on: r === 'sites' },
       { label: 'Look and feel', sub: org.theme?.palette ? `${org.theme.palette === 'custom' ? 'Your own' : paletteById[org.theme.palette]?.label ?? 'Your'} colours, ${shapeById[org.theme.shape]?.label?.toLowerCase() ?? 'rounded'}` : 'Colours and shapes', icon: 'palette', href: '#look', on: r === 'look' || r.startsWith('look/') },
-      { label: 'Dashboards', sub: 'Data Workbench', icon: 'chart', href: 'palette.html#dashboards' },
-      { label: 'Feedback forms', sub: 'Data Workbench', icon: 'chats', href: 'palette.html#feedback' },
-      { label: 'Strategic plan', sub: 'Plan designer', icon: 'strategy', href: 'plandoc.html' },
-      pluginOn(org, 'podcasts') && { label: 'Podcast station', sub: 'Podcasts', icon: 'mic', href: 'podcasts.html#station' },
+      { label: 'Dashboards', sub: 'Data Workbench', icon: 'chart', href: linkTo('palette', '#dashboards') },
+      { label: 'Feedback forms', sub: 'Data Workbench', icon: 'chats', href: linkTo('palette', '#feedback') },
+      { label: 'Strategic plan', sub: 'Plan designer', icon: 'strategy', href: linkTo('plandoc') },
+      pluginOn(org, 'podcasts') && { label: 'Podcast station', sub: 'Podcasts', icon: 'mic', href: linkTo('podcasts', '#station') },
       criticalOn(org) && { label: 'Media smart', sub: 'Critical Media', icon: 'news', href: 'plugin.html?id=critical-media' },
     ].filter(Boolean) },
     { title: 'Sites', action: { label: 'New site', onclick: newSite }, items: byVis('public').map(siteItem) },
@@ -138,11 +139,11 @@ function Sites() {
   // Getting the public side working, step by step.
   const steps = [
     { done: publicSites.length > 0 && !!org.theme?.palette, title: 'Your look and your sites', text: org.theme?.palette ? `${paletteById[org.theme.palette]?.label ?? org.theme.palette} colours, ${shapeById[org.theme.shape]?.label?.toLowerCase() ?? 'rounded'} shapes, ${publicSites.length} public site${publicSites.length === 1 ? '' : 's'}.` : 'Pick your colours and shape, and name your public sites.', href: '#look', action: 'Look and feel' },
-    { done: dashes.some((d) => d.visibility === 'public' && d.siteId), title: 'Live dashboards', text: `${dashes.filter((d) => d.visibility === 'public' && d.siteId).length} of ${dashes.length} dashboards are public. Design them as visitors will see them.`, href: 'palette.html#dashboards', action: 'Design dashboards' },
-    { done: plans.some(isLivePlan), title: 'Your strategic plan', text: plans.some(isLivePlan) ? 'Your plan is online, and downloads as a PDF.' : 'Turn your strategy into a designed plan to read online or download as a PDF.', href: 'plandoc.html', action: 'Plan designer' },
-    hasPods && { done: !!station, title: 'Your podcast station', text: station ? `On ${station.name}, with ${liveEpisodes().length} episodes out.` : 'Put the station on a site so listeners can find it.', href: 'podcasts.html#station', action: 'Station' },
+    { done: dashes.some((d) => d.visibility === 'public' && d.siteId), title: 'Live dashboards', text: `${dashes.filter((d) => d.visibility === 'public' && d.siteId).length} of ${dashes.length} dashboards are public. Design them as visitors will see them.`, href: linkTo('palette', '#dashboards'), action: 'Design dashboards' },
+    { done: plans.some(isLivePlan), title: 'Your strategic plan', text: plans.some(isLivePlan) ? 'Your plan is online, and downloads as a PDF.' : 'Turn your strategy into a designed plan to read online or download as a PDF.', href: linkTo('plandoc'), action: 'Plan designer' },
+    hasPods && { done: !!station, title: 'Your podcast station', text: station ? `On ${station.name}, with ${liveEpisodes().length} episodes out.` : 'Put the station on a site so listeners can find it.', href: linkTo('podcasts', '#station'), action: 'Station' },
     { done: pages.some((p) => p.kind === 'page' && isLive(p, now)), title: 'Pages and news', text: `${pages.filter((p) => p.kind === 'page' && isLive(p, now)).length} pages and ${pages.filter((p) => p.kind === 'article' && isLive(p, now)).length} articles are live. Say who you are and what’s new.`, onclick: () => newPage('page'), action: 'New page' },
-  ].filter(Boolean);
+  ].filter(reachable);
   const doneCount = steps.filter((x) => x.done).length;
 
   return h('div', { class: 'wv' },
@@ -173,22 +174,22 @@ function propertiesOf(site) {
   const out = [];
   const isPublic = site.visibility !== 'private';
   const add = (kind, icon, title, live, href) => out.push({ kind, icon, title, live, href });
-  for (const d of Object.values(docs.dashboards.dashboards).filter((x) => x.siteId === site.id)) add('Dashboard', 'chart', d.title, !isPublic || (d.visibility === 'public' && site.visibility === 'public'), `palette.html#${d.id}`);
-  for (const d of Object.values(docs.plandocs.docs).filter((x) => x.siteId === site.id)) add('Plan', 'strategy', docs.strategy.nodes[d.planId]?.title ?? d.snapshot?.plan?.title ?? 'Plan', isLivePlan(d), `plandoc.html#${d.id}`);
-  if (pluginOn(org, 'podcasts') && docs.podcasts.station.siteId === site.id) add('Station', 'mic', docs.podcasts.station.name, liveEpisodes().length > 0, 'podcasts.html#station');
-  for (const x of Object.values(docs.dashboards.stories ?? {}).filter((y) => y.siteId === site.id)) add('Story', 'story', x.title, x.visibility === 'public', 'palette.html#stories');
-  for (const x of Object.values(docs.dashboards.calculators ?? {}).filter((y) => y.siteId === site.id)) add('Calculator', 'gift', x.title, x.visibility === 'public', 'palette.html#impact');
+  for (const d of Object.values(docs.dashboards.dashboards).filter((x) => x.siteId === site.id)) add('Dashboard', 'chart', d.title, !isPublic || (d.visibility === 'public' && site.visibility === 'public'), linkTo('palette', `#${d.id}`));
+  for (const d of Object.values(docs.plandocs.docs).filter((x) => x.siteId === site.id)) add('Plan', 'strategy', docs.strategy.nodes[d.planId]?.title ?? d.snapshot?.plan?.title ?? 'Plan', isLivePlan(d), linkTo('plandoc', `#${d.id}`));
+  if (pluginOn(org, 'podcasts') && docs.podcasts.station.siteId === site.id) add('Station', 'mic', docs.podcasts.station.name, liveEpisodes().length > 0, linkTo('podcasts', '#station'));
+  for (const x of Object.values(docs.dashboards.stories ?? {}).filter((y) => y.siteId === site.id)) add('Story', 'story', x.title, x.visibility === 'public', linkTo('palette', '#stories'));
+  for (const x of Object.values(docs.dashboards.calculators ?? {}).filter((y) => y.siteId === site.id)) add('Calculator', 'gift', x.title, x.visibility === 'public', linkTo('palette', '#impact'));
   const pages = Object.values(doc().pages).filter((p) => p.siteId === site.id);
   for (const p of pages.filter((x) => x.kind === 'page')) add('Page', 'doc', p.title, isLive(p, now), `#${p.id}`);
   const articles = pages.filter((x) => x.kind === 'article');
   if (articles.length) add('News', 'news', `${articles.filter((a) => isLive(a, now)).length} articles`, articles.some((a) => isLive(a, now)), `#${articles[0].id}`);
-  for (const f of Object.values(docs.dashboards.forms ?? {}).filter((x) => x.siteId === site.id)) add('Feedback', 'chats', f.title, !isPublic || f.visibility === 'public', 'palette.html#feedback');
+  for (const f of Object.values(docs.dashboards.forms ?? {}).filter((x) => x.siteId === site.id)) add('Feedback', 'chats', f.title, !isPublic || f.visibility === 'public', linkTo('palette', '#feedback'));
   if (site.visibility === 'public' && criticalOn(org) && docs.critical.settings?.corner !== false && onSiteFor(docs.critical.settings ?? {}, site.id)) add('Media smart', 'news', 'Lessons and tips', true, 'plugin.html?id=critical-media');
   if (!isPublic) {
     const board = Object.values(docs.library.items ?? {}).filter((it) => (it.tags ?? []).includes('board'));
     for (const [tag, label, icon] of [['governance', 'Governance', 'scales'], ['minutes', 'Minutes', 'notePencil'], ['finance', 'Finance', 'chart']]) {
       const n = board.filter((it) => it.tags.includes(tag)).length;
-      add('Papers', icon, `${label}: ${n} document${n === 1 ? '' : 's'}`, n > 0, `library.html#tag/${tag}`);
+      add('Papers', icon, `${label}: ${n} document${n === 1 ? '' : 's'}`, n > 0, linkTo('library', `#tag/${tag}`));
     }
   }
   return out;
@@ -329,11 +330,11 @@ function SitePage(s) {
   const addLinks = [
     { label: 'Page', icon: 'doc', onclick: () => newPage('page', s.id) },
     { label: 'News article', icon: 'news', onclick: () => newPage('article', s.id) },
-    { label: 'Dashboard', icon: 'chart', href: 'palette.html#dashboards' },
-    { label: 'Feedback form', icon: 'chats', href: 'palette.html#feedback' },
-    { label: 'Data story', icon: 'story', href: 'palette.html#stories' },
-    !isPublic && { label: 'Board paper', icon: 'books', href: 'library.html#tag/board' },
-  ].filter(Boolean);
+    { label: 'Dashboard', icon: 'chart', href: linkTo('palette', '#dashboards') },
+    { label: 'Feedback form', icon: 'chats', href: linkTo('palette', '#feedback') },
+    { label: 'Data story', icon: 'story', href: linkTo('palette', '#stories') },
+    !isPublic && { label: 'Board paper', icon: 'books', href: linkTo('library', '#tag/board') },
+  ].filter(reachable);
 
   return h('div', { class: 'wv-sitepage' },
     h('header', { class: 'wv-sitepage-head' },
@@ -513,13 +514,13 @@ async function addProperty() {
     { id: 'site', label: 'Site or portal', sub: 'A new public site, or a members-only portal', icon: 'globe' },
     { id: 'page', label: 'Page', sub: 'Who you are, how to get involved', icon: 'doc', needsSite: true },
     { id: 'article', label: 'News article', sub: 'What’s new, with a date', icon: 'news', needsSite: true },
-    { id: 'dashboard', label: 'Dashboard', sub: 'In the Data Workbench', icon: 'chart', href: 'palette.html#dashboards' },
-    { id: 'feedback', label: 'Feedback form', sub: 'In the Data Workbench', icon: 'chats', href: 'palette.html#feedback' },
-    { id: 'story', label: 'Data story', sub: 'In the Data Workbench', icon: 'story', href: 'palette.html#stories' },
-    { id: 'calculator', label: 'Impact calculator', sub: 'In the Data Workbench', icon: 'gift', href: 'palette.html#impact' },
-    { id: 'plan', label: 'Strategic plan', sub: 'In the Plan designer', icon: 'strategy', href: 'plandoc.html' },
-    pluginOn(org, 'podcasts') && { id: 'station', label: 'Podcast station', sub: 'In Podcasts', icon: 'mic', href: 'podcasts.html#station' },
-  ].filter(Boolean);
+    { id: 'dashboard', label: 'Dashboard', sub: 'In the Data Workbench', icon: 'chart', href: linkTo('palette', '#dashboards') },
+    { id: 'feedback', label: 'Feedback form', sub: 'In the Data Workbench', icon: 'chats', href: linkTo('palette', '#feedback') },
+    { id: 'story', label: 'Data story', sub: 'In the Data Workbench', icon: 'story', href: linkTo('palette', '#stories') },
+    { id: 'calculator', label: 'Impact calculator', sub: 'In the Data Workbench', icon: 'gift', href: linkTo('palette', '#impact') },
+    { id: 'plan', label: 'Strategic plan', sub: 'In the Plan designer', icon: 'strategy', href: linkTo('plandoc') },
+    pluginOn(org, 'podcasts') && { id: 'station', label: 'Podcast station', sub: 'In Podcasts', icon: 'mic', href: linkTo('podcasts', '#station') },
+  ].filter(reachable);
   let pick = KINDS[1];
   let siteId = sites.find((s) => s.visibility === 'public')?.id ?? sites[0]?.id ?? null;
   const choice = await uiPanel({

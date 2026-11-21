@@ -1,7 +1,7 @@
 import { h } from './dom.js';
 import { icon } from './icons.js';
 import { RippleMark } from './Wordmark.js';
-import { enabledPlugins, orgPlugins, toneFor, PLUGINS } from '../plugins.js';
+import { enabledPlugins, canOpen, orgUses, currentWho, toneFor, PLUGINS } from '../plugins.js';
 import { ROLES, initials } from '../platform/org.js';
 import { FeedbackButton, version } from './Support.js';
 import { NetLight } from './netlight.js';
@@ -11,6 +11,7 @@ import { SearchBox, wireSearchKey } from './SearchBox.js';
 import { setPlugin } from './crumbs.js';
 import { session } from '../platform/storage.js';
 import { orgList, openOrg, createOrg, currentUser, signInAs, can, signOut, signedInUser, platformUrl } from '../platform/session.js';
+import { ModeToggle } from './mode.js';
 
 /**
  * The header shared by every page, in two rows:
@@ -48,6 +49,7 @@ export function Shell(el, { current, org }) {
       h('span', { class: 'shell-gap' }),
       SearchBox(org),
       netLight ??= NetLight(),
+      ModeToggle(),
       h('a', { class: `shell-icon${current === 'help' ? ' active' : ''}`, href: 'help.html', 'aria-label': 'Help', 'data-tip': 'Help' }, icon('question', 19)),
       h('details', { class: 'dropdown dropdown-end shell-user' },
         h('summary', { title: 'Your profile', 'aria-label': 'Your profile and organisations' }, Avatar(me, 30)),
@@ -102,20 +104,26 @@ let wired = false;
 let netLight = null;
 
 /**
- * A plugin the org uses but this person's role doesn't get (Organisation →
- * Plugins, by role): say so kindly over the page, with a way home. The
- * server still decides what each role may change.
+ * A plugin this person can't open: switched off for the org, inside a
+ * parent that is off, or left out of their role or for them alone
+ * (Organisation → Plugins). Say so kindly over the page, with a way home.
+ * The server already withholds the plugin's documents (platform/access.js).
  */
 function RoleGate(org, current, role) {
   const p = PLUGINS.find((x) => x.id === current);
-  const blocked = p && !p.core && orgPlugins(org).includes(p) && !enabledPlugins(org).includes(p);
+  const blocked = p && !p.core && !canOpen(org, p.id);
   document.querySelector('.role-gate')?.remove();
   if (!blocked) return;
+  const forOrg = !orgUses(org, p.id);
+  const forMe = !forOrg && org.pluginPeople?.[p.id]?.[currentWho(org).staffId] === false;
   document.body.append(h('div', { class: 'role-gate', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'role-gate-title' },
     h('div', { class: 'role-gate-card', style: `--tone:${p.tone}` },
       h('span', { class: 'role-gate-icon', 'aria-hidden': 'true' }, icon(p.icon, 26)),
-      h('h1', { id: 'role-gate-title' }, `${p.name} isn’t in your toolkit`),
-      h('p', {}, `Your organisation gives ${role?.label ? `the ${role.label} role` : 'your role'} its own set of tools, and ${p.name} isn’t one of them yet. If you need it, ask an admin: they can change it under Organisation → Plugins.`),
+      h('h1', { id: 'role-gate-title' }, forOrg ? `${p.name} isn’t switched on here` : `${p.name} isn’t in your toolkit`),
+      h('p', {}, forOrg
+        ? `Your organisation doesn’t use ${p.name} at the moment. An admin can switch it on under Organisation → Plugins.`
+        : forMe ? `An admin has switched ${p.name} off for you. If you need it, ask them: it’s under Organisation → Plugins.`
+        : `Your organisation gives ${role?.label ? `the ${role.label} role` : 'your role'} its own set of tools, and ${p.name} isn’t one of them yet. If you need it, ask an admin: they can change it under Organisation → Plugins.`),
       h('a', { class: 'btn btn-primary', href: 'index.html' }, 'Back to your dashboard'))));
 }
 

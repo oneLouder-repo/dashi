@@ -1,3 +1,4 @@
+import { linkTo } from '../plugins.js';
 /**
  * Podcasts: an org's own podcast station. The shape follows Castopod's
  * model (https://castopod.org), so a self-hosted Node service (or a
@@ -157,9 +158,9 @@ export function migratePodcasts(doc) {
 export const slugify = (s) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_-]+/g, '-');
 
 /** Where an episode opens in the Podcasts plugin: in a tray over the episode list. */
-export const episodeHref = (e) => `podcasts.html#episodes/${e.id}`;
+export const episodeHref = (e) => linkTo('podcasts', `#episodes/${e.id}`);
 /** Where a series opens in the Podcasts plugin. */
-export const seriesHref = (p) => `podcasts.html#series/${p.id}`;
+export const seriesHref = (p) => linkTo('podcasts', `#series/${p.id}`);
 
 /**
  * Reads a Podcasts address: { scope, seriesId, base, tray }. `base` is the

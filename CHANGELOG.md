@@ -2,6 +2,27 @@
 
 Dashi uses version numbers like `0.1.0-alpha.1`. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
+## Alpha 0.2 (in progress): plugins that own their data, screens and designer
+
+From 0.2 on, each alpha point version (0.2, 0.3…) is one major platform feature, and its sub-versions (0.2.1, 0.2.2…) are bug hunts and polish from live testing. 0.2 lands over several pull requests; this is the first.
+
+### Plugin access, enforced everywhere (PR 1)
+
+- **The server now enforces plugin access.** Every document belongs to a plugin (Podcasts owns `podcasts`, Strategy & Work owns `strategy` and `plandocs`, and so on). Someone who can't use a plugin gets only what a visitor to the public site would see of its documents, and can't save them. Before, this was only hidden in the menus.
+- **One rule, in order:** the platform, the org's plan, the org's switch, the parent plugin, the person's role, then the person themselves. The same code runs on the server and in the browser (`src/platform/access.js`).
+- **Switch a plugin off (or on) for one person**, whatever their role: Organisation → Plugins, open a plugin, "For one person".
+- **Sub-plugins.** A plugin can live inside a parent and only works when the parent does. Planning Studio is now inside Strategy & Work; Organisation → Plugins shows the tree.
+- **No more links into closed plugins.** Every link to another plugin goes through one check, and a menu item or link to a plugin you can't use is simply not drawn (in SJR, Public Portal no longer offers Dashboards, Feedback forms or the Plan designer when those plugins are off). A test fails the build if a page hard-codes another plugin's address. Opening a closed plugin directly says why, kindly: switched off for the organisation, for your role, or for you.
+
+### Domain
+
+- **Change your Dashi address** (Organisation → Domain, and Platform admin): the field checks as you type whether the address is free and well formed (one word, letters and numbers, a dash between words, not case sensitive, unique across every org). The old address sends people on to the new one for 30 days. Your Dashi address keeps working as a mirror of your own domain.
+- Fixed: Domain showed "falsefalse" on plans without custom domains.
+
+### Light and dark
+
+- A light/dark switch in the header, remembered per person in each browser. Until you choose, Dashi follows your device. Public sites keep their own look.
+
 ## Unreleased (alpha.10 fixes, podcasts with the episode first, and the Planning Studio)
 
 ### Planning Studio: one plan level, an easier way in, and a theory of change

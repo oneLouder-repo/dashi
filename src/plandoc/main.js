@@ -13,6 +13,7 @@ import { ImagePicker } from './ImagePicker.js';
 import { printPlan } from './print.js';
 import { short } from '../strategy/dates.js';
 import { uiConfirm } from '../ui/dialog.js';
+import { linkTo } from '../plugins.js';
 
 /**
  * The Plan designer: a strategic plan document made from the org's own
@@ -57,7 +58,7 @@ function create(planId) {
 function drawSide(pd) {
   side = swapSide(side, SideNav({ label: 'Planning Studio', sections: [
     { title: 'Planning Studio', items: [
-      { label: 'Framework and plans', sub: 'Mission, vision, values', icon: 'strategy', href: 'studio.html#framework' },
+      { label: 'Framework and plans', sub: 'Mission, vision, values', icon: 'strategy', href: linkTo('studio', '#framework') },
       { label: 'Plan designer', sub: 'Designed plans to print or publish', icon: 'brush', href: 'plandoc.html', on: true },
       { label: 'Strategy & Work', sub: 'The plans as work', icon: 'mapTrifold', href: 'strategy.html' },
     ] },

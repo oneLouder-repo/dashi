@@ -8,6 +8,7 @@ import { monthLabel, today } from '../strategy/dates.js';
 import { RoadSvg, currentPlan } from '../strategy/Road.js';
 import { loadDoc } from '../platform/storage.js';
 import { migrateFeedback } from '../platform/feedback.js';
+import { linkTo } from '../plugins.js';
 
 /** The Workbench's front page: what is here, and a way into each mini-tool. */
 export function HomeTool(ctx) {
@@ -43,7 +44,7 @@ export function HomeTool(ctx) {
         h('p', { class: 'muted small' }, usesStrategy.length ? `In use on ${usesStrategy.map((d) => d.title).join(', ')}.` : 'Not on a dashboard yet.'),
         h('div', { class: 'stat-line' },
           h('a', { class: 'btn btn-sm btn-primary', href: `#${usesStrategy[0]?.id ?? 'dashboards'}` }, icon('chart', 14), usesStrategy.length ? `Open ${usesStrategy[0].title}` : 'Pick a dashboard'),
-          h('a', { class: 'btn btn-sm btn-ghost', href: 'strategy.html#roadmap' }, 'The full roadmap'))),
+          h('a', { class: 'btn btn-sm btn-ghost', href: linkTo('strategy', '#roadmap') }, 'The full roadmap'))),
       h('div', { class: 'wb-road' }, road.el)),
     h('h2', {}, 'Mini-tools'),
     h('div', { class: 'cards' }, ctx.tools.filter((t) => t.id !== 'home').map((t) =>

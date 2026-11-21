@@ -28,6 +28,7 @@ import { Markdown } from '../ui/markdown.js';
 import { StationHome, ShowPage, EpisodePage, EpisodeCard, ShowCard, Player, lookClasses } from '../site/station.js';
 import { today, short } from '../strategy/dates.js';
 import { criticalOn, migrateCritical, onSiteFor, lessonsOf, suggestFor, STOP_THINK_CHECK, SIX_QUESTIONS, TRACE, CREDIT, DOC as CRITICAL_DOC } from '../platform/criticalMedia.js';
+import { linkTo } from '../plugins.js';
 
 /**
  * A sample public site: site.html?site=<id>, with its own pages:
@@ -196,7 +197,7 @@ function render() {
 
   root.replaceChildren(
     // replaceChildren would print a bare false, so an empty string when there's no banner.
-    !staffView || params().frame === '1' ? '' : h('div', { class: 'preview-banner' }, portal ? `${site.name}: members only. Board members and staff who sign in see this. ` : isHosted() ? 'You’re signed in, so this is the public site as visitors see it. ' : 'Sample public site, made by Dashi from live data. ', h('a', { href: 'pages.html' }, 'Back to Dashi')),
+    !staffView || params().frame === '1' ? '' : h('div', { class: 'preview-banner' }, portal ? `${site.name}: members only. Board members and staff who sign in see this. ` : isHosted() ? 'You’re signed in, so this is the public site as visitors see it. ' : 'Sample public site, made by Dashi from live data. ', h('a', { href: linkTo('pages') }, 'Back to Dashi')),
     h('header', { class: 'site-head' },
       h('div', { class: 'inner' },
         h('a', { class: 'site-brand', href: link({}) }, Logo(org, 36), h('span', {}, h('strong', {}, org.name), portal && h('small', {}, icon('lock', 11), site.name))),
@@ -381,7 +382,7 @@ function BoardHome(site) {
         h('small', {}, list.length ? `${list.length} document${list.length === 1 ? '' : 's'} · latest ${dateWords(list[0].meta.issued)}` : 'Nothing yet'));
     })),
     Forms(site.id, 'home', { members: true }),
-    !isHosted() || session()?.canEdit ? h('p', { class: 'site-small portal-staff' }, 'Staff: board documents are Library documents tagged “board”, plus “governance”, “minutes” or “finance”. ', h('a', { href: 'library.html#tag/board' }, 'Manage them in the Library'), '.') : '');
+    !isHosted() || session()?.canEdit ? h('p', { class: 'site-small portal-staff' }, 'Staff: board documents are Library documents tagged “board”, plus “governance”, “minutes” or “finance”. ', h('a', { href: linkTo('library', '#tag/board') }, 'Manage them in the Library'), '.') : '');
 }
 
 function BoardPage(site, p, current, title) {
@@ -404,7 +405,7 @@ function BoardPage(site, p, current, title) {
         i < list.length - 1 ? h('a', { class: 'next', href: link({ doc: list[i + 1].id }) }, h('small', {}, 'Older →'), list[i + 1].meta.title) : h('span')),
       h('div', { class: 'portal-doc-tools' },
         h('button', { class: 'btn btn-sm btn-ghost', onclick: () => print() }, icon('download', 14), 'Print or save as PDF'),
-        (!isHosted() || session()?.canEdit) && h('a', { class: 'btn btn-sm btn-ghost', href: `library.html#item/${it.id}` }, icon('pencil', 14), 'Edit in the Library'))) };
+        (!isHosted() || session()?.canEdit) && h('a', { class: 'btn btn-sm btn-ghost', href: linkTo('library', `#item/${it.id}`) }, icon('pencil', 14), 'Edit in the Library'))) };
   }
   const kind = BOARD_KINDS.find((k) => k.id === p.view);
   if (!kind) return { current, title, body: BoardHome(site) };

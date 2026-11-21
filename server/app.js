@@ -45,6 +45,8 @@ import { planFor, allPlans, overLimit, usageOf, PLAN_IDS } from '../src/platform
 import { siteContent } from '../src/platform/salesSite.js';
 import { mergeRegistry, registryView, pausedByRegistry, manifestProblems, cleanManifest, compareVersions, bumpVersion, defaultManifest, manifestFromPackage, blankManifest, SCAFFOLDS } from '../src/platform/pluginRegistry.js';
 import { blankStrategy } from '../src/platform/strategySeed.js';
+import { BUILT_IN_PLUGINS } from '../src/plugins.js';
+import { docMode } from '../src/platform/access.js';
 import { cleanResponse, migrateFeedback } from '../src/platform/feedback.js';
 import { newSecret, checkCode, otpauthUrl } from './totp.js';
 import { billingSettings, stripeReady, stripeMode, stripe, verifySignature, eventChange, checkoutParams, BILLING_DEFAULTS } from './billing.js';
@@ -122,6 +124,48 @@ export function createApp(db, options = {}) {
     for (const row of q('SELECT name, json FROM docs WHERE org_id = ?').all(orgId)) docs[row.name] = withPlatform(orgId, row.name, JSON.parse(row.json));
     return docs;
   }
+  /**
+   * Plugin access (platform/access.js): the registry's plugins with what each
+   * owns and reads, so every document read and write can be checked against
+   * the plugins this person can use, not just what the menus show.
+   */
+  const accessPlugins = () => Object.values(registry().plugins).map((m) => {
+    const b = BUILT_IN_PLUGINS.find((p) => p.id === m.id);
+    return {
+      id: m.id, core: !!m.core, defaultOff: !!m.defaultOff, platformOff: !m.core && m.status !== 'installed',
+      parent: b ? b.parent ?? null : m.parent ?? null,
+      owns: b ? b.owns ?? [] : (m.dataModel?.docs ?? []).map((d) => d.name).filter(Boolean),
+      reads: b ? b.reads ?? [] : [],
+    };
+  });
+  /** Whose plugins count: the member's role and staff record (or, viewing as someone, theirs). */
+  const whoOf = (a, orgDoc) => {
+    const viewing = a.isSuper && a.s?.viewAs?.[a.org.id];
+    return { role: viewing ? orgDoc?.staff?.[a.staffId]?.roleId ?? 'viewer' : a.role, staffId: a.staffId };
+  };
+  /** 'write' | 'read' | 'public' for one document; visitors always get 'public'. */
+  function modeOf(a, name, orgDoc = readDoc(a.org.id, 'org'), plugins = accessPlugins()) {
+    if (!a.member) return 'public';
+    return docMode(plugins, orgDoc, name, whoOf(a, orgDoc), { canEdit: a.canEdit });
+  }
+  /** The documents a person gets: in full where they may read, as the public sees them elsewhere. */
+  function docsFor(a) {
+    const all = readDocs(a.org.id);
+    if (!a.member) return { docs: publicDocs(all, today()), modes: {} };
+    const plugins = accessPlugins();
+    const modes = {};
+    let pub = null;
+    const docs = {};
+    // Every document a plugin owns gets a mode, saved yet or not, so pages don't try to start one they can't.
+    for (const name of plugins.flatMap((p) => p.owns ?? []).filter((n) => !n.endsWith('/*'))) modes[name] = modeOf(a, name, all.org, plugins);
+    for (const [name, doc] of Object.entries(all)) {
+      modes[name] = modeOf(a, name, all.org, plugins);
+      if (modes[name] !== 'public') docs[name] = doc;
+      else if ((pub ??= publicDocs(all, today()))[name]) docs[name] = pub[name];
+    }
+    return { docs, modes };
+  }
+
   const readDoc = (orgId, name) => {
     const row = q('SELECT json FROM docs WHERE org_id = ? AND name = ?').get(orgId, name);
     return row ? withPlatform(orgId, name, JSON.parse(row.json)) : null;
@@ -190,6 +234,38 @@ export function createApp(db, options = {}) {
     }
   }
 
+  /**
+   * An org's Dashi address (its subdomain, the namespace for everything it
+   * has on Dashi). One word: letters and numbers, with a dash only inside,
+   * 3 to 40 characters, not case sensitive. Unique across every org, and
+   * an address someone just left stays theirs (a redirect) for 30 days.
+   */
+  const ALIAS_DAYS = 30;
+  function slugProblem(raw, orgId = null) {
+    const slug = String(raw ?? '').trim().toLowerCase();
+    if (!slug) return 'Write the address you’d like.';
+    if (slug.length < 3) return 'At least 3 characters.';
+    if (!/^[a-z0-9-]+$/.test(slug)) return 'Only letters and numbers (and a dash between words): no spaces, dots or other signs.';
+    if (!SLUG.test(slug)) return 'It can’t start or end with a dash, and can be up to 40 characters.';
+    if (RESERVED.has(slug)) return 'That word is kept for Dashi itself.';
+    const owner = q('SELECT id FROM orgs WHERE slug = ?').get(slug);
+    if (owner && owner.id !== orgId) return 'Another organisation on Dashi has that address.';
+    if (owner) return 'That’s your address now.';
+    const alias = q('SELECT org_id FROM slug_aliases WHERE slug = ? AND until > ?').get(slug, Date.now());
+    if (alias && alias.org_id !== orgId) return 'That address was in use until recently. Try another, or ask Dashi support.';
+    return null;
+  }
+  /** Move an org to a new address; the old one redirects for ALIAS_DAYS. */
+  function changeSlug(org, raw) {
+    const slug = String(raw).trim().toLowerCase();
+    const why = slugProblem(slug, org.id);
+    if (why) throw new HttpError(slug === org.slug ? 400 : 409, why);
+    q('DELETE FROM slug_aliases WHERE slug = ? OR until < ?').run(slug, Date.now());
+    q('INSERT OR REPLACE INTO slug_aliases (slug, org_id, until) VALUES (?, ?, ?)').run(org.slug, org.id, Date.now() + ALIAS_DAYS * 864e5);
+    q('UPDATE orgs SET slug = ? WHERE id = ?').run(slug, org.id);
+    return { slug, url: urlFor(hostOf({ ...org, slug }), '/'), dashiHost: orgHost(slug), oldHost: orgHost(org.slug), redirectDays: ALIAS_DAYS };
+  }
+
   /** Make an org, with its first documents (an example org's, or blank ones). */
   function createOrg({ id = newId('org'), slug, name, plan = 'free', docs, admin }) {
     slug = String(slug).toLowerCase();
@@ -226,7 +302,9 @@ export function createApp(db, options = {}) {
     if (custom) return { host, org: orgById(custom.org_id) };
     if (host.endsWith(`.${config.baseDomain}`)) {
       const slug = host.slice(0, -config.baseDomain.length - 1);
-      return { host, org: q('SELECT * FROM orgs WHERE slug = ?').get(slug) ?? null, slug };
+      const org = q('SELECT * FROM orgs WHERE slug = ?').get(slug) ?? null;
+      const moved = !org && q('SELECT o.slug FROM slug_aliases a JOIN orgs o ON o.id = a.org_id WHERE a.slug = ? AND a.until > ?').get(slug, Date.now());
+      return { host, org, slug, ...(moved ? { movedTo: orgHost(moved.slug) } : {}) };
     }
     return { host, unknown: true };
   }
@@ -442,7 +520,7 @@ export function createApp(db, options = {}) {
     const needSuper = () => { if (!a.isSuper) throw new HttpError(403, 'Platform admin only'); };
 
     if (path === '/api/session' && method === 'GET') {
-      const docs = a.org ? (a.member ? readDocs(a.org.id) : publicDocs(readDocs(a.org.id), today())) : {};
+      const { docs, modes } = a.org ? docsFor(a) : { docs: {}, modes: {} };
       return json(res, 200, {
         user: userJson(a.user),
         org: a.org && { id: a.org.id, slug: a.org.slug, name: a.org.name, plan: a.org.plan, status: a.org.status },
@@ -453,6 +531,7 @@ export function createApp(db, options = {}) {
         platformUrl: a.isSuper ? '/auth/root' : null,
         sessionTag: a.tag,
         versions: a.org && a.member ? docVersions(a.org.id) : {},
+        docModes: modes,
         version: config.version,
         staging: config.staging,
         mail: !!config.mail.apiKey,
@@ -520,12 +599,15 @@ export function createApp(db, options = {}) {
       const name = decodeURIComponent(m[1]);
       if (!DOC_NAME.test(name)) throw new HttpError(400, 'Bad document name');
       if (method === 'GET') {
-        const doc = a.member ? readDoc(a.org.id, name) : publicDocs(readDocs(a.org.id), today())[name];
-        if (doc && a.member) res.setHeader('x-doc-version', String(docVersion(a.org.id, name)));
+        const full = modeOf(a, name) !== 'public';
+        const doc = full ? readDoc(a.org.id, name) : publicDocs(readDocs(a.org.id), today())[name];
+        if (doc && full) res.setHeader('x-doc-version', String(docVersion(a.org.id, name)));
         return doc ? json(res, 200, doc) : json(res, 404, { error: 'No such document' });
       }
       if (method === 'PUT') {
         if (!a.canEdit) throw new HttpError(403, 'You can’t change this');
+        // The plugin that owns this document must be one this person can use (Organisation → Plugins).
+        if (name !== 'org' && modeOf(a, name) !== 'write') throw new HttpError(403, 'This belongs to a plugin that isn’t switched on for you.');
         let doc = await readJson(req, config.maxJsonMb * 1048576);
         if (!doc || typeof doc !== 'object') throw new HttpError(400, 'Not a document');
         // Someone else saved since this page loaded it: say so rather than overwrite their work.
@@ -607,6 +689,21 @@ export function createApp(db, options = {}) {
       return;
     }
 
+    /* Organisation → Domain: the org's Dashi address (subdomain). The admin checks one as they type, then moves. */
+    if (path === '/api/domains/address' && method === 'GET') {
+      needOrg();
+      if (!a.canAdmin) throw new HttpError(403, 'Only the organisation’s admin changes its address');
+      const slug = String(url.searchParams.get('slug') ?? '').trim().toLowerCase();
+      const why = slugProblem(slug, a.org.id);
+      return json(res, 200, { slug, ok: !why, why, current: a.org.slug, host: slug && !why ? orgHost(slug) : null, base: config.baseDomain });
+    }
+    if (path === '/api/domains/address' && method === 'POST') {
+      needOrg();
+      if (!a.canAdmin) throw new HttpError(403, 'Only the organisation’s admin changes its address');
+      const out = changeSlug(a.org, (await readJson(req, 2000))?.slug);
+      audit(a, 'org.address', a.org.id, { from: a.org.slug, to: out.slug }, req);
+      return json(res, 200, out);
+    }
     if (path.startsWith('/api/domains') && (await domains.handle(req, res, a, path)) !== false) return;
     if (path.startsWith('/api/uploads')) {
       needOrg();
@@ -957,13 +1054,11 @@ export function createApp(db, options = {}) {
         if (!org) throw new HttpError(404, 'No such organisation');
         if (method === 'PATCH') {
           const body = await readJson(req, 10_000);
-          if (body.slug && body.slug !== org.slug) {
-            if (!SLUG.test(body.slug) || RESERVED.has(body.slug)) throw new HttpError(400, 'Not a valid address');
-            if (q('SELECT 1 FROM orgs WHERE slug = ?').get(body.slug)) throw new HttpError(409, 'That address is taken');
-          }
           if (body.plan && !PLAN_IDS.includes(body.plan)) throw new HttpError(400, 'No such plan');
-          q('UPDATE orgs SET name = ?, slug = ?, plan = ?, status = ?, limits = ? WHERE id = ?').run(
-            body.name ?? org.name, body.slug ?? org.slug, body.plan ?? org.plan, ['active', 'suspended'].includes(body.status) ? body.status : org.status,
+          // A new address follows the same rules as the org admin's (and the old one redirects).
+          if (body.slug && String(body.slug).toLowerCase() !== org.slug) changeSlug(org, body.slug);
+          q('UPDATE orgs SET name = ?, plan = ?, status = ?, limits = ? WHERE id = ?').run(
+            body.name ?? org.name, body.plan ?? org.plan, ['active', 'suspended'].includes(body.status) ? body.status : org.status,
             body.limits && typeof body.limits === 'object' ? JSON.stringify(body.limits) : org.limits, org.id);
           announce(org.id, 'org', null);
           if (body.name && body.name !== org.name) {
@@ -976,6 +1071,12 @@ export function createApp(db, options = {}) {
           deleteOrg(org.id);
           return json(res, 200, { ok: true });
         }
+      }
+      // The live check as the platform admin types a new address for an org.
+      if (path === '/api/admin/address' && method === 'GET') {
+        const slug = String(url.searchParams.get('slug') ?? '').trim().toLowerCase();
+        const why = slugProblem(slug, url.searchParams.get('org'));
+        return json(res, 200, { slug, ok: !why, why, host: slug && !why ? orgHost(slug) : null });
       }
       if (path.startsWith('/api/admin/domains') && (await domains.admin(req, res, path)) !== false) return;
       if (path === '/api/admin/site' && method === 'PUT') {
@@ -1421,10 +1522,10 @@ export function createApp(db, options = {}) {
   async function showZip(req, res, a, showId) {
     if (!a.org) return send(res, 404, 'Not found');
     const all = readDocs(a.org.id);
-    const docs = a.member ? all : publicDocs(all, today());
+    const docs = a.member && modeOf(a, 'podcasts', all.org) !== 'public' ? all : publicDocs(all, today());
     const pods = docs.podcasts;
     const show = pods?.podcasts?.[showId];
-    if (!show || (!a.member && !show.featured)) return send(res, 404, 'Not found');
+    if (!show || (docs !== all && !show.featured)) return send(res, 404, 'Not found');
     const fileOf = (e) => {
       if (e.audio?.mediaId) {
         const row = q('SELECT id FROM media WHERE id = ? AND org_id = ?').get(e.audio.mediaId, a.org.id);
@@ -1512,6 +1613,8 @@ export function createApp(db, options = {}) {
       if (config.stagingCode && (await stagingGate(req, res, path))) return;
       const a = access(req);
       if (a.t.unknown) return page(res, 404, 'Unknown address', `This platform doesn’t serve ${a.t.host}.`);
+      // An org that changed its address: the old one sends people on, for a while.
+      if (a.t.movedTo) { res.writeHead(301, { location: urlFor(a.t.movedTo, `${path}${url.search}`) }); return res.end(); }
       if (path.startsWith('/api/')) {
         await api(req, res, a, path, url);
         // Every change made in the platform admin goes in the audit log.

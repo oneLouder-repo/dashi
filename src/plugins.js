@@ -10,12 +10,21 @@
  * `core: true` plugins can't be switched off.
  * `stats(docs)` returns a short line for the dashboard card from the
  * loaded documents (see platform/docs.js loadAll).
+ * `owns` are the documents only this plugin changes; `reads` the ones it
+ * may read but never change. The server enforces both (platform/access.js):
+ * someone who can't use a plugin never gets its documents beyond what the
+ * public site shows. `parent` makes a sub-plugin: it lives inside its
+ * parent and is only usable when the parent is.
  */
+import { chosenBy, orgHas, canUse, usable } from './platform/access.js';
+
 const count = (o) => Object.keys(o ?? {}).length;
 
 export const PLUGINS = [
   {
     id: 'mapper',
+    owns: ['maps', 'map/*'],
+    reads: ['library'],
     short: 'Mapper',
     tone: '#13897a',
     name: 'Ecosystem Mapper',
@@ -29,6 +38,8 @@ export const PLUGINS = [
   },
   {
     id: 'assets',
+    owns: ['assets'],
+    reads: ['maps', 'map/*', 'library', 'strategy', 'dashboards'],
     short: 'Assets',
     tone: '#0f7f9c',
     name: 'Asset manager',
@@ -42,6 +53,8 @@ export const PLUGINS = [
   },
   {
     id: 'strategy',
+    owns: ['strategy', 'plandocs'],
+    reads: ['maps', 'map/*', 'data', 'dashboards', 'library', 'assets'],
     short: 'Strategy',
     tone: '#3d63dd',
     name: 'Strategy & Work',
@@ -56,6 +69,9 @@ export const PLUGINS = [
   },
   {
     id: 'studio',
+    parent: 'strategy',
+    owns: ['studio'],
+    reads: ['strategy', 'plandocs', 'maps', 'map/*', 'library'],
     short: 'Studio',
     tone: '#7a4cc4',
     name: 'Planning Studio',
@@ -66,6 +82,8 @@ export const PLUGINS = [
   },
   {
     id: 'palette',
+    owns: ['dashboards', 'data', 'feedback'],
+    reads: ['strategy', 'plandocs', 'library'],
     short: 'Data',
     tone: '#c25a14',
     name: 'Data Workbench',
@@ -79,6 +97,8 @@ export const PLUGINS = [
   },
   {
     id: 'podcasts',
+    owns: ['podcasts'],
+    reads: [],
     short: 'Podcasts',
     tone: '#c03a64',
     name: 'Podcasts',
@@ -92,6 +112,8 @@ export const PLUGINS = [
   },
   {
     id: 'library',
+    owns: ['library'],
+    reads: ['maps', 'map/*', 'strategy', 'plandocs', 'data'],
     short: 'Library',
     tone: '#7a5a2f',
     name: 'Library',
@@ -105,6 +127,8 @@ export const PLUGINS = [
   },
   {
     id: 'pages',
+    owns: ['pages'],
+    reads: ['dashboards', 'data', 'plandocs', 'strategy', 'library'],
     short: 'Portal',
     tone: '#3a8a3f',
     name: 'Public Portal',
@@ -118,6 +142,8 @@ export const PLUGINS = [
   },
   {
     id: 'org',
+    owns: ['org'],
+    reads: [],
     tone: '#56657f',
     name: 'Organisation',
     href: 'org.html',
@@ -168,6 +194,7 @@ export function applyRegistry(view) {
       platformOff: !p.core && m.status !== 'installed',
       defaultOff: !!m.defaultOff,
       features: m.featureList ?? [],
+      ...(p.installed ? { owns: (m.dataModel?.docs ?? []).map((d) => d.name).filter(Boolean), parent: m.parent ?? null } : {}),
     });
   }
 }
@@ -185,16 +212,16 @@ export const pausedForOrg = (org, id) => !!org.platform?.paused?.[id];
  * Has the org chosen this plugin? Most plugins are on until switched off;
  * a `defaultOff` plugin (the newer, optional ones) is off until switched on.
  */
-export const chosenByOrg = (org, p) => (p.defaultOff ? org.plugins?.[p.id] === true : org.plugins?.[p.id] !== false);
-/** The plugins this org has switched on for everyone (and the platform hasn't paused). */
-export const orgPlugins = (org) => PLUGINS.filter((p) => p.core || (!p.platformOff && !pausedForOrg(org, p.id) && chosenByOrg(org, p)));
+export const chosenByOrg = chosenBy;
+/** The plugins this org has switched on for everyone (and the platform hasn't paused), parents included. */
+export const orgPlugins = (org) => PLUGINS.filter((p) => orgHas(PLUGINS, org, p.id));
 
 /**
- * Plugins by role: each role's palette of tools. `org.pluginRoles` holds
- * the exceptions, { [pluginId]: { [roleId]: false } }; a plugin the org
- * uses is open to every role unless switched off for that role. Core
- * plugins (Organisation, Help) are open to everyone, and an admin always
- * keeps Organisation so nobody can lock the org out of its settings.
+ * Plugins by role and by person: each role's palette of tools, plus
+ * per-person exceptions. `org.pluginRoles` = { [pluginId]: { [roleId]: false } };
+ * `org.pluginPeople` = { [pluginId]: { [staffId]: true | false } }, which
+ * wins over the role. The same rules run on the server (platform/access.js),
+ * which enforces them on every document; here they decide what is shown.
  */
 export const roleHas = (org, pluginId, roleId) => {
   const p = PLUGINS.find((x) => x.id === pluginId);
@@ -202,11 +229,40 @@ export const roleHas = (org, pluginId, roleId) => {
   return org.pluginRoles?.[pluginId]?.[roleId] !== false;
 };
 /** Who the page is for: set once by the session (platform/session.js), so this file needs no import of it. */
-let roleOf = () => null;
-export const setRoleResolver = (fn) => { roleOf = fn; };
-export const currentRole = (org) => roleOf(org);
-/** The plugins the signed-in person sees: the org's, less any switched off for their role. */
-export const enabledPlugins = (org, roleId = roleOf(org)) => orgPlugins(org).filter((p) => roleHas(org, p.id, roleId));
+let whoOf = () => ({ role: null, staffId: null });
+export const setWhoResolver = (fn) => { whoOf = fn; };
+/** Older callers give only a role. */
+export const setRoleResolver = (fn) => { whoOf = (org) => ({ role: fn(org), staffId: null }); };
+export const currentWho = (org) => whoOf(org) ?? {};
+export const currentRole = (org) => currentWho(org).role ?? null;
+/** The plugins the signed-in person sees: the org's, less any switched off for their role or for them. */
+export const enabledPlugins = (org, roleId) => usable(PLUGINS, org, roleId === undefined ? currentWho(org) : { role: roleId, staffId: null });
+/** Can the signed-in person use this plugin (and its parent)? */
+export const canOpen = (org, id) => canUse(PLUGINS, org, id, currentWho(org));
+/** Is this plugin on for the org, whoever is looking (a public site, an admin screen)? */
+export const orgUses = (org, id) => orgHas(PLUGINS, org, id);
+
+/**
+ * A link into a plugin, or null when the signed-in person can't use it, so
+ * a menu item or link to it is simply not drawn (an <a> with no href is
+ * plain text). Every cross-plugin link goes through here; test/links.test.js
+ * fails on any page that hard-codes another plugin's address. `route` is the
+ * part after the page: '#look', '?id=x' or ''. The org is the open one
+ * (platform/docs.js sets it as it loads); with none yet, the link is given.
+ */
+let linkOrg = null;
+export const setLinkOrg = (org) => { linkOrg = org; };
+/** Pages of a plugin beyond its main one: linkTo('plandoc') opens the Plan designer, gated on Strategy & Work. */
+export const PAGES = { plandoc: { plugin: 'strategy', href: 'plandoc.html' } };
+export function linkTo(id, route = '', org = linkOrg) {
+  const page = PAGES[id];
+  const p = PLUGINS.find((x) => x.id === (page?.plugin ?? id));
+  if (!p) return null;
+  if (org && !canOpen(org, p.id)) return null;
+  return `${page?.href ?? p.href}${route}`;
+}
+/** Can the signed-in person open this plugin (the open org)? For deciding whether to show a whole menu item or card. */
+export const reach = (id, org = linkOrg) => (org ? canOpen(org, id) : true);
 
 /** Each page's colour: a plugin's tone, or Dashi's own for the dashboard and the rest. */
 export const DASHI_TONE = '#d0621b';

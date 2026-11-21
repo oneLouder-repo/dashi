@@ -17,6 +17,7 @@ import { PluginHeader } from '../ui/PluginHeader.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
 import { short } from './dates.js';
 import { uiConfirm } from '../ui/dialog.js';
+import { linkTo } from '../plugins.js';
 
 /**
  * Strategy & Work, in sections listed down the shared sidebar:
@@ -102,7 +103,7 @@ function drawSide(tab) {
   side = swapSide(side, SideNav({ label: 'Strategy & Work', sections: [
     { title: 'Strategy & Work', items: TABS.map((t) => ({ label: t.label, icon: t.icon, href: `#${t.id}`, on: t.id === tab && !(tab === 'framework' && plans.some((p) => p.id === ctx.selectedId)) })) },
     { title: 'Planning Studio', items: [
-      { label: 'Plan with your team', sub: 'SOAR board, results, assemble', icon: 'sec-studio', href: 'studio.html' },
+      { label: 'Plan with your team', sub: 'SOAR board, results, assemble', icon: 'sec-studio', href: linkTo('studio') },
       { label: 'Plan designer', sub: 'A designed plan to print or publish', icon: 'brush', href: 'plandoc.html' },
     ] },
     plans.length && { title: 'Plans', items: plans.map((p) => ({ label: p.title, sub: [p.start, p.end].filter(Boolean).map(short).join(' – '), icon: 'mapTrifold', href: `#${p.id}`, on: tab === 'framework' && ctx.selectedId === p.id })) },
