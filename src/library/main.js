@@ -113,7 +113,12 @@ function drawSide(view, a) {
   const items = Object.values(lib().items);
   const folders = Object.values(lib().folders).sort((x, y) => x.name.localeCompare(y.name));
   const count = (f) => items.filter(f).length;
-  side = swapSide(side, SideNav({ label: 'Library', sections: [
+  side = swapSide(side, SideNav({ label: 'Assets', sections: [
+    // The Library is part of Assets (0.2).
+    { title: 'Assets', items: [
+      { label: 'All assets', sub: 'Files, maps, people, stories and places', icon: 'dots', href: 'assets.html' },
+      { label: 'Asset map', sub: 'Seen through the ABCD lens', icon: 'mapTrifold', href: 'assets.html#view=map' },
+    ] },
     { title: 'Library', items: [
       { label: 'All documents', sub: n(items.length, 'item'), icon: 'book', href: '#files/all', on: view === 'files' && a === 'all' },
       { label: 'Dashi docs', sub: n(count((i) => i.kind === 'doc'), 'doc'), icon: 'doc', href: '#files/docs', on: view === 'files' && a === 'docs' },

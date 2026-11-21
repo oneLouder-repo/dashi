@@ -152,8 +152,14 @@ document.querySelector('#app').replaceChildren(
       h('div', { class: 'home-side' }, Ecosystem(), Team(), Reading(), Sites())),
     h('h2', { class: 'home-plugins-title' }, 'Your plugins'),
     h('div', { class: 'home-plugins' },
-      plugins.map((p) => h('a', { class: 'plugin-tile', href: p.href, style: `--tone:${p.tone ?? 'var(--accent)'}` },
-        h('span', { class: 'tone-tile', 'aria-hidden': 'true' }, icon(p.icon, 20)),
-        h('span', { class: 'plugin-tile-text' }, h('strong', {}, p.name), h('small', {}, p.stats(docs)))))),
+      // Sub-plugins show inside their parent's tile (0.2: Data Workbench in the Portal, Library in Assets, Studio in Strategy).
+      plugins.filter((p) => !p.parent).map((p) => {
+        const kids = plugins.filter((k) => k.parent === p.id);
+        return h('div', { class: 'plugin-tile', style: `--tone:${p.tone ?? 'var(--accent)'}` },
+          h('a', { class: 'plugin-tile-main', href: p.href },
+            h('span', { class: 'tone-tile', 'aria-hidden': 'true' }, icon(p.icon, 20)),
+            h('span', { class: 'plugin-tile-text' }, h('strong', {}, p.name), h('small', {}, p.stats(docs)))),
+          kids.length > 0 && h('span', { class: 'plugin-tile-kids' }, kids.map((k) => h('a', { href: k.href, title: k.stats(docs) }, icon(k.icon, 13), k.name))));
+      })),
     h('p', { class: 'note' }, 'Dashi is in alpha. Something odd, or an idea? Use Feedback at the bottom right of any page.')),
 );

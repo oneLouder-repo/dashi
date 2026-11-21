@@ -503,3 +503,11 @@ body.mapper-page > main { box-shadow: var(--lift-sheet); }
 .addr-status.bad { color: var(--color-error); }
 .domain-own-title { font-size: 1rem; font-weight: 750; margin: 8px 0 4px; }
 [data-mode='dark'] .stage-badge { background: color-mix(in oklab, #e0a52b 22%, var(--sheet)); color: #f0c868; border-color: transparent; }
+
+/* Dashboard: a plugin tile carries its sub-plugins (0.2). */
+.plugin-tile { flex-direction: column; align-items: stretch; gap: 8px; }
+.plugin-tile-main { display: flex; align-items: center; gap: 12px; color: inherit !important; text-decoration: none; min-width: 0; }
+.plugin-tile-kids { display: flex; flex-wrap: wrap; gap: 6px; padding-left: 52px; }
+.plugin-tile-kids a { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 650; color: var(--ink-2) !important; text-decoration: none; padding: 2px 8px; border-radius: 999px; background: color-mix(in oklab, var(--tone) 9%, transparent); }
+.plugin-tile-kids a:hover { background: color-mix(in oklab, var(--tone) 18%, transparent); }
+.plugin-tile-kids .icon { color: var(--tone); }

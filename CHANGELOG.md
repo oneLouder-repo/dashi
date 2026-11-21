@@ -14,6 +14,13 @@ From 0.2 on, each alpha point version (0.2, 0.3…) is one major platform featur
 - **Sub-plugins.** A plugin can live inside a parent and only works when the parent does. Planning Studio is now inside Strategy & Work; Organisation → Plugins shows the tree.
 - **No more links into closed plugins.** Every link to another plugin goes through one check, and a menu item or link to a plugin you can't use is simply not drawn (in SJR, Public Portal no longer offers Dashboards, Feedback forms or the Plan designer when those plugins are off). A test fails the build if a page hard-codes another plugin's address. Opening a closed plugin directly says why, kindly: switched off for the organisation, for your role, or for you.
 
+### One place for each major interaction (PR 2)
+
+- **Planning Studio is inside Strategy & Work.** The Studio's pages carry the Strategy & Work header, colour and side list (Overview, Framework, Roadmap, Plan designer), and Strategy & Work lists every plan's Studio a click away. Nothing moved in your data.
+- **The Data Workbench is inside the Public Portal.** The Portal's side list has every data tool (Dashboards, Program data, Data stories, Impact calculator, Data postcards, Feedback forms, Funder reports), and the Workbench's pages show the Portal's header and its Overview and Look and feel. The **Podcast publishing** and **Publishing** mini-tools are gone: Podcasts publishes episodes itself, and each site chooses what it shows in the Portal. The Workbench's link to the roadmap only shows for people who have Strategy & Work.
+- **The Library is inside Assets** (the Asset manager is now just **Assets**). Assets lists the Library's documents, bibliographies and tags; the Library's pages show Assets' header and a way back to all assets and the asset map.
+- Dashboard tiles carry their sub-plugins as chips, the header shows only top-level plugins, breadcrumbs start at the parent, and the platform admin's plugin manager says which plugin each lives inside and which documents it owns.
+
 ### Domain
 
 - **Change your Dashi address** (Organisation → Domain, and Platform admin): the field checks as you type whether the address is free and well formed (one word, letters and numbers, a dash between words, not case sensitive, unique across every org). The old address sends people on to the new one for 30 days. Your Dashi address keeps working as a mirror of your own domain.

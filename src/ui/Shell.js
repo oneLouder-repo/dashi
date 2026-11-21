@@ -1,7 +1,7 @@
 import { h } from './dom.js';
 import { icon } from './icons.js';
 import { RippleMark } from './Wordmark.js';
-import { enabledPlugins, canOpen, orgUses, currentWho, toneFor, PLUGINS } from '../plugins.js';
+import { enabledPlugins, canOpen, orgUses, currentWho, toneFor, topOf, PLUGINS } from '../plugins.js';
 import { ROLES, initials } from '../platform/org.js';
 import { FeedbackButton, version } from './Support.js';
 import { NetLight } from './netlight.js';
@@ -29,8 +29,10 @@ export function Shell(el, { current, org }) {
   const me = currentUser(org);
   const role = ROLES.find((r) => r.id === me?.roleId);
   const account = signedInUser();
+  // A sub-plugin's pages belong to its parent: the parent's tab is lit and its colour used.
+  const home = topOf(current);
   const link = (id, href, label, iconName) => {
-    const on = id === current;
+    const on = id === home;
     return h('a', { href, 'aria-label': label, 'data-tip': label, class: `shell-link${on ? ' active' : ''}`, style: `--tone:${toneFor(id)}`, 'aria-current': on ? 'page' : null },
       icon(iconName, 18), on ? h('span', {}, label) : null);
   };
@@ -39,7 +41,7 @@ export function Shell(el, { current, org }) {
 
   // The page takes its plugin's colour (buttons, links, highlights).
   document.body.dataset.plugin = current;
-  document.body.style.setProperty('--color-primary', toneFor(current));
+  document.body.style.setProperty('--color-primary', toneFor(home));
   el.classList.add('shell');
   el.replaceChildren(
     h('div', { class: 'shell-top' },
@@ -77,7 +79,7 @@ export function Shell(el, { current, org }) {
     h('nav', { class: 'shell-bar', 'aria-label': 'Plugins' },
       link('home', 'index.html', 'Home', 'sec-home'),
       h('span', { class: 'shell-bar-sep', 'aria-hidden': 'true' }),
-      enabledPlugins(org).filter((p) => p.nav !== false).map((p) => link(p.id, p.href, p.name, p.icon))),
+      enabledPlugins(org).filter((p) => p.nav !== false && !p.parent).map((p) => link(p.id, p.href, p.name, p.icon))),
   );
   wireSearchKey();
   RoleGate(org, current, role);

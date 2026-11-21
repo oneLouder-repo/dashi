@@ -42,7 +42,7 @@ export const PLUGINS = [
     reads: ['maps', 'map/*', 'library', 'strategy', 'dashboards'],
     short: 'Assets',
     tone: '#0f7f9c',
-    name: 'Asset manager',
+    name: 'Assets',
     href: 'assets.html',
     icon: 'sec-assets',
     blurb: 'Everything your organisation has to work with, in one place: files, maps, people, stories and places, filed in collections, tagged, and seen through an asset-based (ABCD) lens.',
@@ -82,6 +82,7 @@ export const PLUGINS = [
   },
   {
     id: 'palette',
+    parent: 'pages',
     owns: ['dashboards', 'data', 'feedback'],
     reads: ['strategy', 'plandocs', 'library'],
     short: 'Data',
@@ -112,6 +113,7 @@ export const PLUGINS = [
   },
   {
     id: 'library',
+    parent: 'assets',
     owns: ['library'],
     reads: ['maps', 'map/*', 'strategy', 'plandocs', 'data'],
     short: 'Library',
@@ -267,3 +269,5 @@ export const reach = (id, org = linkOrg) => (org ? canOpen(org, id) : true);
 /** Each page's colour: a plugin's tone, or Dashi's own for the dashboard and the rest. */
 export const DASHI_TONE = '#d0621b';
 export const toneFor = (id) => PLUGINS.find((p) => p.id === id)?.tone ?? DASHI_TONE;
+/** The top-level plugin a page belongs to: a sub-plugin's parent (Data Workbench → Public Portal), else itself. */
+export const topOf = (id) => { let p = PLUGINS.find((x) => x.id === id); while (p?.parent) p = PLUGINS.find((x) => x.id === p.parent) ?? null; return p?.id ?? id; };

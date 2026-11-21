@@ -70,6 +70,17 @@ const ctx = { doc: docs.podcasts, org, today: now, player, link: () => '#' };
 const publicDashboards = () => Object.values(docs.dashboards.dashboards).filter((d) => d.visibility === 'public');
 const liveEpisodes = () => Object.values(docs.podcasts.episodes).filter((e) => published(e, now)).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
 
+/** The Data Workbench's tools, as the Portal's side list shows them (src/palette/main.js has the tools themselves). */
+const DATA_TOOLS = [
+  { id: 'dashboards', name: 'Dashboards', sub: 'Private and public', icon: 'chart' },
+  { id: 'data', name: 'Program data', sub: 'The numbers behind them', icon: 'timeline' },
+  { id: 'stories', name: 'Data stories', sub: 'Words, charts and voices', icon: 'story' },
+  { id: 'impact', name: 'Impact calculator', sub: 'What a gift makes possible', icon: 'gift' },
+  { id: 'postcards', name: 'Data postcards', sub: 'One number, beautifully', icon: 'media' },
+  { id: 'feedback', name: 'Feedback forms', sub: 'Ask what readers think', icon: 'chats' },
+  { id: 'reports', name: 'Funder reports', sub: 'A first draft, from your data', icon: 'handshake' },
+];
+
 function renderSide() {
   const r = route();
   const list = (kind) => Object.values(doc().pages).filter((p) => p.kind === kind)
@@ -86,12 +97,14 @@ function renderSide() {
     { title: 'Public Portal', items: [
       { label: 'Overview', sub: 'Every site, and what is live', icon: 'home', href: '#sites', on: r === 'sites' },
       { label: 'Look and feel', sub: org.theme?.palette ? `${org.theme.palette === 'custom' ? 'Your own' : paletteById[org.theme.palette]?.label ?? 'Your'} colours, ${shapeById[org.theme.shape]?.label?.toLowerCase() ?? 'rounded'}` : 'Colours and shapes', icon: 'palette', href: '#look', on: r === 'look' || r.startsWith('look/') },
-      { label: 'Dashboards', sub: 'Data Workbench', icon: 'chart', href: linkTo('palette', '#dashboards') },
-      { label: 'Feedback forms', sub: 'Data Workbench', icon: 'chats', href: linkTo('palette', '#feedback') },
-      { label: 'Strategic plan', sub: 'Plan designer', icon: 'strategy', href: linkTo('plandoc') },
-      pluginOn(org, 'podcasts') && { label: 'Podcast station', sub: 'Podcasts', icon: 'mic', href: linkTo('podcasts', '#station') },
-      criticalOn(org) && { label: 'Media smart', sub: 'Critical Media', icon: 'news', href: 'plugin.html?id=critical-media' },
     ].filter(Boolean) },
+    // The Data Workbench lives here now (a sub-plugin of the Portal): every data tool, one click away.
+    { title: 'Data', items: DATA_TOOLS.map((t) => ({ label: t.name, sub: t.sub, icon: t.icon, href: linkTo('palette', `#${t.id}`) })) },
+    { title: 'From other plugins', className: 'side-elsewhere', items: [
+      { label: 'Strategic plan', sub: 'In the Plan designer', icon: 'strategy', href: linkTo('plandoc') },
+      pluginOn(org, 'podcasts') && { label: 'Podcast station', sub: 'In Podcasts', icon: 'mic', href: linkTo('podcasts', '#station') },
+      criticalOn(org) && { label: 'Media smart', sub: 'In Critical Media', icon: 'news', href: linkTo('critical-media') },
+    ] },
     { title: 'Sites', action: { label: 'New site', onclick: newSite }, items: byVis('public').map(siteItem) },
     byVis('private').length > 0 && { title: 'Members only', items: byVis('private').map(siteItem) },
     { title: 'Pages', action: { label: 'New page', onclick: () => newPage('page') }, items: [...list('page').map(item), { label: 'New page', icon: 'plus', onclick: () => newPage('page') }] },

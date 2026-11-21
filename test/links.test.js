@@ -45,3 +45,13 @@ test('linkTo leaves out a plugin the person can’t use', () => {
   assert.equal(linkTo('plandoc', '#x', { plugins: { strategy: false } }), null, 'the Plan designer goes with Strategy & Work');
   assert.equal(linkTo('studio', '', { plugins: { strategy: false } }), null, 'a sub-plugin goes with its parent');
 });
+
+test('alpha 0.2 consolidations: one place for each major interaction', async () => {
+  const { topOf } = await import('../src/plugins.js');
+  assert.equal(topOf('studio'), 'strategy', 'Planning Studio is inside Strategy & Work');
+  assert.equal(topOf('palette'), 'pages', 'the Data Workbench is inside the Public Portal');
+  assert.equal(topOf('library'), 'assets', 'the Library is inside Assets');
+  assert.equal(PLUGINS.find((p) => p.id === 'assets').name, 'Assets');
+  assert.equal(linkTo('palette', '#dashboards', { plugins: { pages: false } }), null, 'no Portal, no Workbench');
+  assert.equal(linkTo('library', '', { plugins: { assets: false } }), null, 'no Assets, no Library');
+});
