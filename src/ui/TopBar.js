@@ -10,7 +10,6 @@ import { enabledPlugins, linkTo } from '../plugins.js';
 import { linkToStrategy, addToAssets, strategyUses } from './MapConnections.js';
 import { saveDoc } from '../platform/storage.js';
 import { mapDocName } from '../platform/maps.js';
-import { worksWith } from './crumbs.js';
 
 /**
  * The mapper's top bar, left to right in the order you reach for things:
@@ -41,21 +40,8 @@ export function TopBar(el, ctx) {
     }
   } });
 
-  // The name, edited in place.
-  const name = h('input', {
-    class: 'map-name', 'aria-label': 'Map name', title: 'Click to rename this map', spellcheck: false,
-    value: ctx.index.maps[ctx.mapId]?.title ?? '',
-    onkeydown: (e) => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') { e.target.value = store.map.name; e.target.blur(); } },
-    onchange: (e) => {
-      const title = e.target.value.trim();
-      if (!title) { e.target.value = store.map.name; return; }
-      ctx.actions.updateEntry({ title });
-      store.apply(ops.renameMap(title));
-      document.dispatchEvent(new CustomEvent('dashi:map-renamed'));
-    },
-  });
-  const fitName = () => { name.style.width = `${Math.min(30, Math.max(6, name.value.length + 1))}ch`; };
-  name.addEventListener('input', fitName);
+  // The map's name, as a title (0.2): rename it in Share → Owner and members.
+  const name = h('h1', { class: 'map-title', title: 'Rename it in Share → Owner and members' }, ctx.index.maps[ctx.mapId]?.title ?? '');
 
   const lensSelect = h('select', { class: 'select select-sm lens-select', 'aria-label': 'Map type', onchange: (e) => { store.apply(ops.setLens(e.target.value)); requestAnimationFrame(() => ctx.actions.fitView()); } });
   const lensWrap = h('label', { class: 'tb-lens', title: 'The map type: the systems lens drawn behind the notes. Every note keeps its place as you switch.' }, icon('mapTrifold', 16), lensSelect);
@@ -143,14 +129,13 @@ export function TopBar(el, ctx) {
       h('div', { class: 'join tidy-split', title: 'Space the notes out evenly for this map type. Undo or “Back to my layout” puts them back.' }, tidyBtn, tidyMenu)),
     h('div', { class: 'spacer' }),
     h('div', { class: 'tb-group' }, viewMenu, shareMenu),
-    worksWith('mapper'),
     fileInput,
   );
 
   const render = () => {
     lensSelect.replaceChildren(...options([...mapView.lenses.values()].map((l) => ({ id: l.id, label: l.name })), store.map.lensId));
-    if (document.activeElement !== name) name.value = store.map.name || ctx.index.maps[ctx.mapId]?.title || '';
-    fitName();
+    name.textContent = store.map.name || ctx.index.maps[ctx.mapId]?.title || 'Untitled map';
+    name.title = `${name.textContent}. Rename it in Share → Owner and members.`;
     undo.disabled = !store.undoStack.length;
     redo.disabled = !store.redoStack.length;
     tidyBtn.classList.toggle('tidied', ctx.actions.isTidied());

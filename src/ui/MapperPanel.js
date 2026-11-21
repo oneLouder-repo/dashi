@@ -17,8 +17,7 @@ import { icon } from './icons.js';
  *   panel.collapse(bool?)  panel.foldAll(bool)   panel.reset()   panel.reveal(id)
  *
  * Collapsed, the panel shrinks to a slim rail of section icons; clicking
- * one opens the panel at that section. Drag a section by its grip to put it
- * higher or lower, and drag the panel's edge to make it wider or narrower.
+ * one opens the panel at that section. Drag the panel's edge to make it wider or narrower.
  * The layout (order and width too) is remembered per browser.
  */
 const MIN_W = 220;
@@ -57,48 +56,17 @@ export function MapperPanel(host, sections, { key = 'dashi.mapper.panel', onchan
   for (const s of sections) {
     const chevron = h('span', { class: 'mp-chev', 'aria-hidden': 'true' }, icon('chevronDown', 14));
     const head = h('button', { type: 'button', class: 'mp-head', 'aria-expanded': 'true', onclick: () => api.toggleSection(s.id) },
-      chevron, icon(s.icon, 15), h('span', { class: 'mp-title' }, s.title), s.badge ? h('span', { class: 'mp-badge' }) : null);
-    const grip = h('span', { class: 'mp-grip', title: 'Drag to move this section', 'aria-hidden': 'true' }, '⋮⋮');
-    const bar = h('div', { class: 'mp-bar' }, grip, head,
+      chevron, h('span', { class: 'mp-title' }, s.title), s.badge ? h('span', { class: 'mp-badge' }) : null);
+    // Like every other plugin's side nav (0.2 polish): a plain title that folds, no icon, no grip.
+    const bar = h('div', { class: 'mp-bar' }, head,
       s.action && h('button', { type: 'button', class: 'mp-action', title: s.action.label, 'aria-label': s.action.label, onclick: s.action.onclick }, icon(s.action.icon ?? 'plus', 15)));
     const body = h('div', { class: 'mp-body', id: `mp-${s.id}` }, s.body);
     head.setAttribute('aria-controls', body.id);
     const el = h('section', { class: `mp-sec mp-${s.id}`, 'data-section': s.id }, bar, body);
     const railBtn = h('button', { type: 'button', class: 'mp-rail-btn', title: s.title, 'aria-label': `Open ${s.title}`, onclick: () => api.reveal(s.id) }, icon(s.icon, 18));
     els.set(s.id, { el, head, railBtn });
-    grip.addEventListener('pointerdown', (e) => startMove(e, s.id, el, grip));
   }
 
-  /** Drag a section by its grip; it drops above or below whichever section the pointer is over. */
-  function startMove(e, id, el, grip) {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    grip.setPointerCapture(e.pointerId);
-    el.classList.add('dragging');
-    let target = null; let after = false;
-    const clear = () => scroller.querySelectorAll('.drop-before, .drop-after').forEach((x) => x.classList.remove('drop-before', 'drop-after'));
-    const move = (ev) => {
-      clear();
-      const over = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.mp-sec');
-      if (!over || over === el || !scroller.contains(over)) { target = null; return; }
-      const r = over.getBoundingClientRect();
-      after = ev.clientY > r.top + r.height / 2;
-      target = over.dataset.section;
-      over.classList.add(after ? 'drop-after' : 'drop-before');
-      // Near the panel's top or bottom edge, scroll it.
-      const b = scroller.getBoundingClientRect();
-      if (ev.clientY < b.top + 24) scroller.scrollTop -= 12; else if (ev.clientY > b.bottom - 24) scroller.scrollTop += 12;
-    };
-    const up = () => {
-      grip.removeEventListener('pointermove', move); grip.removeEventListener('pointerup', up);
-      el.classList.remove('dragging'); clear();
-      if (!target) return;
-      const order = state.order.filter((x) => x !== id);
-      order.splice(order.indexOf(target) + (after ? 1 : 0), 0, id);
-      set({ order });
-    };
-    grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up);
-  }
   const ordered = () => {
     const ids = [...(state.order ?? []).filter((id) => sections.some((s) => s.id === id)), ...sections.map((s) => s.id).filter((id) => !(state.order ?? []).includes(id))];
     return ids.map((id) => sections.find((s) => s.id === id));

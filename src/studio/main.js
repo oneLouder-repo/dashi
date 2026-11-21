@@ -156,10 +156,6 @@ function Framework() {
   const root = rootOf(strategy.doc);
   const plans = plansOf(strategy.doc);
   const sdoc = strategy.doc;
-  const setRoot = (k) => (e) => strategy.apply(strategyOps.update(root.id, { [k]: e.target.value }));
-  const statement = (k, label, ic, rows = 3) => h('label', { class: 'sw-statement editable' },
-    h('span', { class: 'sw-statement-ico' }, icon(ic, 18)),
-    h('div', {}, h('span', {}, label), h('textarea', { class: 'sw-statement-input', name: `fw-${k}`, rows, onchange: setRoot(k), placeholder: `Our ${label.toLowerCase()}…` }, root?.[k] ?? '')));
   const designs = Object.values(loadPlanDocs().docs ?? {});
   const now = today();
   // Plans sit side by side and can overlap (the old plan winding down as the new one starts).
@@ -203,17 +199,11 @@ function Framework() {
     return k ? h('small', {}, String(k)) : null;
   };
   return h('div', { class: 'studio-page-body studio-front' },
-    PluginHeader('studio', { actions: [
+    // Not "Planning Studio" any more: it is part of Strategy & Work (0.2). Mission and vision live in the Framework.
+    PluginHeader('studio', { title: 'Framework and plans', blurb: 'Every plan your organisation has, where its planning stands, and the tools to plan it together.', actions: [
       h('a', { class: 'btn btn-sm btn-ghost', href: 'plandoc.html', title: 'Opens the Plan designer' }, icon('share', 14), 'Plan designer'),
       h('button', { class: 'btn btn-sm btn-primary', onclick: newPlan }, icon('plus', 14), 'New plan')] }),
     !root ? h('p', { class: 'empty' }, 'Start a framework in Strategy & Work first.') : [
-      h('section', { class: 'sw-hero' },
-        h('div', { class: 'sw-hero-head' }, LevelBadge('framework', { long: true }), h('h2', {}, root.title || 'Strategic framework'),
-          h('span', { class: 'muted small' }, 'Every plan works toward it. The same words as in Strategy & Work.')),
-        h('div', { class: 'sw-statements' },
-          statement('mission', 'Mission', 'target'),
-          statement('vision', 'Vision', 'eye'),
-          statement('values', 'Values', 'heart', 2))),
       h('div', { class: 'sw-section-head' }, h('h2', {}, 'Plans'), h('span', { class: 'muted small' }, 'Plan together here; the plans become work in Strategy & Work.')),
       h('div', { class: 'studio-plans' }, plans.map(planCard)),
       h('div', { class: 'sw-section-head' }, h('h2', {}, 'Designed plans'), h('a', { class: 'small', href: 'plandoc.html' }, 'Open the plan designer →')),

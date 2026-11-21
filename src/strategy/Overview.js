@@ -28,18 +28,12 @@ export function Overview(ctx) {
   const states = workplans.map((w) => workplanProgress(doc, w.id, now).state);
   const onTrack = states.filter((s) => s === 'complete' || s === 'on-track').length;
   const behind = states.filter((s) => s === 'behind').length;
-  const statement = (label, ic, text) => text && h('div', { class: 'sw-statement' }, h('span', { class: 'sw-statement-ico' }, icon(ic, 18)), h('div', {}, h('span', {}, label), h('p', {}, text)));
 
   const road = topPlan ? RoadSvg(doc, topPlan.id, { compact: true }) : null;
 
   return h('div', { class: 'sw-landing' },
-    h('section', { class: 'sw-hero' },
-      h('div', { class: 'sw-hero-head' }, LevelBadge('framework', { long: true }), h('h2', {}, root.title || 'Strategic framework'),
-        h('a', { class: 'btn btn-sm btn-ghost', href: `#${root.id}` }, icon('pencil', 14), 'Edit')),
-      h('div', { class: 'sw-statements' },
-        statement('Mission', 'target', root.mission),
-        statement('Vision', 'eye', root.vision),
-        statement('Values', 'heart', root.values))),
+    // The whole framework as the hero (0.2): mission and vision live in the Framework now.
+    WholeSunburst(ctx, root, now),
 
     h('div', { class: 'sw-now' },
       h('a', { class: 'sw-card sw-road-card', href: '#roadmap', title: topPlan ? `The road for ${topPlan.title}` : null },
@@ -57,8 +51,6 @@ export function Overview(ctx) {
         h('ul', { class: 'sw-counts' },
           [['plan', counts.plan], ['objective', counts.objective], ['goal', counts.goal], ['workplan', counts.workplan]].map(([t, c]) => h('li', {}, h('strong', {}, String(c)), LevelBadge(t, { plain: true }))),
           h('li', {}, h('strong', {}, String(Object.keys(measureIndex(doc)).length)), h('span', { class: 'muted small' }, 'measures'))))),
-
-    WholeSunburst(ctx, root, now),
 
     h('div', { class: 'sw-section-head' }, h('h2', {}, 'Objectives and goals'), h('a', { class: 'small', href: '#framework' }, 'Open the framework →')),
     h('div', { class: 'sw-objectives' }, objectiveOrder(doc).map(({ node: o, hue }) => ObjectiveCard(ctx, o, hue, now))),

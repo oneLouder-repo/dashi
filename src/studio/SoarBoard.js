@@ -49,7 +49,7 @@ export function SoarBoard(ctx, plan) {
   });
   const S = 6000;
   vp.world.append(
-    ...QUADRANTS.map((q) => h('div', { class: 'soar-zone', 'data-pan': '', style: `--q:${q.color};${q.id === 's' || q.id === 'a' ? `left:${-S}px` : 'left:0'};${q.id === 's' || q.id === 'o' ? `top:${-S}px` : 'top:0'};width:${S}px;height:${S}px` })),
+    ...QUADRANTS.map((q) => h('div', { class: `soar-zone q-${q.id}`, 'data-pan': '', style: `--q:${q.color};${q.id === 's' || q.id === 'a' ? `left:${-S}px` : 'left:0'};${q.id === 's' || q.id === 'o' ? `top:${-S}px` : 'top:0'};width:${S}px;height:${S}px` })),
     ...RINGS.map((r, i) => h('div', { class: 'soar-ring', 'data-pan': '', style: `width:${r * 2}px;height:${r * 2}px;left:${-r}px;top:${-r}px;opacity:${1 - i * 0.25}` })),
     h('div', { class: 'soar-axis x', 'data-pan': '' }), h('div', { class: 'soar-axis y', 'data-pan': '' }),
     h('div', { class: 'soar-centre', title: 'The centre: cards here matter most' }, 'more important'),

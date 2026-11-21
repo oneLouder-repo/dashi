@@ -65,7 +65,7 @@ export function swSections({ page, tab = null, planId = null, strategy, studio =
     },
   }, plans.map((p) => h('option', { value: p.id, selected: p.id === pid }, p.title)), onNewPlan && h('option', { value: '+' }, '+ New plan…'));
   const studioItems = [
-    { label: 'Framework and plans', sub: 'Mission, vision, every plan', icon: 'strategy', href: toStudio('#framework'), on: studioTab === 'framework' },
+    { label: 'Framework and plans', sub: 'Every plan, where it stands', icon: 'strategy', href: toStudio('#framework'), on: studioTab === 'framework' },
     ...STUDIO_TOOLS.map((t) => ({
       label: t.label, sub: t.sub, icon: t.icon, href: tabHref(t.id),
       on: !!pid && pid === planId && (studioTab === t.id || (t.id === 'soar' && ['s', 'o', 'a'].includes(studioTab))),

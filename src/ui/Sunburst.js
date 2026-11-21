@@ -57,6 +57,12 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
     .startAngle((d) => d.x0).endAngle((d) => d.x1)
     .padAngle((d) => Math.min((d.x1 - d.x0) / 2, 0.005)).padRadius(radius * 1.5)
     .innerRadius((d) => d.y0 * radius).outerRadius((d) => Math.max(d.y0 * radius, d.y1 * radius - 1));
+  // Since the 0.2 polish, colour and white swap places: each arc is nearly white, with a thick stripe of its colour along its outer edge.
+  const STRIPE = Math.max(5, Math.round(radius / 11));
+  const stripeArc = d3.arc()
+    .startAngle((d) => d.x0).endAngle((d) => d.x1)
+    .padAngle((d) => Math.min((d.x1 - d.x0) / 2, 0.005)).padRadius(radius * 1.5)
+    .innerRadius((d) => Math.max(d.y0 * radius, d.y1 * radius - 1 - STRIPE)).outerRadius((d) => Math.max(d.y0 * radius, d.y1 * radius - 1));
   const visible = (d) => d.y1 <= 3 && d.y0 >= 1 && d.x1 > d.x0;
   // A label shows only where the ring is wide enough around for a line of text.
   const labelVisible = (d) => d.y1 <= 3 && d.y0 >= 1 && ((d.y0 + d.y1) / 2) * radius * (d.x1 - d.x0) > 13;
@@ -73,23 +79,27 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
   const svg = d3.create('svg').attr('viewBox', [-size / 2, -size / 2, size, size]).attr('class', 'sunburst-svg').attr('role', 'group').attr('aria-label', label);
   const defs = svg.append('defs');
   defs.append('pattern').attr('id', `${id}-hatch`).attr('patternUnits', 'userSpaceOnUse').attr('width', 7).attr('height', 7).attr('patternTransform', 'rotate(45)')
-    .append('rect').attr('width', 3).attr('height', 7).attr('fill', 'rgba(255,255,255,.5)');
+    .append('rect').attr('width', 3).attr('height', 7).attr('fill', 'rgba(29,34,48,.13)');
   const g = svg.append('g');
   const nodes = root.descendants().slice(1);
   const fills = new Map(nodes.map((d) => [d, color(d)]));
+  const wash = new Map(nodes.map((d) => [d, d3.interpolateRgb(fills.get(d), '#ffffff')(0.88)]));
   // Every ring at the same strength: no paler veil the deeper you go.
   const path = g.append('g').selectAll('path').data(nodes).join('path')
     .attr('class', 'sb-arc')
-    .attr('fill', (d) => fills.get(d))
+    .attr('fill', (d) => wash.get(d))
     .attr('fill-opacity', (d) => +visible(d.current))
     .attr('pointer-events', (d) => (visible(d.current) ? 'auto' : 'none'))
-    .attr('stroke', (d) => (edge?.(d) ?? '#fff'))
+    .attr('stroke', (d) => (edge?.(d) ?? '#dfe3ec'))
     .attr('stroke-width', (d) => (edge?.(d) ? 2.5 : 1))
     .attr('stroke-opacity', (d) => +visible(d.current))
     .attr('tabindex', (d) => (visible(d.current) ? 0 : -1))
     .attr('role', 'button')
     .attr('aria-label', (d) => `${d.data.name}: ${d.value}${d.children ? ', open' : ''}`)
     .attr('d', (d) => arc(d.current));
+  // Each arc's stripe, in its full colour.
+  const stripes = g.append('g').attr('pointer-events', 'none').selectAll('path').data(nodes).join('path')
+    .attr('class', 'sb-stripe').attr('fill', (d) => fills.get(d)).attr('fill-opacity', (d) => +visible(d.current)).attr('d', (d) => stripeArc(d.current));
   // Drafts: the same arc again, striped.
   const hatch = hatched ? g.append('g').attr('pointer-events', 'none').selectAll('path').data(nodes.filter((d) => hatched(d))).join('path')
     .attr('fill', `url(#${id}-hatch)`).attr('fill-opacity', (d) => +visible(d.current)).attr('d', (d) => arc(d.current)) : null;
@@ -120,7 +130,7 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
   const text = g.append('g').attr('pointer-events', 'none').attr('text-anchor', 'middle').style('user-select', 'none')
     .selectAll('text').data(nodes).join('text')
     .attr('class', 'sb-label').attr('dy', '0.35em')
-    .attr('fill', (d) => inkOn(d3, fills.get(d)))
+    .attr('fill', (d) => inkOn(d3, wash.get(d)))
     .attr('fill-opacity', (d) => +labelVisible(d.current))
     .attr('transform', (d) => labelTransform(d.current))
     .text((d) => fit(d.data.name));
@@ -160,6 +170,7 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
       root.each((d) => { d.current = d.target; });
       path.attr('fill-opacity', (d) => +visible(d.target)).attr('stroke-opacity', (d) => +visible(d.target)).attr('d', (d) => arc(d.current));
       hatch?.attr('fill-opacity', (d) => +visible(d.target)).attr('d', (d) => arc(d.current));
+      stripes.attr('fill-opacity', (d) => +visible(d.target)).attr('d', (d) => stripeArc(d.current));
       text.attr('fill-opacity', (d) => +labelVisible(d.target)).attr('transform', (d) => labelTransform(d.current));
       return;
     }
@@ -170,6 +181,7 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
       .attr('fill-opacity', (d) => +visible(d.target))
       .attr('stroke-opacity', (d) => +visible(d.target))
       .attrTween('d', (d) => () => arc(d.current));
+    stripes.transition(t).attr('fill-opacity', (d) => +visible(d.target)).attrTween('d', (d) => () => stripeArc(d.current));
     if (hatch) hatch.transition(t).attr('fill-opacity', (d) => +visible(d.target)).attrTween('d', (d) => () => arc(d.current));
     text.filter(function (d) { return +this.getAttribute('fill-opacity') || labelVisible(d.target); }).transition(t)
       .attr('fill-opacity', (d) => +labelVisible(d.target))

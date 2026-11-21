@@ -857,3 +857,31 @@ body.mapper-page > main { border-radius: 0 0 var(--r-sheet, 14px) var(--r-sheet,
 .team-name b { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .team-name small { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .team-role { width: 132px; }
+
+/* The mapper's title (0.2): a plain, well set title, no longer an input. */
+#topbar .map-title { margin: 0 4px 0 2px; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink-1, var(--ink)); max-width: 30ch; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+@media (max-width: 1500px) { #topbar .map-title { max-width: 22ch; } }
+
+/* Lenses (0.2): white zones, bold stripes where the level changes. */
+.lens-stripe { pointer-events: none; }
+.lens-region { stroke: none; }
+.lens-region.highlight { filter: none; stroke: var(--accent); stroke-width: 4; stroke-dasharray: none; }
+.lens-label { fill: #3a4256; font-weight: 750; }
+.lens-hint { fill: #6a7286; }
+/* SOAR (final polish): white quadrants with a bold stripe along the axes, like the lenses and sunbursts. */
+.soar-zone { background: color-mix(in oklab, var(--q) 5%, #fff); box-sizing: border-box; }
+.soar-zone.q-s { border-right: 14px solid var(--q); border-bottom: 14px solid var(--q); }
+.soar-zone.q-o { border-left: 14px solid var(--q); border-bottom: 14px solid var(--q); }
+.soar-zone.q-a { border-right: 14px solid var(--q); border-top: 14px solid var(--q); }
+.soar-zone.q-r { border-left: 14px solid var(--q); border-top: 14px solid var(--q); }
+.soar-axis { display: none; }
+/* The mapper's section titles read like every side nav's (accent caps, chevron only). */
+.mp-head { color: var(--accent); font-size: 11.5px; font-weight: 700; padding-left: 8px; }
+.mp-head .mp-chev { color: var(--accent); }
+
+/* Asset map, all six: the links show over the bold wedges, ink with a soft white edge. */
+.ah-map2:not(.focused) .ah-line.related { stroke: #1d2230; stroke-opacity: .72; stroke-width: 2.4; stroke-linecap: round; filter: drop-shadow(0 0 2px rgb(255 255 255 / .95)); }
+.ah-map2 .ah-line.related.map { stroke-dasharray: 7 5; }
+.ah-map2 .ah-line { pointer-events: stroke; }
+.side-section.foldable .side-title-text { cursor: pointer; flex: 1; user-select: none; }
+.side-section.foldable .side-title-text:hover { color: var(--ink); }

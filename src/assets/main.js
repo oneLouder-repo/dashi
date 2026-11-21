@@ -489,12 +489,23 @@ function AssetMap(list) {
   });
   mapEmerge = false;
   let pillN = 0;
-  const lines = el('g', { class: 'ah-lines' }, svgEl);
+  // Lines sit over the wedges (they were hidden under the bold fills) and under the assets.
   const layer = el('g', { class: 'ah-layer' }, svgEl);
+  const lines = el('g', { class: 'ah-lines' }, svgEl);
   const nodes = el('g', { class: 'ah-nodes' }, svgEl);
   const pos = new Map();
   const byType = (t) => list.filter((c) => (c.abcd ?? 'none') === t);
-  const linksOf = (c) => (c.item?.related ?? []).length + list.filter((x) => x.item?.related?.includes(c.key)).length;
+  // Every connection the map can draw: links made here, and the relationships drawn between actors on the ecosystem maps.
+  const byKey = new Map(list.map((c) => [c.key, c]));
+  const conns = [];
+  { const seen = new Set();
+    const add = (a, b, kind) => { const id = [a, b].sort().join('|'); if (a === b || !byKey.has(a) || !byKey.has(b) || seen.has(id)) return; seen.add(id); conns.push({ a, b, kind }); };
+    for (const c of list) for (const k of c.item?.related ?? []) add(c.key, k, 'related');
+    const end = (x) => (typeof x === 'object' && x ? x.actorId : x);
+    for (const [mapId, content] of Object.entries(docs.mapContents ?? {})) for (const cn of Object.values(content?.connectors ?? {})) add(`actor:${mapId}/${end(cn.from ?? cn.source)}`, `actor:${mapId}/${end(cn.to ?? cn.target)}`, 'map'); }
+  const degree = new Map();
+  for (const { a, b } of conns) { degree.set(a, (degree.get(a) ?? 0) + 1); degree.set(b, (degree.get(b) ?? 0) + 1); }
+  const linksOf = (c) => degree.get(c.key) ?? 0;
   const lead = (cs, n) => [...cs].sort((a, b) => linksOf(b) - linksOf(a) || (b.item?.updatedAt ?? '').localeCompare(a.item?.updatedAt ?? '')).slice(0, n);
   const svgPoint = (e) => { const r = svgEl.getBoundingClientRect(); const vb = svgEl.viewBox.baseVal; return { x: ((e.clientX - r.left) / r.width) * vb.width, y: ((e.clientY - r.top) / r.height) * vb.height }; };
   const short = (t, n = mapFocus ? 20 : 15) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
@@ -598,18 +609,15 @@ function AssetMap(list) {
 
   const drawLines = () => {
     lines.querySelectorAll('.ah-line').forEach((n) => n.remove());
-    const seen = new Set();
-    for (const c of list) for (const k of c.item?.related ?? []) {
-      const id = [c.key, k].sort().join('|');
-      if (seen.has(id)) continue;
-      seen.add(id);
-      const p = pos.get(c.key), q = pos.get(k);
+    for (const { a, b, kind } of conns) {
+      const p = pos.get(a), q = pos.get(b);
       if (!p || !q) continue;
       // Curves bow towards the middle, so lines between wedges don't cross the labels.
       const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
       const [cx0, cy0] = mapFocus ? [W / 2, H + 200] : [W / 2, 360];
       const bx = mx + (cx0 - mx) * 0.25, by = my + (cy0 - my) * 0.25;
-      el('path', { d: `M${p.x},${p.y} Q${bx},${by} ${q.x},${q.y}`, class: 'ah-line related' }, lines);
+      const line = el('path', { d: `M${p.x},${p.y} Q${bx},${by} ${q.x},${q.y}`, class: `ah-line related${kind === 'map' ? ' map' : ''}` }, lines);
+      el('title', {}, line).textContent = `${byKey.get(a).title} ↔ ${byKey.get(b).title}${kind === 'map' ? ' (on an ecosystem map)' : ''}`;
     }
   };
 
@@ -628,6 +636,18 @@ function AssetMap(list) {
       return ABCD[Math.floor(a / 60)]?.id ?? 'none';
     };
     dropType = (np) => typeAt(np.x, np.y);
+    // Show connections at the top level: the strongest links between types
+    // choose who leads each wedge first (up to three per wedge), then the
+    // busiest assets fill what room is left.
+    // Links across types first: they show how the wedges work together.
+    const pairs = conns.map(({ a, b }) => [byKey.get(a), byKey.get(b)]).filter(([a, b]) => abcdById[a.abcd] && abcdById[b.abcd]);
+    pairs.sort(([a, b], [c, d]) => ((c.abcd !== d.abcd) - (a.abcd !== b.abcd)) || (linksOf(c) + linksOf(d)) - (linksOf(a) + linksOf(b)));
+    const featured = new Map(ABCD.map((x) => [x.id, []]));
+    const room = (c) => featured.get(c.abcd).includes(c) || featured.get(c.abcd).length < 3;
+    for (const [a, b] of pairs.slice(0, 60)) {
+      if (!room(a) || !room(b)) continue;
+      for (const c of [a, b]) if (!featured.get(c.abcd).includes(c)) featured.get(c.abcd).push(c);
+    }
     const taken = [];
     const fits = (qx, qy, w, hh) => taken.every(([tx, ty, tw, th]) => Math.abs(tx - qx) * 2 >= tw + w || Math.abs(ty - qy) * 2 >= th + hh);
     ABCD.forEach((x, i) => {
@@ -660,7 +680,7 @@ function AssetMap(list) {
       wg.addEventListener('keydown', (e) => { if (e.key === 'Enter') burstTo(svgEl, x.id, wg); });
       // A few leading assets in the outer band; the rest wait inside.
       // Up to three, wherever they fit without touching (nothing piles up).
-      const top = lead(cs, 3);
+      const top = [...featured.get(x.id), ...lead(cs.filter((c) => !featured.get(x.id).includes(c)), 3)].slice(0, 3);
       const span = a1 - a0;
       const cands = [];
       for (const rr of [R - 40, R - 92, R - 144]) for (const f of [0, -0.26, 0.26]) cands.push(pt(mid + f * span, rr));
@@ -679,9 +699,12 @@ function AssetMap(list) {
         more.textContent = `+ ${cs.length - placed} more`;
       }
     });
-    el('circle', { cx, cy, r: r0 - 10, class: 'ah-core' }, layer);
-    el('text', { x: cx, y: cy - 2, class: 'ah-core-label', 'text-anchor': 'middle' }, layer).textContent = short(org.name, 20);
-    el('text', { x: cx, y: cy + 16, class: 'ah-core-sub', 'text-anchor': 'middle' }, layer).textContent = `${list.filter((c) => c.abcd).length} assets`;
+    // The hub sits over the lines, so links between wedges pass behind it.
+    const hubG = el('g', { class: 'ah-hub' });
+    svgEl.insertBefore(hubG, nodes);
+    el('circle', { cx, cy, r: r0 - 10, class: 'ah-core' }, hubG);
+    el('text', { x: cx, y: cy - 2, class: 'ah-core-label', 'text-anchor': 'middle' }, hubG).textContent = short(org.name, 20);
+    el('text', { x: cx, y: cy + 16, class: 'ah-core-sub', 'text-anchor': 'middle' }, hubG).textContent = `${list.filter((c) => c.abcd).length} assets`;
     // Not yet sorted: a tray along the bottom, to drag into a wedge.
     const loose = byType('none');
     if (loose.length) {
@@ -690,7 +713,7 @@ function AssetMap(list) {
       for (const c of loose.slice(0, 7)) { const w = Math.max(70, short(c.title).length * 7.6 + 38); if (x + w > W - 120) break; Pill(c, x + w / 2 - 36, H - 24, { quiet: true }); x += w + 14; }
       if (loose.length > 7) el('text', { x: W - 24, y: H - 20, class: 'ah-more', 'text-anchor': 'end' }, layer).textContent = `+ ${loose.length - 7} more in the list`;
     }
-    wrap.append(svgEl, h('p', { class: 'ah-map-note' }, 'Click a wedge to open it. Drag an asset into a wedge to sort it; drag the ring on its right onto another asset to link them.'));
+    wrap.append(svgEl, h('p', { class: 'ah-map-note' }, 'Lines show what connects: solid ones are links made here, dashed ones are relationships drawn on your ecosystem maps. Click a wedge to open it, drag an asset into a wedge to sort it, or drag the ring on its right onto another asset to link them.'));
   } else {
     /* ---------- one wedge, fanned out */
     const x = abcdById[mapFocus];

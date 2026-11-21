@@ -68,7 +68,8 @@ function draw() {
   if (!p || p.id === 'home') { box.remove(); return; }
   // A sub-plugin's trail starts at its parent: Public Portal / Data Workbench / Dashboards.
   const parent = p.parent && PLUGINS.find((x) => x.id === p.parent);
-  const steps = [...(parent ? [{ label: parent.name, href: parent.href }] : []), { label: p.name, href: p.href }];
+  // The studio is part of Strategy & Work now (0.2), so its own name drops out: Strategy & Work / Framework and plans.
+  const steps = [...(parent ? [{ label: parent.name, href: parent.href }] : []), ...(p.id === 'studio' && parent ? [] : [{ label: p.name, href: p.href }])];
   if (section && !(home && !tail.length)) steps.push(section);
   steps.push(...tail);
   el.replaceChildren(h('ol', {}, steps.map((s, i) => {

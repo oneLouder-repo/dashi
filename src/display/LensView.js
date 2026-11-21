@@ -72,6 +72,33 @@ export function vivid(hex) {
   return `#${[r, g, b].map((v) => Math.round(v * 255).toString(16).padStart(2, '0')).join('')}`;
 }
 
+/**
+ * Dashi's look since 0.2 is white cards with a bold primary stripe, so the
+ * lenses follow: each zone is nearly white (wash), and a thick stripe in
+ * the zone's bold colour marks where one level of systems analysis gives
+ * way to the next.
+ */
+function hsl(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex ?? ''));
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  const [r, g, b] = [n >> 16, (n >> 8) & 255, n & 255].map((v) => v / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0;
+  if (max !== min) { const d = max - min; h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4; h /= 6; }
+  return h;
+}
+const toHex = (h, s, l) => {
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  const f = (t) => { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
+  return `#${[f(h + 1 / 3), f(h), f(h - 1 / 3)].map((v) => Math.round(v * 255).toString(16).padStart(2, '0')).join('')}`;
+};
+/** The zone's colour at full strength: a primary-ish stripe colour. */
+export const bold = (hex) => { const h = hsl(hex); return h == null ? hex : toHex(h, 0.68, 0.5); };
+/** The zone itself: white with the faintest wash of its colour. */
+export const wash = (hex) => { const h = hsl(hex); return h == null ? hex : toHex(h, 0.6, 0.975); };
+const STRIPE = 16;
+
 const hintOf = (region) => [region.group, region.hint].filter(Boolean).join(' · ');
 
 const renderers = {
@@ -80,7 +107,9 @@ const renderers = {
     const bands = bandsOf(lens);
     // Outermost first so inner rings paint on top.
     for (const { region } of [...bands].reverse()) {
-      keep(region, view.draw('circle', { cx, cy, r: region.radius, fill: vivid(region.tint) }));
+      keep(region, view.draw('circle', { cx, cy, r: region.radius, fill: wash(region.tint) }));
+      // The stripe at the ring's outer edge: where this level ends and the next begins.
+      view.draw('circle', { class: 'lens-stripe', cx, cy, r: region.radius - STRIPE / 2, fill: 'none', stroke: bold(region.tint), 'stroke-width': STRIPE });
     }
     for (const { region, inner, outer } of bands) {
       // Label sits in the top of each ring's band (near the top of the innermost disc).
@@ -99,7 +128,8 @@ const renderers = {
         [centerX + widthAt(y1), y1],
         [centerX - widthAt(y1), y1],
       ].map((p) => p.join(',')).join(' ');
-      keep(region, view.draw('polygon', { points, fill: vivid(region.tint) }));
+      keep(region, view.draw('polygon', { points, fill: wash(region.tint) }));
+      view.draw('line', { class: 'lens-stripe', x1: centerX - widthAt(y0), y1: y0 + STRIPE / 2, x2: centerX + widthAt(y0), y2: y0 + STRIPE / 2, stroke: bold(region.tint), 'stroke-width': STRIPE });
       label(view, region.label, hintOf(region), centerX, y0 + 40, 'middle');
     }
   },
@@ -108,8 +138,11 @@ const renderers = {
     const left = -lens.width / 2;
     let lastGroup = null;
     for (const { region, y0, y1 } of bandsOf(lens)) {
-      keep(region, view.draw('rect', { x: left, y: y0, width: lens.width, height: y1 - y0, fill: vivid(region.tint) }));
-      label(view, region.label, region.hint ?? '', left + 18, y0 + (region.hint ? 28 : (y1 - y0) / 2 + 6), 'start');
+      keep(region, view.draw('rect', { x: left, y: y0, width: lens.width, height: y1 - y0, fill: wash(region.tint) }));
+      // A thick stripe down the band's left edge, and a rule along its top where the level changes.
+      view.draw('rect', { class: 'lens-stripe', x: left, y: y0, width: STRIPE, height: y1 - y0, fill: bold(region.tint) });
+      view.draw('rect', { class: 'lens-stripe', x: left, y: y0, width: lens.width, height: 3, fill: bold(region.tint) });
+      label(view, region.label, region.hint ?? '', left + STRIPE + 18, y0 + (region.hint ? 28 : (y1 - y0) / 2 + 6), 'start');
       if (region.group && region.group !== lastGroup) {
         view.draw('text', { class: 'lens-group', x: -left - 18, y: y0 + 26, 'text-anchor': 'end' }).textContent = region.group;
       }

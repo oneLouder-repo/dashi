@@ -68,7 +68,8 @@ function Section({ title, items, menu, body, head, action, className, fold }) {
   sec.append(...[
     (title || action) && h('div', { class: 'side-title' },
       chevron,
-      h('span', {}, title),
+      // The title folds too, not just the chevron (0.2 polish).
+      fold ? h('span', { class: 'side-title-text', role: 'button', tabindex: -1, onclick: () => chevron.click() }, title) : h('span', {}, title),
       action && h('button', { class: 'btn btn-ghost btn-xs btn-square', title: action.label, 'aria-label': action.label, onclick: action.onclick }, icon(action.icon ?? 'plus', 15))),
     head && h('div', { class: 'side-body side-head' }, head),
     items && h('ul', { class: 'menu side-menu' }, items.filter(Boolean).map(Item)),
