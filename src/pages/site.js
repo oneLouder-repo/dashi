@@ -132,7 +132,11 @@ function render() {
 
   // The org's palette and look and feel (Public Portal → Look and feel), then the station's look.
   // Station pages can wear their own colours (Podcasts → Public station).
-  const onStation = hasStation && (p.view === 'station' || p.show || p.episode);
+  // A site's own homepage (alpha 0.3, Public Portal → Sites → Homepage): the default, the podcast station, or one of its pages.
+  const bare = !p.view && !p.page && !p.story && !p.plan && !p.show && !p.episode && !p.doc;
+  const homeKind = site?.home?.kind ?? 'default';
+  const stationHome = bare && homeKind === 'station' && hasStation && site?.visibility !== 'private';
+  const onStation = hasStation && (p.view === 'station' || p.show || p.episode || stationHome);
   applyTheme(document.documentElement, onStation ? stationTheme(pod.station, org.theme) : org.theme);
   document.body.className = `site-page ${lookClasses(pod.station.look)}`;
 
@@ -183,7 +187,7 @@ function render() {
     title = s?.title;
     body = s ? ShowPage(ctx, s) : h('p', { class: 'empty' }, 'That show is not here.');
   } else if (p.view === 'station' && hasStation) {
-    current = 'station';
+    current = homeKind === 'station' ? 'home' : 'station';
     title = pod.station.name;
     body = StationHome(ctx);
   } else if (p.view === 'media' && media(id)?.corner) {
@@ -194,6 +198,15 @@ function render() {
     current = 'news';
     title = 'News';
     body = h('div', {}, h('section', { class: 'site-hero' }, h('h1', {}, 'News')), NewsList(content.articles));
+  } else if (stationHome) {
+    // The station is this site's front page: a client that is just a podcast station.
+    title = pod.station.name;
+    body = StationHome(ctx);
+  } else if (homeKind === 'page' && site.home.slug && content.bySlug(site.home.slug)) {
+    const pg = content.bySlug(site.home.slug);
+    title = pg.title;
+    body = Article(pg, embed);
+    editable = canLiveEdit() ? pg : null;
   } else body = Home(site, content, hasStation, ctx);
 
   document.title = `${title ?? 'Site'} · ${org.name}`;
@@ -224,7 +237,8 @@ function render() {
           content.nav.map((pg) => navLink(`page:${pg.slug}`, link({ page: pg.slug }), pg.title)),
           content.articles.length > 0 && navLink('news', link({ view: 'news' }), 'News'),
           plansHere.length > 0 && navLink('plan', link({ plan: plansHere[0].id }), 'Our plan'),
-          hasStation && navLink('station', link({ view: 'station' }), pod.station.name),
+          // When the station is the homepage, Home is the station: no second link to it.
+          hasStation && homeKind !== 'station' && navLink('station', link({ view: 'station' }), pod.station.name),
           media(id)?.corner && navLink('media', link({ view: 'media' }), 'Media smart')),
         publicSites.length > 1 && h('details', { class: 'site-switch' },
           h('summary', { 'aria-label': 'Our other sites', title: 'Our sites' }, icon('globe', 17), h('span', { class: 'site-switch-label' }, 'Our sites'), icon('chevronDown', 12)),

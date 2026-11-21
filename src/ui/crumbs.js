@@ -15,8 +15,8 @@ import { PLUGINS, linkTo } from '../plugins.js';
  * Since 0.2 (PR 8) the trail sits in a ribbon, like the mapper's top bar,
  * that is always there and always the same height (on a plugin's home page
  * too), so moving between pages never shifts the page. Its right side has
- * the tools: what the page adds with setRibbon(), and the plugins this one
- * works with (only the ones this person can open). Help lives in the top
+ * the tools: what the page adds with setRibbon(), then (alpha 0.3) quick
+ * actions for where you are, in place of the old "Works with" links. Help lives in the top
  * bar only (PR 10), so the ribbon has no help button of its own.
  *
  *   setPlugin('podcasts')                      Shell does this
@@ -76,9 +76,73 @@ function draw() {
     const last = i === steps.length - 1;
     return h('li', {}, !last && s.href ? h('a', { href: s.href }, s.label) : h('span', { 'aria-current': last ? 'page' : null }, s.label));
   })));
-  box.replaceChildren(el, h('div', { class: 'ribbon-tools' }, tools, worksWith(p.id)));
+  // Alpha 0.3: no "Works with" any more. The right side is a toolbar: the page's own
+  // tools (setRibbon), then the actions people reach for most where they are.
+  box.replaceChildren(el, h('div', { class: 'ribbon-tools' }, tools, contextActions(p.id)));
   place();
 }
+
+/**
+ * The often-used actions for each plugin, shown in its ribbon. `here` hides
+ * the one for the page you're already on. Links to another plugin go
+ * through linkTo, so they only show to people who can open it.
+ */
+const own = (pid, hash) => linkTo(pid, hash);
+const ACTIONS = {
+  strategy: () => [
+    { label: 'Roadmap', icon: 'mapTrifold', href: own('strategy', '#roadmap'), here: '#roadmap' },
+    { label: 'Framework', icon: 'strategy', href: own('strategy', '#framework'), here: '#framework' },
+    { label: 'Plan details', icon: 'doc', href: own('studio'), title: 'The plan’s home: dates, context and team' },
+    { label: 'Plan designer', icon: 'brush', href: linkTo('plandoc'), title: 'Design the plan as pages, then print, save as PDF or publish' },
+  ],
+  studio: () => [
+    { label: 'Framework and plans', icon: 'strategy', href: own('studio', '#framework'), here: '#framework' },
+    { label: 'Roadmap', icon: 'mapTrifold', href: linkTo('strategy', '#roadmap') },
+    { label: 'Plan designer', icon: 'brush', href: linkTo('plandoc') },
+  ],
+  assets: () => [
+    { label: 'Asset map', icon: 'mapTrifold', href: own('assets', '#view=map'), here: '#view=map' },
+    { label: 'Asset graph', icon: 'spark', href: linkTo('graph') },
+    { label: 'Ecosystem map', icon: 'mapper', href: linkTo('mapper') },
+  ],
+  graph: () => [
+    { label: 'Explore', icon: 'spark', href: own('graph', '#explore'), here: '#explore' },
+    { label: 'Insights', icon: 'chart', href: own('graph', '#insights'), here: '#insights' },
+    { label: 'Export', icon: 'download', href: own('graph', '#export'), here: '#export' },
+  ],
+  library: () => [
+    { label: 'Bibliographies', icon: 'book', href: own('library', '#bibs'), here: '#bibs' },
+    { label: 'Tags', icon: 'tag', href: own('library', '#tags'), here: '#tags' },
+  ],
+  podcasts: () => [
+    { label: 'New episode', icon: 'plus', href: own('podcasts', '#episodes/new') },
+    { label: 'Studio', icon: 'mic', href: own('podcasts', '#studio'), here: '#studio' },
+    { label: 'Station', icon: 'radio', href: own('podcasts', '#station'), here: '#station' },
+    { label: 'Design', icon: 'palette', href: own('podcasts', '#design'), here: '#design' },
+  ],
+  pages: () => [
+    { label: 'Pages', icon: 'doc', href: own('pages', '#cms/pages'), here: '#cms/pages' },
+    { label: 'News', icon: 'news', href: own('pages', '#cms/news'), here: '#cms/news' },
+    { label: 'Look and feel', icon: 'palette', href: own('pages', '#look'), here: '#look' },
+  ],
+  palette: () => [
+    { label: 'Dashboards', icon: 'chart', href: own('palette', '#dashboards'), here: '#dashboards' },
+    { label: 'Program data', icon: 'timeline', href: own('palette', '#data'), here: '#data' },
+    { label: 'Feedback forms', icon: 'chats', href: own('palette', '#feedback'), here: '#feedback' },
+  ],
+  org: () => [
+    { label: 'People', icon: 'person', href: own('org', '#people'), here: '#people' },
+    { label: 'Plugins', icon: 'settings', href: own('org', '#plugins'), here: '#plugins' },
+  ],
+};
+export function contextActions(id) {
+  const tone = PLUGINS.find((x) => x.id === id)?.tone ?? 'var(--color-primary)';
+  const list = (ACTIONS[id]?.() ?? []).filter((a) => a.href && !(a.here && typeof location !== 'undefined' && location.hash.startsWith(a.here)));
+  return list.length ? h('span', { class: 'ribbon-group ribbon-actions', role: 'group', 'aria-label': 'Quick actions' },
+    list.map((a) => h('a', { class: 'ribbon-link', href: a.href, style: `--tone:${tone}`, title: a.title ?? a.label }, icon(a.icon, 15), h('span', {}, a.label)))) : null;
+}
+// Moving between a plugin's own pages changes which actions show.
+if (typeof addEventListener !== 'undefined') addEventListener('hashchange', () => queue());
 
 /** The "Works with" links for a plugin: the ones it works with most that this person can open. The mapper's top bar uses it too. */
 export function worksWith(id) {

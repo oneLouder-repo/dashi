@@ -102,16 +102,82 @@ function renderSide() {
     ].filter(Boolean) },
     // The Data Workbench lives here now (a sub-plugin of the Portal): every data tool, one click away.
     { title: 'Data', items: DATA_TOOLS.map((t) => ({ label: t.name, sub: t.sub, icon: t.icon, href: linkTo('palette', `#${t.id}`) })) },
-    { title: 'From other plugins', className: 'side-elsewhere', items: [
-      { label: 'Strategic plan', sub: 'In the Plan designer', icon: 'strategy', href: linkTo('plandoc') },
-      pluginOn(org, 'podcasts') && { label: 'Podcast station', sub: 'In Podcasts', icon: 'mic', href: linkTo('podcasts', '#station') },
-      criticalOn(org) && { label: 'Media smart', sub: 'In Critical Media', icon: 'news', href: linkTo('critical-media') },
+    // Alpha 0.3: one CMS section for everything written and published here.
+    // (The "From other plugins" links are gone: the plan and the station are made in their own plugins.)
+    { title: 'CMS', items: [
+      { label: 'Pages', sub: `${list('page').length} pages · ${list('page').filter((p) => isLive(p, now)).length} live`, icon: 'doc', href: '#cms/pages', on: r === 'cms/pages' || doc().pages[r]?.kind === 'page' },
+      { label: 'News articles', sub: `${list('article').length} articles · ${list('article').filter((p) => isLive(p, now)).length} live`, icon: 'news', href: '#cms/news', on: r === 'cms/news' || doc().pages[r]?.kind === 'article' },
+      { label: 'New page', sub: 'In a site’s menu', icon: 'plus', onclick: () => newPage('page') },
+      { label: 'New article', sub: 'Dated news, with a cover', icon: 'plus', onclick: () => newPage('article') },
+      { label: 'Sites', sub: `${byVis('public').length} public${byVis('private').length ? ` · ${byVis('private').length} members only` : ''}`, icon: 'globe', href: '#cms/sites', on: r === 'cms/sites' || r.startsWith('site/') },
     ] },
-    { title: 'Sites', action: { label: 'New site', onclick: newSite }, items: byVis('public').map(siteItem) },
-    byVis('private').length > 0 && { title: 'Members only', items: byVis('private').map(siteItem) },
-    { title: 'Pages', action: { label: 'New page', onclick: () => newPage('page') }, items: [...list('page').map(item), { label: 'New page', sub: 'In a site’s menu', icon: 'plus', onclick: () => newPage('page') }] },
-    { title: 'News articles', action: { label: 'New article', onclick: () => newPage('article') }, items: [...list('article').map(item), { label: 'New article', sub: 'Dated news, with a cover', icon: 'plus', onclick: () => newPage('article') }] },
   ].filter(Boolean) }));
+}
+
+/** What a site opens on (alpha 0.3): its default home, the podcast station, or one of its pages. */
+function homeLabel(site) {
+  const k = site.home?.kind ?? 'default';
+  if (k === 'station') return 'The podcast station';
+  if (k === 'page') return Object.values(doc().pages).find((p) => p.siteId === site.id && p.slug === site.home.slug)?.title ?? 'A page';
+  return 'Dashi home';
+}
+function HomeChooser(site, save) {
+  const hasStation = pluginOn(org, 'podcasts') && docs.podcasts.station?.siteId === site.id;
+  const pagesHere = Object.values(doc().pages).filter((p) => p.siteId === site.id && p.kind === 'page');
+  const value = site.home?.kind === 'page' ? `page:${site.home.slug}` : site.home?.kind === 'station' && hasStation ? 'station' : 'default';
+  const opts = [
+    { id: 'default', label: 'Dashi home: dashboards, news, the latest episode' },
+    hasStation && { id: 'station', label: `The podcast station (${docs.podcasts.station.name || 'station'})` },
+    ...pagesHere.map((p) => ({ id: `page:${p.slug}`, label: `Page: ${p.title}` })),
+  ].filter(Boolean);
+  return h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Homepage'),
+    h('select', { class: 'select select-sm w-full', name: 'site-home', onchange: (e) => {
+      const v = e.target.value;
+      save({ home: v === 'default' ? { kind: 'default' } : v === 'station' ? { kind: 'station' } : { kind: 'page', slug: v.slice(5) } });
+    } }, options(opts, value)),
+    h('span', { class: 'label muted small' }, hasStation ? 'A station-only client can open straight on its radio station.' : 'Put the podcast station on this site to offer it as the homepage.'));
+}
+
+/** The CMS lists (alpha 0.3): every page, or every news article, in one calm table. */
+function CmsList(kind) {
+  const article = kind === 'article';
+  const rows = Object.values(doc().pages).filter((p) => p.kind === kind)
+    .sort((a, b) => (article ? (b.publishedAt ?? '').localeCompare(a.publishedAt ?? '') : (a.siteId ?? '').localeCompare(b.siteId ?? '') || a.order - b.order));
+  setCrumbs([]);
+  const state = (p) => (isLive(p, now) ? ['live', 'Published'] : p.status === 'draft' ? ['draft', 'Draft'] : ['published', 'Scheduled']);
+  return h('div', { class: 'cms' },
+    h('header', { class: 'cms-head' },
+      h('div', {}, h('h2', {}, article ? 'News articles' : 'Pages'), h('p', { class: 'muted' }, article ? 'Dated news for your sites, newest first. Each has a cover and can go out on a schedule.' : 'The pages in your sites’ menus. Open one to write it, with a live preview beside it.')),
+      h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: () => newPage(kind) }, icon('plus', 15), article ? 'New article' : 'New page')),
+    rows.length ? h('table', { class: 'table cms-table' },
+      h('thead', {}, h('tr', {}, h('th', {}, 'Title'), h('th', {}, 'Site'), h('th', {}, article ? 'Date' : 'Menu'), h('th', {}, 'Status'))),
+      h('tbody', {}, rows.map((p) => {
+        const [cls, label] = state(p);
+        return h('tr', { tabindex: 0, onclick: () => { location.hash = p.id; }, onkeydown: (e) => { if (e.key === 'Enter') location.hash = p.id; } },
+          h('td', {}, h('a', { href: `#${p.id}`, class: 'cms-title' }, p.title || 'Untitled'), p.summary && h('small', { class: 'muted cms-sum' }, p.summary)),
+          h('td', {}, org.sites[p.siteId]?.name ?? 'No site'),
+          h('td', {}, article ? (p.publishedAt ? short(p.publishedAt) : '–') : p.inNav ? 'In the menu' : 'Not in the menu'),
+          h('td', {}, h('span', { class: 'cms-status' }, h('span', { class: `status-dot ${cls}` }), label)));
+      })))
+      : h('p', { class: 'empty' }, article ? 'No news articles yet.' : 'No pages yet.'));
+}
+
+/** Every site, public and members only, with what is live on each. */
+function CmsSites() {
+  setCrumbs([]);
+  const sites = Object.values(org.sites);
+  const vis = (x) => (x.visibility === 'private' ? 'Members only' : x.visibility === 'unlisted' ? 'Unlisted' : 'Public');
+  return h('div', { class: 'cms' },
+    h('header', { class: 'cms-head' },
+      h('div', {}, h('h2', {}, 'Sites'), h('p', { class: 'muted' }, 'Your public sites and members-only portals. Open one for its look, its homepage and what it shows.')),
+      h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: newSite }, icon('plus', 15), 'New site')),
+    h('table', { class: 'table cms-table' },
+      h('thead', {}, h('tr', {}, h('th', {}, 'Site'), h('th', {}, 'Who sees it'), h('th', {}, 'Homepage'), h('th', {}, 'Live'))),
+      h('tbody', {}, sites.map((x) => h('tr', { tabindex: 0, onclick: () => { location.hash = `site/${x.id}`; }, onkeydown: (e) => { if (e.key === 'Enter') location.hash = `site/${x.id}`; } },
+        h('td', {}, h('a', { href: `#site/${x.id}`, class: 'cms-title' }, icon(x.visibility === 'private' ? 'lock' : 'globe', 15), x.name)),
+        h('td', {}, vis(x)),
+        h('td', {}, homeLabel(x)),
+        h('td', {}, `${propertiesOf(x).filter((q) => q.live).length} live`))))));
 }
 
 async function newSite() {
@@ -128,7 +194,7 @@ function render() {
   const r = route();
   const p = doc().pages[r];
   const site = r.startsWith('site/') && org.sites[r.slice(5)];
-  main.replaceChildren(p ? Editor(p) : site ? SitePage(site) : r === 'look' || r.startsWith('look/') ? Look(r.slice(5)) : Sites());
+  main.replaceChildren(p ? Editor(p) : site ? SitePage(site) : r === 'look' || r.startsWith('look/') ? Look(r.slice(5)) : r === 'cms/pages' ? CmsList('page') : r === 'cms/news' ? CmsList('article') : r === 'cms/sites' ? CmsSites() : Sites());
 }
 
 function newPage(kind, forSite = null) {
@@ -373,6 +439,7 @@ function SitePage(s) {
           h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Who can see it'),
             h('select', { class: 'select select-sm w-full', name: 'site-vis', onchange: (e) => saveSite({ visibility: e.target.value }) },
               options([{ id: 'public', label: 'Public: listed and open to all' }, { id: 'unlisted', label: 'Unlisted: open to anyone with the link' }, { id: 'private', label: 'Members only: sign in to see it' }], s.visibility))),
+          s.visibility !== 'private' && HomeChooser(s, (patch) => saveSite(patch)),
           h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Address'),
             h('input', { class: 'input input-sm w-full', name: 'site-url', value: s.url ?? '', placeholder: 'https://…', onchange: (e) => saveSite({ url: e.target.value.trim() }) })),
           h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'What it shows (one line)'),

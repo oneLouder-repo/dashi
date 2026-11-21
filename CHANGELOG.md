@@ -6,9 +6,15 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### PR 3: toolbars that fit the page, a CMS in the Portal, your own homepage
+
+- **The ribbon is a toolbar now.** "Works with" is gone from every plugin. Its right side has the actions people reach for most where they are: in Strategy & Work, Roadmap, Framework, Plan details and Plan designer; in Podcasts, New episode, Studio, Station and Design; in Assets, Asset map, Asset graph and Ecosystem map; and so on. The one for the page you're on drops out, and links to another plugin show only to people who can open it.
+- **A CMS section in the Public Portal's side nav**: Pages, News articles, New page, New article and Sites. Pages, News and Sites each open a list (status, site, menu or date), with a New button. The "From other plugins" links are gone; the separate Sites, Pages and News sections are folded into the CMS.
+- **Choose a site's homepage**: Dashi's home, the podcast station, or one of the site's pages (Public Portal → Sites → a site → Homepage). A station-only client like Social Justice Radio can open straight on its radio station; Home is then the station, and the menu has no second link to it.
+
 ### PR 2: one side nav everywhere
 
-- **The Ecosystem Mapper uses the platform side nav**, like every other plugin: Tools, Layers, Inspector and Maps are its folding sections, and the tools are ordinary two-line rows with their shortcut keys. Its own tuck-away, resizing and left/right switch are gone; View ▾ has **Fold the side nav** (\\).
+- **The Ecosystem Mapper uses the platform side nav**, like every other plugin: Tools, Layers, Inspector and Maps are its folding sections, and the tools are ordinary two-line rows with their shortcut keys. Its own tuck-away, resizing and left/right switch are gone; View ▾ has **Fold the side nav** (backslash key).
 - **A folded side nav can always be opened again**: the open button is a clear button at the top, on desktop and on phones. Before, phones hid the button, so a nav folded elsewhere stayed folded.
 - **Tooltips on the folded side nav**: point at an icon (or tab to it) and its name and second line show beside it, quickly. This covers the mapper too.
 - **Phones**: the side nav sits above the page. Open, it's the full list; folded, one row of icons that scrolls sideways. The mapper does the same.
