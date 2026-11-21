@@ -32,18 +32,104 @@ export const HELP_SHOTS = {
   'asset-map-linking': 'Drag from an asset’s ring to another asset to link them.',
   'form-designer': 'The form designer: add questions on the left, edit words on the form, settings on the right.',
   'form-on-site': 'The same form on the public site, one question at a time.',
+  'toc-layers': 'Theory layers: what the plan already says, and new thinking on a layer of its own.',
+  'toc-send': 'Send to plan: a tray shows the drafts before anything changes.',
+  'plan-drafts': 'A draft in Strategy & Work, with Accept and Discard.',
+  'results-v2': 'Results, grouped by objective, each saying where it comes from.',
+  'roadmap-dusk': 'The roadmap: green objective signposts, white goal signs and traffic lights.',
+  'asset-sunburst': 'The asset map as a sunburst: types, then collections, then assets.',
+  'framework-sunburst': 'The whole framework as a sunburst on the Strategy & Work overview.',
+  'mapper-share': 'The mapper: its panel beside the board, and the Share menu.',
 };
-export const HELP_VERSION = 3;
+export const HELP_VERSION = 4;
 
 /**
  * Sections added since a version: a saved (edited) library that is older
  * gets them too, at the top, so new guides reach every server.
  */
-export const HELP_ADDED = { alpha: 2, 'new-in-0-2': 3 };
+export const HELP_ADDED = { alpha: 2, 'new-in-0-2': 3, 'new-in-0-2-planning': 4 };
 
 export const HELP_SEED = {
   version: HELP_VERSION,
   sections: [
+    {
+      id: 'new-in-0-2-planning',
+      title: 'New in 0.2: planning and maps',
+      icon: 'target',
+      blurb: 'Theory layers and drafts sent to the plan, the reworked results, a calmer roadmap, two sunbursts and a mapper that sits like every other plugin.',
+      pages: [
+        {
+          id: 'theory-layers',
+          title: 'Theory layers, and sending a theory to the plan',
+          body: `An organisation often has a plan but no theory of change. The theory of change now starts from the plan, and can grow new thinking beside it.
+
+# Bring the plan in as a layer
+1. Open **Strategy & Work → Planning Studio**, pick a plan, then **Theory of change**.
+2. Press **Bring in the plan as a layer**. Its objectives, goals and workplans appear, linked the way the plan nests them, on the **From the plan** layer.
+
+# Add new thinking
+1. In the **Theory layers** strip, **New thinking** is where new boxes go ("Adding here"). Press **+ Layer** for another, and click its name to rename it.
+2. Add boxes in any column and link them. Each layer has its own colour down the side of its boxes; the eye hides or shows a layer.
+
+[[shot:toc-layers]]
+
+# Send it to the plan as drafts
+1. Press **Send to plan**. A tray shows what it would make: each lasting change becomes an objective, each early change a goal, what you do a workplan, and what it produces a task. Pick which layers to send.
+2. Press **Send as drafts**. Nothing is final yet: they arrive in Strategy & Work as drafts, striped and marked **Draft**, and stay out of reports.
+3. Change the theory and send again: the drafts are updated, not doubled.
+
+[[shot:toc-send]]
+
+# Accept or discard
+In **Strategy & Work → Framework**, open a draft and press **Accept** (it keeps the drafts above it too), **Discard**, or **Accept all**.
+
+[[shot:plan-drafts]]
+
+The assumptions behind each link, and any signposts, go into the draft's notes.`,
+        },
+        {
+          id: 'results-reworked',
+          title: 'Results that come from anywhere in the plan',
+          body: `**Results** in the Planning Studio are grouped by objective. Each says where it comes from: the plan, an objective, a goal, a workplan or a single task.
+
+1. Press **New result**, or **Add a result here** beside an objective.
+2. Click a result to open it in a tray: say what it measures, its baseline and target, how often, and where it **comes from**.
+3. Ideas from the SOAR board's Results corner wait in **From the SOAR board**: click one to make it a result.
+
+[[shot:results-v2]]`,
+        },
+        {
+          id: 'roadmap-sunbursts',
+          title: 'The roadmap and the sunbursts',
+          body: `# A calmer roadmap
+**Strategy & Work → Roadmap** is shorter and duskier. Below the road, **green signposts** name the strategic objectives (O1, O2…) like freeway signs, then **white signs** for goals, one light per workplan. Above the road, each workplan is a **traffic light**.
+
+[[shot:roadmap-dusk]]
+
+# The asset map as a sunburst
+**Assets → Asset map** opens as a sunburst: all assets in the middle, then the six kinds of asset, then collections, then the assets. Click a ring to zoom in, the centre to step out, an asset to open it. **Size by links** makes the best-connected assets bigger. **Arrange** is the wedge map, for sorting and linking by hand.
+
+[[shot:asset-sunburst]]
+
+# The whole framework as a sunburst
+The **Strategy & Work overview** has the whole framework as a sunburst: plans, objectives, goals, workplans and tasks, coloured by objective. A workplan's outline is its traffic light, drafts are striped, and clicking a task shows it in a tray.
+
+[[shot:framework-sunburst]]`,
+        },
+        {
+          id: 'mapper-like-the-rest',
+          title: 'The mapper, like every other plugin',
+          body: `The Ecosystem Mapper now sits like every other plugin, so moving between them no longer shifts the screen.
+
+- **The panel is beside the board**, where other plugins have their sidebar, not on top of the map. Drag its edge to resize it, or tuck it away from **View**.
+- **The top bar is styled like the ribbon** on other plugins' pages, with **Works with** links on the right.
+- **Share** holds what was under File, Connect and People: who can edit the map, saving a copy or a picture, opening a map file, and using the map in Strategy & Work, Assets and the Library.
+- Help on the map type is under **View → About this map type**, and in the top bar's **?**.
+
+[[shot:mapper-share]]`,
+        },
+      ],
+    },
     {
       id: 'new-in-0-2',
       title: 'New in alpha 0.2',
@@ -64,7 +150,7 @@ export const HELP_SEED = {
 [[shot:studio-in-strategy]]
 
 # Also new
-- **A steadier screen**: every plugin's name is in the bar at the top, and the sidebar and the ribbon above each page stay the same size as you move around. The ribbon also links to the plugins this one works with, and to its help.
+- **A steadier screen**: every plugin's name is in the bar at the top, and the sidebar and the ribbon above each page stay the same size as you move around. The ribbon also links to the plugins this one works with; help is the **?** in the top bar.
 - **Your Dashi address**: change it in **Organisation → Domain**. It's checked as you type.
 - **The mapper's panel**: tools are a list like the layers. Drag a section by its grip to reorder the panel, and drag its edge to resize it.
 

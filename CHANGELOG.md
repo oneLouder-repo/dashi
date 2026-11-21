@@ -6,6 +6,31 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 From 0.2 on, each alpha point version (0.2, 0.3…) is one major platform feature, and its sub-versions (0.2.1, 0.2.2…) are bug hunts and polish from live testing. 0.2 landed over several pull requests, newest first below.
 
+### Planning that starts from the plan, sunbursts and one layout for every plugin (PR 9 and 10)
+
+**Strategic planning, Actua first**
+
+- **Actua starts fresh on each new PR** while we test creating plans: its Strategy & Work and Planning Studio go back to the seeded versions once per release mark (`CLIENT_RESET`), with a backup of what was there first in the data folder’s `backups/`.
+- **The Planning Studio is filled in from the plan**: Actua's SOAR board, Assemble canvas (the assembled plan, with SOAR cards wired into the goals and objectives they feed) and Results are seeded from its strategy. The theory of change starts blank, like an organisation that has a plan but no theory yet.
+- **Theory layers.** The theory of change has a layers strip: **From the plan** (what the plan already says, brought in with one click), **New thinking**, and any layers you name. Show or hide each one, and pick where new boxes go. An empty theory now says when the plan is already in place and offers to bring it in.
+- **Send to plan, as drafts.** A tray previews what the theory would make: lasting changes become objectives, early changes goals, what you do workplans, what it produces tasks (Planned), each under what it leads to; the change you seek fills an empty vision. Assumptions and signposts go in the notes. Sending again updates the same drafts.
+- **Drafts in Strategy & Work**: marked in the outline, with **Accept**, **Discard** and **Accept all** above the item. Reports and the roadmap leave drafts out until they're accepted.
+- **Results, reworked**: grouped by objective, with what each comes from (plan, objective, goal, workplan or a single task), baseline to target, how often and whether it uses live data. Edit one in a tray.
+
+**The roadmap and two sunbursts**
+
+- **The roadmap is shorter and duskier**, with less sky and grass. Strategic objectives get **green signposts** (O1, O2…, like freeway signs), goals keep their white signs, and workplans stay traffic lights.
+- **The asset map opens as a zoomable sunburst** (all assets, then the ABCD types, then collections, then assets), sized by count or by links. Click to zoom, the centre to step out, an asset to open it. **Arrange** keeps the wedge map from PR 4.
+- **The Strategy & Work overview has the whole framework as a sunburst**, from plans to tasks, coloured by objective, with each workplan's traffic light as its outline and drafts striped. Click a task to see it in a tray.
+- D3 v7.9.0 is vendored in `vendor/d3/` and loads only when a sunburst is shown; `src/ui/Sunburst.js` is shared.
+
+**One layout for every plugin**
+
+- **The mapper's panel sits beside the board**, outside the canvas, where every other plugin has its sidebar, so switching plugins no longer shifts the screen.
+- **The mapper's top bar is styled like the page ribbon**, with the same hover colours and a **Works with** section. **Share** replaces File, Connect and People.
+- **The ribbon no longer has a help button** (help is the **?** in the top bar), and in pages whose column pads itself, like the Public Portal, it now runs edge to edge at the top, at the same height and place as everywhere else.
+- Help: a new section, **New in 0.2: planning and maps**, with screenshots.
+
 ### A steadier screen (PR 8)
 
 - **The sidebar doesn't move under you.** Every item is the same height, with or without a line of explanation; the label and that line each stay on one line (the full text shows on hover); the open item is no longer bolder, so words don't re-wrap when you click.

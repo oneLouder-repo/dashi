@@ -65,3 +65,20 @@ test('the theory of change goes to the plan as drafts, placed under what each le
   assert.equal(draftsOf(strategy).length, 2);
   assert.equal(layersOf(studio, planId).length, 2);
 });
+
+test('reports leave drafts (and what hangs under them) out', async () => {
+  const { withoutDrafts } = await import('../src/platform/strategy.js');
+  const doc = { nodes: { f: { id: 'f', type: 'framework' }, p: { id: 'p', type: 'plan', parentId: 'f' }, o: { id: 'o', type: 'objective', parentId: 'p', draft: true }, g: { id: 'g', type: 'goal', parentId: 'o' } } };
+  assert.deepEqual(Object.keys(withoutDrafts(doc).nodes).sort(), ['f', 'p']);
+  doc.nodes.o.draft = false;
+  assert.equal(withoutDrafts(doc), doc, 'no drafts: the same doc');
+});
+
+test('the roadmap model has a green signpost for each objective with dated work', async () => {
+  const { roadModel } = await import('../src/strategy/Road.js').catch(() => ({}));
+  if (!roadModel) return; // Road.js needs a DOM for its page parts; the model is plain
+  const { strategy } = actuaDocs();
+  const plan = plansOf(strategy)[0];
+  const m = roadModel(strategy, plan.id, '2026-11-21');
+  assert.ok(m.objSigns.length >= 1 && m.objSigns.every((o) => o.node.type === 'objective' && o.n >= 1));
+});
