@@ -65,6 +65,17 @@ function shapePlans(strategy) {
     }
   }
   if (next) Object.assign(next, { title: 'Vital Bay: Five-Year Plan 2026–2031', start: '2026-04-01', end: '2031-03-31', theme: 'Shaped by 1,200 voices in the 2025 community conversations: belonging, a home for everyone, a living bay' });
+  if (next) {
+    // The new plan's own commitments, so its objectives don't share names with the old plan's.
+    const NEW_OBJECTIVES = ['Belonging for everyone', 'A home for everyone', 'A living bay', 'Leaders from every corner of the bay', 'Data the whole bay can use'];
+    Object.values(strategy.nodes).filter((n) => n.type === 'objective' && n.parentId === next.id).forEach((o, i) => { o.title = NEW_OBJECTIVES[i % NEW_OBJECTIVES.length]; });
+    // Seven months in: its first work began in the spring, so some is done and some under way.
+    const firstStart = under(next.id).filter((n) => n.type === 'task').map((n) => n.start).filter(Boolean).sort()[0];
+    const lag = firstStart ? (Math.round((Date.parse(firstStart) - Date.parse('2026-09-20')) / 864e5)) : 0;
+    const back = (d) => new Date(Date.parse(d) - lag * 864e5).toISOString().slice(0, 10);
+    for (const n of under(next.id)) { if (n.start) n.start = back(n.start); if (n.end) n.end = back(n.end); }
+    for (const n of under(next.id)) if (n.type === 'task' && n.status !== 'blocked') n.status = n.end && n.end < TODAY ? 'done' : n.start && n.start <= TODAY ? 'active' : 'planned';
+  }
   const root = Object.values(strategy.nodes).find((n) => n.type === 'framework');
   if (root) Object.assign(root, { title: 'Kestrel Bay Community Foundation' });
   return strategy;

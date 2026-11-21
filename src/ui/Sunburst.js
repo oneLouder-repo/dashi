@@ -1,5 +1,5 @@
 import { h } from './dom.js';
-import { snap, tint as lift } from './wheel.js';
+import { snap, tint as lift, INK } from './wheel.js';
 
 /**
  * A zoomable sunburst, after Mike Bostock's (observablehq.com/@d3/zoomable-sunburst),
@@ -31,10 +31,19 @@ let n = 0;
  *   onZoom: (path) => …           the names from the root to the ring now in the middle
  *   onHover: (data|null, d) => …  for a details panel beside the chart
  *   tip: (d) => 'text'            what the floating tooltip says (default: the path and count)
+ *   trail: true                   a breadcrumb above the chart, one chip per ring from the centre to
+ *                                 where you are, in each ring's colour; click one to go back to it
+ *   onDraw: (fillOf) => …         once drawn: fillOf(data) gives the colour a ring was drawn in,
+ *                                 so a details panel can match it
+ *
+ * Alpha 0.3 PR 10 (keeping context as you dig): the trail shows the way back,
+ * the centre takes a pale wash of the ring you're inside, and clicking a leaf
+ * picks it in place (a black outline) instead of zooming the whole chart into
+ * it. The element gets zoomTo(match), where match(data) picks the ring to open.
  */
-export function Sunburst({ data, color, edge = null, hatched = null, onLeaf = null, caption = '', size = 560, label = 'Sunburst chart', focus = null, onZoom = null, onHover = null, tip = null }) {
+export function Sunburst({ data, color, edge = null, hatched = null, onLeaf = null, caption = '', size = 560, label = 'Sunburst chart', focus = null, onZoom = null, onHover = null, tip = null, trail = true, onDraw = null, picked = null }) {
   const wrap = h('div', { class: 'sunburst', style: `--sb-size:${size}px` }, h('div', { class: 'sunburst-loading muted small' }, 'Drawing…'));
-  loadD3().then((d3) => draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, label, focusPath: focus, onZoom, onHover, tip })).catch(() => {
+  loadD3().then((d3) => draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, label, focusPath: focus, onZoom, onHover, tip, showTrail: trail, onDraw, picked })).catch(() => {
     wrap.replaceChildren(h('p', { class: 'muted small' }, 'The chart could not load.'));
   });
   return wrap;
@@ -58,10 +67,14 @@ export function calm(d3, fill) {
   if (Number.isNaN(c.h) || c.s < 0.2) return fill; // greys stay as they are
   // Alpha 0.3 colour wheel: every colour lands on the nearest wheel hue; a pale one stays a step lighter.
   const base = snap(c.formatHex());
-  return c.l > 0.72 ? lift(base, 0.4) : c.l > 0.62 ? lift(base, 0.22) : base;
+  // A colour asked for paler than its wheel hue keeps that step (alpha 0.3 PR 10), so rings deeper
+  // in a tree stay a readable step lighter instead of all landing on the same pale band.
+  const bl = d3.hsl(base).l;
+  const t = c.l > bl ? Math.min(0.7, (c.l - bl) / (1 - bl)) : 0;
+  return t > 0.04 ? lift(base, t) : base;
 }
 
-function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, label, focusPath, onZoom, onHover, tip }) {
+function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, label, focusPath, onZoom, onHover, tip, showTrail, onDraw, picked }) {
   const id = `sb${++n}`;
   const radius = size / 6;
   const hier = d3.hierarchy(data).sum((d) => (d.children?.length ? 0 : Math.max(0, d.value ?? 1))).sort((a, b) => b.value - a.value);
@@ -101,6 +114,7 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
     .attr('pointer-events', (d) => (visible(d.current) ? 'auto' : 'none'))
     .attr('stroke', (d) => (edge?.(d) ?? '#fff'))
     .attr('stroke-width', (d) => (edge?.(d) ? 2.5 : 2))
+    .attr('stroke-linejoin', 'round')
     .attr('stroke-opacity', (d) => +visible(d.current))
     .attr('tabindex', (d) => (visible(d.current) ? 0 : -1))
     .attr('role', 'button')
@@ -141,8 +155,16 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
     .on('focus', (e, d) => { const r = e.target.getBoundingClientRect(); showTip({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }, d); })
     .on('blur', hideTip)
     // The last click goes all the way in too: the item fills the whole ring, and the page can show it.
-    .on('click', (e, d) => { if (d !== focus) zoom(e, d); if (!d.children) onLeaf?.(d.data, e); })
-    .on('keydown', (e, d) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (d !== focus) zoom(e, d); if (!d.children) onLeaf?.(d.data, e); } });
+    // A ring with more inside zooms in; a leaf is picked where it is, so the rings around it stay in view.
+    .on('click', (e, d) => { if (d.children) { if (d !== focus) zoom(e, d); } else pick(d, e); })
+    .on('keydown', (e, d) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (d.children) { if (d !== focus) zoom(e, d); } else pick(d, e); } });
+  let chosen = null;
+  function pick(d, e) {
+    chosen = d;
+    path.attr('stroke', (x) => (x === chosen ? INK : edge?.(x) ?? '#fff')).attr('stroke-width', (x) => (x === chosen ? 3.5 : edge?.(x) ? 2.5 : 2));
+    path.filter((x) => x === chosen).raise();
+    if (e !== null) onLeaf?.(d.data, e);
+  }
 
   const text = g.append('g').attr('pointer-events', 'none').attr('text-anchor', 'middle').style('user-select', 'none')
     .selectAll('text').data(nodes).join('text')
@@ -162,8 +184,27 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
   const setCaption = (p) => {
     const t = p === root ? caption : p.data.name;
     capTop.text(t.length > capMax ? `${t.slice(0, capMax - 1).trimEnd()}…` : t);
-    capSub.text(p === root ? `${root.value}` : `${p.value} · back`);
+    const up = p.parent && p.parent !== root ? p.parent.data.name : caption;
+    capSub.text(p === root ? `${root.value}` : `‹ back to ${up.length > capMax - 10 ? `${up.slice(0, capMax - 11).trimEnd()}…` : up}`);
+    // The centre takes a pale wash of the ring you're inside, so you can see whose wedge this is.
+    centre.style('fill', p === root ? null : lift(fills.get(p) ?? '#ffffff', 0.84));
+    drawTrail(p);
   };
+  // The breadcrumb: one chip per ring from the centre out to where you are, each in its ring's colour.
+  const trailEl = showTrail ? h('nav', { class: 'sb-trail', 'aria-label': 'Where you are in the chart' }) : null;
+  function drawTrail(p) {
+    if (!trailEl) return;
+    const steps = p.ancestors().reverse();
+    trailEl.replaceChildren(h('ol', {}, steps.map((d, i) => {
+      const last = i === steps.length - 1;
+      const fill = d === root ? null : fills.get(d);
+      const name = d === root ? caption : d.data.name;
+      return h('li', { style: fill ? `--chip:${fill};--chip-ink:${inkOn(d3, fill)}` : '' },
+        h('button', { type: 'button', class: `sb-chip${d === root ? ' root' : ''}`, 'aria-current': last ? 'location' : null, title: name, disabled: last, onclick: (e) => zoom(e, d) },
+          h('span', {}, name.length > 28 ? `${name.slice(0, 27).trimEnd()}…` : name)));
+    })));
+  }
+  root.each((d) => { if (d !== root) d.fill = fills.get(d); });
   setCaption(root);
   svg.on('keydown', (e) => { if (e.key === 'Escape' && focus !== root) zoom(e, centre.datum()); });
 
@@ -211,7 +252,17 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
     for (const name of focusPath) { const next = p.children?.find((c) => c.data.name === name); if (!next?.children) break; p = next; }
     if (p !== root) zoom(null, p, { instant: true });
   }
-  wrap.replaceChildren(svg.node(), tipEl);
+  wrap.replaceChildren(...(trailEl ? [trailEl] : []), svg.node(), tipEl);
+  wrap.classList.toggle('with-trail', !!trailEl);
+  // Open a ring from outside (a details panel's breadcrumb): zoom to it, or pick it if it's a leaf.
+  wrap.zoomTo = (match) => {
+    let hit = null;
+    root.each((d) => { if (!hit && d !== root && match(d.data)) hit = d; });
+    if (!hit) return zoom(null, root);
+    if (hit.children) zoom(null, hit); else { if (hit.parent !== focus) zoom(null, hit.parent ?? root); pick(hit, null); }
+  };
+  if (picked) { let hit = null; root.each((d) => { if (!hit && !d.children && picked(d.data)) hit = d; }); if (hit) pick(hit, null); }
+  onDraw?.((data) => { let f = null; root.each((d) => { if (f == null && d.data === data) f = d.fill; }); return f; });
 }
 
 /** A hex colour lifted towards white by t (0–1), for a ring a step lighter than its parent. */

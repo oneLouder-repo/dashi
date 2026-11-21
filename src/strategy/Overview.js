@@ -4,6 +4,7 @@ import { rootOf, childrenOf, descendants, taskSummary, measureIndex, TASK_STATUS
 import { workplanProgress, PROGRESS_STATES, strategyCounts, LIGHTS, lightOf } from '../platform/strategyReports.js';
 import { NODE_TYPES, statusById } from '../platform/strategy.js';
 import { Sunburst, tint } from '../ui/Sunburst.js';
+import { inkOn } from '../ui/wheel.js';
 import { LevelBadge, ProgressRing, AvatarStack, objectiveOrder, peopleOf, objectiveHue } from '../ui/strategyLook.js';
 import { RoadSvg, currentPlan } from './Road.js';
 import { range, short, today, daysBetween } from './dates.js';
@@ -111,15 +112,28 @@ function WholeSunburst(ctx, root, now) {
   const data = toData(root);
   if (!data.children?.length) return null;
   const isDraft = (n) => { for (let p = n; p; p = doc.nodes[p.parentId]) if (p.draft) return true; return false; };
-  const STEP = { objective: 0, goal: 0.14, workplan: 0.26, task: 0.38 };
+  const STEP = { objective: 0, goal: 0.24, workplan: 0.44, task: 0.62 };
   const lightOfWp = (n) => LIGHTS[PROGRESS_STATES[workplanProgress(doc, n.id, now).state].light];
   let centre = doc.nodes[data.id];
   const findByPath = () => { let n = root; for (const name of sunPath) { const k = childrenOf(doc, n.id).find((c) => (c.title || NODE_TYPES[c.type].label) === name); if (!k) break; n = k; } return n; };
   centre = findByPath();
   if (sunPinned && !doc.nodes[sunPinned]) sunPinned = null;
 
+  // The panel speaks the chart's language (alpha 0.3 PR 10): its colour is the ring's own colour,
+  // and its breadcrumb is the same coloured chips as the chart's, each one a step back up the tree.
   const panel = h('aside', { class: 'sw-sb-panel', 'aria-live': 'polite' });
-  const show = (n, { hovering = false } = {}) => n && panel.style.setProperty('--sb-hue', n.type === 'framework' || n.type === 'plan' ? '#23262e' : objectiveHue(doc, n)) !== 0 && panel.replaceChildren(...Details(ctx, n, now, { hovering, isDraft, lightOfWp, pinned: n.id === sunPinned, unpin: () => { sunPinned = null; show(centre); } }));
+  const byId = new Map();
+  const index = (d) => { byId.set(d.id, d); (d.children ?? []).forEach(index); };
+  let fillOf = () => null;
+  let chart = null;
+  const ringFill = (n) => (n && byId.has(n.id) ? fillOf(byId.get(n.id)) : null) ?? (n?.type === 'framework' || n?.type === 'plan' ? '#23262e' : objectiveHue(doc, n));
+  const goTo = (n) => chart?.zoomTo?.((x) => x.id === n.id);
+  const show = (n, { hovering = false } = {}) => {
+    if (!n) return;
+    panel.style.setProperty('--sb-hue', ringFill(n));
+    panel.replaceChildren(...Details(ctx, n, now, { hovering, isDraft, lightOfWp, pinned: n.id === sunPinned, unpin: () => { sunPinned = null; chart?.zoomTo?.((x) => x.id === centre.id); show(centre); }, ringFill, goTo, rootId: root.id }));
+  };
+  index(data);
   show(sunPinned ? doc.nodes[sunPinned] : centre);
 
   const objectives = objectiveOrder(doc);
@@ -128,9 +142,11 @@ function WholeSunburst(ctx, root, now) {
       h('span', { class: 'muted small' }, 'Click a ring to zoom in, the centre to step out. Point at anything for its details; click a task to keep it there.')),
     h('div', { class: 'sw-sunburst-body' },
       h('div', { class: 'sw-sb-chart' },
-        Sunburst({
+        chart = Sunburst({
           data, size: 480, caption: root.title || 'Framework', label: 'The framework as a sunburst, from plans to tasks',
           focus: sunPath,
+          picked: sunPinned ? (x) => x.id === sunPinned : null,
+          onDraw: (f) => { fillOf = f; show(sunPinned ? doc.nodes[sunPinned] : centre); },
           onZoom: (path, d) => { sunPath = path; centre = doc.nodes[d.id] ?? root; sunPinned = null; show(centre); },
           onHover: (d) => { if (d) show(doc.nodes[d.id], { hovering: true }); else show(sunPinned ? doc.nodes[sunPinned] : centre); },
           tip: (d) => { const n = doc.nodes[d.data.id]; return `${NODE_TYPES[n?.type]?.label ?? ''}${d.children ? ` · ${d.value} task${d.value === 1 ? '' : 's'}` : n?.type === 'task' ? ` · ${statusById[n.status]?.label ?? ''}` : ''}${n?.draft ? ' · draft' : ''}`; },
@@ -154,18 +170,25 @@ function WholeSunburst(ctx, root, now) {
 }
 
 /** The details panel's contents for one item. */
-function Details(ctx, n, now, { hovering, isDraft, lightOfWp, pinned, unpin }) {
+function Details(ctx, n, now, { hovering, isDraft, lightOfWp, pinned, unpin, ringFill, goTo, rootId }) {
   if (!n) return [];
   const doc = ctx.store.doc;
   const path = [];
-  for (let p = doc.nodes[n.parentId]; p && p.type !== 'framework'; p = doc.nodes[p.parentId]) path.unshift(p);
-  const hue = n.type === 'framework' || n.type === 'plan' ? '#23262e' : objectiveHue(doc, n);
+  for (let p = doc.nodes[n.parentId]; p && p.type !== 'framework'; p = doc.nodes[p.parentId]) { path.unshift(p); if (p.id === rootId) break; }
+  const hue = ringFill ? ringFill(n) : n.type === 'framework' || n.type === 'plan' ? '#23262e' : objectiveHue(doc, n);
+  const depth = path.length;
   const out = [
     h('div', { class: 'sw-sb-top', style: `--hue:${hue}` },
       LevelBadge(n.type, { long: true }),
       hovering ? h('span', { class: 'muted small' }, 'Pointing at') : pinned ? h('button', { class: 'btn btn-ghost btn-xs', onclick: unpin }, icon('close', 12), 'Unpin') : h('span', { class: 'muted small' }, 'In the middle')),
     h('h4', { class: 'sw-sb-title', style: `--hue:${hue}` }, n.title || 'Untitled'),
-    path.length > 0 && h('p', { class: 'sw-sb-path' }, path.map((p) => p.title).join(' › ')),
+    // Where it sits: one chip per level above it, in that ring's colour; click one to go back up to it.
+    path.length > 0 && h('ol', { class: 'sw-sb-trail', 'aria-label': 'Where it sits' }, path.map((p) => {
+      const fill = ringFill ? ringFill(p) : '#23262e';
+      return h('li', { style: `--chip:${fill};--chip-ink:${inkOn(fill)}` },
+        h('button', { type: 'button', class: 'sb-chip', title: `${NODE_TYPES[p.type]?.label ?? ''}: ${p.title}`, onclick: () => goTo?.(p) }, h('small', {}, NODE_TYPES[p.type]?.label ?? ''), h('span', {}, p.title || 'Untitled')));
+    })),
+    h('p', { class: 'sw-sb-depth muted small' }, depth ? `Level ${depth + 1} · ${NODE_TYPES[n.type]?.label ?? ''} inside ${path.at(-1).title || 'Untitled'}` : `Top level · ${NODE_TYPES[n.type]?.label ?? ''}`),
     isDraft(n) && h('p', { class: 'sw-tray-draft' }, 'A draft from the theory of change: accept or discard it in the framework.'),
   ];
   if (n.type === 'task') {

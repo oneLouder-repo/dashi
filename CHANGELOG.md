@@ -6,6 +6,13 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### PR 10: sunbursts that keep their context
+- **A coloured trail above every sunburst**: one chip per ring from the centre out to where you are, each in its ring's colour. Click a chip to go straight back to that level. The centre takes a pale wash of the ring you're inside and says what "back" goes to.
+- **Leaves are picked in place**: clicking a task (or an asset) outlines it in black and shows it in the panel, and the rings around it stay in view, instead of the whole chart zooming into one item.
+- **Depth you can see**: rings deeper in a tree keep a readable step lighter (objective, goal, workplan, task), because the wheel snapping now keeps the step it was given.
+- **The Strategy & Work panel matches the chart**: its colour is the ring's own colour, it shows the level ("Level 3 · Goal inside …"), and its breadcrumb is the same coloured chips, each one clickable to go back up.
+- Kestrel Bay: the five-year plan has its own objectives (no more names shared with the old plan), and its work is under way: some done, some in progress.
+
 ### PR 9: Home laid out like a plugin
 - **A left side nav on Home**, folding by section like every plugin's: Home (overview, my work, people), Quick actions (map, task, upload, reading, episode), Your tasks, Recently changed, Plugins (six, then All plugins) and Tags. Each section stays short.
 - **Home has the plugin header and the ribbon** (with My work, People and Search), at the same place and height as in every plugin. The quick-start buttons moved from the header into the side nav.
