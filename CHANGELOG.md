@@ -6,6 +6,16 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### PR 12: the Plan designer, laid out like the plugins
+- **Side nav, ribbon and plugin header** like every other plugin, with Print or save as PDF in the header. The pages sit on a dotted canvas below.
+- **A floating design panel over the canvas**, like a paint program's tool panel: drag it by its black title bar anywhere on the canvas, fold it down to its tool rail, or hide it (bring it back from the header). It remembers where you left it and which tool was open. The pages make room on whichever side the panel sits.
+- **One tool at a time, on a rail**: Template, Cover, Colour, Type, Page and Share. The title bar says what's chosen now ("Cover · Split").
+  - Cover: little drawings of each layout instead of word chips, plus the cover picture.
+  - Colour: what's in use now at the top, then yours, then sets made for print, then the app themes (folded away), then your own colours.
+  - Type: each typeface shown in itself, as a pick list, plus the size.
+  - Page: background, sections as switches, and resetting the words.
+  - Share: the web view, publishing and deleting.
+
 ### PR 11: ribbons that don't shift
 - **Three ribbon actions per plugin, set at the plugin level**: the same three show on every page of a plugin, so the ribbon never changes width or order as you click around. The one for the page you're on is marked (tinted, with a line under it) instead of disappearing, which was what made the ribbon jump.
 - Trimmed to three where there were four (Strategy & Work: Roadmap, Framework, Plan designer; Podcasts: New episode, Studio, Station; Public Portal: Pages, Look and feel, Social media) and filled up to three where there were two (Library adds Documents; Organisation adds Teams). Home has My work, People and Search.

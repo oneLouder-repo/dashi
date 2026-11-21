@@ -34,9 +34,14 @@ Shell(document.querySelector('#shell'), { current: 'studio', org });
 const app = document.querySelector('#app');
 app.classList.add('strategy', 'frame', 'plandoc-app');
 let side = h('nav');
-const main = h('section', { class: 'plandoc-main' });
-const panel = h('aside', { class: 'plandoc-panel' });
-app.replaceChildren(side, main, panel);
+// Alpha 0.3 PR 12: laid out like every plugin (side nav, ribbon, header), with the pages on a
+// canvas and the design tools in a floating panel over it that you can drag, fold or tuck away.
+const head = h('div', { class: 'plandoc-head' });
+const stage = h('div', { class: 'plandoc-stage' });
+const panel = h('aside', { class: 'plandoc-panel pd-float', 'aria-label': 'Design tools' });
+const stageWrap = h('div', { class: 'plandoc-stage-wrap' }, stage, panel);
+const main = h('section', { class: 'palette-main plandoc-main' }, head, stageWrap);
+app.replaceChildren(side, main);
 
 const plans = () => Object.values(strategy.nodes).filter((n) => n.type === 'plan').sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 const current = () => doc.docs[decodeURIComponent(location.hash.slice(1))] ?? Object.values(doc.docs)[0];
@@ -70,21 +75,23 @@ function render() {
   const pd = current();
   drawSide(pd);
   if (!pd) {
-    main.replaceChildren(PluginHeader('strategy', { title: 'Plan designer', blurb: 'Turn your strategy into a designed plan document to share, print or publish.' }),
+    head.replaceChildren(PluginHeader('strategy', { title: 'Plan designer', blurb: 'Turn your strategy into a designed plan document to share, print or publish.' }));
+    panel.hidden = true;
+    stage.replaceChildren(
       h('div', { class: 'card empty-card' }, plans().length
         ? [h('p', {}, 'Pick a plan on the left to make its document.'), h('button', { class: 'btn btn-primary btn-sm', onclick: () => create(plans()[0].id) }, `Make one for “${plans()[0].title}”`)]
         : h('p', {}, 'Add a strategic plan in Strategy & Work first: its mission, vision, objectives and goals fill the document.')));
-    panel.replaceChildren();
     return;
   }
   const snap = planSnapshot(strategy, data, pd.planId, org);
   if (!snap) {
-    main.replaceChildren(h('div', { class: 'card empty-card' }, h('p', {}, 'The plan this document was made from is gone from Strategy & Work.'),
+    panel.hidden = true;
+    stage.replaceChildren(h('div', { class: 'card empty-card' }, h('p', {}, 'The plan this document was made from is gone from Strategy & Work.'),
       h('button', { class: 'btn btn-sm', onclick: () => { delete doc.docs[pd.id]; saveDoc('plandocs', doc); location.hash = ''; render(); } }, 'Delete this document')));
-    panel.replaceChildren();
     return;
   }
-  const scroll = main.scrollTop;
+  const scroll = stage.scrollTop;
+  panel.hidden = false;
   const palette = pd.palette || org.theme?.palette;
   toolbar?.el.remove();
   toolbar = RichToolbar({ colours: docColours(pd, palette).c });
@@ -104,54 +111,155 @@ function render() {
       onPick: (img) => touch(pd, { images: { ...pd.images, [slot]: img } }),
     }),
   });
-  main.replaceChildren(
-    h('div', { class: 'plandoc-bar' },
-      h('div', {},
-        h('h1', {}, snap.plan.title),
-        h('p', { class: 'muted' }, 'Click any words on the pages to change them; select words to format them. Your changes stay with this document; the strategy itself isn’t touched.')),
-      h('span', { class: 'spacer' }),
-      h('button', { class: 'btn btn-sm', title: 'Print it, or choose “Save as PDF” in the print window', onclick: () => printPlan(docEl.cloneNode(true), snap.plan.title) }, icon('download', 15), 'Print or save as PDF')),
-    h('div', { class: 'plandoc-canvas' }, docEl));
-  fitPages();
-  main.scrollTop = scroll;
+  head.replaceChildren(PluginHeader('strategy', {
+    title: snap.plan.title,
+    blurb: 'Click any words on the pages to change them; select words to format them. Your changes stay with this document; the strategy itself isn’t touched.',
+    actions: [
+      panelState.hidden && h('button', { class: 'btn btn-sm', onclick: () => setPanel({ hidden: false }) }, icon('brush', 15), 'Design tools'),
+      h('button', { class: 'btn btn-sm', title: 'Print it, or choose “Save as PDF” in the print window', onclick: () => printPlan(docEl.cloneNode(true), snap.plan.title) }, icon('download', 15), 'Print or save as PDF'),
+    ].filter(Boolean),
+  }));
+  stage.replaceChildren(h('div', { class: 'plandoc-canvas' }, docEl));
   drawPanel(pd, snap);
+  fitPages();
+  stage.scrollTop = scroll;
+}
+
+/*
+ * The floating design panel. Tools sit on a rail down its left side, like a
+ * paint program's: one tool open at a time, each one small. The panel keeps
+ * its place, size and open tool across redraws and visits (localStorage).
+ */
+const PANEL_KEY = 'dashi.plandoc-panel';
+const TOOLS = [
+  { id: 'template', label: 'Template', icon: 'rows' },
+  { id: 'cover', label: 'Cover', icon: 'image' },
+  { id: 'colour', label: 'Colour', icon: 'palette' },
+  { id: 'type', label: 'Type', icon: 'textAa' },
+  { id: 'page', label: 'Page', icon: 'doc' },
+  { id: 'share', label: 'Share', icon: 'globe' },
+];
+let panelState = { x: null, y: 16, tool: 'template', folded: false, hidden: false };
+try { panelState = { ...panelState, ...JSON.parse(localStorage.getItem(PANEL_KEY) ?? '{}') }; } catch { /* private window: defaults */ }
+const keepPanel = () => { try { localStorage.setItem(PANEL_KEY, JSON.stringify(panelState)); } catch { /* fine */ } };
+function setPanel(patch) { panelState = { ...panelState, ...patch }; keepPanel(); render(); }
+
+/** Where the panel sits: dragged there, or tucked into the stage's top right corner. */
+function placePanel() {
+  const W = stageWrap.clientWidth, H = stageWrap.clientHeight, pw = panel.offsetWidth || 320, ph = panel.offsetHeight || 200;
+  const x = panelState.x == null ? W - pw - 16 : Math.max(8, Math.min(W - pw - 8, panelState.x));
+  const y = Math.max(8, Math.min(Math.max(8, H - Math.min(ph, 120)), panelState.y ?? 16));
+  Object.assign(panel.style, { left: `${x}px`, top: `${y}px` });
+  return { x, pw };
+}
+
+function dragPanel(e) {
+  if (e.button !== 0 || e.target.closest('button')) return;
+  e.preventDefault();
+  const start = { mx: e.clientX, my: e.clientY, x: panel.offsetLeft, y: panel.offsetTop };
+  panel.classList.add('dragging');
+  const move = (ev) => {
+    panelState.x = start.x + ev.clientX - start.mx;
+    panelState.y = start.y + ev.clientY - start.my;
+    placePanel();
+  };
+  const up = () => {
+    panel.classList.remove('dragging');
+    removeEventListener('pointermove', move); removeEventListener('pointerup', up);
+    panelState.x = panel.offsetLeft; panelState.y = panel.offsetTop;
+    keepPanel(); fitPages();
+  };
+  addEventListener('pointermove', move); addEventListener('pointerup', up);
 }
 
 function drawPanel(pd, snap) {
-  const sites = Object.values(org.sites ?? {});
-  const site = org.sites?.[pd.siteId];
-  const changedWords = Object.keys(pd.text ?? {}).length;
-  const stale = pd.status === 'published' && pd.snapshot && JSON.stringify({ ...pd.snapshot, takenAt: 0 }) !== JSON.stringify({ ...snap, takenAt: 0 });
-  panel.replaceChildren(...[
-    h('h2', {}, 'Design'),
-    h('div', { class: 'pd-templates' }, TEMPLATES.map((t) => h('button', {
-      type: 'button', class: `pd-template${t.id === pd.template ? ' on' : ''}`, 'aria-pressed': String(t.id === pd.template), onclick: () => touch(pd, { template: t.id }),
-    }, h('span', { class: `pd-template-thumb pd-thumb-${t.id}`, 'aria-hidden': 'true' }), h('b', {}, t.label), h('small', {}, t.blurb)))),
-    h('h3', { class: 'pd-h3' }, 'Cover'),
-    h('div', { class: 'pd-chips' }, COVERS.map((c) => h('button', { type: 'button', class: `pd-chip${(pd.cover ?? 'template') === c.id ? ' on' : ''}`, onclick: () => touch(pd, { cover: c.id }) }, c.label))),
-    h('h3', { class: 'pd-h3' }, 'Colours'),
-    ColourPicker(pd),
-    h('h3', { class: 'pd-h3' }, 'Type'),
-    h('div', { class: 'pd-type-row' },
-      h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Headings'),
-        h('select', { class: 'select select-sm w-full', onchange: (e) => touch(pd, { fonts: { ...pd.fonts, head: e.target.value || undefined } }) },
-          h('option', { value: '' }, 'As the template'), FONTS.map((f) => h('option', { value: f.id, selected: pd.fonts?.head === f.id, style: `font-family:${f.stack}` }, f.label)))),
-      h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Body text'),
-        h('select', { class: 'select select-sm w-full', onchange: (e) => touch(pd, { fonts: { ...pd.fonts, body: e.target.value || undefined } }) },
-          h('option', { value: '' }, 'As the template'), FONTS.map((f) => h('option', { value: f.id, selected: pd.fonts?.body === f.id, style: `font-family:${f.stack}` }, f.label))))),
+  if (panelState.hidden) { panel.hidden = true; return; }
+  const tool = TOOLS.some((t) => t.id === panelState.tool) ? panelState.tool : 'template';
+  const look = docColours(pd, pd.palette || org.theme?.palette);
+  const summary = {
+    template: TEMPLATES.find((t) => t.id === pd.template)?.label ?? 'Template',
+    cover: COVERS.find((c) => c.id === (pd.cover ?? 'template'))?.label ?? 'As the template',
+    colour: pd.colours ? 'Custom colours' : paletteLabel(pd.palette ?? ''),
+    type: [FONTS.find((f) => f.id === pd.fonts?.head)?.label ?? 'Template type', SCALES.find((x) => x.id === (pd.scale ?? 'm'))?.label].filter(Boolean).join(' · '),
+    page: BACKGROUNDS.find((b) => b.id === (pd.background?.kind ?? 'plain'))?.label ?? 'Plain',
+    share: pd.status === 'published' ? 'Published' : 'Draft',
+  };
+  const body = { template: TemplateTool, cover: CoverTool, colour: ColourPicker, type: TypeTool, page: PageTool, share: ShareTool }[tool](pd, snap);
+  panel.classList.toggle('folded', !!panelState.folded);
+  panel.style.setProperty('--pd-c0', look.c[0]);
+  panel.replaceChildren(
+    h('header', { class: 'pd-float-head', onpointerdown: dragPanel, title: 'Drag to move' },
+      h('span', { class: 'pd-grip', 'aria-hidden': 'true' }, '⋮⋮'),
+      h('strong', {}, panelState.folded ? 'Design' : TOOLS.find((t) => t.id === tool).label),
+      !panelState.folded && h('small', {}, summary[tool]),
+      h('span', { class: 'spacer' }),
+      h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', title: panelState.folded ? 'Open the panel' : 'Fold to the tool rail', 'aria-label': panelState.folded ? 'Open the panel' : 'Fold the panel', onclick: () => setPanel({ folded: !panelState.folded }) }, panelState.folded ? '▸' : '▾'),
+      h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', title: 'Hide the design tools (bring them back from the header)', 'aria-label': 'Hide the design tools', onclick: () => setPanel({ hidden: true }) }, icon('close', 13))),
+    h('div', { class: 'pd-float-body' },
+      h('nav', { class: 'pd-rail', 'aria-label': 'Design tools' }, TOOLS.map((t) => h('button', {
+        type: 'button', class: `pd-rail-btn${t.id === tool ? ' on' : ''}`, 'aria-pressed': String(t.id === tool), title: `${t.label}: ${summary[t.id]}`,
+        onclick: () => setPanel({ tool: t.id, folded: false }),
+      }, icon(t.icon, 18), h('span', {}, t.label)))),
+      !panelState.folded && h('div', { class: 'pd-tool' }, body)));
+  panel.hidden = false;
+  requestAnimationFrame(placePanel);
+}
+
+const paletteLabel = (id) => (id === '' ? 'Our colours' : DOC_PALETTES.find((p) => `doc:${p.id}` === id)?.label ?? PALETTES.find((p) => p.id === id)?.label ?? 'Our colours');
+
+function TemplateTool(pd) {
+  return h('div', { class: 'pd-templates' }, TEMPLATES.map((t) => h('button', {
+    type: 'button', class: `pd-template${t.id === pd.template ? ' on' : ''}`, 'aria-pressed': String(t.id === pd.template), onclick: () => touch(pd, { template: t.id }),
+  }, h('span', { class: `pd-template-thumb pd-thumb-${t.id}`, 'aria-hidden': 'true' }), h('b', {}, t.label), h('small', {}, t.blurb))));
+}
+
+function CoverTool(pd) {
+  const img = pd.images?.cover;
+  return [
+    h('p', { class: 'pd-hint' }, 'How the cover page is laid out.'),
+    h('div', { class: 'pd-cover-grid' }, COVERS.map((c) => h('button', { type: 'button', class: `pd-cover-pick k-${c.id}${(pd.cover ?? 'template') === c.id ? ' on' : ''}`, 'aria-pressed': String((pd.cover ?? 'template') === c.id), onclick: () => touch(pd, { cover: c.id }) },
+      h('span', { class: 'pd-cover-thumb', 'aria-hidden': 'true' }, h('i'), h('b')), h('span', {}, c.label)))),
+    h('button', { type: 'button', class: 'btn btn-sm w-full', onclick: () => ImagePicker({ current: img, seed: 1, palette: pd.palette || org.theme?.palette, slotLabel: 'the cover', onPick: (pick) => touch(pd, { images: { ...pd.images, cover: pick } }) }) },
+      icon('image', 14), img ? 'Change the cover picture' : 'Choose a cover picture'),
+  ];
+}
+
+function TypeTool(pd) {
+  const pick = (key, label) => h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, label),
+    h('div', { class: 'pd-font-list', role: 'radiogroup', 'aria-label': label },
+      [{ id: '', label: 'As the template', stack: 'inherit' }, ...FONTS].map((f) => h('button', {
+        type: 'button', role: 'radio', 'aria-checked': String((pd.fonts?.[key] ?? '') === f.id), class: `pd-font${(pd.fonts?.[key] ?? '') === f.id ? ' on' : ''}`, style: `font-family:${f.stack}`,
+        onclick: () => touch(pd, { fonts: { ...pd.fonts, [key]: f.id || undefined } }),
+      }, f.label))));
+  return [
+    pick('head', 'Headings'),
+    pick('body', 'Body text'),
     h('div', { class: 'pd-chips' }, h('span', { class: 'muted small' }, 'Size'), SCALES.map((x) => h('button', { type: 'button', class: `pd-chip${(pd.scale ?? 'm') === x.id ? ' on' : ''}`, onclick: () => touch(pd, { scale: x.id }) }, x.label))),
-    h('h3', { class: 'pd-h3' }, 'Page background'),
+  ];
+}
+
+function PageTool(pd) {
+  const changedWords = Object.keys(pd.text ?? {}).length;
+  return [
+    h('h3', { class: 'pd-h3' }, 'Background'),
     BackgroundPicker(pd),
-    h('fieldset', { class: 'fieldset' }, h('legend', { class: 'fieldset-legend' }, 'Sections'),
-      SECTIONS.map((s) => h('label', { class: 'pd-check' },
-        h('input', { type: 'checkbox', class: 'checkbox checkbox-xs', checked: !pd.hidden?.[s.id], onchange: (e) => { const hidden = { ...pd.hidden }; if (e.target.checked) delete hidden[s.id]; else hidden[s.id] = true; touch(pd, { hidden }); } }),
-        s.label))),
+    h('h3', { class: 'pd-h3' }, 'Sections'),
+    h('div', { class: 'pd-sections' }, SECTIONS.map((sec) => h('label', { class: 'pd-check' },
+      h('input', { type: 'checkbox', class: 'toggle toggle-xs', checked: !pd.hidden?.[sec.id], onchange: (e) => { const hidden = { ...pd.hidden }; if (e.target.checked) delete hidden[sec.id]; else hidden[sec.id] = true; touch(pd, { hidden }); } }),
+      sec.label))),
     changedWords > 0 && h('div', { class: 'pd-note' }, `${changedWords} piece${changedWords === 1 ? '' : 's'} of text changed from the strategy.`,
       h('button', { class: 'btn btn-xs btn-ghost', onclick: async () => { if (await uiConfirm('Go back to the words in the strategy? What you typed here is dropped.')) touch(pd, { text: {} }); } }, 'Reset the words')),
-    h('h2', {}, 'Share'),
+  ].filter(Boolean);
+}
+
+function ShareTool(pd, snap) {
+  const sites = Object.values(org.sites ?? {});
+  const site = org.sites?.[pd.siteId];
+  const stale = pd.status === 'published' && pd.snapshot && JSON.stringify({ ...pd.snapshot, takenAt: 0 }) !== JSON.stringify({ ...snap, takenAt: 0 });
+  return [
     h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Web view on'),
       h('select', { class: 'select select-sm w-full', onchange: (e) => touch(pd, { siteId: e.target.value || null }) },
-        h('option', { value: '' }, 'Choose a site'), options(sites.map((s) => ({ id: s.id, label: `${s.name}${s.visibility === 'private' ? ' (private)' : ''}` })), pd.siteId))),
+        h('option', { value: '' }, 'Choose a site'), options(sites.map((x) => ({ id: x.id, label: `${x.name}${x.visibility === 'private' ? ' (private)' : ''}` })), pd.siteId))),
     pd.status === 'published'
       ? h('div', { class: 'pd-share' },
         h('p', { class: 'pd-status on' }, `Published ${pd.publishedAt ?? ''}`),
@@ -164,7 +272,8 @@ function drawPanel(pd, snap) {
         h('p', { class: 'pd-status' }, 'Draft: only staff can see it'),
         h('button', { class: 'btn btn-sm btn-primary', disabled: !pd.siteId, title: pd.siteId ? '' : 'Choose a site first', onclick: () => publish(pd, snap) }, 'Publish the web view')),
     h('p', { class: 'muted small' }, 'Visitors see the plan as it was when you last published or updated it. Link to it from emails and pages, or insert it into a Library doc.'),
-    h('button', { class: 'btn btn-xs btn-ghost text-error', onclick: async () => { if (await uiConfirm('Delete this plan document?')) { delete doc.docs[pd.id]; saveDoc('plandocs', doc); location.hash = ''; render(); } } }, 'Delete this document')].filter(Boolean));
+    h('button', { class: 'btn btn-xs btn-ghost text-error', onclick: async () => { if (await uiConfirm('Delete this plan document?')) { delete doc.docs[pd.id]; saveDoc('plandocs', doc); location.hash = ''; render(); } } }, 'Delete this document'),
+  ].filter(Boolean);
 }
 
 /** Palettes as swatches: the org's own, the app themes, and colour sets made for print; then custom colours. */
@@ -175,11 +284,18 @@ function ColourPicker(pd) {
   const look = docColours(pd, pd.palette || org.theme?.palette);
   const custom = (i) => h('label', {}, ['Main', 'Second', 'Third'][i],
     h('input', { type: 'color', value: look.c[i], onchange: (e) => { const colours = [...(pd.colours ?? [null, null, null])]; colours[i] = e.target.value; touch(pd, { colours }); } }));
+  // Grouped, so the long list reads: yours first, then sets made for print, then the app's themes (folded).
+  const themes = PALETTES.filter((p) => !/dark/i.test(p.label));
   return h('div', { class: 'pd-colours' },
-    h('div', { class: 'pd-swatch-grid' },
-      sw('', 'Our colours', paletteColours(org.theme?.palette)),
-      DOC_PALETTES.map((p) => sw(`doc:${p.id}`, p.label, p.c)),
-      PALETTES.filter((p) => !/dark/i.test(p.label)).map((p) => sw(p.id, p.label, paletteColours(p.id)))),
+    h('div', { class: 'pd-now', style: `--p:${look.paper}` }, look.c.map((c) => h('i', { style: `background:${c}` })), h('span', {}, 'Now')),
+    h('h3', { class: 'pd-h3' }, 'Yours'),
+    h('div', { class: 'pd-swatch-grid' }, sw('', 'Our colours', paletteColours(org.theme?.palette))),
+    h('h3', { class: 'pd-h3' }, 'Made for print'),
+    h('div', { class: 'pd-swatch-grid' }, DOC_PALETTES.map((p) => sw(`doc:${p.id}`, p.label, p.c))),
+    h('details', { class: 'pd-more', open: themes.some((p) => p.id === now) },
+      h('summary', {}, `App themes (${themes.length})`),
+      h('div', { class: 'pd-swatch-grid' }, themes.map((p) => sw(p.id, p.label, paletteColours(p.id))))),
+    h('h3', { class: 'pd-h3' }, 'Your own'),
     h('div', { class: 'pd-custom-colours' },
       [0, 1, 2].map(custom),
       h('label', {}, 'Paper', h('input', { type: 'color', value: look.paper, onchange: (e) => touch(pd, { paper: e.target.value }) })),
@@ -213,13 +329,22 @@ function publish(pd, snap) {
 
 /** Shrink the pages to fit the space between the side panels (they print full size). */
 function fitPages() {
-  const docEl = main.querySelector('.pd-doc');
+  const docEl = stage.querySelector('.pd-doc');
   if (!docEl) return;
-  const room = main.clientWidth - 48;
-  docEl.style.zoom = String(Math.min(1, room / 816));
+  const canvas = stage.querySelector('.plandoc-canvas');
+  // Leave the floating panel its own room on whichever side it sits, so it doesn't cover the pages.
+  let left = 24, right = 24;
+  if (!panel.hidden && !panelState.hidden) {
+    const { x, pw } = placePanel();
+    const w = panelState.folded ? panel.offsetWidth : pw;
+    if (x + w / 2 > stage.clientWidth / 2) right = Math.max(24, stage.clientWidth - x + 16); else left = Math.max(24, x + w + 16);
+  }
+  if (canvas) Object.assign(canvas.style, { paddingLeft: `${left}px`, paddingRight: `${right}px` });
+  const room = stage.clientWidth - left - right;
+  docEl.style.zoom = String(Math.max(0.35, Math.min(1, room / 816)));
 }
 window.addEventListener('resize', fitPages);
-window.addEventListener('hashchange', () => { main.scrollTop = 0; render(); });
+window.addEventListener('hashchange', () => { stage.scrollTop = 0; render(); });
 onDocChange('strategy', (d) => { strategy = d; render(); });
 onDocChange('data', (d) => { data = d; render(); });
 render();
