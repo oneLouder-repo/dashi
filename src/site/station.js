@@ -27,7 +27,8 @@ import { uiAlert } from '../ui/dialog.js';
  * ctx = { doc (podcasts), org, site (the site it is on), today, player, link(params) → href }
  */
 
-export const fmtDuration = (s = 0) => (s >= 3600 ? `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}` : `${Math.floor(s / 60)}`) + `:${String(s % 60).padStart(2, '0')}`;
+/** "12:05" or "1:02:03"; nothing for an episode whose length isn't known yet (linked audio). */
+export const fmtDuration = (s) => (s == null ? '' : s >= 3600 ? `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(Math.round(s) % 60).padStart(2, '0')}` : `${Math.floor(s / 60)}:${String(Math.round(s) % 60).padStart(2, '0')}`);
 export const lookClasses = (look) => `look-player-${look.player} look-art-${look.art}`;
 
 /** A show's cover art, or generated art with its title (ui/standIn.js). */

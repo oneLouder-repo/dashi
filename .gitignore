@@ -1,4 +1,5 @@
 .env
 data/
+data-clients/
 node_modules/
 .taste-skill/

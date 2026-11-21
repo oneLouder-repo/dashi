@@ -36,3 +36,7 @@ The platform admin works the queue in **Platform admin → Support**: set status
 ## Automated tests
 
 `npm test` runs the unit and server tests (Node's own test runner, no installs). Run it before every pull request.
+
+## The client test platform
+
+`npm run clients` starts a platform with just two client orgs, in its own `data-clients/` folder: Social Justice Radio at `sjr.localhost:5173` (a podcast station with its whole archive, linked rather than uploaded) and Strategic AI at Actua at `actua-ai.localhost:5173` (plans, ecosystem map, bibliography). Sign in as the platform admin. Delete `data-clients/` to start again. See `src/platform/clients/` and `docs/INTAKE.md`.

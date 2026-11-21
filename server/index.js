@@ -11,6 +11,7 @@ import { createApp, hashPassword } from './app.js';
 import { exampleDocs } from '../src/platform/seeds.js';
 import { MOCK_ORGS, mockDocs, mockFiles } from '../src/platform/mockOrgs.js';
 import { seedPlanDocs } from '../src/platform/plandocs.js';
+import { CLIENT_ORGS } from '../src/platform/clients/index.js';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { scheduleBackups } from './backup.js';
@@ -34,7 +35,7 @@ export async function start({ port = config.port, quiet = false, resolver } = {}
   // The test platform, to try everything out. A database from an earlier
   // version gets the test orgs it doesn't have yet; nothing already there changes.
   if (config.seedExamples) {
-    const added = await seedTestPlatform(db, app);
+    const added = config.testPlatform === 'clients' ? seedClientPlatform(db, app) : await seedTestPlatform(db, app);
     if (added.length) log(`Added test organisations: ${added.join(', ')}.`);
   }
 
@@ -78,6 +79,20 @@ export async function start({ port = config.port, quiet = false, resolver } = {}
     log(config.devLogin ? '\nDev sign-in is on: the sign-in page lets you be anyone.' : '');
   }
   return { server, db, app, port: actual };
+}
+
+/**
+ * The client test platform: just the client orgs (src/platform/clients),
+ * each on its own subdomain. An org already there is left alone.
+ */
+function seedClientPlatform(db, app) {
+  const added = [];
+  for (const spec of CLIENT_ORGS) {
+    if (db.prepare('SELECT 1 FROM orgs WHERE id = ? OR slug = ?').get(spec.id, spec.slug)) continue;
+    app.createOrg({ id: spec.id, slug: spec.slug, name: spec.name, plan: spec.plan, docs: spec.docs() });
+    added.push(spec.name);
+  }
+  return added;
 }
 
 /**
