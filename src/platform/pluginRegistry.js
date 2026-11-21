@@ -145,6 +145,19 @@ const BUILT_IN = {
       { id: 'folders', label: 'Folders', fields: [f('name', 'Name', 'text', { required: true })] },
       { id: 'bibs', label: 'Bibliographies', fields: [f('title', 'Title', 'text', { required: true }), f('description', 'Description'), f('entries', 'Entries', 'list')] }] }] },
   },
+  graph: {
+    category: 'Knowledge',
+    features: [
+      feat('explore', 'Graph search', 'Type a name and its network unfolds; ask for the way from one thing to another.'),
+      feat('insights', 'Insights', 'Most connected, bridges, clusters and islands.'),
+      feat('ontology', 'Ontology manager', 'Which vocabularies describe your assets (schema.org, FOAF, SKOS, PROV, ABCD).'),
+      feat('exports', 'Linked data exports', 'Turtle, JSON-LD and N-Triples.'),
+      feat('apiKeys', 'Read-only API keys', 'Let another tool read the graph.', { plans: { free: false, basic: false, standard: true, custom: true } }),
+    ],
+    dataModel: { docs: [{ name: 'graph', label: 'Graph settings', collections: [
+      { id: 'vocabs', label: 'Vocabularies in use', fields: [f('prefix', 'Prefix'), f('on', 'On', 'boolean')] },
+      { id: 'abcdClasses', label: 'ABCD classes', fields: [f('type', 'ABCD type'), f('class', 'Class')] }] }] },
+  },
   pages: {
     category: 'Publishing',
     features: [

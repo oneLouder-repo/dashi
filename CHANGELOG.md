@@ -6,6 +6,15 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 From 0.2 on, each alpha point version (0.2, 0.3…) is one major platform feature, and its sub-versions (0.2.1, 0.2.2…) are bug hunts and polish from live testing. 0.2 landed over several pull requests, newest first below.
 
+### The asset graph, experimental (PR 7)
+
+- **Asset Graph**, a new sub-plugin of Assets (on by default, marked experimental): everything the org knows about its assets, people, map actors, tags, collections and strategy, as one web of linked facts (`src/platform/graph.js`). It uses the vocabularies the web already knows (schema.org, FOAF, SKOS, PROV, Dublin Core) plus ABCD's six types and Dashi's own terms for what they don't cover. Weak links (works here, on a map) are kept but don't count for paths and rankings.
+- **Graph search**: type a name and its network unfolds from the middle, ring by ring, with the outer ring's names pointing outwards like spokes. Ask "CIFAR to Apple" for the shortest way between two things, with each link named. Chips for **Most connected** (PageRank), **Who bridges groups** (betweenness), **Clusters** (label propagation) and **On their own** (unlinked things and groups apart). Click any dot to unfold from it; drag, zoom and fit.
+- **Insights**: the facts, things and clusters, the most connected, the bridges, each cluster, what's on its own, and the ABCD balance, each linking back to the graph (`src/platform/graphAlgo.js`).
+- **Ontology manager**: switch vocabularies on or off (Dashi's words take over), pick the class each ABCD type becomes, choose what goes in (people, tags, collections, strategy), and see how one asset reads in Turtle as you change it. Saved in the `graph` document, which only this plugin owns.
+- **Exports**: Turtle, JSON-LD and N-Triples, with Dashi's things named under the org's address. Restricted assets always stay out, and no one's email or phone ever goes in.
+- **Read-only API keys** (admins): make a key in Export and API (shown once; only its hash is kept), and another tool reads `GET /api/graph/export?format=turtle|jsonld|ntriples` with `Authorization: Bearer dk_…`. Revoke a key at any time; each shows when it was last used. New `api_keys` table.
+
 ### Planning that starts from the plan, sunbursts and one layout for every plugin (PR 9 and 10)
 
 **Strategic planning, Actua first**

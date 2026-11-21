@@ -40,18 +40,83 @@ export const HELP_SHOTS = {
   'asset-sunburst': 'The asset map as a sunburst: types, then collections, then assets.',
   'framework-sunburst': 'The whole framework as a sunburst on the Strategy & Work overview.',
   'mapper-share': 'The mapper: its panel beside the board, and the Share menu.',
+  'graph-unfold': 'Graph search: CIFAR in the middle, its network unfolding ring by ring.',
+  'graph-path': 'The way from CIFAR to Apple Education, each link named.',
+  'graph-insights': 'Insights: most connected, bridges, clusters, islands and the ABCD balance.',
+  'graph-export': 'Export and API: Turtle, JSON-LD and N-Triples, and read-only keys.',
 };
-export const HELP_VERSION = 4;
+export const HELP_VERSION = 5;
 
 /**
  * Sections added since a version: a saved (edited) library that is older
  * gets them too, at the top, so new guides reach every server.
  */
-export const HELP_ADDED = { alpha: 2, 'new-in-0-2': 3, 'new-in-0-2-planning': 4 };
+export const HELP_ADDED = { alpha: 2, 'new-in-0-2': 3, 'new-in-0-2-planning': 4, 'asset-graph': 5 };
 
 export const HELP_SEED = {
   version: HELP_VERSION,
   sections: [
+    {
+      id: 'asset-graph',
+      title: 'The asset graph (experimental)',
+      icon: 'sec-graph',
+      blurb: 'Your assets, people, maps and strategy as one web of linked facts: search it, find who bridges groups, and share it as linked data.',
+      pages: [
+        {
+          id: 'graph-search',
+          title: 'Graph search',
+          body: `The asset graph lives inside **Assets** (left panel, **Asset graph**). It joins everything Dashi knows into one web: assets, people, the actors on your maps, tags, collections, and your strategy from the framework to workplans.
+
+# Unfold a network
+1. Open **Graph search** and type a name. Pick it from the suggestions, or press Enter.
+2. The thing sits in the middle and its network unfolds: what links to it directly, then one step further. The panel shows what the graph knows about it (its classes and facts), with **Open** to go to it.
+3. Click any dot to unfold from there instead.
+
+[[shot:graph-unfold]]
+
+# Find the way between two things
+Type **A to B**, for example "CIFAR to Apple". The shortest way is drawn as a line, each link named, and listed step by step in the panel.
+
+[[shot:graph-path]]
+
+# Ask the graph
+The chips ask the bigger questions: **Most connected**, **Who bridges groups**, **Clusters** and **On their own**. You can also type "people", "tags", or an ABCD type such as "cultural".`,
+        },
+        {
+          id: 'graph-insights',
+          title: 'Insights',
+          body: `**Insights** gathers what the graph says about your organisation:
+
+- **Most connected**: linked to many things, or to well linked things. This is where your knowledge pools.
+- **Who bridges groups**: they sit on the shortest way between others. Lose one and two groups drift apart.
+- **Clusters**: groups of things more linked to each other than to the rest.
+- **On their own**: things with no links. Linking them in adds what they know to the whole.
+- **ABCD balance**: how many assets of each type, and which is thinnest.
+
+Each card has **See on the graph**.
+
+[[shot:graph-insights]]`,
+        },
+        {
+          id: 'graph-ontology',
+          title: 'Ontology, exports and the API',
+          body: `# Ontology
+**Ontology** sets which shared vocabularies the graph speaks: schema.org, FOAF, SKOS, PROV, Dublin Core and ABCD. Switch one off and Dashi's own words take over. Pick the class each ABCD type becomes (Individuals as foaf:Person, say), and what goes in. The sample at the bottom shows how one asset reads as you change things.
+
+# Export
+**Export and API** downloads the graph as **Turtle**, **JSON-LD** or **N-Triples**. Restricted assets always stay out, and no one's email or phone ever goes in.
+
+# Read-only API keys
+Admins can press **New API key**. Copy the key straight away: it is shown only once. Another tool then reads the graph with:
+
+\`GET /api/graph/export?format=turtle\` and the header \`Authorization: Bearer dk_…\`
+
+A key only reads, and only the graph. Revoke it at any time.
+
+[[shot:graph-export]]`,
+        },
+      ],
+    },
     {
       id: 'new-in-0-2-planning',
       title: 'New in 0.2: planning and maps',

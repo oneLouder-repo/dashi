@@ -189,6 +189,12 @@ function drawSide(cards) {
       { label: 'Bibliographies', sub: 'Annotated, with weekly briefs', icon: 'news', href: linkTo('library', '#bibs') },
       { label: 'Library tags', sub: 'What you’re reading about', icon: 'tag', href: linkTo('library', '#tags') },
     ] },
+    // The asset graph (0.2, experimental): the same assets as linked facts.
+    { title: 'Asset graph · experimental', items: [
+      { label: 'Graph search', sub: 'Type a name; its network unfolds', icon: 'search', href: linkTo('graph', '#explore') },
+      { label: 'Insights', sub: 'Hubs, bridges, clusters, islands', icon: 'lightbulb', href: linkTo('graph', '#insights') },
+      { label: 'Ontology and export', sub: 'Vocabularies, linked data, API', icon: 'tree', href: linkTo('graph', '#ontology') },
+    ] },
     tags.length && { title: 'Tags', body: h('div', { class: 'ah-tags' }, tags.map((t) => h('a', { href: `#tag=${encodeURIComponent(t.tag)}`, class: `ah-tag${s.tag === t.tag ? ' on' : ''}` }, t.tag, h('small', {}, String(t.n))))) },
   ] }));
   sideEl.classList.add('ah-side');

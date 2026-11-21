@@ -108,6 +108,11 @@ const SCHEMA = [
      at TEXT NOT NULL, ip TEXT, PRIMARY KEY (user_id, doc, version))`,
   // 0.2: an org that changes its subdomain keeps the old one as a redirect for a while.
   `CREATE TABLE slug_aliases (slug TEXT PRIMARY KEY, org_id TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE, until INTEGER NOT NULL)`,
+  // 0.2: read-only keys for the asset graph's API (/api/graph/export). Only a hash of each key is kept.
+  `CREATE TABLE api_keys (
+     id TEXT PRIMARY KEY, org_id TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE, name TEXT NOT NULL,
+     hash TEXT NOT NULL UNIQUE, prefix TEXT NOT NULL, scope TEXT NOT NULL DEFAULT 'graph:read',
+     created_at TEXT NOT NULL, created_by TEXT, last_used_at TEXT, revoked_at TEXT)`,
 ];
 
 export function openDb(dataDir) {

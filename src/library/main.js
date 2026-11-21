@@ -118,6 +118,7 @@ function drawSide(view, a) {
     { title: 'Assets', items: [
       { label: 'All assets', sub: 'Files, maps, people, stories and places', icon: 'dots', href: 'assets.html' },
       { label: 'Asset map', sub: 'Seen through the ABCD lens', icon: 'mapTrifold', href: 'assets.html#view=map' },
+      { label: 'Asset graph', sub: 'Experimental: linked facts', icon: 'sec-graph', href: linkTo('graph', '#explore') },
     ] },
     { title: 'Library', items: [
       { label: 'All documents', sub: n(items.length, 'item'), icon: 'book', href: '#files/all', on: view === 'files' && a === 'all' },

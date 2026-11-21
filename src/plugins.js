@@ -128,6 +128,21 @@ export const PLUGINS = [
     },
   },
   {
+    id: 'graph',
+    parent: 'assets',
+    owns: ['graph'],
+    // The same as Assets reads, so the graph never opens a door Assets keeps shut.
+    reads: ['assets', 'maps', 'map/*', 'library', 'strategy', 'dashboards'],
+    short: 'Graph',
+    tone: '#2f6f8f',
+    name: 'Asset Graph',
+    href: 'graph.html',
+    icon: 'sec-graph',
+    experimental: true,
+    blurb: 'Experimental: your assets, people, maps and strategy as one web of linked facts. Search it for fun, find who bridges groups, and export it as linked data.',
+    stats: ({ assets }) => `${Object.keys(assets?.items ?? {}).length} assets linked in · experimental`,
+  },
+  {
     id: 'pages',
     owns: ['pages'],
     reads: ['dashboards', 'data', 'plandocs', 'strategy', 'library'],

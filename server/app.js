@@ -46,7 +46,8 @@ import { siteContent } from '../src/platform/salesSite.js';
 import { mergeRegistry, registryView, pausedByRegistry, manifestProblems, cleanManifest, compareVersions, bumpVersion, defaultManifest, manifestFromPackage, blankManifest, SCAFFOLDS } from '../src/platform/pluginRegistry.js';
 import { blankStrategy } from '../src/platform/strategySeed.js';
 import { BUILT_IN_PLUGINS } from '../src/plugins.js';
-import { docMode } from '../src/platform/access.js';
+import { docMode, orgHas } from '../src/platform/access.js';
+import { buildGraph, EXPORTS as GRAPH_EXPORTS } from '../src/platform/graph.js';
 import { cleanResponse, migrateFeedback } from '../src/platform/feedback.js';
 import { newSecret, checkCode, otpauthUrl } from './totp.js';
 import { billingSettings, stripeReady, stripeMode, stripe, verifySignature, eventChange, checkoutParams, BILLING_DEFAULTS } from './billing.js';
@@ -591,6 +592,52 @@ export function createApp(db, options = {}) {
       if (!a.canAdmin) throw new HttpError(403, 'Admins only');
       const rows = q('SELECT m.staff_id, u.last_sign_in, u.password_hash IS NOT NULL AS has_password FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.org_id = ?').all(a.org.id);
       return json(res, 200, Object.fromEntries(rows.map((r) => [r.staff_id, { lastSignIn: r.last_sign_in, hasPassword: !!r.has_password }])));
+    }
+
+    /*
+     * The asset graph's read-only API (0.2, experimental). An admin makes a
+     * key in Asset Graph → Export and API; another tool then reads the graph
+     * as linked data with it. Keys only read, only the graph, never restricted
+     * assets, and only a hash of each is kept, so a lost key is revoked, not recovered.
+     */
+    if (path === '/api/graph/export' && method === 'GET') {
+      needOrg();
+      const given = String(req.headers.authorization ?? '').replace(/^Bearer\s+/i, '') || String(req.headers['x-api-key'] ?? '') || url.searchParams.get('key') || '';
+      const key = given && q('SELECT * FROM api_keys WHERE hash = ? AND org_id = ? AND revoked_at IS NULL').get(digest(given), a.org.id);
+      if (!key && !a.member) throw new HttpError(401, 'An API key is needed: an admin makes one in Asset Graph → Export and API');
+      const all = readDocs(a.org.id);
+      const plugins = accessPlugins();
+      if (!orgHas(plugins, all.org, 'graph')) throw new HttpError(404, 'The asset graph is switched off for this organisation');
+      const use = new Set(plugins.filter((p) => orgHas(plugins, all.org, p.id)).map((p) => p.id));
+      const fmt = GRAPH_EXPORTS[url.searchParams.get('format') ?? 'turtle'];
+      if (!fmt) throw new HttpError(400, 'format is turtle, jsonld or ntriples');
+      if (key) q('UPDATE api_keys SET last_used_at = ? WHERE id = ?').run(now(), key.id);
+      const g = buildGraph(all, all.graph ?? undefined, { plugins: use, restricted: false });
+      return send(res, 200, fmt.make(g, { base: urlFor(hostOf(a.org), '/id/') }), { 'content-type': `${fmt.type}; charset=utf-8`, 'cache-control': 'no-store', 'access-control-allow-origin': '*' });
+    }
+    if (path === '/api/graph/keys' && method === 'GET') {
+      needOrg();
+      if (!a.canAdmin) throw new HttpError(403, 'Admins only');
+      const rows = q('SELECT id, name, prefix, scope, created_at, created_by, last_used_at, revoked_at FROM api_keys WHERE org_id = ? ORDER BY created_at DESC').all(a.org.id);
+      return json(res, 200, rows.map((r) => ({ id: r.id, name: r.name, prefix: r.prefix, scope: r.scope, createdAt: r.created_at, createdBy: r.created_by, lastUsedAt: r.last_used_at, revokedAt: r.revoked_at })));
+    }
+    if (path === '/api/graph/keys' && method === 'POST') {
+      needOrg();
+      if (!a.canAdmin) throw new HttpError(403, 'Only an admin makes API keys');
+      const body = await readJson(req);
+      const name = String(body?.name ?? '').trim().slice(0, 80) || 'API key';
+      const secret = `dk_${randomBytes(24).toString('base64url')}`;
+      const id = newId('key');
+      q('INSERT INTO api_keys (id, org_id, name, hash, prefix, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)').run(id, a.org.id, name, digest(secret), secret.slice(0, 9), now(), a.user?.email ?? null);
+      // The key itself is shown this once.
+      return json(res, 201, { id, name, prefix: secret.slice(0, 9), key: secret });
+    }
+    let mk;
+    if ((mk = path.match(/^\/api\/graph\/keys\/([\w-]+)$/)) && method === 'DELETE') {
+      needOrg();
+      if (!a.canAdmin) throw new HttpError(403, 'Only an admin revokes API keys');
+      q('UPDATE api_keys SET revoked_at = ? WHERE id = ? AND org_id = ? AND revoked_at IS NULL').run(now(), mk[1], a.org.id);
+      return json(res, 200, { ok: true });
     }
 
     let m;

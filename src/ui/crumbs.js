@@ -30,6 +30,7 @@ const RELATED = {
   mapper: ['assets', 'strategy'],
   assets: ['mapper', 'strategy'],
   library: ['mapper', 'strategy'],
+  graph: ['assets', 'mapper', 'strategy'],
   strategy: ['studio', 'assets', 'pages'],
   studio: ['strategy', 'assets'],
   podcasts: ['pages', 'assets'],
