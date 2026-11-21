@@ -39,4 +39,4 @@ The platform admin works the queue in **Platform admin → Support**: set status
 
 ## The client test platform
 
-`npm run clients` starts a platform with just two client orgs, in its own `data-clients/` folder: Social Justice Radio at `sjr.localhost:5173` (a podcast station with its whole archive, linked rather than uploaded) and Strategic AI at Actua at `actua-ai.localhost:5173` (plans, ecosystem map, bibliography). Sign in as the platform admin. Delete `data-clients/` to start again. See `src/platform/clients/` and `docs/INTAKE.md`.
+`npm run clients` (or `node clients.js`) starts a platform with just two client orgs, in its own `data-clients/` folder: Social Justice Radio at `sjr.localhost:5173` (a podcast station with its whole archive, linked rather than uploaded) and Strategic AI at Actua at `actua-ai.localhost:5173` (plans, ecosystem map, bibliography). Sign in as the platform admin. Delete `data-clients/` to start again. See `src/platform/clients/` and `docs/INTAKE.md`.
