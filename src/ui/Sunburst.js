@@ -47,6 +47,19 @@ function inkOn(d3, fill) {
   return L > 0.36 ? '#1d2230' : '#ffffff';
 }
 
+/**
+ * Alpha 0.3: every sunburst and ring in Dashi takes the Assets sunburst's
+ * look, mid-tone solid colour. Whatever colour a page asks for is brought
+ * into that band: no neon, no near-black, no washed-out pastel.
+ */
+export function calm(d3, fill) {
+  const c = d3.hsl(fill);
+  if (Number.isNaN(c.h) || c.s < 0.2) return fill; // greys stay as they are
+  c.s = Math.min(0.68, Math.max(0.38, c.s));
+  c.l = Math.min(0.7, Math.max(0.42, c.l));
+  return c.formatHex();
+}
+
 function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, label, focusPath, onZoom, onHover, tip }) {
   const id = `sb${++n}`;
   const radius = size / 6;
@@ -78,7 +91,7 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
     .append('rect').attr('width', 3).attr('height', 7).attr('fill', 'rgba(255,255,255,.5)');
   const g = svg.append('g');
   const nodes = root.descendants().slice(1);
-  const fills = new Map(nodes.map((d) => [d, color(d)]));
+  const fills = new Map(nodes.map((d) => [d, calm(d3, color(d))]));
   // Every ring at the same strength: no paler veil the deeper you go.
   const path = g.append('g').selectAll('path').data(nodes).join('path')
     .attr('class', 'sb-arc')

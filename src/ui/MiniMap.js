@@ -1,5 +1,5 @@
 import { loadLenses, project, lensBounds, bandsOf } from '../lenses/index.js';
-import { wash, bold } from '../display/LensView.js';
+import { solid } from '../display/LensView.js';
 
 /**
  * A small picture of an ecosystem map: its lens backdrop, links and notes,
@@ -25,19 +25,20 @@ export async function MiniMap(map, { width = 240, height = 150, label = null } =
   const pad = Math.max(b.w, b.h) * 0.04;
   const s = el('svg', { viewBox: `${b.x - pad} ${b.y - pad} ${b.w + pad * 2} ${b.h + pad * 2}`, width, height, class: 'mini-map', role: 'img', 'aria-label': label ?? `A small view of ${map?.name ?? 'a map'}`, preserveAspectRatio: 'xMidYMid meet' });
   // The backdrop: the lens regions, outermost first.
-  const tint = (r) => wash(r.tint ?? '#cfd6e4');
-const stripe = (r) => bold(r.tint ?? '#cfd6e4');
+  // Solid zones with white gaps, like the board and the sunbursts (alpha 0.3).
+  const tint = (r, i) => solid(r.tint ?? '#cfd6e4', i);
+  const stripe = () => '#fff';
   if (lens.layout === 'rings') {
-    for (const band of [...bandsOf(lens)].reverse()) el('circle', { cx: lens.center.x, cy: lens.center.y, r: band.outer, fill: tint(band.region), stroke: stripe(band.region), 'stroke-width': b.w / 70 }, s);
+    [...bandsOf(lens)].reverse().forEach((band, i) => el('circle', { cx: lens.center.x, cy: lens.center.y, r: band.outer, fill: tint(band.region, i), stroke: stripe(), 'stroke-width': b.w / 90 }, s));
   } else if (lens.layout === 'triangle') {
     const L = { top: lens.triangle.top, bottom: lens.triangle.bottom, cx: lens.triangle.centerX, hw: lens.triangle.halfWidth };
     const half = (y) => (L.hw * (L.bottom - y)) / (L.bottom - L.top);
-    for (const band of bandsOf(lens)) {
+    bandsOf(lens).forEach((band, i) => {
       const a = half(band.y0), c = half(band.y1);
-      el('polygon', { points: `${L.cx - a},${band.y0} ${L.cx + a},${band.y0} ${L.cx + c},${band.y1} ${L.cx - c},${band.y1}`, fill: tint(band.region), stroke: stripe(band.region), 'stroke-width': b.w / 90 }, s);
-    }
+      el('polygon', { points: `${L.cx - a},${band.y0} ${L.cx + a},${band.y0} ${L.cx + c},${band.y1} ${L.cx - c},${band.y1}`, fill: tint(band.region, i), stroke: stripe(), 'stroke-width': b.w / 120 }, s);
+    });
   } else {
-    for (const band of bandsOf(lens)) el('rect', { x: b.x, y: band.y0, width: b.w, height: band.y1 - band.y0, fill: tint(band.region), stroke: stripe(band.region), 'stroke-width': b.w / 90 }, s);
+    bandsOf(lens).forEach((band, i) => el('rect', { x: b.x, y: band.y0, width: b.w, height: band.y1 - band.y0, fill: tint(band.region, i), stroke: stripe(), 'stroke-width': b.w / 120 }, s));
   }
   const places = map?.arrangements?.[lens.id] ?? {};
   const at = new Map(Object.values(map?.actors ?? {}).map((a) => [a.id, project(lens, places[a.id] ?? a.place ?? { depth: 0.5, spread: 0 })]));

@@ -1859,6 +1859,8 @@ dialog.dui.wide .dui-body > :not(.half) { grid-column: 1 / -1; }
 .road-finish-text { font-size: 12px; font-weight: 700; fill: #1d2230; }
 .road-label-bg.finish { fill: #fff; }
 .road-finish-tie { stroke: #1d2230; stroke-width: 1; stroke-dasharray: 2 2; stroke-opacity: 0.5; }
+.road-finish-pole { stroke: #9aa0ab; stroke-width: 2.5; }
+.road-finish-board { fill: #fff; stroke: #1d2230; stroke-opacity: 0.2; filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.18)); }
 .road-now-line { stroke: #d0621b; stroke-width: 1.4; stroke-dasharray: 3 4; }
 .road-now-ring { fill: #d0621b; fill-opacity: 0.18; stroke: #d0621b; stroke-width: 1.5; animation: road-pulse 2.4s ease-out infinite; transform-box: fill-box; transform-origin: center; }
 .road-now-dot { fill: #d0621b; stroke: #fff; stroke-width: 2; }

@@ -660,6 +660,7 @@ input.toc-layer-name:focus { outline: 1px dashed hsl(var(--lh) 50% 60%); outline
 .road-flag-cloth { fill: #b99aea; }
 .road-sign-post { stroke: #8e95a3; }
 .road-finish-tie { stroke: #fff; }
+.road-finish-pole { stroke: #c9ced8; }
 .road-obj-board { fill: #1e7a4a; filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.25)); }
 .road-obj-rim { fill: none; stroke: #fff; stroke-width: 1.2; stroke-opacity: .85; }
 .road-obj-post { stroke: #8e95a3; stroke-width: 2.5; }
@@ -862,18 +863,20 @@ body.mapper-page > main { border-radius: 0 0 var(--r-sheet, 14px) var(--r-sheet,
 #topbar .map-title { margin: 0 4px 0 2px; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink-1, var(--ink)); max-width: 30ch; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
 @media (max-width: 1500px) { #topbar .map-title { max-width: 22ch; } }
 
-/* Lenses (0.2): white zones, bold stripes where the level changes. */
+/* Lenses (0.3): solid zones with white gaps; labels in white (set inline by LensView). */
 .lens-stripe { pointer-events: none; }
 .lens-region { stroke: none; }
 .lens-region.highlight { filter: none; stroke: var(--accent); stroke-width: 4; stroke-dasharray: none; }
 .lens-label { fill: #3a4256; font-weight: 750; }
 .lens-hint { fill: #6a7286; }
-/* SOAR (final polish): white quadrants with a bold stripe along the axes, like the lenses and sunbursts. */
-.soar-zone { background: color-mix(in oklab, var(--q) 5%, #fff); box-sizing: border-box; }
-.soar-zone.q-s { border-right: 14px solid var(--q); border-bottom: 14px solid var(--q); }
-.soar-zone.q-o { border-left: 14px solid var(--q); border-bottom: 14px solid var(--q); }
-.soar-zone.q-a { border-right: 14px solid var(--q); border-top: 14px solid var(--q); }
-.soar-zone.q-r { border-left: 14px solid var(--q); border-top: 14px solid var(--q); }
+/* SOAR (alpha 0.3): solid quadrants, like the sunbursts, with white gaps along the axes. */
+.soar-zone { background: color-mix(in oklab, var(--q) 82%, #fff); box-sizing: border-box; }
+.soar-zone.q-s { border-right: 4px solid #fff; border-bottom: 4px solid #fff; }
+.soar-zone.q-o { border-left: 4px solid #fff; border-bottom: 4px solid #fff; }
+.soar-zone.q-a { border-right: 4px solid #fff; border-top: 4px solid #fff; }
+.soar-zone.q-r { border-left: 4px solid #fff; border-top: 4px solid #fff; }
+.soar-canvas .soar-ring { border-color: rgb(255 255 255 / .55); }
+.soar-canvas .soar-label { background: #fff; border-color: transparent; box-shadow: 0 2px 10px rgb(0 0 0 / .12); }
 .soar-axis { display: none; }
 /* The mapper's section titles read like every side nav's (accent caps, chevron only). */
 .mp-head { color: var(--accent); font-size: 11.5px; font-weight: 700; padding-left: 8px; }

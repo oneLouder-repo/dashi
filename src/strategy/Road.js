@@ -85,8 +85,10 @@ export function RoadSvg(doc, planId, { compact = false, dayPx = DAY_PX[zoom], on
   const W = compact ? runW : runW + 220; // room past the last date for signs
   // Shorter than it was (PR 10): lights above the road, then a row of green
   // objective signposts and a row of white goal signs below it.
-  const H = compact ? 150 : 352;
-  const mid = compact ? 88 : 168;
+  // Alpha 0.3: a clear band across the top holds the Today chip and the
+  // finish-line signposts, so neither lands on a traffic light.
+  const H = compact ? 150 : 398;
+  const mid = compact ? 88 : 214;
   const xOf = (d) => (daysBetween(m.from, d) / days) * runW;
   const amp = compact ? 10 : 22;
   const period = compact ? 320 : 760;
@@ -142,6 +144,8 @@ export function RoadSvg(doc, planId, { compact = false, dayPx = DAY_PX[zoom], on
   svg('path', { class: 'road-tar', d: roadPath(0, W) }, el);
   svg('path', { class: 'road-done', d: roadPath(0, nowX) }, el);
   svg('path', { class: 'road-line', d: roadPath(0, W) }, el);
+  // Finish-line poles stand behind the traffic lights; their boards go on top.
+  const poleLayer = svg('g', { class: 'road-finish-poles' }, el);
 
   // Task lights at the roadside.
   if (!compact) for (const t of m.tasks) {
@@ -242,7 +246,15 @@ export function RoadSvg(doc, planId, { compact = false, dayPx = DAY_PX[zoom], on
     svg('text', { class: 'road-obj-num', x: x + 19, y: top + 18, 'text-anchor': 'middle', fill: o.hue }, a).textContent = `O${o.n}`;
     svg('text', { class: 'road-obj-text', x: x + 38, y: top + 18.5 }, a).textContent = label;
   });
-  // Plan ends: a slim chequered post.
+  // Plan ends: a chequered line across the road and, in the full road, the
+  // tallest signpost of all: a white board tipped with checkers, up in the
+  // top band at the Today label's level, clear of every traffic light.
+  const topBand = tiers(1);
+  const todayLabel = `Today · ${short(m.now)}`;
+  const todayW = 16 + todayLabel.length * 6.4;
+  const todayX0 = nowX + todayW / 2 + 8 > W ? nowX - todayW - 8 : nowX < todayW / 2 + 8 ? nowX + 8 : nowX - todayW / 2;
+  if (!compact) claim(topBand, todayX0 - 6, todayX0 + todayW + 6);
+  const finishes = [];
   for (const p of m.plans) {
     const x = xOf(p.end);
     if (x > W - 4) continue;
@@ -252,17 +264,32 @@ export function RoadSvg(doc, planId, { compact = false, dayPx = DAY_PX[zoom], on
     // A chequered line across the road, like a finish line.
     const half = compact ? 6 : 12, cell = compact ? 3 : 4;
     for (let k = 0; k < (half * 2) / cell; k++) for (let c = 0; c < 2; c++) svg('rect', { x: x - cell + c * cell, y: y - half + k * cell, width: cell, height: cell, fill: (k + c) % 2 ? '#fff' : '#1d2230' }, g);
-    if (!compact) {
-      const t = `${p.title.length > 30 ? `${p.title.slice(0, 29)}…` : p.title} ends`;
-      const w = 20 + t.length * 6.2;
-      if (claim(postTiers.slice(0, 2), x + 14, x + 14 + w) >= 0) labels.push(() => {
-        svg('line', { class: 'road-finish-tie', x1: x, x2: x, y1: y - half, y2: y - 46 }, el);
-        svg('rect', { class: 'road-label-bg finish', x: x - 2, y: y - 66, width: w, height: 20, rx: 10 }, el);
-        svg('text', { class: 'road-finish-text', x: x + 7, y: y - 52 }, el).textContent = t;
-      });
-    }
+    if (!compact) finishes.push({ p, x, y, half });
   }
+  const finishSigns = finishes.map(({ p, x, y, half }) => {
+    const t = `${p.title.length > 30 ? `${p.title.slice(0, 29)}…` : p.title} ends ${short(p.end)}`;
+    const chk = 18, sw = chk + 16 + t.length * 6.2, sh = 22, top = 30;
+    // The board hangs to the right of its pole; near the end of the road, to the left.
+    let bx = x + sw > W - 4 ? x - sw : x;
+    for (let tries = 0; tries < 12 && claim(topBand, bx - 4, bx + sw + 4) < 0; tries++) bx += bx < x ? -24 : 24;
+    return () => {
+      const g = svg('g', { class: 'road-finish road-finish-post' }, el);
+      svg('title', {}, g).textContent = `Finish: ${p.title} ends ${short(p.end)}`;
+      svg('line', { class: 'road-finish-pole', x1: x, x2: x, y1: y - half, y2: top + sh / 2 }, poleLayer);
+      svg('rect', { class: 'road-finish-board', x: bx, y: top, width: sw, height: sh, rx: 4 }, g);
+      // Checkers at the tip next to the pole.
+      const cx0 = bx < x ? bx + sw - chk : bx;
+      const clip = `road-finish-clip-${gradientN}-${Math.round(x)}`;
+      const cp = svg('clipPath', { id: clip }, defs);
+      svg('rect', { x: bx, y: top, width: sw, height: sh, rx: 4 }, cp);
+      const cg = svg('g', { 'clip-path': `url(#${clip})` }, g);
+      const cell = sh / 4;
+      for (let r = 0; r < 4; r++) for (let c = 0; c < chk / cell; c++) svg('rect', { x: cx0 + c * cell, y: top + r * cell, width: cell, height: cell, fill: (r + c) % 2 ? '#fff' : '#1d2230' }, cg);
+      svg('text', { class: 'road-finish-text', x: (bx < x ? bx : bx + chk) + 8, y: top + 15 }, g).textContent = t;
+    };
+  });
   labels.forEach((draw) => draw());
+  finishSigns.forEach((draw) => draw());
   // Today: a beacon on the road and a hairline through the whole scene.
   const cy = yOf(nowX);
   const beacon = svg('g', { class: 'road-now', transform: `translate(${nowX} 0)` }, el);
@@ -271,9 +298,9 @@ export function RoadSvg(doc, planId, { compact = false, dayPx = DAY_PX[zoom], on
   svg('circle', { class: 'road-now-ring', cx: 0, cy, r: compact ? 8 : 12 }, beacon);
   svg('circle', { class: 'road-now-dot', cx: 0, cy, r: compact ? 3.5 : 5 }, beacon);
   if (!compact) {
-    const label = `Today · ${short(m.now)}`;
-    const w = 16 + label.length * 6.4;
-    const lx = nowX + w / 2 + 8 > W ? -w - 8 : nowX < w / 2 + 8 ? 8 : -w / 2;
+    const label = todayLabel;
+    const w = todayW;
+    const lx = todayX0 - nowX;
     svg('rect', { class: 'road-now-chip', x: lx, y: 30, width: w, height: 22, rx: 11 }, beacon);
     svg('text', { class: 'road-now-text', x: lx + w / 2, y: 45, 'text-anchor': 'middle' }, beacon).textContent = label;
   }

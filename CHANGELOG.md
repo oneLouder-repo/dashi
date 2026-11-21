@@ -2,6 +2,16 @@
 
 Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and so on). Each point version (0.2, 0.3…) is one major platform feature; 0.2.1-alpha, 0.2.2-alpha… are fixes and polish from testing. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
+## 0.3.0-alpha (in progress): UI tinkering and enhancements
+
+Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
+
+### PR 1: the finish line, solid colour, one sunburst look
+
+- **The roadmap's finish line is the tallest signpost**: a white board tipped with checkers, up at the Today label's level above the road, so it no longer lands on a traffic light. The road has a clear band across the top for the two of them; the finish pole stands behind the lights.
+- **Solid colour again** on the ecosystem map's zones (micro, meso, macro and every other lens), the map thumbnails and the SOAR board, with white gaps between zones like the gaps between a sunburst's rings. Zone labels are white.
+- **One sunburst look**, taken from the Assets sunburst: every sunburst brings its colours into the same mid-tone band (no neon, no near-black, no pale wash), and the mapper's rings follow it.
+
 ## 0.2.0-alpha (2026-11-21): plugins that own their data, screens and designer
 
 From 0.2 on, each alpha point version (0.2, 0.3…) is one major platform feature, and its sub-versions (0.2.1, 0.2.2…) are bug hunts and polish from live testing. 0.2 landed over several pull requests, newest first below.

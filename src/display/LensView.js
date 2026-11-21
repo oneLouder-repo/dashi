@@ -72,12 +72,7 @@ export function vivid(hex) {
   return `#${[r, g, b].map((v) => Math.round(v * 255).toString(16).padStart(2, '0')).join('')}`;
 }
 
-/**
- * Dashi's look since 0.2 is white cards with a bold primary stripe, so the
- * lenses follow: each zone is nearly white (wash), and a thick stripe in
- * the zone's bold colour marks where one level of systems analysis gives
- * way to the next.
- */
+/** Colour helpers for the lens zones. */
 function hsl(hex) {
   const m = /^#?([0-9a-f]{6})$/i.exec(String(hex ?? ''));
   if (!m) return null;
@@ -95,9 +90,18 @@ const toHex = (h, s, l) => {
 };
 /** The zone's colour at full strength: a primary-ish stripe colour. */
 export const bold = (hex) => { const h = hsl(hex); return h == null ? hex : toHex(h, 0.68, 0.5); };
-/** The zone itself: white with the faintest wash of its colour. */
+/** The zone itself: white with the faintest wash of its colour (the 0.2 look, kept for anyone still using it). */
 export const wash = (hex) => { const h = hsl(hex); return h == null ? hex : toHex(h, 0.6, 0.975); };
-const STRIPE = 16;
+/**
+ * Alpha 0.3: zones are solid colour again, in the same family as the Assets
+ * sunburst (mid-tone, every level at the same strength). Neighbouring zones
+ * of one hue alternate a step lighter, and white gaps keep them apart, like
+ * the gaps between a sunburst's rings.
+ */
+export const solid = (hex, k = 0) => { const h = hsl(hex); return h == null ? hex : toHex(h, 0.5, k % 2 ? 0.62 : 0.55); };
+const GAP = 6;
+const INK = 'fill:#fff';
+const HINT_INK = 'fill:rgb(255 255 255 / .86)';
 
 const hintOf = (region) => [region.group, region.hint].filter(Boolean).join(' · ');
 
@@ -105,12 +109,11 @@ const renderers = {
   rings(view, lens, keep) {
     const { x: cx, y: cy } = lens.center;
     const bands = bandsOf(lens);
-    // Outermost first so inner rings paint on top.
-    for (const { region } of [...bands].reverse()) {
-      keep(region, view.draw('circle', { cx, cy, r: region.radius, fill: wash(region.tint) }));
-      // The stripe at the ring's outer edge: where this level ends and the next begins.
-      view.draw('circle', { class: 'lens-stripe', cx, cy, r: region.radius - STRIPE / 2, fill: 'none', stroke: bold(region.tint), 'stroke-width': STRIPE });
-    }
+    // Outermost first so inner rings paint on top; a white gap at each ring's edge.
+    [...bands].reverse().forEach(({ region }, i) => {
+      keep(region, view.draw('circle', { cx, cy, r: region.radius, fill: solid(region.tint, i) }));
+      view.draw('circle', { class: 'lens-stripe', cx, cy, r: region.radius, fill: 'none', stroke: '#fff', 'stroke-width': GAP });
+    });
     for (const { region, inner, outer } of bands) {
       // Label sits in the top of each ring's band (near the top of the innermost disc).
       const y = inner ? cy - (inner + outer) / 2 - 6 : cy - outer + 40;
@@ -121,33 +124,31 @@ const renderers = {
   triangle(view, lens, keep) {
     const { centerX, top, bottom, halfWidth } = lens.triangle;
     const widthAt = (y) => (halfWidth * (bottom - y)) / (bottom - top);
-    for (const { region, y0, y1 } of bandsOf(lens)) {
+    bandsOf(lens).forEach(({ region, y0, y1 }, i) => {
       const points = [
         [centerX - widthAt(y0), y0],
         [centerX + widthAt(y0), y0],
         [centerX + widthAt(y1), y1],
         [centerX - widthAt(y1), y1],
       ].map((p) => p.join(',')).join(' ');
-      keep(region, view.draw('polygon', { points, fill: wash(region.tint) }));
-      view.draw('line', { class: 'lens-stripe', x1: centerX - widthAt(y0), y1: y0 + STRIPE / 2, x2: centerX + widthAt(y0), y2: y0 + STRIPE / 2, stroke: bold(region.tint), 'stroke-width': STRIPE });
+      keep(region, view.draw('polygon', { points, fill: solid(region.tint, i) }));
+      if (i) view.draw('line', { class: 'lens-stripe', x1: centerX - widthAt(y0) - GAP, y1: y0, x2: centerX + widthAt(y0) + GAP, y2: y0, stroke: '#fff', 'stroke-width': GAP });
       label(view, region.label, hintOf(region), centerX, y0 + 40, 'middle');
-    }
+    });
   },
 
   bands(view, lens, keep) {
     const left = -lens.width / 2;
     let lastGroup = null;
-    for (const { region, y0, y1 } of bandsOf(lens)) {
-      keep(region, view.draw('rect', { x: left, y: y0, width: lens.width, height: y1 - y0, fill: wash(region.tint) }));
-      // A thick stripe down the band's left edge, and a rule along its top where the level changes.
-      view.draw('rect', { class: 'lens-stripe', x: left, y: y0, width: STRIPE, height: y1 - y0, fill: bold(region.tint) });
-      view.draw('rect', { class: 'lens-stripe', x: left, y: y0, width: lens.width, height: 3, fill: bold(region.tint) });
-      label(view, region.label, region.hint ?? '', left + STRIPE + 18, y0 + (region.hint ? 28 : (y1 - y0) / 2 + 6), 'start');
+    bandsOf(lens).forEach(({ region, y0, y1 }, i) => {
+      keep(region, view.draw('rect', { x: left, y: y0, width: lens.width, height: y1 - y0, fill: solid(region.tint, i) }));
+      if (i) view.draw('rect', { class: 'lens-stripe', x: left, y: y0 - GAP / 2, width: lens.width, height: GAP, fill: '#fff' });
+      label(view, region.label, region.hint ?? '', left + 28, y0 + (region.hint ? 28 : (y1 - y0) / 2 + 6), 'start');
       if (region.group && region.group !== lastGroup) {
-        view.draw('text', { class: 'lens-group', x: -left - 18, y: y0 + 26, 'text-anchor': 'end' }).textContent = region.group;
+        view.draw('text', { class: 'lens-group', x: -left - 18, y: y0 + 26, 'text-anchor': 'end', style: INK }).textContent = region.group;
       }
       lastGroup = region.group;
-    }
+    });
   },
 
   grid(view, lens, keep) {
@@ -158,7 +159,7 @@ const renderers = {
     const step = lens.width / lens.columns.length;
     lens.columns.forEach((col, i) => {
       const x = -lens.width / 2 + i * step;
-      if (i) view.draw('line', { class: 'lens-divider', x1: x, x2: x, y1: top, y2: bottom });
+      if (i) view.draw('line', { class: 'lens-divider', x1: x, x2: x, y1: top, y2: bottom, style: 'stroke:#fff;stroke-width:4;stroke-dasharray:none' });
       view.draw('text', { class: 'lens-column', x: x + step / 2, y: top - 22, 'text-anchor': 'middle' }).textContent = col.label;
     });
     view.draw('text', { class: 'lens-axis', x: lens.width / 2, y: top - 46, 'text-anchor': 'end' }).textContent = 'breadth of change →';
@@ -166,6 +167,6 @@ const renderers = {
 };
 
 function label(view, text, hint, x, y, anchor) {
-  view.draw('text', { class: 'lens-label', x, y, 'text-anchor': anchor }).textContent = text;
-  if (hint) view.draw('text', { class: 'lens-hint', x, y: y + 20, 'text-anchor': anchor }).textContent = hint;
+  view.draw('text', { class: 'lens-label', x, y, 'text-anchor': anchor, style: INK }).textContent = text;
+  if (hint) view.draw('text', { class: 'lens-hint', x, y: y + 20, 'text-anchor': anchor, style: HINT_INK }).textContent = hint;
 }
