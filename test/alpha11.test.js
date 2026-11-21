@@ -85,7 +85,7 @@ test('a theory of change lays out from the plan, reads as pathways, and counts w
   assert.ok(Object.keys(mergeStudio(studio, studio).toc).length === r.items, 'theories of change merge like the rest of the studio');
 });
 
-test('the example keeps Year 1 and Year 2 as sibling plans, and an example folded into one plan splits back', () => {
+test('the example keeps Year 1 and Year 2 as sibling plans, and an example folded into one plan splits back', async () => {
   const node = (id, type, parentId, order, more = {}) => ({ id, type, parentId, order, title: id, notes: '', ...more });
   const doc = {
     id: 'strategy-example',
@@ -107,8 +107,18 @@ test('the example keeps Year 1 and Year 2 as sibling plans, and an example folde
   assert.deepEqual(y2.milestones.map((m) => m.id), ['b']);
   const once = JSON.stringify(doc);
   assert.equal(JSON.stringify(migrateStrategy(doc)), once, 'runs once');
-  // A plan someone renamed is theirs: it stays as it is.
-  const mine = { id: 's', nodes: { f: node('f', 'framework', null, 0), p: node('p', 'plan', 'f', 0, { title: 'Our plan' }), 'obj-equity': node('obj-equity', 'objective', 'p', 0), 'obj-scale': node('obj-scale', 'objective', 'p', 1) } };
+  // A shortened title still splits, and is tidied to Year 1.
+  const short = { id: 's', nodes: { f: node('f', 'framework', null, 0), p: node('p', 'plan', 'f', 0, { title: 'Strategic Plan 2026–2030', start: '2026-04-01', end: '2030-03-31' }), e: node('e', 'objective', 'p', 0), g: node('g', 'objective', 'p', 1, { title: 'Grow what works, with partners' }) } };
+  migrateStrategy(short);
+  assert.equal(short.nodes.g.parentId, 'plan-year-2', 'found by its title when the id differs');
+  assert.equal(short.nodes.p.title, 'Year 1 plan: Foundations');
+  // A plan someone renamed to their own words keeps its name, but still splits.
+  const mine = { id: 's', nodes: { f: node('f', 'framework', null, 0), p: node('p', 'plan', 'f', 0, { title: 'Our plan', end: '2030-03-31' }), 'obj-equity': node('obj-equity', 'objective', 'p', 0), 'obj-scale': node('obj-scale', 'objective', 'p', 1) } };
   migrateStrategy(mine);
-  assert.equal(mine.nodes['obj-scale'].parentId, 'p');
+  assert.equal(mine.nodes['obj-scale'].parentId, 'plan-year-2');
+  assert.equal(mine.nodes.p.title, 'Our plan');
+  // Already apart: nothing happens.
+  const { seedStrategy } = await import('../src/platform/strategySeed.js');
+  const apart = migrateStrategy(seedStrategy());
+  assert.ok(!apart.nodes['plan-year-2'] && !apart.yearsSplit, 'the new example needs no split');
 });
