@@ -32,9 +32,6 @@ export function Overview(ctx) {
   const road = topPlan ? RoadSvg(doc, topPlan.id, { compact: true }) : null;
 
   return h('div', { class: 'sw-landing' },
-    // The whole framework as the hero (0.2): mission and vision live in the Framework now.
-    WholeSunburst(ctx, root, now),
-
     h('div', { class: 'sw-now' },
       h('a', { class: 'sw-card sw-road-card', href: '#roadmap', title: topPlan ? `The road for ${topPlan.title}` : null },
         h('div', { class: 'sw-card-head' }, h('h3', {}, icon('mapTrifold', 16), 'The road so far'), h('span', { class: 'small sw-more' }, 'Open the roadmap →')),
@@ -52,6 +49,8 @@ export function Overview(ctx) {
           [['plan', counts.plan], ['objective', counts.objective], ['goal', counts.goal], ['workplan', counts.workplan]].map(([t, c]) => h('li', {}, h('strong', {}, String(c)), LevelBadge(t, { plain: true }))),
           h('li', {}, h('strong', {}, String(Object.keys(measureIndex(doc)).length)), h('span', { class: 'muted small' }, 'measures'))))),
 
+    // The whole framework under it (0.2): mission and vision live in the Framework now.
+    WholeSunburst(ctx, root, now),
     h('div', { class: 'sw-section-head' }, h('h2', {}, 'Objectives and goals'), h('a', { class: 'small', href: '#framework' }, 'Open the framework →')),
     h('div', { class: 'sw-objectives' }, objectiveOrder(doc).map(({ node: o, hue }) => ObjectiveCard(ctx, o, hue, now))),
 

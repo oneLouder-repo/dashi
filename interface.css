@@ -885,3 +885,5 @@ body.mapper-page > main { border-radius: 0 0 var(--r-sheet, 14px) var(--r-sheet,
 .ah-map2 .ah-line { pointer-events: stroke; }
 .side-section.foldable .side-title-text { cursor: pointer; flex: 1; user-select: none; }
 .side-section.foldable .side-title-text:hover { color: var(--ink); }
+/* The framework sunburst's details panel holds one size, so pointing around the rings never moves the page. */
+.sw-sb-panel { height: 300px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }

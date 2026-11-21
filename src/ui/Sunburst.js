@@ -52,17 +52,13 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
   const radius = size / 6;
   const hier = d3.hierarchy(data).sum((d) => (d.children?.length ? 0 : Math.max(0, d.value ?? 1))).sort((a, b) => b.value - a.value);
   const root = d3.partition().size([2 * Math.PI, hier.height + 1])(hier);
-  root.each((d) => { d.current = d; });
+  // The last ring always reaches the outer edge: an item with nothing inside fills the rest of the band.
+  const reach = (t, d) => (d.children || t.y0 >= 3 || t.y1 > 3 ? t : { ...t, y1: 3 });
+  root.each((d) => { d.current = reach({ x0: d.x0, x1: d.x1, y0: d.y0, y1: d.y1 }, d); });
   const arc = d3.arc()
     .startAngle((d) => d.x0).endAngle((d) => d.x1)
     .padAngle((d) => Math.min((d.x1 - d.x0) / 2, 0.005)).padRadius(radius * 1.5)
     .innerRadius((d) => d.y0 * radius).outerRadius((d) => Math.max(d.y0 * radius, d.y1 * radius - 1));
-  // Since the 0.2 polish, colour and white swap places: each arc is nearly white, with a thick stripe of its colour along its outer edge.
-  const STRIPE = Math.max(5, Math.round(radius / 11));
-  const stripeArc = d3.arc()
-    .startAngle((d) => d.x0).endAngle((d) => d.x1)
-    .padAngle((d) => Math.min((d.x1 - d.x0) / 2, 0.005)).padRadius(radius * 1.5)
-    .innerRadius((d) => Math.max(d.y0 * radius, d.y1 * radius - 1 - STRIPE)).outerRadius((d) => Math.max(d.y0 * radius, d.y1 * radius - 1));
   const visible = (d) => d.y1 <= 3 && d.y0 >= 1 && d.x1 > d.x0;
   // A label shows only where the ring is wide enough around for a line of text.
   const labelVisible = (d) => d.y1 <= 3 && d.y0 >= 1 && ((d.y0 + d.y1) / 2) * radius * (d.x1 - d.x0) > 13;
@@ -79,27 +75,23 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
   const svg = d3.create('svg').attr('viewBox', [-size / 2, -size / 2, size, size]).attr('class', 'sunburst-svg').attr('role', 'group').attr('aria-label', label);
   const defs = svg.append('defs');
   defs.append('pattern').attr('id', `${id}-hatch`).attr('patternUnits', 'userSpaceOnUse').attr('width', 7).attr('height', 7).attr('patternTransform', 'rotate(45)')
-    .append('rect').attr('width', 3).attr('height', 7).attr('fill', 'rgba(29,34,48,.13)');
+    .append('rect').attr('width', 3).attr('height', 7).attr('fill', 'rgba(255,255,255,.5)');
   const g = svg.append('g');
   const nodes = root.descendants().slice(1);
   const fills = new Map(nodes.map((d) => [d, color(d)]));
-  const wash = new Map(nodes.map((d) => [d, d3.interpolateRgb(fills.get(d), '#ffffff')(0.88)]));
   // Every ring at the same strength: no paler veil the deeper you go.
   const path = g.append('g').selectAll('path').data(nodes).join('path')
     .attr('class', 'sb-arc')
-    .attr('fill', (d) => wash.get(d))
+    .attr('fill', (d) => fills.get(d))
     .attr('fill-opacity', (d) => +visible(d.current))
     .attr('pointer-events', (d) => (visible(d.current) ? 'auto' : 'none'))
-    .attr('stroke', (d) => (edge?.(d) ?? '#dfe3ec'))
+    .attr('stroke', (d) => (edge?.(d) ?? '#fff'))
     .attr('stroke-width', (d) => (edge?.(d) ? 2.5 : 1))
     .attr('stroke-opacity', (d) => +visible(d.current))
     .attr('tabindex', (d) => (visible(d.current) ? 0 : -1))
     .attr('role', 'button')
     .attr('aria-label', (d) => `${d.data.name}: ${d.value}${d.children ? ', open' : ''}`)
     .attr('d', (d) => arc(d.current));
-  // Each arc's stripe, in its full colour.
-  const stripes = g.append('g').attr('pointer-events', 'none').selectAll('path').data(nodes).join('path')
-    .attr('class', 'sb-stripe').attr('fill', (d) => fills.get(d)).attr('fill-opacity', (d) => +visible(d.current)).attr('d', (d) => stripeArc(d.current));
   // Drafts: the same arc again, striped.
   const hatch = hatched ? g.append('g').attr('pointer-events', 'none').selectAll('path').data(nodes.filter((d) => hatched(d))).join('path')
     .attr('fill', `url(#${id}-hatch)`).attr('fill-opacity', (d) => +visible(d.current)).attr('d', (d) => arc(d.current)) : null;
@@ -108,6 +100,16 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
   const tipEl = h('div', { class: 'sb-tip', role: 'tooltip', hidden: true });
   const trail = (d) => d.ancestors().map((a) => a.data.name).reverse().slice(1);
   const tipText = (d) => tip?.(d) ?? `${trail(d).join(' › ')}\n${d.value} ${d.value === 1 ? 'item' : 'items'}${d.children ? ' · click to open' : ''}`;
+  // The details panel follows the item under the pointer, not every pixel of movement: it changes only
+  // when the item does, and going back to the centre's details waits a moment, so crossing the gaps
+  // between arcs doesn't flicker it.
+  let hovered = null, leaveTimer = 0;
+  const hover = (d) => {
+    clearTimeout(leaveTimer);
+    if (d === hovered) return;
+    // A short rest before the panel changes, so sweeping across the rings doesn't flash every arc passed.
+    leaveTimer = setTimeout(() => { hovered = d; onHover?.(d ? d.data : null, d); }, d ? 90 : 260);
+  };
   const showTip = (e, d) => {
     const [title, ...rest] = tipText(d).split('\n');
     tipEl.replaceChildren(h('strong', {}, d.data.name), h('span', {}, title === d.data.name ? '' : title), ...rest.map((r) => h('small', {}, r)));
@@ -117,20 +119,21 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
     tipEl.style.left = `${Math.min(box.width - 12, Math.max(12, x))}px`;
     tipEl.style.top = `${y}px`;
     tipEl.classList.toggle('flip', x > box.width * 0.6);
-    onHover?.(d.data, d);
+    hover(d);
   };
-  const hideTip = () => { tipEl.hidden = true; onHover?.(null, null); };
+  const hideTip = () => { tipEl.hidden = true; hover(null); };
   path.style('cursor', 'pointer')
     .on('pointermove', showTip).on('pointerleave', hideTip)
     .on('focus', (e, d) => { const r = e.target.getBoundingClientRect(); showTip({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }, d); })
     .on('blur', hideTip)
-    .on('click', (e, d) => (d.children ? zoom(e, d) : onLeaf?.(d.data, e)))
-    .on('keydown', (e, d) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (d.children) zoom(e, d); else onLeaf?.(d.data, e); } });
+    // The last click goes all the way in too: the item fills the whole ring, and the page can show it.
+    .on('click', (e, d) => { if (d !== focus) zoom(e, d); if (!d.children) onLeaf?.(d.data, e); })
+    .on('keydown', (e, d) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (d !== focus) zoom(e, d); if (!d.children) onLeaf?.(d.data, e); } });
 
   const text = g.append('g').attr('pointer-events', 'none').attr('text-anchor', 'middle').style('user-select', 'none')
     .selectAll('text').data(nodes).join('text')
     .attr('class', 'sb-label').attr('dy', '0.35em')
-    .attr('fill', (d) => inkOn(d3, wash.get(d)))
+    .attr('fill', (d) => inkOn(d3, fills.get(d)))
     .attr('fill-opacity', (d) => +labelVisible(d.current))
     .attr('transform', (d) => labelTransform(d.current))
     .text((d) => fit(d.data.name));
@@ -148,21 +151,24 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
     capSub.text(p === root ? `${root.value}` : `${p.value} · back`);
   };
   setCaption(root);
-  svg.on('keydown', (e) => { if (e.key === 'Escape' && focus !== root) zoom(e, focus.parent ?? root); });
+  svg.on('keydown', (e) => { if (e.key === 'Escape' && focus !== root) zoom(e, centre.datum()); });
 
   let focus = root;
   function zoom(event, p, { instant = false } = {}) {
     focus = p;
     hideTip();
-    centre.datum(p.parent ?? root);
+    // An item with nothing inside is shown as the ring itself, around its parent in the centre.
+    const leaf = !p.children && p !== root;
+    const lift = leaf ? p.depth - 1 : p.depth;
+    centre.datum(leaf ? p.parent : (p.parent ?? root));
     setCaption(p);
     root.each((d) => {
-      d.target = {
+      d.target = reach({
         x0: Math.max(0, Math.min(1, (d.x0 - p.x0) / (p.x1 - p.x0))) * 2 * Math.PI,
         x1: Math.max(0, Math.min(1, (d.x1 - p.x0) / (p.x1 - p.x0))) * 2 * Math.PI,
-        y0: Math.max(0, d.y0 - p.depth),
-        y1: Math.max(0, d.y1 - p.depth),
-      };
+        y0: Math.max(0, d.y0 - lift),
+        y1: Math.max(0, d.y1 - lift),
+      }, d);
     });
     if (!instant) onZoom?.(p === root ? [] : trail(p), p.data);
     path.attr('pointer-events', (d) => (visible(d.target) ? 'auto' : 'none')).attr('tabindex', (d) => (visible(d.target) ? 0 : -1));
@@ -170,7 +176,6 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
       root.each((d) => { d.current = d.target; });
       path.attr('fill-opacity', (d) => +visible(d.target)).attr('stroke-opacity', (d) => +visible(d.target)).attr('d', (d) => arc(d.current));
       hatch?.attr('fill-opacity', (d) => +visible(d.target)).attr('d', (d) => arc(d.current));
-      stripes.attr('fill-opacity', (d) => +visible(d.target)).attr('d', (d) => stripeArc(d.current));
       text.attr('fill-opacity', (d) => +labelVisible(d.target)).attr('transform', (d) => labelTransform(d.current));
       return;
     }
@@ -181,7 +186,6 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
       .attr('fill-opacity', (d) => +visible(d.target))
       .attr('stroke-opacity', (d) => +visible(d.target))
       .attrTween('d', (d) => () => arc(d.current));
-    stripes.transition(t).attr('fill-opacity', (d) => +visible(d.target)).attrTween('d', (d) => () => stripeArc(d.current));
     if (hatch) hatch.transition(t).attr('fill-opacity', (d) => +visible(d.target)).attrTween('d', (d) => () => arc(d.current));
     text.filter(function (d) { return +this.getAttribute('fill-opacity') || labelVisible(d.target); }).transition(t)
       .attr('fill-opacity', (d) => +labelVisible(d.target))
