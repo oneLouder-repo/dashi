@@ -13,7 +13,9 @@ import { mastheadSvg } from '../site/mastheads.js';
 import { DevicePreview, DeviceToggle, PhoneShell, deviceMode } from '../ui/DevicePreview.js';
 import { setCrumbs } from '../ui/crumbs.js';
 import { isLivePlan } from '../platform/plandocs.js';
-import { applyTheme, paletteById, shapeById, PALETTES, SHAPES } from '../platform/themes.js';
+import { applyTheme, shapeById, SHAPES, themeLabel } from '../platform/themes.js';
+import { PaletteBuilder } from '../ui/PaletteBuilder.js';
+import { brandPalette } from '../platform/palettes.js';
 import { Logo } from '../ui/Shell.js';
 import { PAGE_KINDS, uniqueSlug, isLive, embedsIn, siteContent } from '../platform/pages.js';
 import { published } from '../platform/podcasts.js';
@@ -96,7 +98,7 @@ function renderSide() {
   side = swapSide(side, SideNav({ label: 'Public Portal', sections: [
     { title: 'Public Portal', items: [
       { label: 'Overview', sub: 'Every site, and what is live', icon: 'home', href: '#sites', on: r === 'sites' },
-      { label: 'Look and feel', sub: org.theme?.palette ? `${org.theme.palette === 'custom' ? 'Your own' : paletteById[org.theme.palette]?.label ?? 'Your'} colours, ${shapeById[org.theme.shape]?.label?.toLowerCase() ?? 'rounded'}` : 'Colours and shapes', icon: 'palette', href: '#look', on: r === 'look' || r.startsWith('look/') },
+      { label: 'Look and feel', sub: org.theme?.palette ? `${themeLabel(org.theme)} colours, ${shapeById[org.theme.shape]?.label?.toLowerCase() ?? 'rounded'}` : 'Colours and shapes', icon: 'palette', href: '#look', on: r === 'look' || r.startsWith('look/') },
     ].filter(Boolean) },
     // The Data Workbench lives here now (a sub-plugin of the Portal): every data tool, one click away.
     { title: 'Data', items: DATA_TOOLS.map((t) => ({ label: t.name, sub: t.sub, icon: t.icon, href: linkTo('palette', `#${t.id}`) })) },
@@ -151,7 +153,7 @@ function Sites() {
 
   // Getting the public side working, step by step.
   const steps = [
-    { done: publicSites.length > 0 && !!org.theme?.palette, title: 'Your look and your sites', text: org.theme?.palette ? `${paletteById[org.theme.palette]?.label ?? org.theme.palette} colours, ${shapeById[org.theme.shape]?.label?.toLowerCase() ?? 'rounded'} shapes, ${publicSites.length} public site${publicSites.length === 1 ? '' : 's'}.` : 'Pick your colours and shape, and name your public sites.', href: '#look', action: 'Look and feel' },
+    { done: publicSites.length > 0 && !!org.theme?.palette, title: 'Your look and your sites', text: org.theme?.palette ? `${themeLabel(org.theme)} colours, ${shapeById[org.theme.shape]?.label?.toLowerCase() ?? 'rounded'} shapes, ${publicSites.length} public site${publicSites.length === 1 ? '' : 's'}.` : 'Pick your colours and shape, and name your public sites.', href: '#look', action: 'Look and feel' },
     { done: dashes.some((d) => d.visibility === 'public' && d.siteId), title: 'Live dashboards', text: `${dashes.filter((d) => d.visibility === 'public' && d.siteId).length} of ${dashes.length} dashboards are public. Design them as visitors will see them.`, href: linkTo('palette', '#dashboards'), action: 'Design dashboards' },
     { done: plans.some(isLivePlan), title: 'Your strategic plan', text: plans.some(isLivePlan) ? 'Your plan is online, and downloads as a PDF.' : 'Turn your strategy into a designed plan to read online or download as a PDF.', href: linkTo('plandoc'), action: 'Plan designer' },
     hasPods && { done: !!station, title: 'Your podcast station', text: station ? `On ${station.name}, with ${liveEpisodes().length} episodes out.` : 'Put the station on a site so listeners can find it.', href: linkTo('podcasts', '#station'), action: 'Station' },
@@ -363,7 +365,7 @@ function SitePage(s) {
           h('span', { class: 'muted small' }, 'Live: this is the site as visitors get it today.')),
         h('div', { class: `wv-preview-stage ${deviceMode()}` }, SitePreview(s, { width: Math.max(420, Math.min(760, (main.clientWidth || 1100) - 460)) })),
         h('a', { class: 'wv-look-line', href: `#look/${s.id}` },
-          h('span', { class: 'wv-look-text' }, h('strong', {}, `${templateById[look.template].label} template`), h('small', {}, [look.masthead.preset === 'none' ? 'No banner' : look.masthead.preset === 'upload' ? 'Your own banner' : `${MASTHEADS.find((m) => m.id === look.masthead.preset)?.label} banner`, SITE_FONTS.find((f) => f.id === look.type)?.label, paletteById[org.theme?.palette]?.label && `${paletteById[org.theme.palette].label} colours`].filter(Boolean).join(' · '))),
+          h('span', { class: 'wv-look-text' }, h('strong', {}, `${templateById[look.template].label} template`), h('small', {}, [look.masthead.preset === 'none' ? 'No banner' : look.masthead.preset === 'upload' ? 'Your own banner' : `${MASTHEADS.find((m) => m.id === look.masthead.preset)?.label} banner`, SITE_FONTS.find((f) => f.id === look.type)?.label, org.theme?.palette && `${themeLabel(org.theme)} colours`].filter(Boolean).join(' · '))),
           h('span', { class: 'btn btn-sm' }, icon('palette', 14), 'Change the look'))),
       h('aside', { class: 'wv-sitepage-side' },
         h('section', { class: 'wv-box' },
@@ -437,6 +439,24 @@ function Look(siteId) {
       h('button', { type: 'button', role: 'radio', class: 'lk-choice lk-tpl', 'data-tpl': t.id, onclick: () => setLook({ template: t.id, header: undefined }) },
         h('span', { class: 'lk-tpl-shot' }, tplShots[t.id]),
         h('span', { class: 'lk-tpl-text' }, h('strong', {}, t.label), h('small', {}, t.blurb))))));
+  // The palette builder lives across redraws, so a slider keeps the pointer while the preview follows it.
+  const builder = PaletteBuilder({
+    theme: theme(),
+    onDraft: (t) => { org.theme = t; tellPreviews(); },
+    onChange: (t) => { org.theme = t; commit(); },
+    brands: () => org.palettes ?? [],
+    onSaveBrand: async (t) => {
+      const name = await uiPrompt('Name this palette, so you can pick it again (and use it on your podcast station)', 'Our colours');
+      if (!name?.trim()) return;
+      org.palettes = [...(org.palettes ?? []), brandPalette(name.trim(), t)];
+      commit(); builder.update(theme());
+    },
+    onDeleteBrand: async (id) => {
+      if (!(await uiConfirm('Remove this saved palette? Sites using it keep their colours.'))) return;
+      org.palettes = (org.palettes ?? []).filter((b) => b.id !== id);
+      commit(); builder.update(theme());
+    },
+  });
   function drawControls() {
     const d = design();
     const th = theme();
@@ -476,21 +496,7 @@ function Look(siteId) {
             h('button', { type: 'button', role: 'radio', title: x.blurb, 'aria-checked': String(d.header === x.id), class: d.header === x.id ? 'on' : '', onclick: () => setLook({ header: x.id }) }, x.label))))),
       h('section', { class: 'lk-box' },
         h('div', { class: 'lk-box-head' }, h('h2', {}, 'Colours and shape'), h('span', { class: 'lk-shared' }, icon('globe', 12), 'Shared by all your sites')),
-        h('div', { class: 'palette-grid', role: 'radiogroup', 'aria-label': 'Colour palette' }, th.colors && (() => {
-          // The org's own colours (set at intake; no maker yet). Kept when trying a preset, so you can come back.
-          const on = th.palette === 'custom';
-          const sw = h('button', { type: 'button', class: `palette-option${on ? ' on' : ''}`, role: 'radio', 'aria-checked': String(on), onclick: () => setTheme({ palette: 'custom' }) },
-            h('span', { class: 'swatches' }, ['primary', 'secondary', 'accent', 'neutral', 'base-200'].map((c) => h('span', { style: `background:${th.colors[c] ?? `var(--color-${c})`}` }))),
-            h('span', {}, 'Your own colours'));
-          return sw;
-        })(), PALETTES.map((p) => {
-          const on = th.palette === p.id;
-          const sw = h('button', { type: 'button', class: `palette-option${on ? ' on' : ''}`, role: 'radio', 'aria-checked': String(on), onclick: () => setTheme({ palette: p.id }) },
-            h('span', { class: 'swatches' }, ['primary', 'secondary', 'accent', 'neutral', 'base-200'].map((c) => h('span', { style: `background:var(--color-${c})` }))),
-            h('span', {}, p.label));
-          sw.querySelector('.swatches').setAttribute('data-theme', p.id);
-          return sw;
-        })),
+        builder,
         h('div', { class: 'shape-grid', role: 'radiogroup', 'aria-label': 'Shape' }, SHAPES.map((x) =>
           h('button', { type: 'button', class: `shape-option${th.shape === x.id ? ' on' : ''}`, role: 'radio', 'aria-checked': String(th.shape === x.id), onclick: () => setTheme({ shape: x.id }), style: `--r:${x.vars['--radius-box']}` },
             h('span', { class: 'shape-sample' }), h('strong', {}, x.label), h('small', {}, x.blurb))))));
@@ -666,6 +672,7 @@ function Editor(p) {
       } }),
       h('span', { class: `badge ${live ? 'badge-success' : p.status === 'draft' ? 'badge-ghost' : 'badge-warning'}` }, live ? 'Published' : p.status === 'draft' ? 'Draft' : `Goes live ${short(p.publishedAt)}`),
       live && org.sites[p.siteId]?.visibility === 'public' && h('a', { class: 'btn btn-sm', href: viewHref, target: '_blank', rel: 'noopener' }, icon('globe', 14), 'View on site'),
+      live && h('a', { class: 'btn btn-sm btn-ghost', href: siteUrl(p.siteId, { page: p.slug, edit: '1' }), target: '_blank', rel: 'noopener', title: 'Open the page as visitors see it, and change it where it stands' }, icon('pencil', 14), 'Edit on the page'),
       p.status === 'draft' && h('button', { class: 'btn btn-sm btn-primary', onclick: () => { save({ status: 'published' }); render(); } }, 'Publish'),
       h('button', { class: 'btn btn-sm btn-ghost btn-error', onclick: async () => { if (await uiConfirm(`Delete “${p.title}”?`)) { store.apply(col.remove('pages', p.id)); location.hash = 'sites'; } } }, 'Delete')),
     fields,

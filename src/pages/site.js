@@ -1,13 +1,14 @@
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
-import { onDocChange, session, isHosted } from '../platform/storage.js';
+import { onDocChange, session, isHosted, canWriteDoc } from '../platform/storage.js';
+import { BlockEditor } from '../designer/BlockEditor.js';
 import { loadOrg, loadStrategy, loadData, loadDashboards, loadPodcasts, loadPages, loadPlanDocs, loadLibrary } from '../platform/docs.js';
 import { loadDoc } from '../platform/storage.js';
 import { migratePlanDocs, isLivePlan } from '../platform/plandocs.js';
 import { PlanDocument } from '../plandoc/render.js';
 import { printPlan } from '../plandoc/print.js';
 import { migrateStrategy } from '../platform/strategy.js';
-import { migratePodcasts, published } from '../platform/podcasts.js';
+import { migratePodcasts, published, stationTheme } from '../platform/podcasts.js';
 import { migratePages, siteContent } from '../platform/pages.js';
 import { pluginOn } from '../platform/org.js';
 import { siteDesign, templateById } from '../platform/siteDesign.js';
@@ -88,6 +89,10 @@ const firstSite = () => Object.values(docs.org.sites).find((s) => s.visibility =
 const siteId = () => params().site || firstSite();
 const staffView = !isHosted() || !!session()?.member;
 const link = (p) => `?${new URLSearchParams({ site: siteId(), ...p })}`;
+// Live edit: signed-in staff who can write pages edit a page where it stands (the Portal page editor has the rest).
+const canLiveEdit = () => staffView && params().frame !== '1' && canWriteDoc('pages') && pluginOn(docs.org, 'pages');
+let liveEdit = params().edit === '1' || (() => { try { return sessionStorage.getItem('dashi.liveEdit') === '1'; } catch { return false; } })();
+const setLiveEdit = (on) => { liveEdit = on; try { sessionStorage.setItem('dashi.liveEdit', on ? '1' : ''); } catch { /* private window */ } render(); };
 player.setLink(link);
 
 /** The site's design; a staff preview of another template passes ?tpl= (Look and feel thumbnails). */
@@ -125,7 +130,9 @@ function render() {
   if (hasStation && staffView && params().frame === '1' && (p.view === 'station' || p.show || p.episode)) player.show(Object.values(pod.episodes).filter((e) => published(e, now)).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))[0]);
 
   // The org's palette and look and feel (Public Portal → Look and feel), then the station's look.
-  applyTheme(document.documentElement, org.theme);
+  // Station pages can wear their own colours (Podcasts → Public station).
+  const onStation = hasStation && (p.view === 'station' || p.show || p.episode);
+  applyTheme(document.documentElement, onStation ? stationTheme(pod.station, org.theme) : org.theme);
   document.body.className = `site-page ${lookClasses(pod.station.look)}`;
 
   // Embeds in pages: only public content of this org.
@@ -141,6 +148,7 @@ function render() {
   let current = 'home';
   let title = site?.name;
   let body;
+  let editable = null;
   const portal = site?.visibility === 'private';
   if (!site) body = h('p', { class: 'empty' }, 'There is no site here.');
   else if (portal && !staffView) { title = site.name; body = SignIn(site); }
@@ -151,6 +159,7 @@ function render() {
     current = pg?.kind === 'article' ? 'news' : `page:${p.page}`;
     title = pg?.title ?? 'Not found';
     body = pg ? Article(pg, embed) : h('p', { class: 'empty' }, 'That page is not here.');
+    editable = pg && canLiveEdit() ? pg : null;
   } else if (p.story) {
     const s = docs.dashboards.stories[p.story];
     const ok = s?.visibility === 'public' && s.siteId === id;
@@ -197,7 +206,10 @@ function render() {
 
   root.replaceChildren(
     // replaceChildren would print a bare false, so an empty string when there's no banner.
-    !staffView || params().frame === '1' ? '' : h('div', { class: 'preview-banner' }, portal ? `${site.name}: members only. Board members and staff who sign in see this. ` : isHosted() ? 'You’re signed in, so this is the public site as visitors see it. ' : 'Sample public site, made by Dashi from live data. ', h('a', { href: linkTo('pages') }, 'Back to Dashi')),
+    !staffView || params().frame === '1' ? '' : h('div', { class: 'preview-banner' }, portal ? `${site.name}: members only. Board members and staff who sign in see this. ` : isHosted() ? 'You’re signed in, so this is the public site as visitors see it. ' : 'Sample public site, made by Dashi from live data. ', h('a', { href: linkTo('pages') }, 'Back to Dashi'),
+      editable && h('span', { class: 'live-edit' },
+        h('button', { type: 'button', class: `live-edit-toggle${liveEdit ? ' on' : ''}`, role: 'switch', 'aria-checked': String(liveEdit), onclick: () => setLiveEdit(!liveEdit) }, h('span', { class: 'live-edit-knob' }), liveEdit ? 'Editing this page' : 'Edit this page'),
+        liveEdit && h('a', { href: linkTo('pages', `#${editable.id}`) }, 'More in the page editor'))),
     h('header', { class: 'site-head' },
       h('div', { class: 'inner' },
         h('a', { class: 'site-brand', href: link({}) }, Logo(org, 36), h('span', {}, h('strong', {}, org.name), portal && h('small', {}, icon('lock', 11), site.name))),
@@ -309,6 +321,7 @@ function NewsList(articles) {
 }
 
 function Article(pg, embed) {
+  if (liveEdit && canLiveEdit() && docs.pages.pages[pg.id]) return LiveArticle(pg, embed);
   const author = docs.org.staff[pg.authorId];
   return h('article', { class: `site-article ${pg.kind}` },
     h('header', {},
@@ -319,6 +332,21 @@ function Article(pg, embed) {
     pg.cover && h('img', { class: 'article-cover', src: pg.cover, alt: '' }),
     Markdown(pg.body, { embed }),
     pg.kind === 'article' && media(siteId())?.onArticles && FactCheckTip(`${pg.title} ${pg.summary ?? ''} ${pg.body ?? ''}`));
+}
+
+/** A page in live edit: the same page, its title and blocks editable in place. Saves as it goes. */
+function LiveArticle(pg, embed) {
+  const embeds = [
+    ...Object.values(docs.dashboards.dashboards).filter((d) => d.visibility === 'public').map((d) => ({ code: `[[dashboard:${d.id}]]`, label: `Dashboard: ${d.title}` })),
+    ...Object.values(docs.dashboards.stories ?? {}).filter((d) => d.visibility === 'public').map((d) => ({ code: `[[story:${d.id}]]`, label: `Story: ${d.title}` })),
+    ...Object.values(docs.podcasts.podcasts ?? {}).map((d) => ({ code: `[[show:${d.id}]]`, label: `Podcast: ${d.title}` })),
+  ];
+  return h('article', { class: `site-article ${pg.kind} live` },
+    pg.cover && h('img', { class: 'article-cover', src: pg.cover, alt: '' }),
+    BlockEditor({ title: pg.title, body: pg.body ?? '', embed, embeds, onChange: ({ title, body }) => {
+      Object.assign(docs.pages.pages[pg.id], { title, body });
+      saveDoc('pages', docs.pages);
+    } }));
 }
 
 /* ---------------------------------------------------------------- Members-only portals (the board) */
@@ -546,7 +574,8 @@ onDocChange('data', (doc) => { docs.data = doc; render(); });
 onDocChange('strategy', (doc) => { docs.strategy = migrateStrategy(doc); render(); });
 onDocChange('org', (doc) => { docs.org = doc; render(); });
 onDocChange('podcasts', (doc) => { docs.podcasts = migratePodcasts(doc); render(); });
-onDocChange('pages', (doc) => { docs.pages = migratePages(doc); render(); });
+// While a page is being edited live, the editor holds the words: someone else's save waits for Done.
+onDocChange('pages', (doc) => { docs.pages = migratePages(doc); if (!(liveEdit && document.querySelector('.be'))) render(); });
 onDocChange('library', (doc) => { if (staffMember()) { docs.library = migrateLibrary(doc); render(); } });
 onDocChange(CRITICAL_DOC, (doc) => { docs.critical = migrateCritical(doc); render(); });
 render();

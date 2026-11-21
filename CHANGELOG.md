@@ -6,6 +6,14 @@ Dashi uses version numbers like `0.1.0-alpha.1`. While the first number is 0, an
 
 From 0.2 on, each alpha point version (0.2, 0.3…) is one major platform feature, and its sub-versions (0.2.1, 0.2.2…) are bug hunts and polish from live testing. 0.2 lands over several pull requests; this is the first.
 
+### Palette builder, the station's own colours, live edit (PR 3)
+
+- **Palette builder** in Public Portal → Look and feel → Colours and shape. Start from any palette, then adjust any colour (main, second, accent, dark, page, text) with a colour picker, hex code, shade strip and hue, strength and lightness sliders. The preview follows while a slider moves. Each colour's text stays readable on its own, the builder shows the contrast ratio (AA/AAA), and "fix the text colours" repairs unreadable pairs. An adjusted palette remembers where it started ("Emerald, adjusted", with "Back to Emerald").
+- **Brand palettes**: save an adjusted palette by name (`org.palettes`) and pick it again on any site or on the podcast station.
+- **The podcast station's own colours**, in Podcasts → Public station: "Same as the site" or a palette of its own (`station.look.theme`), kept inside Podcasts. Station, series and episode pages wear it; the shape still follows the site.
+- **Live edit on public pages**: signed-in staff who can write pages get an "Edit this page" switch in the site's staff bar. The title and each block (paragraph, heading, list, quote, embed) are edited where they stand; drag or use the arrows to move a block, + to add one, and the bin to remove it. Saves as you go. "Edit on the page" in the Portal page editor opens it straight away.
+- The block editor (`src/designer/BlockEditor.js`) and palette builder (`src/ui/PaletteBuilder.js`) are shared engines; each plugin makes its own instance and saves to its own document.
+
 ### Plugin access, enforced everywhere (PR 1)
 
 - **The server now enforces plugin access.** Every document belongs to a plugin (Podcasts owns `podcasts`, Strategy & Work owns `strategy` and `plandocs`, and so on). Someone who can't use a plugin gets only what a visitor to the public site would see of its documents, and can't save them. Before, this was only hidden in the menus.

@@ -6,7 +6,8 @@ import { linkTo } from '../plugins.js';
  *
  * {
  *   station:  { name, tagline, description, siteId, cover,      the public station page
- *               look: { player, art, hero, archive, masthead } },   how the station page is skinned
+ *               look: { player, art, hero, archive, masthead, theme? } },   how the station page is skinned
+ *               look.theme: the station's own colours (a theme, see themes.js); absent = the site's
  *   podcasts: { [id]: Show },
  *   episodes: { [id]: Episode },
  * }
@@ -274,3 +275,6 @@ ${items.map((e) => `    <item>
   </channel>
 </rss>`;
 }
+
+/** The colours the station wears: its own palette, or the site's. The shape always follows the site. */
+export const stationTheme = (station, orgTheme = {}) => (station?.look?.theme ? { ...station.look.theme, shape: orgTheme.shape } : orgTheme);
