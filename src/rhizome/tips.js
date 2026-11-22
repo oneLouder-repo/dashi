@@ -19,6 +19,7 @@ export const SOURCES = {
   soar: 'Stavros and Hinrichs, “The Thin Book of SOAR” (2009)',
   toc: 'Weiss, “Nothing as Practical as Good Theory” (1995), and the theory of change practice that followed',
   impact: 'Kania and Kramer, “Collective Impact” (Stanford Social Innovation Review, 2011)',
+  place: 'Tamarack Institute, place-based approaches to community change (tamarackcommunity.ca), with Kretzmann and McKnight’s asset maps',
   hygiene: 'Everyday planning practice: every goal needs an owner, a measure, a date and work behind it',
 };
 
@@ -50,6 +51,8 @@ export const TIPS = [
   // SOAR
   { id: 'soar-loose', theme: 'soar', source: 'soar', text: '{count} SOAR ideas were never patched into a goal or objective, for example {items}. Either they’ve been set aside on purpose, or the plan is missing something people cared about.' },
   { id: 'soar-strengths', theme: 'soar', source: 'soar', text: 'The strength “{name}” isn’t wired into anything in the plan. Appreciative strategy builds from strengths: what goal could this one carry?' },
+  // Place-based development
+  { id: 'place-unplaced', theme: 'place', source: 'place', text: '{count} actors and assets have no place on the map yet, for example {items}. Place-based work starts from where things really are: placing them shows which neighbourhoods are rich in assets and which are left out.' },
   // Theory of change
   { id: 'toc-untested', theme: 'toc', source: 'toc', text: '{count} links in your theory of change are untested, for example {items}. Pick the one the plan leans on most and look for evidence, from research or your own data.' },
 ];

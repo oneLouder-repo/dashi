@@ -5,7 +5,7 @@ import { SideNav, swapSide } from '../ui/SideNav.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
 import { setCrumbs } from '../ui/crumbs.js';
 import { uiConfirm } from '../ui/dialog.js';
-import { saveDoc, canWriteDoc } from '../platform/storage.js';
+import { saveDoc, canWriteDoc, loadDoc } from '../platform/storage.js';
 import { loadOrg, loadAssets, loadMaps, loadLibrary, loadPodcasts, loadStrategy, loadStudio, loadRhizome } from '../platform/docs.js';
 import { loadAllMaps } from '../platform/maps.js';
 import { ABCD } from '../platform/assetHub.js';
@@ -20,6 +20,11 @@ import { loadHelp } from '../platform/help.js';
 import { HELP_SHOTS } from '../help/library.js';
 import { Markdown } from '../ui/markdown.js';
 import { linkTo } from '../plugins.js';
+import './adapters.js';
+import { loadTips, saveTips } from '../platform/tipsLibrary.js';
+import { can } from '../platform/session.js';
+import { harvest, mergeHarvest, knownTexts, approve, reject, needsRewrite, sourceLabel, readingFor } from './harvest.js';
+import { HARVEST_SOURCES, harvestSourceById, resourcesFor } from './harvestSources.js';
 
 /**
  * Rhizome (Rhizome stage 1, experimental): a systems analysis toolbox.
@@ -52,6 +57,8 @@ function loadDocs() {
     podcasts: plugins.has('podcasts') ? loadPodcasts() : null,
     strategy: plugins.has('strategy') ? loadStrategy() : null,
     studio: plugins.has('studio') ? loadStudio() : null,
+    // Place's own document, read as it is (Place makes it); its adapter turns it into facts.
+    place: plugins.has('place') ? loadDoc('place') : null,
   };
 }
 const docs = loadDocs();
@@ -97,6 +104,7 @@ function render() {
   const scroll = main.scrollTop;
   let page;
   if (view === 'analyses') page = Analyses(arg);
+  else if (view === 'tips') page = Tips(arg);
   else if (view === 'about') page = About(arg);
   else if (view === 'facts') page = Facts(arg);
   else if (view === 'measures') page = Measures();
@@ -113,12 +121,12 @@ function drawSide(view) {
       { label: 'Home', sub: setupDone(doc) ? 'Signals worth a look' : 'Finish setting up', icon: 'home', href: '#home', on: view === 'home' },
       { label: 'Analyses', sub: `${n(ANALYSES.length, 'canned analysis', 'canned analyses')} · ${n(RULES.length, 'rule')}`, icon: 'spark', href: '#analyses', on: view === 'analyses' },
       { label: 'Facts', sub: `${n(fc.entities, 'thing')} · ${n(fc.relations, 'tie')}`, icon: 'sec-rhizome', href: '#facts', on: view === 'facts' },
+      { label: 'Tips', sub: `${n(TIPS.length + (tipsDoc?.approved.length ?? 0) + Object.keys(doc.ownTips ?? {}).length, 'tip')} · reading list`, icon: 'book', href: '#tips', on: view === 'tips' },
       { label: 'Measures', sub: 'Calibrated to this organisation', icon: 'chart', href: '#measures', on: view === 'measures' },
       { label: 'Set-up', sub: setupDone(doc) ? 'Context profile, run again' : `Next: ${nextStep(doc)?.label}`, icon: 'settings', href: '#setup', on: view === 'setup' },
       { label: 'About', sub: 'Quick reference and tutorials', icon: 'help', href: '#about', on: view === 'about' },
     ] },
     { title: 'Coming next', items: [
-      { label: 'Tip harvester', sub: 'Fresh tips from your own field', icon: 'download' },
       { label: 'The rack', sub: 'Stage 3: modules, cables, Patchbay', icon: 'connect' },
       { label: 'Visualiser and Claude', sub: 'Stages 4 and 5: the engines', icon: 'eye' },
     ] },
@@ -130,6 +138,7 @@ const tabs = (current) => PluginHeader('rhizome', {
     { id: 'home', label: 'Home', icon: 'home' },
     { id: 'analyses', label: 'Analyses', icon: 'spark' },
     { id: 'facts', label: 'Facts', icon: 'sec-rhizome' },
+    { id: 'tips', label: 'Tips', icon: 'book' },
     { id: 'measures', label: 'Measures', icon: 'chart' },
     { id: 'setup', label: 'Set-up', icon: 'settings' },
     { id: 'about', label: 'About', icon: 'help' },
@@ -198,7 +207,6 @@ const Row = (id) => {
 
 function Coming() {
   const stages = [
-    ['Next', 'Tip harvester', 'Fresh, reviewed tips and resources from your own field, run again whenever you want a fresh collection.'],
     ['Stage 3', 'The rack', 'Modules, cables and gadgets, with the Patchbay at the top: build your own analyses like a modular synth.'],
     ['Stage 4', 'Critical AI visualiser', 'A tiny inference engine that slowly shows what happens when you ask a system a question.'],
     ['Stage 5', 'Claude engine', 'Real questions of your graphs and links, through the server, with your own key and cost caps.'],
@@ -230,6 +238,7 @@ function Checklist() {
         h('div', {}, h('b', {}, s.label, s.optional ? h('small', {}, ' optional') : null), h('span', {}, s.blurb),
           done ? h('small', {}, `Done ${String(done).slice(0, 10)}`) : later ? h('small', {}, `Arrives in stage ${s.stage}`) : null),
         isNext && canSet ? h('button', { class: 'btn btn-sm btn-primary', onclick: () => doStep(s.id) }, s.id === 'profile' ? 'Fill in' : 'Run') : null,
+        s.optional && !done && !later && canSet ? h('button', { class: 'btn btn-sm btn-ghost', onclick: () => doStep(s.id) }, 'Run') : null,
         done && !later && canSet && s.id !== 'switchOn' ? h('button', { class: 'btn btn-sm btn-ghost', onclick: () => doStep(s.id) }, 'Run again') : null);
     })),
     !canSet && h('p', { class: 'rz-note' }, 'Ask an admin to finish setting up Rhizome.'));
@@ -289,7 +298,7 @@ function Setup() {
 
 const ctx = () => ({ facts, measures: m, calibration: doc.calibration ?? m.calibration, profile: doc.profile, plugins });
 const mySet = () => doc.analyses ?? ANALYSES.map((a) => a.id);
-const THEME_TONE = { network: '#3e8fa6', leverage: '#7b2fe8', water: '#2c4fa3', abcd: '#ef7f2d', soar: '#4da65c', toc: '#c77deb', impact: '#e35a2c', hygiene: '#56657f', equity: '#c8432f', ai: '#2c4fa3', curriculum: '#4da65c', evaluation: '#f4a93b' };
+const THEME_TONE = { network: '#3e8fa6', leverage: '#7b2fe8', water: '#2c4fa3', abcd: '#ef7f2d', soar: '#4da65c', toc: '#c77deb', impact: '#e35a2c', hygiene: '#56657f', equity: '#c8432f', ai: '#2c4fa3', curriculum: '#4da65c', evaluation: '#f4a93b', place: '#3f8f6b' };
 
 /** The welcome report: the latest run's top findings, on Home. */
 function Welcome() {
@@ -348,17 +357,21 @@ function Finding(f, { compact = false } = {}) {
   const tone = THEME_TONE[rule?.theme] ?? '#56657f';
   const first = facts.entities[f.items[0]];
   const mapHref = f.show === 'map' && first?.attrs.mapId ? linkTo('mapper', `#${first.attrs.mapId}`) : null;
+  // Things with a real-world location can be shown on Place's map (only for people who can open Place).
+  const placeHref = f.placed?.length && plugins.has('place') ? linkTo('place', `#show/${f.placed.slice(0, 40).map(encodeURIComponent).join(',')}`) : null;
   const whyOpen = openWhy === f.id;
   return h('li', { class: 'rz-finding', style: `--t:${tone}` },
     h('div', { class: 'rz-score', title: `Score ${f.score}` }, h('span', { style: `height:${Math.round(f.score * 100)}%` })),
     h('div', { class: 'rz-finding-body' },
       h('header', {}, h('b', {}, f.title), h('span', { class: 'rz-theme' }, themeById[rule?.theme]?.label ?? rule?.theme)),
       h('p', {}, f.text),
+      !compact && resourcesFor(rule?.theme).length ? h('p', { class: 'rz-readmore' }, 'Read more: ', resourcesFor(rule.theme).slice(0, 2).flatMap((s, i) => [i ? ' · ' : '', ext(s.url, s.title)])) : null,
       !compact && f.items.length ? h('div', { class: 'rz-items' }, f.items.slice(0, 8).map((id) => facts.entities[id] ? h('a', { class: 'rz-item', href: `#facts/${encodeURIComponent(id)}` }, facts.entities[id].name) : null),
         f.items.length > 8 ? h('span', { class: 'rz-more' }, `+${f.items.length - 8}`) : null) : null,
       !compact && h('div', { class: 'rz-finding-actions' },
         h('button', { class: `btn btn-xs ${whyOpen ? 'btn-active' : 'btn-ghost'}`, onclick: () => { openWhy = whyOpen ? null : f.id; render(); } }, 'Why?'),
         mapHref && h('a', { class: 'btn btn-xs btn-ghost', href: mapHref }, icon('sec-mapper', 13), 'Show on map'),
+        placeHref && h('a', { class: 'btn btn-xs btn-ghost', href: placeHref }, icon('globe', 13), 'Show on Place'),
         canSet && h('button', { class: 'btn btn-xs btn-ghost', onclick: () => { (doc.dismissed ??= {})[f.id] = { sig: f.sig, at: new Date().toISOString(), title: f.title, text: f.text }; save('Dismissed'); render(); } }, 'Dismiss')),
       !compact && whyOpen ? Why(f) : null));
 }
@@ -375,7 +388,7 @@ function Why(f) {
       h('dt', {}, 'When'), h('dd', {}, f.why.checks.length ? h('ul', {}, f.why.checks.map((c) => h('li', {}, c.ok ? '✓ ' : '✗ ', describeCheck(c), h('small', {}, ` (here: ${c.got ?? 'none'})`)))) : 'Everything in that measure'),
       h('dt', {}, 'Weigh'), h('dd', {}, `${w.base} to start`, w.terms.map((t) => `, + ${t.part} for ${t.field} (${t.value})`).join(''), w.themed ? ', + 0.06 for a theme in your profile' : '', w.speculative != null ? `, × ${w.speculative} for a speculative link` : '', ` = ${w.score}`),
       h('dt', {}, 'Say'), h('dd', {}, `Tip “${tip?.id}”, ${themeById[tip?.theme]?.label ?? tip?.theme}`, f.why.source ? h('small', {}, ` · after ${f.why.source}`) : null),
-      h('dt', {}, 'Show'), h('dd', {}, rule.show === 'map' ? 'On the map' : 'As a list')));
+      h('dt', {}, 'Show'), h('dd', {}, rule.show === 'map' ? 'On the map' : rule.show === 'geo' ? 'On Place’s map' : 'As a list', f.placed?.length ? ` · ${n(f.placed.length, 'thing')} with a location` : '')));
 }
 
 let rulesAsData = false;
@@ -390,6 +403,132 @@ function RulesList() {
           h('td', {}, r.when.length ? r.when.map((c) => `${c.field} ${OPS[c.op]?.label} ${c.pct ? `your ${c.pct}` : c.value ?? ''}`.trim()).join('; ') : '·'),
           h('td', {}, h('code', {}, r.say)))))));
 }
+
+/* ---------------------------------------------------------------- tips */
+
+// The platform's tip library and review queue (the tip harvester), loaded once.
+let tipsDoc = null;
+const reviewer = can.editHelp();
+loadTips().then((t) => { tipsDoc = t; if (['tips', 'home', 'analyses'].includes(route()[0])) render(); }).catch(() => { tipsDoc = { queue: [], approved: [], rejected: [], runs: [] }; });
+let tipTheme = null;
+const tipWords = (text) => String(text).split(/(\{\w+\})/).map((bit) => (/^\{\w+\}$/.test(bit) ? h('span', { class: 'rz-slot', title: 'Filled in from what matched' }, bit.slice(1, -1)) : bit));
+const ThemePill = (theme) => h('span', { class: 'rz-theme', style: `--t:${THEME_TONE[theme] ?? '#56657f'}` }, themeById[theme]?.label ?? theme);
+const ext = (url, label) => h('a', { href: url, target: '_blank', rel: 'noopener noreferrer', class: 'rz-ext' }, label, icon('link', 11));
+
+function Tips(arg) {
+  const part = ['reading', 'own', 'queue'].includes(arg) ? arg : 'library';
+  setCrumbs(part === 'library' ? [] : [{ label: { reading: 'Reading list', own: 'Your tips', queue: 'Review queue' }[part] }]);
+  const approved = tipsDoc?.approved ?? [];
+  const own = Object.values(doc.ownTips ?? {});
+  const queue = tipsDoc?.queue ?? [];
+  const sub = [
+    ['library', 'Library', TIPS.length + approved.length + own.length],
+    ['reading', 'Reading list', (doc.reading ?? readingFor(doc.profile)).length],
+    ['own', 'Your tips', own.length],
+    ...(reviewer ? [['queue', 'Review queue', queue.length]] : []),
+  ];
+  return h('div', { class: 'rz-page' }, tabs('tips'),
+    h('div', { class: 'rz-chips' }, sub.map(([id, label, count]) => h('a', { class: `rz-chip${part === id ? ' on' : ''}`, href: `#tips/${id}` }, `${label} ${count}`))),
+    part === 'reading' ? Reading() : part === 'own' ? OwnTips() : part === 'queue' ? Queue() : Library(approved, own));
+}
+
+function Library(approved, own) {
+  const all = [
+    ...TIPS.map((t) => ({ ...t, from: 'Built-in', sourceText: SOURCES[t.source] })),
+    ...approved.map((t) => ({ ...t, from: `Harvested ${String(t.approvedAt).slice(0, 10)}`, sourceText: sourceLabel(t.source) })),
+    ...own.map((t) => ({ ...t, from: t.visibility === 'private' ? 'Yours · private' : 'Yours · public', sourceText: t.source })),
+  ];
+  const themes = THEMES.filter((t) => all.some((x) => x.theme === t.id));
+  const shown = all.filter((t) => !tipTheme || t.theme === tipTheme);
+  return h('section', { class: 'rz-panel' },
+    h('div', { class: 'rz-ahead' }, h('div', {}, h('h3', {}, 'The tip library'),
+      h('p', { class: 'rz-note' }, `Tip pack ${TIP_PACK_VERSION}, the tips the harvester has brought in and a reviewer approved, and your own. Built-in tips are filled in with names from what a rule matched (the shaded words).`))),
+    h('div', { class: 'rz-chips' },
+      h('button', { class: `rz-chip${tipTheme ? '' : ' on'}`, onclick: () => { tipTheme = null; render(); } }, `All ${all.length}`),
+      themes.map((t) => h('button', { class: `rz-chip${tipTheme === t.id ? ' on' : ''}`, onclick: () => { tipTheme = t.id; render(); } }, `${t.label} ${all.filter((x) => x.theme === t.id).length}`))),
+    h('ul', { class: 'rz-tips' }, shown.map((t) => h('li', { class: 'rz-tip', style: `--t:${THEME_TONE[t.theme] ?? '#56657f'}` },
+      h('p', {}, tipWords(t.text)),
+      h('footer', {}, ThemePill(t.theme), h('small', {}, t.from), t.sourceText ? h('small', {}, `After ${t.sourceText}`) : null)))));
+}
+
+function Reading() {
+  const picked = doc.reading ?? readingFor(doc.profile);
+  const rest = HARVEST_SOURCES.filter((s) => s.url && !picked.includes(s.id));
+  const card = (s) => h('li', { class: 'rz-read', style: `--t:${THEME_TONE[s.theme] ?? '#56657f'}` },
+    h('div', {}, ext(s.url, s.title), h('small', {}, [s.author, s.year, s.kind].filter(Boolean).join(' · '))),
+    h('p', {}, s.points?.[0] ?? ''), ThemePill(s.theme));
+  return h('div', { class: 'rz-stack' },
+    h('section', { class: 'rz-panel' },
+      h('div', { class: 'rz-ahead' }, h('div', {}, h('h3', {}, 'Your reading list'),
+        h('p', { class: 'rz-note' }, doc.setup?.harvest ? `Picked for your themes on ${String(doc.setup.harvest).slice(0, 10)}.` : 'Picked for your themes. Run the context harvest in Set-up to keep it.')),
+        canSet && h('button', { class: 'btn btn-sm btn-outline', onclick: () => { runStep(doc, 'harvest', { docs, plugins }); save('Reading list picked for your themes'); render(); } }, doc.setup?.harvest ? 'Pick again' : 'Keep this list')),
+      h('ul', { class: 'rz-reading' }, picked.map((id) => harvestSourceById[id]).filter(Boolean).map(card))),
+    rest.length ? h('section', { class: 'rz-panel' }, h('h3', {}, 'More from the harvester’s sources'), h('ul', { class: 'rz-reading' }, rest.map(card))) : null);
+}
+
+function OwnTips() {
+  const draft = { theme: doc.profile?.themes?.[0] ?? 'network', text: '', source: '', visibility: 'public' };
+  const add = () => {
+    const text = draft.text.trim();
+    if (!text) return toast('Write the tip first');
+    const id = `own-${Date.now().toString(36)}`;
+    (doc.ownTips ??= {})[id] = { id, theme: draft.theme, text: text.slice(0, 500), source: draft.source.trim().slice(0, 200), visibility: draft.visibility, at: new Date().toISOString() };
+    save('Tip added'); render();
+  };
+  const list = Object.values(doc.ownTips ?? {}).sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  return h('div', { class: 'rz-two' },
+    canSet ? h('section', { class: 'rz-panel' }, h('h3', {}, 'Add a tip of your own'),
+      h('p', { class: 'rz-note' }, 'Something your organisation has learned. Your own tips sit apart from the built-in pack and the harvester, so a refresh never touches them.'),
+      h('label', { class: 'rz-field' }, h('span', {}, 'Theme'), h('select', { class: 'select select-bordered select-sm', onchange: (e) => { draft.theme = e.target.value; } }, THEMES.map((t) => h('option', { value: t.id, selected: t.id === draft.theme }, t.label)))),
+      h('label', { class: 'rz-field' }, h('span', {}, 'The tip'), h('textarea', { class: 'textarea textarea-bordered', rows: 3, maxlength: 500, oninput: (e) => { draft.text = e.target.value; } })),
+      h('label', { class: 'rz-field' }, h('span', {}, 'Where it comes from'), h('input', { class: 'input input-bordered input-sm', placeholder: 'A person, a project, a book (optional)', oninput: (e) => { draft.source = e.target.value; } })),
+      h('label', { class: 'rz-field rz-inline' }, h('input', { type: 'checkbox', class: 'toggle toggle-sm', checked: true, onchange: (e) => { draft.visibility = e.target.checked ? 'public' : 'private'; } }), h('span', {}, 'Public'), h('small', {}, 'Public tips will be offered to the shared library when it opens. Private ones stay with your organisation.')),
+      h('div', { class: 'rz-actions' }, h('button', { class: 'btn btn-sm btn-primary', onclick: add }, 'Add tip'))) : null,
+    h('section', { class: 'rz-panel' }, h('h3', {}, n(list.length, 'tip of your own', 'tips of your own')),
+      list.length ? h('ul', { class: 'rz-tips' }, list.map((t) => h('li', { class: 'rz-tip', style: `--t:${THEME_TONE[t.theme] ?? '#56657f'}` },
+        h('p', {}, t.text),
+        h('footer', {}, ThemePill(t.theme), t.source ? h('small', {}, `From ${t.source}`) : null,
+          canSet ? h('label', { class: 'rz-vis' }, h('input', { type: 'checkbox', class: 'toggle toggle-xs', checked: t.visibility !== 'private', onchange: (e) => { t.visibility = e.target.checked ? 'public' : 'private'; save(e.target.checked ? 'Public' : 'Private'); render(); } }), t.visibility === 'private' ? 'Private' : 'Public') : h('small', {}, t.visibility),
+          canSet ? h('button', { class: 'btn btn-xs btn-ghost', onclick: async () => { if (await uiConfirm('Delete this tip?')) { delete doc.ownTips[t.id]; save('Deleted'); render(); } } }, 'Delete') : null)))) : h('p', { class: 'rz-none' }, 'None yet.')));
+}
+
+function Queue() {
+  if (!tipsDoc) return h('p', { class: 'rz-none' }, 'Loading…');
+  const store = async (note) => { try { await saveTips(tipsDoc); toast(note); } catch (err) { toast(`Not saved: ${err.message}`); } render(); };
+  const distil = () => {
+    const res = harvest({ known: knownTexts(tipsDoc, TIPS), rejectedIds: tipsDoc.rejected.map((r) => r.id) });
+    const run = mergeHarvest(tipsDoc, res, { mode: 'offline', by: 'Rhizome' });
+    store(`${n(run.added, 'new candidate')} in the queue`);
+  };
+  const last = tipsDoc.runs?.[0];
+  return h('div', { class: 'rz-stack' },
+    h('section', { class: 'rz-panel' },
+      h('div', { class: 'rz-ahead' }, h('div', {}, h('h3', {}, 'Review queue'),
+        h('p', { class: 'rz-note' }, 'Candidates from the tip harvester. Approve the ones worth keeping (in your own words) and reject the rest; a rejected one is never offered again. Approved tips are public unless you say otherwise.')),
+        h('button', { class: 'btn btn-sm btn-outline', onclick: distil }, icon('download', 14), 'Distil from the registry')),
+      h('p', { class: 'rz-note' }, last ? `Last run ${String(last.at).slice(0, 16).replace('T', ' ')}, ${last.mode}: ${last.sources} sources, ${last.fetched} pages fetched, ${last.added} new.` : 'Not run yet.',
+        ' For fresh excerpts from the web, run ', h('code', {}, 'npm run tips:refresh -- --online'), ' on the server.')),
+    queue().length ? h('ol', { class: 'rz-queue' }, [...queue()].sort((a, b) => (a.kind !== 'excerpt') - (b.kind !== 'excerpt') || b.score - a.score).map(Candidate)) : h('section', { class: 'rz-panel' }, h('p', { class: 'rz-none' }, 'Nothing waiting.')));
+  function queue() { return tipsDoc.queue ?? []; }
+  function Candidate(c) {
+    let text = c.text;
+    let visibility = 'public';
+    const warn = h('small', { class: 'rz-warn', hidden: !needsRewrite(c, text) }, 'Still close to the source: put it in your own words before approving.');
+    const ok = h('button', { class: 'btn btn-xs btn-primary', disabled: needsRewrite(c, text), onclick: () => {
+      try { approve(tipsDoc, c.id, { text, visibility, by: signedName() }); store('Approved: it’s in the library now'); } catch (err) { toast(err.message); }
+    } }, 'Approve');
+    return h('li', { class: 'rz-panel rz-cand', style: `--t:${THEME_TONE[c.theme] ?? '#56657f'}` },
+      h('header', {}, ThemePill(c.theme), h('span', { class: `rz-kind ${c.kind}` }, c.kind === 'excerpt' ? 'Excerpt: rewrite' : 'From the registry'), h('small', {}, `Score ${c.score}`),
+        h('small', {}, 'After ', harvestSourceById[c.source]?.url ? ext(harvestSourceById[c.source].url, sourceLabel(c.source)) : sourceLabel(c.source))),
+      h('textarea', { class: 'textarea textarea-bordered', rows: 2, oninput: (e) => { text = e.target.value; const bad = needsRewrite(c, text); warn.hidden = !bad; ok.disabled = bad; } }, c.text),
+      warn,
+      h('div', { class: 'rz-actions' },
+        h('select', { class: 'select select-bordered select-xs', onchange: (e) => { visibility = e.target.value; } }, h('option', { value: 'public' }, 'Public'), h('option', { value: 'private' }, 'Private')),
+        ok,
+        h('button', { class: 'btn btn-xs btn-ghost', onclick: () => { reject(tipsDoc, c.id); store('Rejected'); } }, 'Reject')));
+  }
+}
+const signedName = () => org.staff?.[Object.keys(org.staff ?? {}).find((k) => org.staff[k].userId)]?.name ?? null;
 
 /* --------------------------------------------------------------- about */
 
@@ -461,7 +600,7 @@ function Entity(id) {
   const ties = relationsOf(facts, id);
   const a = m.actors[id];
   const attrs = Object.entries(e.attrs).filter(([k, v]) => v != null && v !== '' && !(Array.isArray(v) && !v.length) && !['asset', 'mapId', 'planId', 'layerId', 'zone', 'quadrant', 'centre', 'collections'].includes(k));
-  const val = (v) => (Array.isArray(v) ? v.join(', ') : typeof v === 'boolean' ? (v ? 'yes' : 'no') : String(v));
+  const val = (v) => (Array.isArray(v) ? v.join(', ') : typeof v === 'boolean' ? (v ? 'yes' : 'no') : v && typeof v === 'object' && 'lat' in v ? `${v.lat.toFixed(4)}, ${v.lng.toFixed(4)} (${v.precision})` : String(v));
   return h('section', { class: 'rz-panel rz-entity' },
     h('header', {}, h('small', {}, subOf(e)), h('h3', {}, e.name), h('small', {}, 'From ', sourceOf(e.source)?.label ?? e.source)),
     a && h('div', { class: 'rz-measure-strip' },

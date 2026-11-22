@@ -149,7 +149,7 @@ export const PLUGINS = [
     id: 'rhizome',
     owns: ['rhizome'],
     // It reads across the org to find links between things; it never changes another plugin's documents.
-    reads: ['maps', 'map/*', 'assets', 'library', 'strategy', 'studio', 'podcasts', 'graph'],
+    reads: ['maps', 'map/*', 'assets', 'library', 'strategy', 'studio', 'podcasts', 'graph', 'place'],
     short: 'Rhizome',
     tone: '#5f8f3e',
     name: 'Rhizome',

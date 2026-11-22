@@ -809,6 +809,24 @@ export function createApp(db, options = {}) {
     }
 
     /* The help library: everyone reads it; the platform admin edits it. */
+    // The tip harvester's library and review queue (Rhizome): platform-wide; only the platform admin reviews.
+    if (path === '/api/tips') {
+      if (method === 'GET') {
+        const row = q("SELECT json FROM platform_docs WHERE name = 'tips'").get();
+        const doc = row ? JSON.parse(row.json) : null;
+        // Everyone sees the approved public tips; the queue and private tips are the reviewer's.
+        if (doc && !a.isSuper) return json(res, 200, { ...doc, queue: [], rejected: [], approved: (doc.approved ?? []).filter((t) => t.visibility !== 'private') });
+        return json(res, 200, doc);
+      }
+      if (method === 'PUT') {
+        needSuper();
+        const doc = await readJson(req, config.maxJsonMb * 1048576);
+        if (!Array.isArray(doc?.queue) || !Array.isArray(doc?.approved)) throw new HttpError(400, 'Not a tips library');
+        q(`INSERT INTO platform_docs (name, json, updated_at, updated_by) VALUES ('tips', ?, ?, ?)
+           ON CONFLICT (name) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at, updated_by = excluded.updated_by`).run(JSON.stringify(doc), now(), a.user.id);
+        return json(res, 200, { ok: true });
+      }
+    }
     if (path === '/api/help') {
       if (method === 'GET') {
         const row = q("SELECT json FROM platform_docs WHERE name = 'help'").get();

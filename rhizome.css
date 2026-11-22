@@ -178,3 +178,30 @@ a.rz-name:hover { text-decoration: underline; }
 .rz-shot { margin: 8px 0; }
 .rz-shot img { width: 100%; border: 1px solid #d5d8de; border-radius: 4px; }
 .rz-shot figcaption { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* Tips (PR 20): the library, reading list, your own tips and the review queue */
+a.rz-chip { display: inline-flex; align-items: center; text-decoration: none; }
+.rz-tips, .rz-reading, .rz-queue { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.rz-tips { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.rz-tip, .rz-read { border: 1px solid #d5d8de; border-radius: 4px; background: #fff; padding: 10px 12px; box-shadow: inset 3px 0 0 var(--t); display: flex; flex-direction: column; gap: 8px; }
+.rz-tip p, .rz-read p { margin: 0; font-size: 13.5px; line-height: 1.45; }
+.rz-tip footer { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: auto; }
+.rz-tip footer small, .rz-read small { color: #5c6370; font-size: 11.5px; }
+.rz-slot { font-size: 12px; font-weight: 600; padding: 0 5px; border-radius: 3px; background: #eef0f3; color: #3c4350; }
+.rz-reading { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.rz-read > div { display: flex; flex-direction: column; gap: 2px; }
+.rz-read .rz-theme { align-self: flex-start; }
+.rz-ext { font-weight: 700; color: var(--ink); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+.rz-ext:hover { text-decoration: underline; }
+.rz-readmore { font-size: 12.5px; color: #5c6370; margin: 0; }
+.rz-readmore .rz-ext { font-weight: 600; color: #3c4350; }
+.rz-inline { display: flex; flex-direction: row; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rz-inline small { flex-basis: 100%; }
+.rz-vis { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+.rz-cand { box-shadow: inset 3px 0 0 var(--t); display: flex; flex-direction: column; gap: 8px; }
+.rz-cand header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.rz-cand header small { color: #5c6370; font-size: 11.5px; }
+.rz-kind { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 3px; background: #eef0f3; color: #3c4350; }
+.rz-kind.excerpt { background: #fdf0e3; color: #8a4a12; }
+.rz-warn { color: #8a4a12; font-size: 12px; }
+.rz-cand .rz-actions { justify-content: flex-start; align-items: center; }

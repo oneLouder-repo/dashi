@@ -166,16 +166,21 @@ const BUILT_IN = {
   },
   rhizome: {
     category: 'Knowledge',
-    version: '0.1.0',
+    version: '0.2.0',
     features: [
       feat('facts', 'Fact layer', 'Maps, assets, strategy, the studio and people as one set of facts.'),
       feat('measures', 'Measures', 'Hubs, single points of failure, isolates, one-way flows, zone gaps, hollow objectives and more, calibrated to the org.'),
       feat('setup', 'Switch-on set-up', 'A context profile, a baseline and calibration, run once when the plugin is switched on.'),
+      feat('rules', 'Rules and canned analyses', 'Rules as data, tips with their sources, findings with Why?.'),
+      feat('tips', 'Tip harvester', 'A source registry, offline and polite online harvests, a review queue, and your own public or private tips.'),
     ],
     dataModel: { docs: [{ name: 'rhizome', label: 'Rhizome instance', collections: [
       { id: 'profile', label: 'Context profile', fields: [f('sector', 'Sector'), f('focus', 'Focus', 'list'), f('serves', 'Who we serve', 'longtext'), f('themes', 'Themes', 'list')] },
       { id: 'snapshots', label: 'Snapshots', fields: [f('at', 'When', 'date'), f('entities', 'Entities', 'number'), f('relations', 'Relations', 'number')] }] }] },
-    changelog: [{ version: '0.1.0', date: '2026-11-22', notes: 'Stage 1: the fact layer, measures with calibration, and the switch-on set-up run. Rules, the patcher and the engines come next.', by: 'Dashi' }],
+    changelog: [
+      { version: '0.2.0', date: '2026-11-22', notes: 'Stage 2 and the tip harvester: the rules engine, tip library, canned analyses with Why?, the About tab, Tips with a review queue, and locations ready for Place.', by: 'Dashi' },
+      { version: '0.1.0', date: '2026-11-22', notes: 'Stage 1: the fact layer, measures with calibration, and the switch-on set-up run. Rules, the patcher and the engines come next.', by: 'Dashi' },
+    ],
   },
   pages: {
     category: 'Publishing',

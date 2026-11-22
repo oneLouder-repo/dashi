@@ -18,6 +18,13 @@
  *   'support'    an asset, person or idea behind a piece of strategy
  *   'feeds'      the assembler's wires: this idea feeds that goal
  *   'leads'      the theory of change: this change leads to that one
+ *   'locates'    where a thing is, or the place it serves (from Place)
+ *
+ * Places (alpha 0.3 PR 20, ready for the Place plugin): any entity may carry
+ * `attrs.geo` = { lat, lng, precision: 'exact' | 'approx' | 'area', placeId? },
+ * from its own object (actor.geo, an asset item's geo). People never get one
+ * by default. Other plugins add facts through `addFactAdapter` (see
+ * adapters.js): Place registers one that adds place entities and pins.
  */
 import { gatherAssets, migrateAssets, blankAssets } from '../platform/assetHub.js';
 import { zoneOf, LENS_ZONES } from './zones.js';
@@ -28,6 +35,7 @@ export const FACT_SOURCES = [
   { id: 'strategy', label: 'Strategy & Work', icon: 'sec-strategy' },
   { id: 'studio', label: 'Assembler and theory of change', icon: 'sec-studio' },
   { id: 'org', label: 'People', icon: 'person' },
+  { id: 'place', label: 'Place', icon: 'globe' },
 ];
 
 export const ENTITY_TYPES = {
@@ -48,8 +56,30 @@ export const ENTITY_TYPES = {
   result: { label: 'Result', plural: 'Results' },
   block: { label: 'Assembler block', plural: 'Assembler blocks' },
   outcome: { label: 'Theory of change step', plural: 'Theory of change steps' },
+  place: { label: 'Place', plural: 'Places' },
 };
 export const typeLabel = (type, n = 1) => (n === 1 ? ENTITY_TYPES[type]?.label : ENTITY_TYPES[type]?.plural) ?? type;
+
+/** A location, cleaned: { lat, lng, precision, placeId? }, or null when it isn't a real point. */
+export const GEO_PRECISION = ['exact', 'approx', 'area'];
+export function cleanGeo(g) {
+  if (!g || typeof g !== 'object') return null;
+  const lat = Number(g.lat), lng = Number(g.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  const out = { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6, precision: GEO_PRECISION.includes(g.precision) ? g.precision : 'approx' };
+  if (g.placeId) out.placeId = String(g.placeId);
+  return out;
+}
+
+/**
+ * Fact adapters from other plugins: id -> { build, doc }. `build(doc, ent,
+ * rel, entities)` adds entities and relations with the same helpers the
+ * built-in adapters use. It runs after them, only when plugin `id` is on.
+ */
+export const FACT_ADAPTERS = new Map();
+export function addFactAdapter(id, build, { doc = id } = {}) {
+  FACT_ADAPTERS.set(id, { build, doc });
+}
 
 const SOAR = { s: 'Strength', o: 'Opportunity', a: 'Aspiration', r: 'Result' };
 
@@ -99,7 +129,7 @@ export function buildFacts(docs = {}, { plugins = null } = {}) {
         const zone = zoneOf(lensId, a.place?.depth);
         ent(`actor:${mapId}/${a.id}`, 'actor', a.label, 'mapper', {
           mapId, kind: a.kind ?? 'actor', category: a.category ?? null, zone: zone?.id ?? null, zoneLabel: zone?.label ?? null,
-          layerId: a.layerId ?? null, description: a.meta?.description ?? '',
+          layerId: a.layerId ?? null, description: a.meta?.description ?? '', geo: cleanGeo(a.geo),
         });
         rel(`actor:${mapId}/${a.id}`, 'on map', mapE, 'mapper', 'structure');
       }
@@ -123,6 +153,9 @@ export function buildFacts(docs = {}, { plugins = null } = {}) {
     for (const c of cards) {
       if (c.missing) continue;
       const attrs = { abcd: c.abcd ?? null, tags: [...(c.tags ?? []), ...(c.tagsFrom ?? [])], assetSource: c.source, sensitivity: c.sensitivity ?? 'internal', collections: c.collectionIds ?? [] };
+      // A location noted on the asset itself; a person's never comes in this way (privacy).
+      const geo = c.source === 'staff' ? null : cleanGeo(c.item?.geo);
+      if (geo) attrs.geo = geo;
       // Actors and people are already entities: the asset layer adds its ABCD type and tags to them.
       if (entities[c.key]) Object.assign(entities[c.key].attrs, attrs, { asset: true });
       else ent(c.key, 'asset', c.title, 'assets', { ...attrs, asset: true, kindLabel: c.kindLabel ?? '' });
@@ -187,8 +220,22 @@ export function buildFacts(docs = {}, { plugins = null } = {}) {
     }
   }
 
+  // Other plugins' adapters (Place), each only when its plugin is on.
+  for (const [id, { build, doc }] of FACT_ADAPTERS) {
+    if (!on(id) || !docs[doc]) continue;
+    try { build(docs[doc], ent, rel, entities); } catch (err) { console.warn(`Rhizome: the ${id} adapter failed`, err); }
+  }
+  // Keep only real locations, whoever set them.
+  for (const e of Object.values(entities)) {
+    if (e.attrs.geo == null) delete e.attrs.geo;
+    else if (!(e.attrs.geo = cleanGeo(e.attrs.geo))) delete e.attrs.geo;
+  }
+
   return { entities, relations, builtAt: null };
 }
+
+/** The entities with a location: what a geographic map can show. */
+export const placedEntities = (facts) => Object.values(facts.entities).filter((e) => e.attrs.geo);
 
 /** How many entities of each type, and relations from each source: the fact layer at a glance. */
 export function factCounts(facts) {
