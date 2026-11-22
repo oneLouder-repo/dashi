@@ -12,7 +12,7 @@ import { PLUGINS, PAGES, linkTo } from '../src/plugins.js';
  */
 const PAGE_OF = Object.fromEntries([...PLUGINS.filter((p) => !p.installed && !p.core).map((p) => [p.href.replace('.html', ''), p.id]), ...Object.entries(PAGES).map(([k, v]) => [k, v.plugin])]);
 // Which plugin each source folder (or file) belongs to; anything else is shared and may link nowhere directly.
-const OWN = { 'src/mapper.js': 'mapper', 'src/assets': 'assets', 'src/strategy': 'strategy', 'src/plandoc': 'strategy', 'src/studio': 'studio', 'src/palette': 'palette', 'src/podcasts': 'podcasts', 'src/library': 'library', 'src/sites': 'pages' };
+const OWN = { 'src/teach': 'teach', 'src/learn': 'learn', 'src/mapper.js': 'mapper', 'src/assets': 'assets', 'src/strategy': 'strategy', 'src/plandoc': 'strategy', 'src/studio': 'studio', 'src/palette': 'palette', 'src/podcasts': 'podcasts', 'src/library': 'library', 'src/sites': 'pages' };
 const ownerOf = (file) => Object.entries(OWN).find(([k]) => file === k || file.startsWith(`${k}/`))?.[1] ?? null;
 const lineage = (id) => { const out = []; for (let p = PLUGINS.find((x) => x.id === id); p; p = PLUGINS.find((x) => x.id === p.parent)) out.push(p.id); return out; };
 

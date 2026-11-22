@@ -26,6 +26,8 @@ import { blankAssets, migrateAssets } from './assetHub.js';
 import { defaultGraphSettings } from './graph.js';
 import { blankSocial, migrateSocial } from './social.js';
 import { blankRhizome } from '../rhizome/setup.js';
+import { blankTeach } from '../learning/cartridge.js';
+import { blankLearn } from '../learning/records.js';
 
 const seedFor = (doc) => SEEDS[activeOrg()]?.[doc];
 
@@ -65,6 +67,9 @@ export const loadGraphSettings = () => ({ ...defaultGraphSettings(), ...loadOrSe
 /** The Social Media Integrator's posts and channels (alpha 0.3). */
 /** Rhizome's instance for this org: its context profile, set-up and baseline (Rhizome stage 1). */
 export const loadRhizome = () => ({ ...blankRhizome(), ...loadOrSeed('rhizome', blankRhizome) });
+/** Teach's cartridges and Learn's learner records (eLearning stages 1 and 2). */
+export const loadTeach = () => ({ ...blankTeach(), ...loadOrSeed('teach', blankTeach) });
+export const loadLearn = () => ({ ...blankLearn(), ...loadOrSeed('learn', blankLearn) });
 export const loadSocial = () => migrateSocial(loadOrSeed('social', blankSocial));
 
 /** Plan documents. Every org with a plan starts with a draft of one; example orgs publish it to their public site. */

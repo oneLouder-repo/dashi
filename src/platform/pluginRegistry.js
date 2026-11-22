@@ -26,7 +26,7 @@ export const STATUSES = [
   { id: 'disabled', label: 'Switched off', hint: 'Hidden everywhere. Content is kept.' },
   { id: 'draft', label: 'In development', hint: 'Only you see it, in the designer and its preview.' },
 ];
-export const CATEGORIES = ['Mapping', 'Planning', 'Data', 'Media', 'Knowledge', 'Publishing', 'AI', 'Platform', 'Other'];
+export const CATEGORIES = ['Mapping', 'Planning', 'Data', 'Media', 'Knowledge', 'Learning', 'Publishing', 'AI', 'Platform', 'Other'];
 export const FIELD_TYPES = [
   { id: 'text', label: 'Text' },
   { id: 'longtext', label: 'Long text' },
@@ -183,6 +183,30 @@ const BUILT_IN = {
       { version: '0.2.0', date: '2026-11-22', notes: 'Stage 2 and the tip harvester: the rules engine, tip library, canned analyses with Why?, the About tab, Tips with a review queue, and locations ready for Place.', by: 'Dashi' },
       { version: '0.1.0', date: '2026-11-22', notes: 'Stage 1: the fact layer, measures with calibration, and the switch-on set-up run. Rules, the patcher and the engines come next.', by: 'Dashi' },
     ],
+  },
+  teach: {
+    category: 'Learning',
+    version: '0.1.0',
+    features: [
+      feat('timeline', 'Cartridge timeline', 'Tracks of blocks on a timeline of course days, with pre-start, in session and post-end phases.'),
+      feat('blocks', 'Block palette', 'Lessons, slideshow podcasts, live sessions, office hours, whiteboards, quizzes, assignments, reflections, feedback and comms.'),
+      feat('checks', 'Accessibility and UDL checks', 'Alt text, transcripts, contrast, time limits, weekly load, many ways in, presence and kind dates, live as you work.'),
+    ],
+    dataModel: { docs: [{ name: 'teach', label: 'Cartridges', collections: [
+      { id: 'cartridges', label: 'Cartridges', fields: [f('title', 'Title', 'text', { required: true }), f('kind', 'Kind'), f('status', 'Status', 'select', { options: ['draft', 'published', 'archived'] }), f('tracks', 'Tracks', 'list'), f('blocks', 'Blocks', 'list')] }] }] },
+    changelog: [{ version: '0.1.0', date: '2026-11-22', notes: 'eLearning stage 1: the cartridge timeline, block palette and drawer, checks, and three Kestrel cartridges.', by: 'Dashi' }],
+  },
+  learn: {
+    category: 'Learning',
+    version: '0.1.0',
+    features: [
+      feat('home', 'My learning', 'What’s next, what’s due, and progress without leaderboards.'),
+      feat('player', 'Player', 'A course week by week, with slideshow podcasts, quizzes and reflections.'),
+      feat('settings', 'Learner settings', 'Text size, dyslexia-friendly font, less motion, captions.'),
+    ],
+    dataModel: { docs: [{ name: 'learn', label: 'Learner records', collections: [
+      { id: 'people', label: 'Learners', fields: [f('enrolments', 'Enrolments', 'list'), f('settings', 'Settings', 'list')] }] }] },
+    changelog: [{ version: '0.1.0', date: '2026-11-22', notes: 'eLearning stage 2: My learning, the player, learner settings and the learner’s own record.', by: 'Dashi' }],
   },
   pages: {
     category: 'Publishing',
