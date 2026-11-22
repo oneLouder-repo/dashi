@@ -2,9 +2,15 @@
 
 Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and so on). Each point version (0.2, 0.3…) is one major platform feature; 0.2.1-alpha, 0.2.2-alpha… are fixes and polish from testing. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
-## 0.3.0-alpha (in progress): UI tinkering and enhancements
+## 0.3.0-alpha (2026-11-22): UI tinkering and enhancements
 
-Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
+Alpha 0.3 was a round of UI work in about 20 pull requests, merged into master together on 2026-11-22 with every test passing. Going live (the Actua and SJR checklist, Stripe billing) moves to 0.5; 0.4 is the learning release, built from this tag (`v0.3.0-alpha`) on a fresh `data-clients` seed. Newest first.
+
+### Release clean-up
+
+- Version 0.3.0-alpha in `package.json`, `src/version.js` and the README.
+- Checked on a fresh client seed (`data-clients/` deleted, then `npm run clients`): the three client orgs seed without errors, and every plugin page opens for a Kestrel Bay admin without a script error. The one problem found, the public site's top nav running off the edge of the window, is fixed in alpha 0.4.
+- TESTING.md says how to start again from a fresh seed.
 
 ### Plan designer touch-up (parallel branch)
 
