@@ -163,8 +163,7 @@ test('base maps: street tiles are allowed by the CSP, the worker is a file, draw
 });
 
 test('Place’s About tab and Help share one set of pages', () => {
-  assert.equal(HELP_SEED.sections[0].id, 'place');
-  assert.equal(HELP_SEED.sections[0], PLACE_HELP);
+  assert.equal(HELP_SEED.sections.find((s) => s.id === 'place'), PLACE_HELP);
   assert.ok(PLACE_HELP.pages.length >= 3);
   for (const p of PLACE_HELP.pages) assert.ok(p.id.startsWith('place-') && p.body.length > 200, p.id);
 });

@@ -148,7 +148,7 @@ test('a help library saved before the testing guide existed gets it, once', asyn
   const old = { version: 1, sections: [{ id: 'mine', title: 'Ours', pages: [] }] };
   const next = withNewSections(old);
   assert.deepEqual(next.sections.map((s) => s.id), ['learning', 'place', 'rhizome', 'asset-graph', 'new-in-0-2-planning', 'new-in-0-2', 'alpha', 'mine'], 'new sections go on top');
-  assert.ok(next.sections[5].pages.some((p) => p.id === 'reporting'));
+  assert.ok(next.sections[6].pages.some((p) => p.id === 'reporting'));
   assert.deepEqual(withNewSections({ version: 2, sections: [] }).sections.map((s) => s.id), ['learning', 'place', 'rhizome', 'asset-graph', 'new-in-0-2-planning', 'new-in-0-2'], 'a 0.1 library gets the 0.2 guides');
   assert.deepEqual(withNewSections({ version: 3, sections: [] }).sections.map((s) => s.id), ['learning', 'place', 'rhizome', 'asset-graph', 'new-in-0-2-planning'], 'one edited in early 0.2 gets the planning guides');
   assert.deepEqual(withNewSections({ version: 4, sections: [] }).sections.map((s) => s.id), ['learning', 'place', 'rhizome', 'asset-graph'], 'then the asset graph');
