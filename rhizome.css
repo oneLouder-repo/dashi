@@ -734,5 +734,3 @@ a.rz-chip { display: inline-flex; align-items: center; text-decoration: none; }
   .vz-edge, .vz-node, .vz-node-label { animation: none; opacity: 1; }
   .vz-lane.on i { animation: none; }
 }
-/* Cables step back while you work the visualiser's screen. */
-.rk-stage:has(.t-visualiser:hover) .rk-cables, .rk-stage:has(.t-visualiser:focus-within) .rk-cables { opacity: .12; transition: opacity .2s; }
