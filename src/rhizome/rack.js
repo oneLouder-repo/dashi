@@ -21,6 +21,7 @@
 import { rowsFor, check, weigh, OPS, ruleById } from './rules.js';
 import { tipById, fillTip, SOURCES } from './tips.js';
 import { ENTITY_TYPES } from './facts.js';
+import { graphOf, neighbourhood, triadsOf, communities, entityRows } from './rackGraph.js';
 
 export const HP = 42; // a rack row is 42 HP wide (each of the twin racks is half an 84 HP case)
 
@@ -30,7 +31,7 @@ export const LIST_SOURCE = {
   hollowObjectives: 'strategy', hollowGoals: 'strategy', unstaffed: 'strategy', blockedWork: 'strategy', overdue: 'strategy',
   unusedAssets: 'assets', abcdThin: 'assets', looseIdeas: 'studio', untestedLinks: 'studio', unsupportedOutcomes: 'studio', unplaced: 'place',
 };
-const TYPE_SOURCE = { map: 'mapper', actor: 'mapper', group: 'mapper', person: 'org', asset: 'assets', collection: 'assets', framework: 'strategy', plan: 'strategy', objective: 'strategy', goal: 'strategy', workplan: 'strategy', task: 'strategy', soar: 'studio', context: 'studio', result: 'studio', block: 'studio', outcome: 'studio', place: 'place' };
+export const TYPE_SOURCE = { map: 'mapper', actor: 'mapper', group: 'mapper', person: 'org', asset: 'assets', collection: 'assets', framework: 'strategy', plan: 'strategy', objective: 'strategy', goal: 'strategy', workplan: 'strategy', task: 'strategy', soar: 'studio', context: 'studio', result: 'studio', block: 'studio', outcome: 'studio', place: 'place' };
 
 /** Fields a filter or weigh knob can look at. */
 export const FIELDS = {
@@ -46,19 +47,26 @@ export const isNumeric = (field) => NUMERIC.has(field);
  */
 export const MODULES = {
   patchbay: { label: 'Patchbay', cat: 'Routing', look: 'analog', hp: 42, ins: ['1', '2', '3', '4'], outs: ['1', '2', '3', '4'], blurb: 'The routing strip at the top of the rack: each input comes out of its output below, so one signal can feed many places.' },
-  facts: { label: 'Facts', cat: 'Sources', look: 'analog', hp: 10, ins: [], outs: ['out'], params: { type: 'actor' }, blurb: 'Every thing of one type, from the fact layer.' },
-  measure: { label: 'Measure', cat: 'Sources', look: 'analog', hp: 10, ins: [], outs: ['out'], params: { list: 'isolates' }, blurb: 'A list the measures worked out: isolates, hubs, hollow objectives…' },
-  filter: { label: 'Filter', cat: 'Shapers', look: 'analog', hp: 12, ins: ['in'], outs: ['pass', 'reject'], params: { field: 'degree', op: 'lte', pct: 'p25', value: null }, blurb: 'Lets through the rows that meet a condition; the rest go out of reject.' },
-  weigh: { label: 'Weigh', cat: 'Shapers', look: 'analog', hp: 12, ins: ['in'], outs: ['out'], params: { base: 0.5, field: 'betweenness', w: 0.3 }, blurb: 'Gives each row a score from 0 to 1, so findings can be ranked.' },
-  gate: { label: 'Gate', cat: 'Logic', look: 'analog', hp: 8, ins: ['a', 'b'], outs: ['out'], params: { mode: 'and' }, blurb: 'AND: in both. OR: in either. NOT: in A but not B.' },
-  say: { label: 'Say', cat: 'Voice', look: 'analog', hp: 14, ins: ['in'], outs: ['out'], params: { tip: 'net-isolates', group: false }, blurb: 'Turns rows into findings, in the words of a tip.' },
-  scope: { label: 'Scope', cat: 'Displays', look: 'analog', hp: 33, ins: ['in'], outs: [], params: { phosphor: 'green' }, blurb: 'A CRT screen: shows what’s flowing in.' },
-  meter: { label: 'VU meter', cat: 'Displays', look: 'analog', hp: 9, ins: ['in'], outs: ['thru'], params: {}, blurb: 'A needle for how many rows flow through, and their top score.' },
-  visualiser: { label: 'AI visualiser', cat: 'Engines', look: 'digital', hp: 16, ins: ['in'], outs: [], stage: 4, blurb: 'A tiny inference engine that shows, step by step, what happens when you ask a system a question.' },
-  claude: { label: 'Claude engine', cat: 'Engines', look: 'digital', hp: 16, ins: ['in'], outs: ['out'], stage: 5, blurb: 'Real questions of your facts, through the server, with your own key and cost caps.' },
-  slot: { label: 'Open engine slot', cat: 'Engines', look: 'digital', hp: 10, ins: ['in'], outs: ['out'], stage: null, blurb: 'Room for another engine later. Every engine plugs in the same way: facts and a question in, findings out.' },
+  facts: { label: 'Facts', cat: 'Sources', look: 'analog', hp: 8, brand: true, ins: [], outs: ['out'], params: { type: 'actor' }, blurb: 'Every thing of one type, from the fact layer.' },
+  measure: { label: 'Measure', cat: 'Sources', look: 'analog', hp: 6, brand: true, ins: [], outs: ['out'], params: { list: 'isolates' }, blurb: 'A list the measures worked out: isolates, hubs, hollow objectives…' },
+  filter: { label: 'Filter', cat: 'Shapers', look: 'analog', hp: 6, brand: true, ins: ['in'], outs: ['pass', 'reject'], params: { field: 'degree', op: 'lte', pct: 'p25', value: null }, blurb: 'Lets through the rows that meet a condition; the rest go out of reject.' },
+  weigh: { label: 'Weigh', cat: 'Shapers', look: 'analog', hp: 7, brand: true, ins: ['in'], outs: ['out'], params: { base: 0.5, field: 'betweenness', w: 0.3 }, blurb: 'Gives each row a score from 0 to 1, so findings can be ranked.' },
+  gate: { label: 'Gate', cat: 'Logic', look: 'analog', hp: 5, ins: ['a', 'b'], outs: ['out'], params: { mode: 'and' }, blurb: 'AND: in both. OR: in either. NOT: in A but not B.' },
+  complement: { label: 'Complement', short: 'Compl.', cat: 'Sets & graphs', look: 'analog', hp: 5, ins: ['in'], outs: ['out'], params: {}, blurb: 'Set theory’s “everything else”: every thing of the same type that is not coming in.' },
+  neighbours: { label: 'Neighbours', short: 'Neigh.', cat: 'Sets & graphs', look: 'analog', hp: 6, ins: ['in'], outs: ['ring', 'ball'], params: { hops: 1 }, blurb: 'Walks the ties out from what comes in, one to three hops. Ring: only the new things it reaches. Ball: the start and the ring together.' },
+  triads: { label: 'Triads', cat: 'Sets & graphs', look: 'analog', hp: 6, ins: ['in'], outs: ['closed', 'open'], params: {}, blurb: 'Looks at each thing’s pairs of neighbours. Closed: tight circles, where neighbours know each other. Open: brokers sitting across structural holes.' },
+  prism: { label: 'Prism', cat: 'Sets & graphs', look: 'analog', hp: 6, ins: ['in'], outs: ['1', '2', '3'], params: {}, blurb: 'Splits what comes in by community, like light through glass: the three biggest clusters each get an output.' },
+  say: { label: 'Say', cat: 'Voice', look: 'analog', hp: 9, brand: true, ins: ['in'], outs: ['out'], params: { tip: 'net-isolates', group: false }, blurb: 'Turns rows into findings, in the words of a tip.' },
+  scope: { label: 'Scope', cat: 'Displays', look: 'analog', hp: 18, brand: true, ins: ['in'], outs: [], params: { phosphor: 'green' }, blurb: 'A CRT screen: shows what’s flowing in.' },
+  meter: { label: 'VU meter', short: 'VU', cat: 'Displays', look: 'analog', hp: 6, ins: ['in'], outs: ['thru'], params: {}, blurb: 'A needle for how many rows flow through, and their top score.' },
+  plotter: { label: 'Plotter', cat: 'Displays', look: 'analog', hp: 18, brand: true, ins: ['in'], outs: [], params: { ink: 'blue' }, blurb: 'A pen plotter: draws what comes in as a little network on paper, with the ties between them.' },
+  spectrum: { label: 'Spectrum', short: 'Spect.', cat: 'Displays', look: 'analog', hp: 12, ins: ['in'], outs: ['thru'], params: { field: 'degree' }, blurb: 'A bar spectrum of one number across the rows, so you can see the spread at a glance.' },
+  venn: { label: 'Venn', cat: 'Displays', look: 'analog', hp: 12, ins: ['a', 'b', 'c'], outs: ['all'], params: {}, blurb: 'Three circles and the counts in every overlap. Out: what is in all the circles you patched.' },
+  visualiser: { label: 'AI visualiser', cat: 'Engines', look: 'digital', hp: 12, ins: ['in'], outs: [], stage: 4, blurb: 'A tiny inference engine that shows, step by step, what happens when you ask a system a question.' },
+  claude: { label: 'Claude engine', cat: 'Engines', look: 'digital', hp: 12, ins: ['in'], outs: ['out'], stage: 5, blurb: 'Real questions of your facts, through the server, with your own key and cost caps.' },
+  slot: { label: 'Open engine slot', cat: 'Engines', look: 'digital', hp: 7, ins: ['in'], outs: ['out'], stage: null, blurb: 'Room for another engine later. Every engine plugs in the same way: facts and a question in, findings out.' },
 };
-export const CATEGORIES = ['Routing', 'Sources', 'Shapers', 'Logic', 'Voice', 'Displays', 'Engines'];
+export const CATEGORIES = ['Routing', 'Sources', 'Shapers', 'Logic', 'Sets & graphs', 'Voice', 'Displays', 'Engines'];
 /** Cable colours, as patch cables come: red, yellow, blue, green, black, white, orange, violet. */
 export const CABLE_COLORS = ['#d23c2c', '#f2c12e', '#2f6fd6', '#3f9a4c', '#22252b', '#f4f1e8', '#ee7d2b', '#8a4fd8'];
 
@@ -206,7 +214,41 @@ export function runPatch(patch, ctx) {
       const rows = p.mode === 'or' ? [...a, ...b.filter((r) => !aIds.has(r.id))] : p.mode === 'not' ? a.filter((r) => !bIds.has(r.id)) : a.filter((r) => bIds.has(r.id));
       out.out = { kind: 'rows', rows };
     } else if (m.type === 'say') out.out = { kind: 'findings', findings: sayRows(rowsIn(ins.in), p, m.id) };
-    else if (m.type === 'meter') out.thru = ins.in ?? empty();
+    else if (m.type === 'meter' || m.type === 'spectrum') out.thru = ins.in ?? empty();
+    else if (m.type === 'complement') {
+      const rows = rowsIn(ins.in);
+      const type = rows.find((r) => r.type)?.type ?? null;
+      const have = new Set(rows.map((r) => r.id));
+      out.out = { kind: 'rows', rows: type ? entityRows(ctx).filter((r) => r.type === type && !have.has(r.id)).map((r) => ({ ...r, _checks: [] })) : [] };
+    } else if (m.type === 'neighbours') {
+      const rows = rowsIn(ins.in);
+      const { ring } = neighbourhood(graphOf(ctx.facts), rows.map((r) => r.id), Math.min(3, Math.max(1, Number(p.hops) || 1)));
+      const byIdRow = Object.fromEntries(entityRows(ctx).map((r) => [r.id, r]));
+      const ringRows = ring.map((id) => byIdRow[id]).filter(Boolean).map((r) => ({ ...r, _checks: [] }));
+      out = { ring: { kind: 'rows', rows: ringRows }, ball: { kind: 'rows', rows: [...rows, ...ringRows] } };
+    } else if (m.type === 'triads') {
+      const g = graphOf(ctx.facts);
+      const closed = [], open = [];
+      for (const r of rowsIn(ins.in)) {
+        const t = triadsOf(g, r.id);
+        if (t.pairs === 0) continue; // fewer than two neighbours: no triads to look at
+        (t.closed / t.pairs >= 0.5 ? closed : open).push({ ...r, _tri: t });
+      }
+      out = { closed: { kind: 'rows', rows: closed }, open: { kind: 'rows', rows: open } };
+    } else if (m.type === 'prism') {
+      const comm = communities(graphOf(ctx.facts));
+      const groups = {};
+      for (const r of rowsIn(ins.in)) (groups[comm.get(r.id) ?? `solo:${r.id}`] ??= []).push(r);
+      const top = Object.values(groups).sort((a, b) => b.length - a.length);
+      for (const [i, port] of ['1', '2', '3'].entries()) out[port] = { kind: 'rows', rows: top[i] ?? [] };
+    } else if (m.type === 'venn') {
+      const sets = ['a', 'b', 'c'].filter((k) => ins[k]).map((k) => rowsIn(ins[k]));
+      if (!sets.length) out.all = empty();
+      else {
+        const rest = sets.slice(1).map((s) => new Set(s.map((r) => r.id)));
+        out.all = { kind: 'rows', rows: sets[0].filter((r) => rest.every((s) => s.has(r.id))) };
+      }
+    }
     else if (m.type === 'patchbay') for (const port of def.outs) out[port] = ins[port] ?? empty();
     else if (m.type === 'claude' || m.type === 'slot') out.out = empty(); // engines arrive in later stages
     signals[id] = out;
@@ -273,7 +315,7 @@ export function patchToRule(patch, { id = null } = {}) {
     if (m.type === 'facts' || m.type === 'measure') { source = m; break; }
     if (m.type === 'filter') { if (cur.from.port !== 'pass') return { problem: 'A rule only follows a filter’s pass output.' }; when.unshift(filterCond(m.params)); cur = feed(m.id, 'in'); }
     else if (m.type === 'weigh') { weighP = m.params; cur = feed(m.id, 'in'); }
-    else if (m.type === 'meter') cur = feed(m.id, 'in');
+    else if (m.type === 'meter' || m.type === 'spectrum') cur = feed(m.id, 'in');
     else if (m.type === 'patchbay') cur = feed(m.id, cur.from.port);
     else return { problem: `A ${MODULES[m.type].label} can’t be part of a plain rule yet: keep it as a patch.` };
   }
@@ -298,6 +340,10 @@ export function starterPatch() {
   // The engines, waiting in rack B: the visualiser watches the weighed rows, Claude hears the findings.
   const weighM = p.modules.find((m) => m.type === 'weigh');
   const sayM = p.modules.find((m) => m.type === 'say');
+  // A pen plotter beside the scope, drawing everything the source finds and the ties between them.
+  const src = p.modules.find((m) => m.type === 'facts' || m.type === 'measure');
+  const plot = addModule(p, 'plotter');
+  if (src) connect(p, { m: src.id, port: 'out' }, { m: plot.id, port: 'in' });
   const vis = addModule(p, 'visualiser');
   const cl = addModule(p, 'claude');
   if (weighM) connect(p, { m: weighM.id, port: 'out' }, { m: vis.id, port: 'in' });
@@ -314,6 +360,8 @@ export function describeModule(m) {
   if (m.type === 'weigh') return `${p.base} + ${p.w} × ${FIELDS[p.field] ?? p.field ?? 'nothing'}`;
   if (m.type === 'gate') return p.mode.toUpperCase();
   if (m.type === 'say') return `${p.tip}${p.group ? ', grouped' : ''}`;
+  if (m.type === 'neighbours') return `${p.hops ?? 1} ${Number(p.hops ?? 1) === 1 ? 'hop' : 'hops'} out`;
+  if (m.type === 'spectrum') return `spread of ${FIELDS[p.field] ?? p.field}`;
   return MODULES[m.type]?.label ?? m.type;
 }
 

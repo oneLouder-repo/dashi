@@ -33,9 +33,9 @@ test('every module fits a rack row, and screens and engines go in rack B', () =>
 
 test('rows flow left to right and wrap when a row is full', () => {
   const p = blankPatch();
-  for (let i = 0; i < 5; i++) addModule(p, 'weigh'); // 5 × 12 HP in a 42 HP row
+  for (let i = 0; i < 7; i++) addModule(p, 'weigh'); // 7 × 7 HP in a 42 HP row
   const rows = rowsOf(inRack(p, 'a'));
-  assert.deepEqual(rows.map((r) => r.length), [3, 2]);
+  assert.deepEqual(rows.map((r) => r.length), [6, 1]);
   const [a, b] = p.modules;
   assert.ok(moveModule(p, b.id, -1));
   assert.equal(p.modules[0], b);
