@@ -39,7 +39,10 @@ let side = h('nav');
 const head = h('div', { class: 'plandoc-head' });
 const stage = h('div', { class: 'plandoc-stage' });
 const panel = h('aside', { class: 'plandoc-panel pd-float', 'aria-label': 'Design tools' });
-const stageWrap = h('div', { class: 'plandoc-stage-wrap' }, stage, panel);
+// Zoom (alpha 0.3 PR 13): the pages fill the canvas by default; zoom in or out and scroll around while
+// the tool panel floats over them wherever it's wanted.
+const zoomBox = h('div', { class: 'pd-zoom', role: 'group', 'aria-label': 'Zoom' });
+const stageWrap = h('div', { class: 'plandoc-stage-wrap' }, stage, panel, zoomBox);
 const main = h('section', { class: 'palette-main plandoc-main' }, head, stageWrap);
 app.replaceChildren(side, main);
 
@@ -113,7 +116,7 @@ function render() {
   });
   head.replaceChildren(PluginHeader('strategy', {
     title: snap.plan.title,
-    blurb: 'Click any words on the pages to change them; select words to format them. Your changes stay with this document; the strategy itself isn’t touched.',
+    blurb: '',
     actions: [
       panelState.hidden && h('button', { class: 'btn btn-sm', onclick: () => setPanel({ hidden: false }) }, icon('brush', 15), 'Design tools'),
       h('button', { class: 'btn btn-sm', title: 'Print it, or choose “Save as PDF” in the print window', onclick: () => printPlan(docEl.cloneNode(true), snap.plan.title) }, icon('download', 15), 'Print or save as PDF'),
@@ -139,7 +142,7 @@ const TOOLS = [
   { id: 'page', label: 'Page', icon: 'doc' },
   { id: 'share', label: 'Share', icon: 'globe' },
 ];
-let panelState = { x: null, y: 16, tool: 'template', folded: false, hidden: false };
+let panelState = { x: null, y: 16, tool: 'template', folded: false, hidden: false, zoom: 'fit' };
 try { panelState = { ...panelState, ...JSON.parse(localStorage.getItem(PANEL_KEY) ?? '{}') }; } catch { /* private window: defaults */ }
 const keepPanel = () => { try { localStorage.setItem(PANEL_KEY, JSON.stringify(panelState)); } catch { /* fine */ } };
 function setPanel(patch) { panelState = { ...panelState, ...patch }; keepPanel(); render(); }
@@ -167,7 +170,7 @@ function dragPanel(e) {
     panel.classList.remove('dragging');
     removeEventListener('pointermove', move); removeEventListener('pointerup', up);
     panelState.x = panel.offsetLeft; panelState.y = panel.offsetTop;
-    keepPanel(); fitPages();
+    keepPanel();
   };
   addEventListener('pointermove', move); addEventListener('pointerup', up);
 }
@@ -330,19 +333,29 @@ function publish(pd, snap) {
 /** Shrink the pages to fit the space between the side panels (they print full size). */
 function fitPages() {
   const docEl = stage.querySelector('.pd-doc');
-  if (!docEl) return;
-  const canvas = stage.querySelector('.plandoc-canvas');
-  // Leave the floating panel its own room on whichever side it sits, so it doesn't cover the pages.
-  let left = 24, right = 24;
-  if (!panel.hidden && !panelState.hidden) {
-    const { x, pw } = placePanel();
-    const w = panelState.folded ? panel.offsetWidth : pw;
-    if (x + w / 2 > stage.clientWidth / 2) right = Math.max(24, stage.clientWidth - x + 16); else left = Math.max(24, x + w + 16);
-  }
-  if (canvas) Object.assign(canvas.style, { paddingLeft: `${left}px`, paddingRight: `${right}px` });
-  const room = stage.clientWidth - left - right;
-  docEl.style.zoom = String(Math.max(0.35, Math.min(1, room / 816)));
+  if (!docEl) { zoomBox.hidden = true; return; }
+  if (!panel.hidden && !panelState.hidden) placePanel();
+  // The pages fill the canvas; the floating panel sits over them, out of the way or not, as you like.
+  const fit = Math.max(0.3, Math.min(2, (stage.clientWidth - 48) / 816));
+  const z = panelState.zoom === 'fit' || !Number(panelState.zoom) ? fit : Number(panelState.zoom);
+  docEl.style.zoom = String(z);
+  zoomBox.hidden = false;
+  const step = (k) => { const next = Math.max(0.3, Math.min(2, Math.round((z + k) * 10) / 10)); panelState.zoom = next; keepPanel(); fitPages(); };
+  zoomBox.replaceChildren(
+    h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', title: 'Zoom out', 'aria-label': 'Zoom out', onclick: () => step(-0.1) }, '−'),
+    h('span', { class: 'pd-zoom-n' }, `${Math.round(z * 100)}%`),
+    h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', title: 'Zoom in', 'aria-label': 'Zoom in', onclick: () => step(0.1) }, '+'),
+    h('button', { type: 'button', class: `btn btn-ghost btn-xs${panelState.zoom === 'fit' ? ' on' : ''}`, title: 'Fit the pages to the canvas', onclick: () => { panelState.zoom = 'fit'; keepPanel(); fitPages(); } }, 'Fit'));
 }
+// Ctrl or ⌘ and the wheel zooms, like the mapper.
+stage.addEventListener('wheel', (e) => {
+  if (!(e.ctrlKey || e.metaKey)) return;
+  e.preventDefault();
+  const docEl = stage.querySelector('.pd-doc');
+  const z = Number(docEl?.style.zoom) || 1;
+  panelState.zoom = Math.max(0.3, Math.min(2, Math.round((z * (e.deltaY < 0 ? 1.1 : 0.9)) * 100) / 100));
+  keepPanel(); fitPages();
+}, { passive: false });
 window.addEventListener('resize', fitPages);
 window.addEventListener('hashchange', () => { stage.scrollTop = 0; render(); });
 onDocChange('strategy', (d) => { strategy = d; render(); });

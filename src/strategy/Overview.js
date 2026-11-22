@@ -139,7 +139,7 @@ function WholeSunburst(ctx, root, now) {
   const objectives = objectiveOrder(doc);
   return h('section', { class: 'sw-card sw-sunburst-card' },
     h('div', { class: 'sw-card-head' }, h('h3', {}, icon('target', 16), 'The whole framework'),
-      h('span', { class: 'muted small' }, 'Click a ring to zoom in, the centre to step out. Point at anything for its details; click a task to keep it there.')),
+      h('span', { class: 'muted small' }, 'Click a ring to zoom in, the centre to step out. Click a task to turn it to the right and see its details.')),
     h('div', { class: 'sw-sunburst-body' },
       h('div', { class: 'sw-sb-chart' },
         chart = Sunburst({
@@ -148,7 +148,7 @@ function WholeSunburst(ctx, root, now) {
           picked: sunPinned ? (x) => x.id === sunPinned : null,
           onDraw: (f) => { fillOf = f; show(sunPinned ? doc.nodes[sunPinned] : centre); },
           onZoom: (path, d) => { sunPath = path; centre = doc.nodes[d.id] ?? root; sunPinned = null; show(centre); },
-          onHover: (d) => { if (d) show(doc.nodes[d.id], { hovering: true }); else show(sunPinned ? doc.nodes[sunPinned] : centre); },
+          // Alpha 0.3 PR 13: pointing shows only the tooltip; the panel changes on a click.
           tip: (d) => { const n = doc.nodes[d.data.id]; return `${NODE_TYPES[n?.type]?.label ?? ''}${d.children ? ` · ${d.value} task${d.value === 1 ? '' : 's'}` : n?.type === 'task' ? ` · ${statusById[n.status]?.label ?? ''}` : ''}${n?.draft ? ' · draft' : ''}`; },
           color: (d) => {
             const n = doc.nodes[d.data.id];

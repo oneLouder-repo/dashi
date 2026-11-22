@@ -6,6 +6,11 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### PR 13: a full canvas for the Plan designer, and sunbursts that turn
+- **Plan designer**: the pages fill the whole canvas, and the floating tool panel sits over them wherever you put it. A zoom control at the bottom left (−, %, +, Fit), or Ctrl/⌘ and the wheel, scales the pages while you scroll through them. The header hint is gone to give the canvas more room, and the canvas has the ecosystem board's dots behind the pages.
+- **Sunbursts turn to the item you pick**: click an item in the outer ring and the chart turns, with easing, until it sits at three o'clock, its name level and centred in its ring. This works in Strategy & Work's whole-framework sunburst and in the Asset manager's.
+- **The details panel follows clicks, not the pointer**: pointing at a ring shows its tooltip only; the panel changes when you click (the ring you zoom into, or the item you pick).
+
 ### PR 12: the Plan designer, laid out like the plugins
 - **Side nav, ribbon and plugin header** like every other plugin, with Print or save as PDF in the header. The pages sit on a dotted canvas below.
 - **A floating design panel over the canvas**, like a paint program's tool panel: drag it by its black title bar anywhere on the canvas, fold it down to its tool rail, or hide it (bring it back from the header). It remembers where you left it and which tool was open. The pages make room on whichever side the panel sits.

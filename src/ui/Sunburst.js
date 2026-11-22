@@ -90,7 +90,8 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
   // A label shows only where the ring is wide enough around for a line of text.
   const labelVisible = (d) => d.y1 <= 3 && d.y0 >= 1 && ((d.y0 + d.y1) / 2) * radius * (d.x1 - d.x0) > 13;
   const labelTransform = (d) => {
-    const x = (((d.x0 + d.x1) / 2) * 180) / Math.PI;
+    // Normalised, so a ring turned past a full circle still reads the right way up.
+    const x = (((((d.x0 + d.x1) / 2) * 180) / Math.PI) % 360 + 360) % 360;
     const y = ((d.y0 + d.y1) / 2) * radius;
     return `rotate(${x - 90}) translate(${y},0) rotate(${x < 180 ? 0 : 180})`;
   };
@@ -159,11 +160,37 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
     .on('click', (e, d) => { if (d.children) { if (d !== focus) zoom(e, d); } else pick(d, e); })
     .on('keydown', (e, d) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (d.children) { if (d !== focus) zoom(e, d); } else pick(d, e); } });
   let chosen = null;
-  function pick(d, e) {
+  function pick(d, e, { instant = false } = {}) {
     chosen = d;
     path.attr('stroke', (x) => (x === chosen ? INK : edge?.(x) ?? '#fff')).attr('stroke-width', (x) => (x === chosen ? 3.5 : edge?.(x) ? 2.5 : 2));
     path.filter((x) => x === chosen).raise();
+    turnTo(d, { instant });
     if (e !== null) onLeaf?.(d.data, e);
+  }
+  /*
+   * Alpha 0.3 PR 13: the picked item turns to three o'clock, with easing, so its
+   * name sits level on the right, centred in its ring. The whole chart turns
+   * with it; the next zoom straightens it out again.
+   */
+  function turnTo(d, { instant = false } = {}) {
+    const mid = (d.current.x0 + d.current.x1) / 2;
+    let delta = Math.PI / 2 - mid;
+    delta = Math.atan2(Math.sin(delta), Math.cos(delta)); // the short way round
+    if (Math.abs(delta) < 1e-3) return;
+    root.each((x) => { x.target = { ...x.current, x0: x.current.x0 + delta, x1: x.current.x1 + delta }; });
+    if (instant || reduce) {
+      root.each((x) => { x.current = x.target; });
+      path.attr('d', (x) => arc(x.current));
+      hatch?.attr('d', (x) => arc(x.current));
+      text.attr('transform', (x) => labelTransform(x.current));
+      return;
+    }
+    const t = svg.transition().duration(900).ease(d3.easeCubicInOut);
+    path.transition(t)
+      .tween('data', (x) => { const i = d3.interpolate(x.current, x.target); return (tt) => { x.current = i(tt); }; })
+      .attrTween('d', (x) => () => arc(x.current));
+    hatch?.transition(t).attrTween('d', (x) => () => arc(x.current));
+    text.transition(t).attrTween('transform', (x) => () => labelTransform(x.current));
   }
 
   const text = g.append('g').attr('pointer-events', 'none').attr('text-anchor', 'middle').style('user-select', 'none')
@@ -212,6 +239,7 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
   function zoom(event, p, { instant = false } = {}) {
     focus = p;
     hideTip();
+    if (chosen && !chosen.ancestors().includes(p)) { chosen = null; path.attr('stroke', (x) => edge?.(x) ?? '#fff').attr('stroke-width', (x) => (edge?.(x) ? 2.5 : 2)); }
     // An item with nothing inside is shown as the ring itself, around its parent in the centre.
     const leaf = !p.children && p !== root;
     const lift = leaf ? p.depth - 1 : p.depth;
@@ -259,9 +287,11 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
     let hit = null;
     root.each((d) => { if (!hit && d !== root && match(d.data)) hit = d; });
     if (!hit) return zoom(null, root);
-    if (hit.children) zoom(null, hit); else { if (hit.parent !== focus) zoom(null, hit.parent ?? root); pick(hit, null); }
+    if (hit.children) zoom(null, hit);
+    else if (hit.parent !== focus) { zoom(null, hit.parent ?? root); setTimeout(() => pick(hit, null), reduce ? 0 : 780); }
+    else pick(hit, null);
   };
-  if (picked) { let hit = null; root.each((d) => { if (!hit && !d.children && picked(d.data)) hit = d; }); if (hit) pick(hit, null); }
+  if (picked) { let hit = null; root.each((d) => { if (!hit && !d.children && picked(d.data)) hit = d; }); if (hit && visible(hit.current)) pick(hit, null, { instant: true }); }
   onDraw?.((data) => { let f = null; root.each((d) => { if (f == null && d.data === data) f = d.fill; }); return f; });
 }
 
