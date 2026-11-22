@@ -118,7 +118,6 @@ function render() {
     title: snap.plan.title,
     blurb: '',
     actions: [
-      panelState.hidden && h('button', { class: 'btn btn-sm', onclick: () => setPanel({ hidden: false }) }, icon('brush', 15), 'Design tools'),
       h('button', { class: 'btn btn-sm', title: 'Print it, or choose “Save as PDF” in the print window', onclick: () => printPlan(docEl.cloneNode(true), snap.plan.title) }, icon('download', 15), 'Print or save as PDF'),
     ].filter(Boolean),
   }));
@@ -144,14 +143,19 @@ const TOOLS = [
 ];
 let panelState = { x: null, y: 16, tool: 'template', folded: false, hidden: false, zoom: 'fit' };
 try { panelState = { ...panelState, ...JSON.parse(localStorage.getItem(PANEL_KEY) ?? '{}') }; } catch { /* private window: defaults */ }
+// PR 14: the panel is always there when you open the designer (it used to be possible to hide it and lose it).
+panelState.hidden = false;
+if (!Number.isFinite(panelState.x)) panelState.x = null;
+if (!Number.isFinite(panelState.y)) panelState.y = 16;
 const keepPanel = () => { try { localStorage.setItem(PANEL_KEY, JSON.stringify(panelState)); } catch { /* fine */ } };
 function setPanel(patch) { panelState = { ...panelState, ...patch }; keepPanel(); render(); }
 
 /** Where the panel sits: dragged there, or tucked into the stage's top right corner. */
 function placePanel() {
-  const W = stageWrap.clientWidth, H = stageWrap.clientHeight, pw = panel.offsetWidth || 320, ph = panel.offsetHeight || 200;
-  const x = panelState.x == null ? W - pw - 16 : Math.max(8, Math.min(W - pw - 8, panelState.x));
-  const y = Math.max(8, Math.min(Math.max(8, H - Math.min(ph, 120)), panelState.y ?? 16));
+  const W = stageWrap.clientWidth, H = stageWrap.clientHeight, pw = panel.offsetWidth || 336;
+  // Always somewhere you can grab it: its title bar stays inside the canvas, whatever size the window is now.
+  const x = panelState.x == null || !W ? Math.max(8, W - pw - 16) : Math.max(8, Math.min(W - pw - 8, panelState.x));
+  const y = Math.max(8, Math.min(Math.max(8, H - 44), panelState.y ?? 16));
   Object.assign(panel.style, { left: `${x}px`, top: `${y}px` });
   return { x, pw };
 }
@@ -193,17 +197,17 @@ function drawPanel(pd, snap) {
   panel.replaceChildren(
     h('header', { class: 'pd-float-head', onpointerdown: dragPanel, title: 'Drag to move' },
       h('span', { class: 'pd-grip', 'aria-hidden': 'true' }, '⋮⋮'),
-      h('strong', {}, panelState.folded ? 'Design' : TOOLS.find((t) => t.id === tool).label),
+      h('strong', {}, panelState.folded ? 'Design tools' : TOOLS.find((t) => t.id === tool).label),
       !panelState.folded && h('small', {}, summary[tool]),
       h('span', { class: 'spacer' }),
-      h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', title: panelState.folded ? 'Open the panel' : 'Fold to the tool rail', 'aria-label': panelState.folded ? 'Open the panel' : 'Fold the panel', onclick: () => setPanel({ folded: !panelState.folded }) }, panelState.folded ? '▸' : '▾'),
-      h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', title: 'Hide the design tools (bring them back from the header)', 'aria-label': 'Hide the design tools', onclick: () => setPanel({ hidden: true }) }, icon('close', 13))),
-    h('div', { class: 'pd-float-body' },
+      // The shutter: rolls the panel up to its title bar, and down again. (No close button: the tools are always to hand.)
+      h('button', { type: 'button', class: 'pd-shutter', 'aria-expanded': String(!panelState.folded), title: panelState.folded ? 'Open the tools' : 'Roll the panel up', 'aria-label': panelState.folded ? 'Open the tools' : 'Roll the panel up', onclick: (e) => { e.stopPropagation(); setPanel({ folded: !panelState.folded }); } }, icon(panelState.folded ? 'chevronDown' : 'chevronUp', 14))),
+    panelState.folded ? '' : h('div', { class: 'pd-float-body' },
       h('nav', { class: 'pd-rail', 'aria-label': 'Design tools' }, TOOLS.map((t) => h('button', {
         type: 'button', class: `pd-rail-btn${t.id === tool ? ' on' : ''}`, 'aria-pressed': String(t.id === tool), title: `${t.label}: ${summary[t.id]}`,
         onclick: () => setPanel({ tool: t.id, folded: false }),
       }, icon(t.icon, 18), h('span', {}, t.label)))),
-      !panelState.folded && h('div', { class: 'pd-tool' }, body)));
+      h('div', { class: 'pd-tool' }, body)));
   panel.hidden = false;
   requestAnimationFrame(placePanel);
 }
@@ -357,6 +361,7 @@ stage.addEventListener('wheel', (e) => {
   keepPanel(); fitPages();
 }, { passive: false });
 window.addEventListener('resize', fitPages);
+if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => { if (!panel.hidden) placePanel(); }).observe(stageWrap);
 window.addEventListener('hashchange', () => { stage.scrollTop = 0; render(); });
 onDocChange('strategy', (d) => { strategy = d; render(); });
 onDocChange('data', (d) => { data = d; render(); });

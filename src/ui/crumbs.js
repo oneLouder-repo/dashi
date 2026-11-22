@@ -153,7 +153,12 @@ const ACTIONS = {
 export function contextActions(id) {
   const tone = PLUGINS.find((x) => x.id === id)?.tone ?? 'var(--color-primary)';
   const list = (ACTIONS[id]?.() ?? []).filter((a) => a.href).slice(0, RIBBON_SIZE);
-  const at = (a) => a.here && typeof location !== 'undefined' && location.hash.startsWith(a.here);
+  const at = (a) => {
+    if (typeof location === 'undefined') return false;
+    if (a.here) return location.hash.startsWith(a.here);
+    const page = String(a.href).split(/[?#]/)[0].split('/').pop();
+    return !!page && location.pathname.endsWith('/' + page) && !a.href.includes('#');
+  };
   return list.length ? h('span', { class: 'ribbon-group ribbon-actions', role: 'group', 'aria-label': 'Quick actions' },
     list.map((a) => h('a', { class: `ribbon-link${at(a) ? ' on' : ''}`, href: a.href, style: `--tone:${tone}`, title: a.title ?? a.label, 'aria-current': at(a) ? 'page' : null }, icon(a.icon, 15), h('span', {}, a.label)))) : null;
 }

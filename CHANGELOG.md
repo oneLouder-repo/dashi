@@ -6,6 +6,16 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### PR 14: a cleaner Plan designer panel, and calmer active buttons
+
+- The floating Design tools panel has a light title bar that matches the toolbars, in place of the dark one.
+- The close (X) button is gone, so the panel can't be lost. The shutter button now works: it rolls the panel up to its title bar and back down again.
+- The panel always shows when you open the Plan designer. A saved "hidden" state from the old X button is ignored, its position is kept inside the canvas, and it moves back into view when the window changes size.
+- Corners are almost sharp (3–4px), outlines are a softer grey, and the shadows on the panel and the zoom box are much smaller.
+- Active buttons in plugin ribbons, the panel's tool rail, and its picks (templates, covers, fonts, colours) show their colour as a bar on the left side with a soft grey outline, in place of an underline.
+- Ribbon links to another page (like Plan designer) now light up when you're on that page.
+- Screenshots: `47-plan-designer-panel-clean.png`, `48-plan-designer-panel-rolled-up.png`.
+
 ### PR 13: a full canvas for the Plan designer, and sunbursts that turn
 - **Plan designer**: the pages fill the whole canvas, and the floating tool panel sits over them wherever you put it. A zoom control at the bottom left (−, %, +, Fit), or Ctrl/⌘ and the wheel, scales the pages while you scroll through them. The header hint is gone to give the canvas more room, and the canvas has the ecosystem board's dots behind the pages.
 - **Sunbursts turn to the item you pick**: click an item in the outer ring and the chart turns, with easing, until it sits at three o'clock, its name level and centred in its ring. This works in Strategy & Work's whole-framework sunburst and in the Asset manager's.
