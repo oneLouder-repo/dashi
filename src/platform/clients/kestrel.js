@@ -28,6 +28,7 @@ import { photoMasthead, photoById, photoFor } from '../photos.js';
 import { gatherAssets, blankAssets, migrateAssets } from '../assetHub.js';
 import { migrateSocial, mockPush } from '../social.js';
 import { seedRhizome } from '../../rhizome/setup.js';
+import { seedKestrelPlace } from '../../place/kestrel.js';
 
 export const KESTREL_SPEC = {
   id: 'org-kestrel', slug: 'kestrel', name: 'Kestrel Bay Community Foundation', plan: 'custom', sector: 'foundation',
@@ -325,7 +326,7 @@ export function kestrelBundle() {
     description: 'A community foundation for everyone who calls Kestrel Bay home: we pool gifts, grow local leadership and fund what the community asks for.',
     theme: { palette: 'custom', base: 'light', shape: 'rounded', colors: KESTREL_COLOURS },
     // A custom plan with every plugin switched on, including the newer, optional ones.
-    plugins: { podcasts: true, graph: true, rhizome: true, social: true, 'ai-policy': true, 'ai-register': true, 'prompt-commons': true, 'plain-words': true, 'critical-media': true },
+    plugins: { podcasts: true, graph: true, rhizome: true, place: true, social: true, 'ai-policy': true, 'ai-register': true, 'prompt-commons': true, 'plain-words': true, 'critical-media': true },
     sites: {
       'site-main': { id: 'site-main', name: 'Kestrel Bay Community Foundation', url: 'https://kestrelbay.example', visibility: 'public', shows: 'Who we are, grants, giving, stories, podcasts and documents',
         home: { kind: 'page', slug: 'home' },
@@ -354,6 +355,9 @@ export function kestrelBundle() {
   // A blank theory of change, to start from the plan (alpha 0.3 PR 8).
   if (docs.studio) Object.assign(docs.studio, { toc: {}, tocLinks: {} });
   docs.assets = shapeAssets(docs);
+  // Place (Place stage 1): Kestrel Bay drawn as a made-up bay, its places, and pins for its actors, stories and documents.
+  // Before Rhizome, so its welcome report sees the places.
+  docs.place = seedKestrelPlace(docs);
   // Rhizome's pilot instance (Rhizome stage 1): switched on, with the set-up already run, so design can start straight away.
   docs.rhizome = seedRhizome(docs);
   return { docs, files };

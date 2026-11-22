@@ -177,6 +177,20 @@ const BUILT_IN = {
       { id: 'snapshots', label: 'Snapshots', fields: [f('at', 'When', 'date'), f('entities', 'Entities', 'number'), f('relations', 'Relations', 'number')] }] }] },
     changelog: [{ version: '0.1.0', date: '2026-11-22', notes: 'Stage 1: the fact layer, measures with calibration, and the switch-on set-up run. Rules, the patcher and the engines come next.', by: 'Dashi' }],
   },
+  place: {
+    category: 'Knowledge',
+    version: '0.1.0',
+    features: [
+      feat('places', 'Places', 'Communities, neighbourhoods, sites, landmarks and regions, with outlines.'),
+      feat('pins', 'Pins', 'Actors, assets and stories tied to a place or an exact spot, and the places each one serves.'),
+      feat('layers', 'Layers', 'Place outlines, links between actors, who serves where, places, actors and assets, each switched on or off.'),
+      feat('basemaps', 'Base maps', 'A street map (OpenStreetMap), your own drawn map that works offline, or none.'),
+    ],
+    dataModel: { docs: [{ name: 'place', label: 'Places and pins', collections: [
+      { id: 'places', label: 'Places', fields: [f('name', 'Name', 'text', { required: true }), f('kind', 'Kind', 'select', { options: ['community', 'neighbourhood', 'site', 'landmark', 'region'] }), f('geo', 'Point', 'text'), f('area', 'Outline', 'text'), f('within', 'Inside', 'reference'), f('description', 'Description', 'longtext'), f('tags', 'Tags', 'list')] },
+      { id: 'pins', label: 'Pins', fields: [f('placeId', 'Place', 'reference'), f('lat', 'Latitude', 'number'), f('lng', 'Longitude', 'number'), f('serves', 'Serves', 'list'), f('note', 'Note', 'longtext')] }] }] },
+    changelog: [{ version: '0.1.0', date: '2026-11-22', notes: 'Stage 1: places, pins, layers and base maps, with Kestrel Bay drawn as a made-up bay.', by: 'Dashi' }],
+  },
   pages: {
     category: 'Publishing',
     features: [
