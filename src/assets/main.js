@@ -11,6 +11,8 @@ import { standIn } from '../ui/standIn.js';
 import { photoOrNull, photoThumb, photoUrl, photoCredit, photoById } from '../platform/photos.js';
 import { uiConfirm, uiForm, uiPrompt } from '../ui/dialog.js';
 import { uid } from '../core/ops.js';
+import { StoryCard, StoryEditor } from '../ui/StoryEditor.js';
+import { storyOf, newStoryItem, applyStory } from '../platform/stories.js';
 import { saveDoc, onDocChange, session } from '../platform/storage.js';
 import { loadOrg, loadAssets, loadMaps, loadLibrary, loadPodcasts } from '../platform/docs.js';
 import { loadAllMaps } from '../platform/maps.js';
@@ -131,6 +133,7 @@ app.replaceChildren(
       Menu({ label: 'New', icon: 'plus', align: 'end', items: () => [
         { label: 'Link', icon: 'link', hint: 'A web page, video or shared drive', onclick: newLink },
         { label: 'Note', icon: 'note', hint: 'A story, a skill someone shared, an idea', onclick: newNote },
+        { label: 'Story card', icon: 'story', hint: 'A short piece to reuse: a title, a few words and a picture', onclick: newStory },
         'sep',
         { label: 'Collection', icon: 'folder', hint: 'A place to gather assets', onclick: () => newCollection() },
       ] }),
@@ -312,6 +315,19 @@ function Thumb(card, size = 'tile') {
   const abcd = abcdById[card.abcd];
   const colour = abcd?.color ?? '#7f8ba3';
   const el = h('div', { class: `ah-thumb t-${size}`, style: `--abcd:${colour}` }, icon(card.icon, size === 'tile' ? 30 : 18));
+  // A story card shows as itself: its picture, title and subtitle (alpha 0.3).
+  if (card.source === 'story' && card.item) {
+    const st = storyOf(card.item);
+    if (st.images[0]) {
+      el.replaceChildren(h('img', { src: st.images[0].url, alt: '', loading: 'lazy', draggable: false }));
+      if (size === 'tile') { el.classList.add('photo'); el.append(h('span', { class: 'ah-thumb-badge' }, icon('story', 14))); }
+      return el;
+    }
+    if (size !== 'tile') return el;
+    el.classList.add('text');
+    el.replaceChildren(h('div', { class: 'ah-page' }, h('span', {}, [st.subtitle, st.body].filter(Boolean).join(' · ').slice(0, 260))));
+    return el;
+  }
   const picture = (src) => el.replaceChildren(h('img', { src, alt: '', loading: 'lazy', draggable: false,
     onerror: (e) => { const fb = standIn(card.key, colour); if (e.target.src !== fb && !e.target.src.startsWith('data:image/svg')) e.target.src = fb; } }));
   const chosen = card.photoId && photoById[card.photoId];
@@ -857,15 +873,16 @@ function Detail(c) {
       editable && h('button', { class: `btn btn-xs btn-ghost btn-square${c.pinned ? ' on' : ''}`, title: c.pinned ? 'Unpin' : 'Pin to the top', 'aria-pressed': String(!!c.pinned), onclick: () => change((x) => { x.pinned = !x.pinned; }) }, icon('pin', 15)),
       h('button', { class: 'btn btn-xs btn-ghost btn-square', title: 'Close', 'aria-label': 'Close', onclick: () => { focusKey = null; selection = new Set(); go(Object.fromEntries(Object.entries(scope()).filter(([k, v]) => v && k !== 'key'))); } }, icon('close', 15))),
     Preview(c),
-    own && editable
+    c.source === 'story' ? null : own && editable
       ? h('input', { class: 'ah-d-title', value: c.title, 'aria-label': 'Title', onchange: (e) => change((x) => { x.title = e.target.value.trim() || x.title; }, 'renamed an asset') })
       : h('h2', { class: 'ah-d-title static' }, c.title),
     c.missing && h('p', { class: 'alert alert-warning alert-soft small' }, 'This has been removed where it lived. Your notes about it are kept here.'),
     !own && !c.missing && c.href && h('p', { class: 'ah-d-src' }, `Lives in ${sourceById[c.source]?.label ?? 'Dashi'}. `, h('a', { href: c.href }, 'Open it there →')),
-    field(own ? 'Description' : 'Notes here', h('textarea', { class: 'textarea textarea-sm w-full', rows: 3, disabled: !editable, placeholder: own ? 'What it is and why it matters' : 'What this means for your work', value: it?.description ?? (own ? '' : ''),
+    c.source !== 'story' && field(own ? 'Description' : 'Notes here', h('textarea', { class: 'textarea textarea-sm w-full', rows: 3, disabled: !editable, placeholder: own ? 'What it is and why it matters' : 'What this means for your work', value: it?.description ?? (own ? '' : ''),
       onchange: (e) => change((x) => { x.description = e.target.value; }, 'added notes') })),
     !own && c.description && h('p', { class: 'ah-d-desc' }, c.description),
-    c.text != null && own && field('Note', h('textarea', { class: 'textarea textarea-sm w-full', rows: 6, disabled: !editable, value: c.text, onchange: (e) => change((x) => { x.text = e.target.value; }) })),
+    c.source === 'story' && own && editable && h('button', { class: 'btn btn-sm w-full', onclick: () => editStory(c.item) }, icon('pencil', 14), 'Edit story card'),
+    c.text != null && own && c.source !== 'story' && field('Note', h('textarea', { class: 'textarea textarea-sm w-full', rows: 6, disabled: !editable, value: c.text, onchange: (e) => change((x) => { x.text = e.target.value; }) })),
     h('div', { class: 'ah-field' }, h('span', {}, 'ABCD type'),
       h('div', { class: 'ah-abcd-pick', role: 'radiogroup', 'aria-label': 'ABCD type' }, ABCD.map((x) =>
         h('button', { type: 'button', role: 'radio', class: abcdNow === x.id ? 'on' : '', 'aria-checked': String(abcdNow === x.id), disabled: !editable, style: `--c:${x.color}`, title: x.hint,
@@ -912,6 +929,11 @@ function Preview(c) {
     return box;
   }
   if (c.thumb && !c.photoId) { box.replaceChildren(h('img', { src: c.thumb, alt: '' })); return box; }
+  if (c.source === 'story' && c.item) {
+    box.classList.add('story');
+    box.replaceChildren(StoryCard(storyOf(c.item)));
+    return box;
+  }
   if (c.file) {
     plain();
     mediaUrl(c.file.mediaId).then((url) => {
@@ -1130,6 +1152,19 @@ async function newNote() {
   const it = newItem(hub, { kind: 'note', title: v.title.trim(), text: v.text, abcd: v.abcd || null, collectionIds: scope().coll ? [scope().coll] : [] }, me?.id);
   save(`added the note “${it.title}”`, it.id);
   select(allCards().find((c) => c.key === it.id));
+}
+
+/** Story cards (alpha 0.3): a native asset type, written in a side drawer. */
+function newStory() {
+  StoryEditor({ onSave: (st) => {
+    const it = newStoryItem(st, me?.id ?? null);
+    hub.items[it.id] = { ...it, collectionIds: scope().coll ? [scope().coll] : [] };
+    save(`added the story card “${it.title}”`, it.id);
+    select(allCards().find((c) => c.key === it.id));
+  } });
+}
+function editStory(item) {
+  StoryEditor({ story: storyOf(item), onSave: (st) => { applyStory(item, st, me?.id ?? null); save(`edited the story card “${item.title}”`, item.id); } });
 }
 
 const COLOURS = ['#2c4fa3', '#3e8fa6', '#ef7f2d', '#7b2fe8', '#2c4fa3', '#c8432f', '#3e8fa6', '#56657f'];

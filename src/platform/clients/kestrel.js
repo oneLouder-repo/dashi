@@ -21,6 +21,8 @@
  * this file then shapes it into the org described above.
  */
 import { mockDocs } from '../mockOrgs.js';
+import { addKestrelStories, kestrelCommunityDoc } from './kestrelStories.js';
+import { seedPlanDocs } from '../plandocs.js';
 import { migratePages, slugify } from '../pages.js';
 import { migratePodcasts } from '../podcasts.js';
 import { blankMeta } from '../library.js';
@@ -353,7 +355,11 @@ export function kestrelBundle() {
   docs.social = shapeSocial(docs, latest);
   // A blank theory of change, to start from the plan (alpha 0.3 PR 8).
   if (docs.studio) Object.assign(docs.studio, { toc: {}, tocLinks: {} });
-  docs.assets = shapeAssets(docs);
+  docs.assets = addKestrelStories(shapeAssets(docs));
+  // Plan documents (alpha 0.3): the plan, published; and a draft community update with story cards, to play with.
+  docs.plandocs = seedPlanDocs(docs.strategy, docs.data, org);
+  const update = kestrelCommunityDoc(docs.strategy, docs.data, org, docs.assets);
+  if (update) docs.plandocs.docs[update.id] = update;
   // Rhizome's pilot instance (Rhizome stage 1): switched on, with the set-up already run, so design can start straight away.
   docs.rhizome = seedRhizome(docs);
   return { docs, files };

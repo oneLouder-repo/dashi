@@ -17,11 +17,12 @@ import { photoById, photoThumb } from './photos.js';
  *   activity     [ { at, by, what, key } ]  the latest 60 changes, newest first
  *
  * AssetItem {
- *   id, kind: 'file' | 'link' | 'note' | 'ref',
+ *   id, kind: 'file' | 'link' | 'note' | 'story' | 'ref',
  *   title, description, tags: [], collectionIds: [], abcd, sensitivity,
  *   file?: { mediaId, name, size, type },   an upload (chunked, see platform/media.js)
  *   url?,                                   a link
  *   text?,                                  a note (Markdown)
+ *   story?: { subtitle, body, images, form }, a story card (alpha 0.3, see platform/stories.js)
  *   ref?: { type, id, mapId? },             something elsewhere in Dashi (see SOURCES)
  *   meta: { creator, date, source, licence, location, language },
  *   related: [itemKey], comments: [{ id, by, at, text }],
@@ -69,6 +70,7 @@ export const SOURCES = [
   { id: 'upload', label: 'Uploaded files', icon: 'cloudUpload', sub: 'Documents, images, audio' },
   { id: 'link', label: 'Links', icon: 'link', sub: 'Pages and drives elsewhere' },
   { id: 'note', label: 'Notes', icon: 'note', sub: 'Written here' },
+  { id: 'story', label: 'Story cards', icon: 'story', sub: 'Short pieces to reuse' },
   { id: 'map', label: 'Ecosystem maps', icon: 'sec-mapper', plugin: 'mapper', sub: 'From the mapper' },
   { id: 'actor', label: 'Actors & agents', icon: 'actor', plugin: 'mapper', sub: 'Who is on your maps' },
   { id: 'staff', label: 'People', icon: 'person', sub: 'Your staff and their gifts' },
@@ -134,6 +136,15 @@ export function gatherAssets(hub, docs = {}, { plugins = null } = {}) {
     if (it.kind === 'ref' && it.ref) { refs.set(keyOf(it.ref), it); continue; }
     const src = it.kind === 'file' ? 'upload' : it.kind;
     const g = it.kind === 'file' ? fileGroup(it.file) : null;
+    if (it.kind === 'story') {
+      const st = it.story ?? {};
+      out.push({
+        key: it.id, item: it, source: 'story', title: it.title || 'Untitled story', description: st.subtitle ?? it.description ?? '', tags: it.tags, collectionIds: it.collectionIds,
+        abcd: it.abcd ?? 'cultural', sensitivity: it.sensitivity, file: null, url: null, text: st.body ?? '', href: null, updatedAt: it.updatedAt ?? it.createdAt, by: it.updatedBy ?? it.createdBy,
+        kindLabel: 'Story card', icon: 'story', group: null, pinned: !!it.pinned, story: st, ...photoOf(it),
+      });
+      continue;
+    }
     out.push({
       key: it.id, item: it, source: src, title: it.title || it.file?.name || it.url || 'Untitled',
       description: it.description ?? '', tags: it.tags, collectionIds: it.collectionIds, abcd: it.abcd ?? null,

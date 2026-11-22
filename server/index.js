@@ -11,7 +11,7 @@ import { createApp, hashPassword } from './app.js';
 import { exampleDocs } from '../src/platform/seeds.js';
 import { MOCK_ORGS, mockDocs, mockFiles } from '../src/platform/mockOrgs.js';
 import { seedPlanDocs } from '../src/platform/plandocs.js';
-import { CLIENT_ORGS, CLIENT_RESET } from '../src/platform/clients/index.js';
+import { CLIENT_ORGS, CLIENT_RESET, CLIENT_TOPUPS } from '../src/platform/clients/index.js';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { scheduleBackups } from './backup.js';
@@ -107,7 +107,26 @@ async function seedClientPlatform(db, app) {
     added.push(spec.name);
   }
   added.push(...resetClientDocs(db, app));
+  added.push(...topUpClientDocs(db, app));
   return added;
+}
+
+/** Client top-ups (src/platform/clients CLIENT_TOPUPS): each made once, adding to what's there. */
+export function topUpClientDocs(db, app, topups = CLIENT_TOPUPS) {
+  const done = [];
+  const row = db.prepare("SELECT json FROM platform_docs WHERE name = 'clients-topups'").get();
+  const applied = new Set(JSON.parse(row?.json ?? '{}').ids ?? []);
+  for (const t of topups) {
+    if (applied.has(t.id) || !db.prepare('SELECT 1 FROM orgs WHERE id = ?').get(t.org)) continue;
+    const read = (name) => JSON.parse(db.prepare('SELECT json FROM docs WHERE org_id = ? AND name = ?').get(t.org, name)?.json ?? 'null');
+    for (const [name, doc] of Object.entries(t.run(read) ?? {})) app.writeDoc(t.org, name, doc);
+    applied.add(t.id);
+    done.push(`${t.org} (${t.label})`);
+  }
+  const stamp = new Date().toISOString();
+  db.prepare('INSERT INTO platform_docs (name, json, updated_at, updated_by) VALUES (?, ?, ?, NULL) ON CONFLICT(name) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at')
+    .run('clients-topups', JSON.stringify({ ids: [...applied], at: stamp }), stamp);
+  return done;
 }
 
 /**

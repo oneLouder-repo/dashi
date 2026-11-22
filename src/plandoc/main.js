@@ -4,10 +4,19 @@ import { Shell, toast } from '../ui/Shell.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
 import { swSections } from '../strategy/swNav.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
-import { saveDoc, onDocChange } from '../platform/storage.js';
-import { loadOrg, loadStrategy, loadData, loadPlanDocs } from '../platform/docs.js';
-import { TEMPLATES, SECTIONS, newPlanDoc, planSnapshot, DOC_PALETTES, FONTS, BACKGROUNDS, COVERS, SCALES } from '../platform/plandocs.js';
+import { saveDoc, onDocChange, canWriteDoc } from '../platform/storage.js';
+import { loadOrg, loadStrategy, loadData, loadPlanDocs, loadAssets } from '../platform/docs.js';
+import {
+  TEMPLATES, SECTIONS, newPlanDoc, planSnapshot, DOC_PALETTES, FONTS, BACKGROUNDS, COVERS, SCALES, COVER_FILTERS,
+  STARTERS, starterById, applyStarter, AREA_KINDS, areaKindById, newArea, layoutOf, allMeasures, MAX_AREA_STORIES, MAX_AREA_MEASURES,
+  DESIGN_KEYS, designOf, releasePatch, unreleased, textOf,
+} from '../platform/plandocs.js';
 import { PALETTES } from '../platform/themes.js';
+import { PHOTOS, photoUrl, photoThumb, photoCredit } from '../platform/photos.js';
+import { storiesIn, storyOf, newStoryItem, applyStory } from '../platform/stories.js';
+import { currentUser } from '../platform/session.js';
+import { StoryEditor, StoryPicker } from '../ui/StoryEditor.js';
+import { PlanPreview } from './preview.js';
 import { PlanDocument, docColours, paletteColours } from './render.js';
 import { RichToolbar } from './richText.js';
 import { ImagePicker } from './ImagePicker.js';
@@ -28,6 +37,9 @@ const org = loadOrg();
 let strategy = loadStrategy();
 let data = loadData();
 const doc = loadPlanDocs();
+// Story cards live in the Asset manager (alpha 0.3); the designer reads them, and writes them when you may.
+let assets = loadAssets();
+const me = currentUser(org);
 // The designer is part of the Planning Studio.
 Shell(document.querySelector('#shell'), { current: 'studio', org });
 
@@ -51,11 +63,37 @@ const current = () => doc.docs[decodeURIComponent(location.hash.slice(1))] ?? Ob
 let timer;
 const save = () => { clearTimeout(timer); timer = setTimeout(() => saveDoc('plandocs', doc), 300); };
 let toolbar = null;
-const touch = (pd, patch, { redraw = true } = {}) => {
+/*
+ * Undo and redo (alpha 0.3): every design change keeps the design as it was
+ * (DESIGN_KEYS only, so publishing is never undone), per document.
+ */
+const undoLog = { id: null, undo: [], redo: [] };
+const remember = (pd) => {
+  if (undoLog.id !== pd.id) Object.assign(undoLog, { id: pd.id, undo: [], redo: [] });
+  const now = JSON.stringify(designOf(pd));
+  if (undoLog.undo.at(-1) !== now) undoLog.undo.push(now);
+  if (undoLog.undo.length > 80) undoLog.undo.shift();
+  undoLog.redo = [];
+};
+function restore(pd, from, to) {
+  if (undoLog.id !== pd.id || !from.length) return;
+  to.push(JSON.stringify(designOf(pd)));
+  const was = JSON.parse(from.pop());
+  for (const k of DESIGN_KEYS) { if (k in was) pd[k] = was[k]; else delete pd[k]; }
+  pd.updatedAt = new Date().toISOString();
+  save();
+  render();
+}
+const undo = () => { const pd = current(); if (pd) restore(pd, undoLog.undo, undoLog.redo); };
+const redo = () => { const pd = current(); if (pd) restore(pd, undoLog.redo, undoLog.undo); };
+const touch = (pd, patch, { redraw = true, keep = true } = {}) => {
+  if (keep) remember(pd);
   Object.assign(pd, patch, { updatedAt: new Date().toISOString() });
   save();
   if (redraw) render(); else drawPanel(pd, planSnapshot(strategy, data, pd.planId, org));
 };
+// The page picked on the canvas or in the Content tool.
+let selectedId = null;
 
 function create(planId) {
   const pd = newPlanDoc(planId);
@@ -68,7 +106,7 @@ function drawSide(pd) {
   // The same panel as the rest of Strategy & Work (strategy/swNav.js), then this page's own documents.
   side = swapSide(side, SideNav({ label: 'Strategy & Work', sections: swSections({ page: 'plandoc', planId: pd?.planId ?? null, strategy, extra: [
     { title: 'Plan documents', fold: 'sw-plandocs', items: Object.values(doc.docs).map((d) => ({
-      label: strategy.nodes[d.planId]?.title ?? 'A removed plan', sub: d.status === 'published' ? 'Published' : 'Draft', icon: 'doc', href: `#${d.id}`, on: d.id === pd?.id,
+      label: d.text?.title || strategy.nodes[d.planId]?.title || 'A removed plan', sub: [d.status === 'published' ? `Published${d.release ? `, v${d.release.version}` : ''}` : 'Draft', d.text?.title && strategy.nodes[d.planId]?.title].filter(Boolean).join(' · '), icon: 'doc', href: `#${d.id}`, on: d.id === pd?.id,
     })) },
     { title: 'Make one for a plan', fold: 'sw-plandoc-new', items: plans().map((p) => ({ label: p.title, sub: [p.start, p.end].filter(Boolean).map(short).join(' – '), icon: 'plus', onclick: () => create(p.id) })) },
   ] }) }));
@@ -96,12 +134,17 @@ function render() {
   const scroll = stage.scrollTop;
   panel.hidden = false;
   const palette = pd.palette || org.theme?.palette;
+  refreshStories(pd);
+  if (selectedId && !layoutOf(pd).includes(selectedId)) selectedId = null;
   toolbar?.el.remove();
   toolbar = RichToolbar({ colours: docColours(pd, palette).c });
   const docEl = PlanDocument(pd, snap, {
     editable: true,
     palette,
     toolbar,
+    selected: selectedId,
+    onPage: (id) => selectPage(id, { tool: pd.areas?.[id] ? 'content' : null }),
+    onStory: (areaId, i) => editStory(pd, areaId, i),
     onText: (key, value, html) => {
       const text = { ...pd.text };
       const rich = { ...pd.rich };
@@ -110,15 +153,20 @@ function render() {
       touch(pd, { text, rich }, { redraw: false });
     },
     onImage: (slot, seed) => ImagePicker({
-      current: pd.images?.[slot], seed, palette: pd.palette || org.theme?.palette, slotLabel: slot === 'cover' ? 'the cover' : 'this objective’s page',
+      current: pd.images?.[slot], seed, palette: pd.palette || org.theme?.palette, slotLabel: slot.startsWith('cover') ? 'the cover' : slot.startsWith('area:') ? 'this page' : 'this objective’s page',
       onPick: (img) => touch(pd, { images: { ...pd.images, [slot]: img } }),
     }),
   });
+  const changed = unreleased(pd, snap);
   head.replaceChildren(PluginHeader('strategy', {
-    title: snap.plan.title,
+    title: textOf(pd, snap, 'title'),
     blurb: '',
     actions: [
-      h('button', { class: 'btn btn-sm', title: 'Print it, or choose “Save as PDF” in the print window', onclick: () => printPlan(docEl.cloneNode(true), snap.plan.title) }, icon('download', 15), 'Print or save as PDF'),
+      h('span', { class: `pd-live${pd.release && pd.status === 'published' ? ' on' : ''}`, title: pd.release ? `Version ${pd.release.version}, published ${short(pd.release.at.slice(0, 10))}` : '' },
+        pd.release && pd.status === 'published' ? `Live: version ${pd.release.version}${changed ? ' · changes not published' : ''}` : 'Draft'),
+      h('button', { class: 'btn btn-sm', title: 'See it as it will print and publish (P)', onclick: () => openPreview(pd, snap) }, icon('eye', 15), 'Preview'),
+      h('button', { class: 'btn btn-sm', title: 'Print it, or choose “Save as PDF” in the print window', onclick: () => printPlan(PlanDocument(pd, snap, { palette }), textOf(pd, snap, 'title')) }, icon('download', 15), 'PDF'),
+      (changed || pd.status !== 'published') && h('button', { class: 'btn btn-sm btn-primary', title: 'Publish this version: every link, site and download then shows it', onclick: () => publish(pd, snap) }, icon('globe', 15), publishLabel(pd, snap)),
     ].filter(Boolean),
   }));
   stage.replaceChildren(h('div', { class: 'plandoc-canvas' }, docEl));
@@ -134,15 +182,18 @@ function render() {
  */
 const PANEL_KEY = 'dashi.plandoc-panel';
 const TOOLS = [
+  { id: 'starts', label: 'Starts', icon: 'sparkle' },
   { id: 'template', label: 'Template', icon: 'rows' },
   { id: 'cover', label: 'Cover', icon: 'image' },
+  { id: 'content', label: 'Content', icon: 'layers' },
   { id: 'colour', label: 'Colour', icon: 'palette' },
   { id: 'type', label: 'Type', icon: 'textAa' },
   { id: 'page', label: 'Page', icon: 'doc' },
-  { id: 'share', label: 'Share', icon: 'globe' },
+  { id: 'publish', label: 'Publish', icon: 'globe' },
 ];
-let panelState = { x: null, y: 16, tool: 'template', folded: false, hidden: false, zoom: 'fit' };
+let panelState = { x: null, y: 16, tool: 'starts', folded: false, hidden: false, zoom: 'fit' };
 try { panelState = { ...panelState, ...JSON.parse(localStorage.getItem(PANEL_KEY) ?? '{}') }; } catch { /* private window: defaults */ }
+if (panelState.tool === 'share') panelState.tool = 'publish';
 // PR 14: the panel is always there when you open the designer (it used to be possible to hide it and lose it).
 panelState.hidden = false;
 if (!Number.isFinite(panelState.x)) panelState.x = null;
@@ -181,17 +232,19 @@ function dragPanel(e) {
 
 function drawPanel(pd, snap) {
   if (panelState.hidden) { panel.hidden = true; return; }
-  const tool = TOOLS.some((t) => t.id === panelState.tool) ? panelState.tool : 'template';
+  const tool = TOOLS.some((t) => t.id === panelState.tool) ? panelState.tool : 'starts';
   const look = docColours(pd, pd.palette || org.theme?.palette);
   const summary = {
+    starts: starterById[pd.starter]?.label ?? 'Set the whole document up',
+    content: `${layoutOf(pd).filter((id) => !pd.hidden?.[id]).length} parts showing`,
     template: TEMPLATES.find((t) => t.id === pd.template)?.label ?? 'Template',
     cover: COVERS.find((c) => c.id === (pd.cover ?? 'template'))?.label ?? 'As the template',
     colour: pd.colours ? 'Custom colours' : paletteLabel(pd.palette ?? ''),
     type: [FONTS.find((f) => f.id === pd.fonts?.head)?.label ?? 'Template type', SCALES.find((x) => x.id === (pd.scale ?? 'm'))?.label].filter(Boolean).join(' · '),
     page: BACKGROUNDS.find((b) => b.id === (pd.background?.kind ?? 'plain'))?.label ?? 'Plain',
-    share: pd.status === 'published' ? 'Published' : 'Draft',
+    publish: pd.status === 'published' && pd.release ? `Version ${pd.release.version}${unreleased(pd, snap) ? ', changes since' : ''}` : 'Draft',
   };
-  const body = { template: TemplateTool, cover: CoverTool, colour: ColourPicker, type: TypeTool, page: PageTool, share: ShareTool }[tool](pd, snap);
+  const body = { starts: StartsTool, template: TemplateTool, cover: CoverTool, content: ContentTool, colour: ColourPicker, type: TypeTool, page: PageTool, publish: PublishTool }[tool](pd, snap);
   panel.classList.toggle('folded', !!panelState.folded);
   panel.style.setProperty('--pd-c0', look.c[0]);
   panel.replaceChildren(
@@ -200,6 +253,8 @@ function drawPanel(pd, snap) {
       h('strong', {}, panelState.folded ? 'Design tools' : TOOLS.find((t) => t.id === tool).label),
       !panelState.folded && h('small', {}, summary[tool]),
       h('span', { class: 'spacer' }),
+      !panelState.folded && h('button', { type: 'button', class: 'pd-shutter', disabled: undoLog.id !== pd.id || !undoLog.undo.length, title: 'Undo (Ctrl+Z)', 'aria-label': 'Undo', onclick: (e) => { e.stopPropagation(); undo(); } }, icon('undo', 14)),
+      !panelState.folded && h('button', { type: 'button', class: 'pd-shutter', disabled: undoLog.id !== pd.id || !undoLog.redo.length, title: 'Redo (Ctrl+Shift+Z)', 'aria-label': 'Redo', onclick: (e) => { e.stopPropagation(); redo(); } }, icon('redo', 14)),
       // The shutter: rolls the panel up to its title bar, and down again. (No close button: the tools are always to hand.)
       h('button', { type: 'button', class: 'pd-shutter', 'aria-expanded': String(!panelState.folded), title: panelState.folded ? 'Open the tools' : 'Roll the panel up', 'aria-label': panelState.folded ? 'Open the tools' : 'Roll the panel up', onclick: (e) => { e.stopPropagation(); setPanel({ folded: !panelState.folded }); } }, icon(panelState.folded ? 'chevronDown' : 'chevronUp', 14))),
     panelState.folded ? '' : h('div', { class: 'pd-float-body' },
@@ -220,15 +275,235 @@ function TemplateTool(pd) {
   }, h('span', { class: `pd-template-thumb pd-thumb-${t.id}`, 'aria-hidden': 'true' }), h('b', {}, t.label), h('small', {}, t.blurb))));
 }
 
+/** Doc starters: the whole document set up in one click (alpha 0.3). */
+function StartsTool(pd) {
+  return [
+    h('p', { class: 'pd-hint' }, 'Start from a kind of document. Sections, pages, template and cover are set for you; words you typed are kept.'),
+    h('div', { class: 'pd-starters' }, STARTERS.map((st) => h('button', {
+      type: 'button', class: `pd-starter${pd.starter === st.id ? ' on' : ''}`, 'aria-pressed': String(pd.starter === st.id),
+      onclick: async () => {
+        const custom = Object.values(pd.areas ?? {}).some((x) => x.starter && x.starter !== st.id);
+        if (custom && !(await uiConfirm(`Set this document up as “${st.label}”? The pages the last starter added are swapped for this one’s. Your words and your own pages stay.`, { ok: 'Set it up', danger: false }))) return;
+        const p = st.photo && PHOTOS.find((x) => x.id === st.photo);
+        const keepCover = pd.images?.cover?.kind === 'url' && pd.images.cover.source !== 'library';
+        const patch = applyStarter(pd, st.id, { photo: p && !keepCover ? libraryImage(p) : null });
+        // Story pages start with the newest story cards in Assets, so the page reads well straight away.
+        const latest = storiesIn(assets);
+        Object.values(patch.areas).filter((x) => x.kind === 'story' && !x.stories?.length).forEach((x, i) => { x.stories = latest.slice(i * 2, i * 2 + (x.style === 'feature' ? 3 : 2)); });
+        touch(pd, patch);
+        toast(`Set up as ${st.label.toLowerCase()}`);
+      },
+    }, h('span', { class: `pd-starter-thumb t-${st.template}`, 'aria-hidden': 'true' }, st.show.slice(0, 3).map(() => h('i')), st.areas.slice(0, 2).map(([k]) => h('i', { class: `a-${k}` }))),
+    h('span', { class: 'pd-starter-text' }, h('b', {}, st.label), h('small', {}, st.blurb))))),
+  ];
+}
+
+const libraryImage = (p) => ({ kind: 'url', url: photoUrl(p), alt: p.title, credit: photoCredit(p), license: 'Unsplash', source: 'library', photoId: p.id });
+
 function CoverTool(pd) {
   const img = pd.images?.cover;
+  const isPhoto = img?.kind === 'url';
+  const pickCover = (slot, label) => ImagePicker({ current: pd.images?.[slot], seed: 1, palette: pd.palette || org.theme?.palette, slotLabel: label, onPick: (pick) => touch(pd, { images: { ...pd.images, [slot]: pick } }) });
+  const nature = PHOTOS.filter((p) => p.group === 'nature');
   return [
-    h('p', { class: 'pd-hint' }, 'How the cover page is laid out.'),
+    h('h3', { class: 'pd-h3' }, 'Layout'),
     h('div', { class: 'pd-cover-grid' }, COVERS.map((c) => h('button', { type: 'button', class: `pd-cover-pick k-${c.id}${(pd.cover ?? 'template') === c.id ? ' on' : ''}`, 'aria-pressed': String((pd.cover ?? 'template') === c.id), onclick: () => touch(pd, { cover: c.id }) },
-      h('span', { class: 'pd-cover-thumb', 'aria-hidden': 'true' }, h('i'), h('b')), h('span', {}, c.label)))),
-    h('button', { type: 'button', class: 'btn btn-sm w-full', onclick: () => ImagePicker({ current: img, seed: 1, palette: pd.palette || org.theme?.palette, slotLabel: 'the cover', onPick: (pick) => touch(pd, { images: { ...pd.images, cover: pick } }) }) },
-      icon('image', 14), img ? 'Change the cover picture' : 'Choose a cover picture'),
+      h('span', { class: 'pd-cover-thumb', 'aria-hidden': 'true' }, h('i'), h('b'), c.id === 'mosaic' && [h('em'), h('em')]), h('span', {}, c.label)))),
+    h('h3', { class: 'pd-h3' }, 'Photo'),
+    h('p', { class: 'pd-hint' }, 'Nature photos from the Public Portal library. One click puts it on the cover.'),
+    h('div', { class: 'pd-photo-strip' }, nature.map((p) => h('button', { type: 'button', class: `pd-photo${img?.photoId === p.id ? ' on' : ''}`, title: `${p.title} · ${photoCredit(p)}`, 'aria-label': p.title, 'aria-pressed': String(img?.photoId === p.id),
+      onclick: () => touch(pd, { images: { ...pd.images, cover: libraryImage(p) } }) }, h('img', { src: photoThumb(p), alt: '', loading: 'lazy' })))),
+    h('button', { type: 'button', class: 'btn btn-sm w-full', onclick: () => pickCover('cover', 'the cover') }, icon('image', 14), 'More pictures: art, photos, upload'),
+    pd.cover === 'mosaic' && h('div', { class: 'pd-two' },
+      h('button', { type: 'button', class: 'btn btn-xs', onclick: () => pickCover('cover2', 'the second cover photo') }, 'Second photo'),
+      h('button', { type: 'button', class: 'btn btn-xs', onclick: () => pickCover('cover3', 'the third cover photo') }, 'Third photo')),
+    h('h3', { class: 'pd-h3' }, 'Tone'),
+    h('div', { class: 'pd-chips' }, COVER_FILTERS.map((f) => h('button', { type: 'button', class: `pd-chip${(pd.coverFilter ?? 'none') === f.id ? ' on' : ''}`, disabled: !isPhoto && f.id !== 'none', title: isPhoto ? '' : 'For photos: art is drawn in your colours already', onclick: () => touch(pd, { coverFilter: f.id }) }, f.label))),
   ];
+}
+
+/*
+ * The content-area editor (alpha 0.3): every part of the document in order,
+ * to show or hide, move, and add to: text, picture, data and story pages.
+ * The picked part's own settings sit underneath.
+ */
+const partLabel = (pd, snap, id) => {
+  const sec = SECTIONS.find((x) => x.id === id);
+  if (sec) return { label: sec.label, sub: id === 'objectives' ? `${snap.objectives.length} page${snap.objectives.length === 1 ? '' : 's'}` : 'From the strategy', icon: { cover: 'image', letter: 'mail', foundations: 'compass', glance: 'tiles', objectives: 'target', numbers: 'chart', closing: 'phone' }[id] ?? 'doc' };
+  const a = pd.areas[id];
+  const k = areaKindById[a.kind];
+  const title = textOf(pd, snap, `area:${id}:title`) || k.label;
+  return { label: title, sub: `${k.label} · ${k.styles.find((x) => x.id === a.style)?.label ?? ''}`, icon: k.icon, area: true };
+};
+
+function ContentTool(pd, snap) {
+  const order = layoutOf(pd);
+  const move = (id, to) => { const list = order.filter((x) => x !== id); list.splice(Math.max(0, Math.min(list.length, to)), 0, id); touch(pd, { layout: list }); };
+  let dragId = null;
+  const rows = order.map((id, i) => {
+    const info = partLabel(pd, snap, id);
+    const shown = !pd.hidden?.[id];
+    const row = h('li', { class: `pd-part${selectedId === id ? ' on' : ''}${shown ? '' : ' off'}`, draggable: 'true', 'data-id': id,
+      ondragstart: (e) => { dragId = id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', id); row.classList.add('dragging'); },
+      ondragend: () => row.classList.remove('dragging'),
+      ondragover: (e) => { if (!dragId || dragId === id) return; e.preventDefault(); const r = row.getBoundingClientRect(); row.classList.toggle('drop-after', e.clientY > r.top + r.height / 2); row.classList.toggle('drop-before', e.clientY <= r.top + r.height / 2); },
+      ondragleave: () => row.classList.remove('drop-after', 'drop-before'),
+      ondrop: (e) => { e.preventDefault(); const after = row.classList.contains('drop-after'); row.classList.remove('drop-after', 'drop-before'); if (!dragId || dragId === id) return; const list = order.filter((x) => x !== dragId); list.splice(list.indexOf(id) + (after ? 1 : 0), 0, dragId); touch(pd, { layout: list }); },
+    },
+    h('span', { class: 'pd-part-grip', 'aria-hidden': 'true' }, icon('dragHandle', 14)),
+    h('button', { type: 'button', class: 'pd-part-main', onclick: () => selectPage(id, { scroll: true }) }, icon(info.icon, 15), h('span', {}, h('b', {}, info.label), h('small', {}, info.sub))),
+    h('span', { class: 'pd-part-tools' },
+      h('button', { type: 'button', class: 'pd-mini', title: 'Move up', 'aria-label': `Move ${info.label} up`, disabled: i === 0, onclick: () => move(id, i - 1) }, icon('chevronUp', 13)),
+      h('button', { type: 'button', class: 'pd-mini', title: 'Move down', 'aria-label': `Move ${info.label} down`, disabled: i === order.length - 1, onclick: () => move(id, i + 1) }, icon('chevronDown', 13)),
+      h('button', { type: 'button', class: 'pd-mini', title: shown ? 'Hide it' : 'Show it', 'aria-label': shown ? `Hide ${info.label}` : `Show ${info.label}`, 'aria-pressed': String(shown),
+        onclick: () => { const hidden = { ...pd.hidden }; if (shown) hidden[id] = true; else delete hidden[id]; touch(pd, { hidden }); } }, icon(shown ? 'eye' : 'eyeOff', 13))));
+    return row;
+  });
+  const sel = selectedId && order.includes(selectedId) ? selectedId : null;
+  return [
+    h('h3', { class: 'pd-h3' }, 'Add a page'),
+    h('div', { class: 'pd-add-areas' }, AREA_KINDS.map((k) => h('button', { type: 'button', class: 'pd-add-area', title: k.blurb, onclick: () => addArea(pd, k.id) }, icon(k.icon, 16), h('span', {}, k.label)))),
+    // The picked part's settings first, so they're in view without scrolling the list.
+    sel && PartSettings(pd, snap, sel),
+    h('h3', { class: 'pd-h3' }, 'In this document'),
+    h('p', { class: 'pd-hint' }, 'Drag to reorder. The eye shows or hides a part. Click a page to pick it.'),
+    h('ol', { class: 'pd-parts' }, rows),
+  ];
+}
+
+function addArea(pd, kind) {
+  const { area, text } = newArea(kind);
+  const order = layoutOf(pd);
+  // After the picked page, or before the closing page.
+  const at = selectedId && order.includes(selectedId) ? order.indexOf(selectedId) + 1 : Math.max(0, order.indexOf('closing'));
+  order.splice(at, 0, area.id);
+  selectedId = area.id;
+  panelState.tool = 'content'; keepPanel();
+  touch(pd, { areas: { ...pd.areas, [area.id]: area }, layout: order, text: { ...pd.text, ...text } });
+  requestAnimationFrame(() => scrollToPage(area.id));
+  if (kind === 'story') pickStories(pd, area.id);
+}
+
+function PartSettings(pd, snap, id) {
+  const a = pd.areas?.[id];
+  const box = (...kids) => h('div', { class: 'pd-part-settings' }, ...kids);
+  if (!a) {
+    const info = partLabel(pd, snap, id);
+    return box(h('h3', { class: 'pd-h3' }, info.label), h('p', { class: 'pd-hint' }, id === 'cover' ? 'Change its layout and photo in the Cover tool. Click the words on the page to write.' : 'Words come from the strategy until you type over them on the page.'));
+  }
+  const k = areaKindById[a.kind];
+  const setArea = (patch) => touch(pd, { areas: { ...pd.areas, [id]: { ...a, ...patch } } });
+  const remove = async () => {
+    if (!(await uiConfirm('Remove this page? Its words and pictures go with it.', { ok: 'Remove page' }))) return;
+    const areas = { ...pd.areas }; delete areas[id];
+    const text = Object.fromEntries(Object.entries(pd.text ?? {}).filter(([key]) => !key.startsWith(`area:${id}:`)));
+    const rich = Object.fromEntries(Object.entries(pd.rich ?? {}).filter(([key]) => !key.startsWith(`area:${id}:`)));
+    const images = Object.fromEntries(Object.entries(pd.images ?? {}).filter(([key]) => !key.startsWith(`area:${id}:`)));
+    selectedId = null;
+    touch(pd, { areas, text, rich, images, layout: layoutOf(pd).filter((x) => x !== id) });
+  };
+  const pic = (n, label) => h('button', { type: 'button', class: 'btn btn-xs', onclick: () => ImagePicker({ current: pd.images?.[`area:${id}:${n}`], seed: n + 3, palette: pd.palette || org.theme?.palette, slotLabel: 'this page', onPick: (img) => touch(pd, { images: { ...pd.images, [`area:${id}:${n}`]: img } }) }) }, icon('image', 13), label);
+  const measures = allMeasures(snap);
+  const chosen = a.measureIds ?? [];
+  return box(
+    h('div', { class: 'pd-part-settings-head' }, icon(k.icon, 15), h('b', {}, `${k.label} page`), h('span', { class: 'spacer' }),
+      h('button', { type: 'button', class: 'btn btn-xs btn-ghost', title: 'Make a copy', onclick: () => {
+        const { area } = newArea(a.kind);
+        const copy = { ...structuredClone(a), id: area.id, starter: undefined };
+        const text = { ...pd.text }; const rich = { ...pd.rich }; const images = { ...pd.images };
+        for (const [key, v] of Object.entries(pd.text ?? {})) if (key.startsWith(`area:${id}:`)) text[key.replace(id, area.id)] = v;
+        for (const [key, v] of Object.entries(pd.rich ?? {})) if (key.startsWith(`area:${id}:`)) rich[key.replace(id, area.id)] = v;
+        for (const [key, v] of Object.entries(pd.images ?? {})) if (key.startsWith(`area:${id}:`)) images[key.replace(id, area.id)] = v;
+        const order = layoutOf(pd); order.splice(order.indexOf(id) + 1, 0, area.id);
+        selectedId = area.id;
+        touch(pd, { areas: { ...pd.areas, [area.id]: copy }, text, rich, images, layout: order });
+      } }, icon('copy', 13)),
+      h('button', { type: 'button', class: 'btn btn-xs btn-ghost text-error', title: 'Remove this page', 'aria-label': 'Remove this page', onclick: remove }, icon('trash', 13))),
+    h('div', { class: 'segmented pd-seg' }, k.styles.map((x) => h('button', { type: 'button', class: (a.style ?? k.styles[0].id) === x.id ? 'on' : '', 'aria-pressed': String((a.style ?? k.styles[0].id) === x.id), onclick: () => setArea({ style: x.id }) }, x.label))),
+    a.kind === 'text' && h('p', { class: 'pd-hint' }, a.style === 'quote' ? 'Click the quote on the page to write it, and the name under it.' : 'Click the words on the page to write. Select words for bold, lists and links.'),
+    a.kind === 'image' && h('div', { class: 'pd-two' }, pic(0, a.style === 'pair' ? 'First photo' : 'Change the photo'), a.style === 'pair' && pic(1, 'Second photo')),
+    a.kind === 'data' && [
+      h('p', { class: 'pd-hint' }, measures.length ? `Pick up to ${MAX_AREA_MEASURES}. With none picked, the page shows the plan’s headline numbers.` : 'This plan has no measures yet. Add them in Strategy & Work.'),
+      h('div', { class: 'pd-measure-pick' }, measures.map((m) => h('label', { class: 'pd-check' },
+        h('input', { type: 'checkbox', class: 'checkbox checkbox-xs', checked: chosen.includes(m.id), disabled: !chosen.includes(m.id) && chosen.length >= MAX_AREA_MEASURES,
+          onchange: (e) => setArea({ measureIds: e.target.checked ? [...chosen, m.id] : chosen.filter((x) => x !== m.id) }) }),
+        h('span', {}, m.name, !m.facts && h('small', { class: 'muted' }, ' · no data yet'))))),
+    ],
+    a.kind === 'story' && [
+      h('ul', { class: 'pd-story-list' }, (a.stories ?? []).map((st, i) => h('li', {},
+        st.images?.[0] ? h('img', { src: st.images[0].url, alt: '' }) : h('span', { class: 'pd-story-noimg' }, icon('story', 14)),
+        h('span', { class: 'pd-story-name' }, h('b', {}, st.title || 'Untitled'), h('small', {}, st.assetId && assetById(st.assetId) ? 'In Assets' : st.assetId ? 'Removed from Assets: a copy is kept' : 'Only in this document')),
+        h('button', { type: 'button', class: 'pd-mini', title: 'Edit', 'aria-label': `Edit ${st.title}`, onclick: () => editStory(pd, id, i) }, icon('pencil', 13)),
+        h('button', { type: 'button', class: 'pd-mini', title: 'Take it off this page', 'aria-label': `Take ${st.title} off this page`, onclick: () => setArea({ stories: a.stories.filter((_, k2) => k2 !== i) }) }, icon('close', 13))))),
+      h('div', { class: 'pd-two' },
+        h('button', { type: 'button', class: 'btn btn-xs', disabled: (a.stories ?? []).length >= MAX_AREA_STORIES && !storiesIn(assets).length, onclick: () => pickStories(pd, id) }, icon('story', 13), 'Pick from Assets'),
+        h('button', { type: 'button', class: 'btn btn-xs', disabled: (a.stories ?? []).length >= MAX_AREA_STORIES, onclick: () => newStory(pd, id) }, icon('plus', 13), 'Write a new one')),
+      !canWriteDoc('assets') && h('p', { class: 'pd-hint' }, 'Assets isn’t switched on for you, so new cards are kept in this document only.'),
+    ],
+  );
+}
+
+/* ---------- Story cards on a page ---------- */
+const assetById = (id) => (assets.items?.[id]?.kind === 'story' ? assets.items[id] : null);
+/** Story copies on pages follow their cards in Assets (the copy is what gets published). */
+function refreshStories(pd) {
+  for (const a of Object.values(pd.areas ?? {})) {
+    if (a.kind !== 'story') continue;
+    a.stories = (a.stories ?? []).map((st) => { const it = st.assetId && assetById(st.assetId); return it ? storyOf(it) : st; });
+  }
+}
+const storeAssets = () => { if (canWriteDoc('assets')) saveDoc('assets', assets); };
+function setStories(pd, areaId, stories) {
+  const a = pd.areas[areaId];
+  touch(pd, { areas: { ...pd.areas, [areaId]: { ...a, stories: stories.slice(0, MAX_AREA_STORIES) } } });
+}
+function pickStories(pd, areaId) {
+  const a = pd.areas[areaId];
+  const own = (a.stories ?? []).filter((s) => !s.assetId || !assetById(s.assetId));
+  StoryPicker({
+    stories: storiesIn(assets), chosen: (a.stories ?? []).map((s) => s.assetId).filter(Boolean), max: MAX_AREA_STORIES - own.length,
+    onPick: (list) => setStories(pd, areaId, [...list, ...own]),
+    onNew: () => newStory(pd, areaId),
+  });
+}
+function newStory(pd, areaId) {
+  StoryEditor({ onSave: (st) => {
+    let copy = { ...st };
+    if (canWriteDoc('assets')) {
+      const item = newStoryItem(st, me?.id ?? null);
+      assets.items[item.id] = item;
+      storeAssets();
+      copy = storyOf(item);
+      toast('Story card saved to Assets');
+    }
+    setStories(pd, areaId, [...(pd.areas[areaId].stories ?? []), copy]);
+  } });
+}
+function editStory(pd, areaId, i) {
+  const a = pd.areas[areaId];
+  const st = a?.stories?.[i];
+  if (!st) return;
+  const item = st.assetId && assetById(st.assetId);
+  StoryEditor({ story: st, title: item ? 'Edit story card (changes it in Assets too)' : 'Edit story', onSave: (next) => {
+    let copy = { ...st, ...next };
+    if (item && canWriteDoc('assets')) { applyStory(item, next, me?.id ?? null); storeAssets(); copy = storyOf(item); }
+    const list = [...a.stories]; list[i] = copy;
+    setStories(pd, areaId, list);
+  }, onDelete: () => setStories(pd, areaId, a.stories.filter((_, k) => k !== i)) });
+}
+
+/* ---------- Picking a page ---------- */
+function scrollToPage(id) {
+  const el = stage.querySelector(`.pd-page[data-section="${CSS.escape(id)}"]`);
+  el?.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+}
+function selectPage(id, { scroll = false, tool = null } = {}) {
+  selectedId = id;
+  stage.querySelectorAll('.pd-page').forEach((p) => p.classList.toggle('pd-selected', p.dataset.section === id));
+  if (tool && panelState.tool !== tool) { panelState.tool = tool; keepPanel(); }
+  const pd = current();
+  if (pd) drawPanel(pd, planSnapshot(strategy, data, pd.planId, org));
+  if (scroll) scrollToPage(id);
 }
 
 function TypeTool(pd) {
@@ -250,37 +525,62 @@ function PageTool(pd) {
   return [
     h('h3', { class: 'pd-h3' }, 'Background'),
     BackgroundPicker(pd),
-    h('h3', { class: 'pd-h3' }, 'Sections'),
-    h('div', { class: 'pd-sections' }, SECTIONS.map((sec) => h('label', { class: 'pd-check' },
-      h('input', { type: 'checkbox', class: 'toggle toggle-xs', checked: !pd.hidden?.[sec.id], onchange: (e) => { const hidden = { ...pd.hidden }; if (e.target.checked) delete hidden[sec.id]; else hidden[sec.id] = true; touch(pd, { hidden }); } }),
-      sec.label))),
+    h('p', { class: 'pd-hint' }, 'Show, hide, move and add pages in the Content tool.'),
     changedWords > 0 && h('div', { class: 'pd-note' }, `${changedWords} piece${changedWords === 1 ? '' : 's'} of text changed from the strategy.`,
       h('button', { class: 'btn btn-xs btn-ghost', onclick: async () => { if (await uiConfirm('Go back to the words in the strategy? What you typed here is dropped.')) touch(pd, { text: {} }); } }, 'Reset the words')),
   ].filter(Boolean);
 }
 
-function ShareTool(pd, snap) {
+/*
+ * Publishing (alpha 0.3) freezes the design and the plan as a release. The
+ * site page, the PDF download and every link show the latest release, so
+ * designing goes on without visitors seeing half-done pages.
+ */
+function PublishTool(pd, snap) {
   const sites = Object.values(org.sites ?? {});
   const site = org.sites?.[pd.siteId];
-  const stale = pd.status === 'published' && pd.snapshot && JSON.stringify({ ...pd.snapshot, takenAt: 0 }) !== JSON.stringify({ ...snap, takenAt: 0 });
+  const live = pd.status === 'published' && pd.release;
+  const changed = unreleased(pd, snap);
+  const who = (id) => org.staff?.[id]?.name;
   return [
     h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Web view on'),
-      h('select', { class: 'select select-sm w-full', onchange: (e) => touch(pd, { siteId: e.target.value || null }) },
+      h('select', { class: 'select select-sm w-full', onchange: (e) => touch(pd, { siteId: e.target.value || null }, { keep: false }) },
         h('option', { value: '' }, 'Choose a site'), options(sites.map((x) => ({ id: x.id, label: `${x.name}${x.visibility === 'private' ? ' (private)' : ''}` })), pd.siteId))),
-    pd.status === 'published'
-      ? h('div', { class: 'pd-share' },
-        h('p', { class: 'pd-status on' }, `Published ${pd.publishedAt ?? ''}`),
-        stale && h('p', { class: 'muted small' }, 'The strategy or data has changed since. Update to show the latest.'),
-        h('div', { class: 'pd-share-actions' },
-          h('button', { class: `btn btn-sm ${stale ? 'btn-primary' : ''}`, onclick: () => publish(pd, snap) }, 'Update'),
-          site && h('a', { class: 'btn btn-sm btn-ghost', href: `site.html?site=${site.id}&plan=${pd.id}`, target: '_blank' }, 'View it'),
-          h('button', { class: 'btn btn-sm btn-ghost', onclick: () => touch(pd, { status: 'draft' }) }, 'Unpublish')))
-      : h('div', { class: 'pd-share' },
-        h('p', { class: 'pd-status' }, 'Draft: only staff can see it'),
-        h('button', { class: 'btn btn-sm btn-primary', disabled: !pd.siteId, title: pd.siteId ? '' : 'Choose a site first', onclick: () => publish(pd, snap) }, 'Publish the web view')),
-    h('p', { class: 'muted small' }, 'Visitors see the plan as it was when you last published or updated it. Link to it from emails and pages, or insert it into a Library doc.'),
-    h('button', { class: 'btn btn-xs btn-ghost text-error', onclick: async () => { if (await uiConfirm('Delete this plan document?')) { delete doc.docs[pd.id]; saveDoc('plandocs', doc); location.hash = ''; render(); } } }, 'Delete this document'),
+    h('div', { class: `pd-release${live ? ' on' : ''}` },
+      h('p', { class: `pd-status${live ? ' on' : ''}` }, live ? `Live: version ${pd.release.version}` : pd.release ? 'Unpublished' : 'Draft: only staff can see it'),
+      live && h('p', { class: 'pd-hint' }, `Published ${short(pd.release.at.slice(0, 10))}${who(pd.release.by) ? ` by ${who(pd.release.by)}` : ''}. Links, the site and the PDF download all show this version.`),
+      live && changed && h('p', { class: 'pd-hint pd-changed' }, 'You’ve changed things since. Visitors still see the last version until you publish again.'),
+      h('div', { class: 'pd-share-actions' },
+        changed || !live ? h('button', { class: 'btn btn-sm btn-primary', onclick: () => publish(pd, snap) }, icon('globe', 14), publishLabel(pd, snap)) : h('span', { class: 'pd-uptodate' }, icon('check', 14), 'Up to date'),
+        h('button', { class: 'btn btn-sm btn-ghost', onclick: () => openPreview(pd, snap) }, icon('eye', 14), 'Preview first'),
+        live && site && h('a', { class: 'btn btn-sm btn-ghost', href: `site.html?site=${site.id}&plan=${pd.id}`, target: '_blank' }, 'View it'))),
+    (pd.releases ?? []).length > 0 && h('details', { class: 'pd-more' },
+      h('summary', {}, `Versions (${pd.releases.length})`),
+      h('ol', { class: 'pd-versions' }, pd.releases.map((r) => h('li', { class: r.version === pd.release?.version ? 'on' : '' },
+        h('b', {}, `Version ${r.version}`), h('span', {}, `${short(r.at.slice(0, 10))}${who(r.by) ? ` · ${who(r.by)}` : ''}`), r.version === pd.release?.version && h('small', {}, live ? 'live' : 'last'))))),
+    h('p', { class: 'muted small' }, 'Link to it from emails and pages, or insert it into a Library doc: the link always opens the latest version.'),
+    h('div', { class: 'pd-share-actions' },
+      live && h('button', { class: 'btn btn-xs btn-ghost', onclick: () => touch(pd, { status: 'draft' }, { keep: false }) }, 'Unpublish'),
+      h('button', { class: 'btn btn-xs btn-ghost text-error', onclick: async () => { if (await uiConfirm('Delete this plan document?')) { delete doc.docs[pd.id]; saveDoc('plandocs', doc); location.hash = ''; render(); } } }, 'Delete this document')),
   ].filter(Boolean);
+}
+
+function publishLabel(pd, snap) {
+  if (pd.status !== 'published' || !pd.release) return pd.release ? 'Publish again' : 'Publish';
+  return unreleased(pd, snap) ? `Publish version ${pd.release.version + 1}` : 'Published';
+}
+
+function openPreview(pd, snap) {
+  const palette = pd.palette || org.theme?.palette;
+  const changed = unreleased(pd, snap);
+  PlanPreview({
+    doc: PlanDocument(pd, snap, { palette }),
+    title: textOf(pd, snap, 'title'),
+    status: pd.release && pd.status === 'published' ? (changed ? `Not published yet: visitors see version ${pd.release.version}` : `This is version ${pd.release.version}, live now`) : 'Draft: not published yet',
+    onPrint: () => printPlan(PlanDocument(pd, snap, { palette }), textOf(pd, snap, 'title')),
+    onPublish: changed || pd.status !== 'published' ? () => publish(pd, snap) : null,
+    publishLabel: publishLabel(pd, snap),
+  });
 }
 
 /** Palettes as swatches: the org's own, the app themes, and colour sets made for print; then custom colours. */
@@ -330,8 +630,14 @@ function pickBackground(pd) {
 }
 
 function publish(pd, snap) {
-  touch(pd, { status: 'published', snapshot: snap, publishedAt: new Date().toISOString().slice(0, 10) });
-  toast('Published');
+  // No site chosen yet: the first public one (and say so).
+  let siteId = pd.siteId;
+  if (!siteId) siteId = Object.values(org.sites ?? {}).find((x) => x.visibility === 'public')?.id ?? null;
+  if (!siteId) { toast('Add a public site in the Public Portal first, then publish to it.'); return; }
+  refreshStories(pd);
+  const patch = releasePatch(pd, snap, me?.id ?? null);
+  touch(pd, { ...patch, siteId }, { keep: false });
+  toast(`Published version ${patch.release.version}${pd.siteId !== siteId ? ` on ${org.sites[siteId].name}` : ''}. Every link now shows it.`);
 }
 
 /** Shrink the pages to fit the space between the side panels (they print full size). */
@@ -362,7 +668,16 @@ stage.addEventListener('wheel', (e) => {
 }, { passive: false });
 window.addEventListener('resize', fitPages);
 if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => { if (!panel.hidden) placePanel(); }).observe(stageWrap);
-window.addEventListener('hashchange', () => { stage.scrollTop = 0; render(); });
+window.addEventListener('hashchange', () => { stage.scrollTop = 0; selectedId = null; render(); });
+// Undo, redo and preview from the keyboard, when you aren't typing.
+window.addEventListener('keydown', (e) => {
+  if (e.target.closest?.('[contenteditable="true"], input, textarea, select, dialog') || document.documentElement.classList.contains('pv-open')) return;
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
+  else if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
+  else if (!mod && !e.altKey && e.key.toLowerCase() === 'p') { const pd = current(); const snap = pd && planSnapshot(strategy, data, pd.planId, org); if (snap) { e.preventDefault(); openPreview(pd, snap); } }
+});
+onDocChange('assets', (d) => { assets = d; render(); });
 onDocChange('strategy', (d) => { strategy = d; render(); });
 onDocChange('data', (d) => { data = d; render(); });
 render();

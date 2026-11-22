@@ -6,6 +6,18 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### Plan designer touch-up (parallel branch)
+
+- **A better tool panel.** Eight tools on the rail: Starts, Template, Cover, Content, Colour, Type, Page and Publish. Undo and redo sit in the panel's title bar (Ctrl+Z, Ctrl+Shift+Z), and only ever undo design, never a publish. P opens the preview.
+- **Doc starters.** Set a whole document up in one click: Strategic plan, Plan on a page, Annual report, Funder brief, Community update or Board pack. Each sets the sections shown, the pages added, the template, the cover and its small heading. Words you typed and pages you added yourself are kept. Story pages start with your newest story cards.
+- **Four more templates:** Magazine, Field guide, Minimal and Brief.
+- **Five more covers:** Framed photo, Circle, Poster, Colour stripe and Photo mosaic. The Cover tool puts the Public Portal's nature photos one click away, and tones a photo: as it is, duotone in your colours, soft, or black and white.
+- **The content-area editor.** The Content tool lists every part of the document in order. Drag or step to reorder, the eye shows or hides, and click to pick a page (on the canvas too). Add **Text** (page, two columns or a big quote), **Picture** (full page, with words, or two photos), **Data** (pick up to six measures, as big numbers or bars) and **Story** pages (one to three story cards, as cards or a feature). Copy or remove any page you added.
+- **Story cards, a native Dashi type in the Asset manager.** A title, a subtitle, a short text, one or two pictures and tags, in four forms with a word guide: story chunk (~80 words), social post (~60), paragraph (~150) and blog post (~400). Write them in Assets (New → Story card) or straight from a story page. A card stays one copy: edit it in either place and it changes in both. Kestrel Bay has four to play with, and a draft Community update that uses them.
+- **Preview.** The pages fill the window with the tools out of the way, a whole page or the full width at a time, stepped with the arrow keys. Download the PDF or publish from there.
+- **Publish keeps the latest released version.** Publishing freezes the design and the plan together as a numbered version. The site page, the PDF download and every link show the latest one, so you can keep designing without visitors seeing half-done pages. The header says what's live and whether there are changes since; the Publish tool lists the versions. Plan docs published before this became version 1, unchanged. A site's plan link with `&print=1` opens the PDF download.
+- Fixed: headings inside the document were picking up the app's small grey section headings in the designer.
+
 ### PR 21: Rhizome, stage 3: the rack
 
 - **Twin racks.** Build your own analyses by cabling modules together, like a modular synth. Rack A holds the controls and rack B the screens and engines, so you can turn a knob and watch the result side by side. Cables run across both.

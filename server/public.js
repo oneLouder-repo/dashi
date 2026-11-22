@@ -96,10 +96,13 @@ export function publicDocs(docs, today = new Date().toISOString().slice(0, 10)) 
   for (const p of Object.values(pages)) if (p.authorId) people.add(p.authorId);
   out.pages = { id: 'pages', pages };
 
-  // Plan documents: only the published snapshot, never the live strategy.
+  // Plan documents: only the published snapshot, never the live strategy. With a release (alpha 0.3),
+  // only the release: the designer's unpublished changes stay with staff.
   out.plandocs = { id: 'plandocs', docs: Object.fromEntries(Object.entries(docs.plandocs?.docs ?? {})
-    .filter(([, d]) => d.status === 'published' && d.snapshot && onSite(d.siteId))
-    .map(([id, d]) => [id, pick(d, ['id', 'planId', 'template', 'palette', 'text', 'rich', 'hidden', 'images', 'colours', 'paper', 'fonts', 'background', 'cover', 'scale', 'siteId', 'status', 'publishedAt', 'snapshot'])])) };
+    .filter(([, d]) => d.status === 'published' && (d.release?.snapshot ?? d.snapshot) && onSite(d.siteId))
+    .map(([id, d]) => [id, d.release
+      ? { ...pick(d, ['id', 'planId', 'siteId', 'status', 'publishedAt']), release: pick(d.release, ['version', 'at', 'design', 'snapshot']), snapshot: d.release.snapshot }
+      : pick(d, ['id', 'planId', 'template', 'palette', 'text', 'rich', 'hidden', 'images', 'colours', 'paper', 'fonts', 'background', 'cover', 'scale', 'siteId', 'status', 'publishedAt', 'snapshot'])])) };
 
   // Critical Media: where its prompts show, and the org's own lessons (never the sessions log).
   if (criticalOn(org)) {

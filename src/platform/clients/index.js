@@ -12,6 +12,9 @@
  * an intake script any new client can run.
  */
 import { sjrDocs } from './sjr.js';
+import { addKestrelStories, kestrelCommunityDoc } from './kestrelStories.js';
+import { migrateAssets, blankAssets } from '../assetHub.js';
+import { seedPlanDocs } from '../plandocs.js';
 import { actuaDocs } from './actua.js';
 import { kestrelBundle } from './kestrel.js';
 
@@ -30,6 +33,27 @@ export const CLIENT_RESET = {
   // Collections emptied inside a document, keeping the rest (alpha 0.3 PR 8: a blank theory of change in every client org, SOAR and Assemble kept).
   clear: Object.fromEntries(['org-sjr', 'org-actua-ai', 'org-kestrel'].map((id) => [id, { studio: ['toc', 'tocLinks'] }])),
 };
+
+/**
+ * Top-ups: small additions to client orgs that are already set up, made once
+ * each (kept in platform_docs 'clients-topups'), without resetting anything.
+ * `run(read)` gets the org's documents by name and returns the ones to write.
+ */
+export const CLIENT_TOPUPS = [
+  { id: 'a03-plandoc-stories', org: 'org-kestrel', label: 'story cards and a community update', run: (read) => {
+    const assets = addKestrelStories(migrateAssets(read('assets') ?? blankAssets()));
+    const out = { assets };
+    const strategy = read('strategy');
+    const plandocs = read('plandocs');
+    // No plan documents yet: the designer makes the first one when it opens; just add the community update beside it.
+    const docs = plandocs ?? (strategy ? seedPlanDocs(strategy, read('data'), read('org')) : null);
+    if (docs && !docs.docs?.['pd-kestrel-community']) {
+      const update = kestrelCommunityDoc(strategy, read('data'), read('org'), assets);
+      if (update) { docs.docs[update.id] = update; out.plandocs = docs; }
+    }
+    return out;
+  } },
+];
 
 export const CLIENT_ORGS = [
   { id: 'org-sjr', slug: 'sjr', name: 'Social Justice Radio', plan: 'standard', docs: sjrDocs },

@@ -4,7 +4,7 @@ import { onDocChange, session, isHosted, canWriteDoc } from '../platform/storage
 import { BlockEditor } from '../designer/BlockEditor.js';
 import { loadOrg, loadStrategy, loadData, loadDashboards, loadPodcasts, loadPages, loadPlanDocs, loadLibrary } from '../platform/docs.js';
 import { loadDoc } from '../platform/storage.js';
-import { migratePlanDocs, isLivePlan } from '../platform/plandocs.js';
+import { migratePlanDocs, isLivePlan, publishedDoc } from '../platform/plandocs.js';
 import { PlanDocument } from '../plandoc/render.js';
 import { printPlan } from '../plandoc/print.js';
 import { migrateStrategy } from '../platform/strategy.js';
@@ -174,8 +174,8 @@ function render() {
     const pd = docs.plandocs.docs[p.plan];
     const ok = pd && pd.siteId === id && isLivePlan(pd);
     current = 'plan';
-    title = ok ? pd.snapshot.plan.title : 'Not found';
-    body = ok ? PlanView(pd) : h('p', { class: 'empty' }, 'That plan is not here.');
+    title = ok ? publishedDoc(pd).snapshot.plan.title : 'Not found';
+    body = ok ? PlanView(publishedDoc(pd)) : h('p', { class: 'empty' }, 'That plan is not here.');
   } else if (p.episode && hasStation) {
     const e = pod.episodes[p.episode];
     current = 'station';
@@ -316,11 +316,13 @@ function AtAGlance(dashes) {
       f.change != null && h('em', { class: f.change >= 0 ? 'up' : 'down' }, `${f.change >= 0 ? '▲' : '▼'} ${Math.abs(f.change)}% on a year ago`))));
 }
 
+/** The latest published version of a plan doc (alpha 0.3: the release, never the designer's draft). */
 function PlanView(pd) {
   const make = () => PlanDocument(pd, pd.snapshot, { palette: pd.palette || docs.org.theme?.palette });
+  if (params().print === '1') setTimeout(() => printPlan(make(), pd.snapshot.plan.title), 600);
   return h('div', { class: 'site-plan' },
     h('div', { class: 'site-plan-bar' },
-      h('span', { class: 'muted small' }, `Published ${short(pd.publishedAt)}`),
+      h('span', { class: 'muted small' }, `Published ${short(pd.publishedAt)}${pd.release?.version > 1 ? ` · version ${pd.release.version}` : ''}`),
       h('button', { class: 'btn btn-sm btn-primary', onclick: () => printPlan(make(), pd.snapshot.plan.title) }, icon('download', 15), 'Download as PDF')),
     make());
 }
