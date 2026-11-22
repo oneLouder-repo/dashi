@@ -17,7 +17,7 @@ import { linkTo } from '../plugins.js';
  * and a line about it to ABOUT.
  */
 const ABOUT = {
-  map: 'A whole ecosystem map, live in the Mapper, or a map file kept in the library.',
+  map: 'A whole ecosystem map, live in Ecosystem, or a map file kept in the library.',
   actor: 'Actors and agents from your ecosystem maps. Renaming one on its map renames it here.',
   staff: 'People on your staff who work on this or know it well.',
   person: 'Someone outside your staff: a partner, Elder, volunteer, funder or expert.',
@@ -141,7 +141,7 @@ function libraryItems(docs, kind) {
 const PICKERS = {
   map: ({ docs, used, pick }) => {
     const live = Object.values(docs.maps?.maps ?? {}).sort((a, b) => a.title.localeCompare(b.title)).map((entry) => ({
-      group: 'Maps in the Mapper',
+      group: 'Maps in Ecosystem',
       label: entry.title,
       sub: `${Object.keys(docs.mapContents?.[entry.id]?.actors ?? {}).length} actors${entry.description ? ` · ${entry.description}` : ''}`,
       asset: { kind: 'map', ref: entry.id, label: entry.title },

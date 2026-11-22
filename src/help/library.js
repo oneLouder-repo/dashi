@@ -184,7 +184,7 @@ The **Strategy & Work overview** has the whole framework as a sunburst: plans, o
         {
           id: 'mapper-like-the-rest',
           title: 'The mapper, like every other plugin',
-          body: `The Ecosystem Mapper now sits like every other plugin, so moving between them no longer shifts the screen.
+          body: `The Ecosystem now sits like every other plugin, so moving between them no longer shifts the screen.
 
 - **The panel is beside the board**, where other plugins have their sidebar, not on top of the map. Drag its edge to resize it, or tuck it away from **View**.
 - **The top bar is styled like the ribbon** on other plugins' pages, with **Works with** links on the right.
@@ -447,10 +447,10 @@ Your reports are under **Help → Support**. Replies arrive there and by email. 
         {
           id: 'getting-started',
           title: 'Getting started with a map',
-          body: `The Ecosystem Mapper holds as many maps as you need. Each has an owner and members, and its own actors, connectors, groups and layers.
+          body: `The Ecosystem holds as many maps as you need. Each has an owner and members, and its own actors, connectors, groups and layers.
 
 # Make your first map
-1. Open **Ecosystem Mapper** from the header and press **New map**.
+1. Open **Ecosystem** from the header and press **New map**.
 2. Pick a lens to draw behind the map. You can switch lens at any time.
 3. Click **Actor** or **Agent** to add one, or drag the button onto the board to drop it where you want. Drag an actor to change how deep it sits.
 4. Drag from the small box on an actor's top-left corner to another actor to connect them. Pick the connector's type and its strength (1 to 5, drawn as thickness) on the right. Each type has its own line end.
@@ -466,7 +466,7 @@ Your reports are under **Help → Support**. Replies arrive there and by email. 
         {
           id: 'lenses',
           title: 'How the lenses line up',
-          body: `The Ecosystem Mapper draws one of five systems models behind your map. They look different (rings, a triangle, bands, a grid) but they all describe the same thing: how deep a change goes. So the platform puts them on one shared scale.
+          body: `The Ecosystem draws one of five systems models behind your map. They look different (rings, a triangle, bands, a grid) but they all describe the same thing: how deep a change goes. So the platform puts them on one shared scale.
 
 **One depth scale.** Every actor stores a depth from 0 to 1. At 0 is the surface: what is explicit, structural and collective, like policies, budgets and resource flows. At 1 is the deep end: what is implicit and personal, like mindsets, beliefs and paradigms. Each lens divides that scale into its own regions. When you switch lens, an actor keeps its depth and lands in whichever region of the new lens sits at that depth.
 

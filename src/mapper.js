@@ -307,7 +307,7 @@ const mapItems = () => Object.values(index.maps).map((m) => ({ label: m.title ||
 const sideHost = document.querySelector('#mapside');
 let side = null;
 const drawSide = () => {
-  const next = SideNav({ label: 'Ecosystem Mapper', sections: [
+  const next = SideNav({ label: 'Ecosystem', sections: [
     { title: 'Tools', menu: toolsEl },
     { title: 'Layers', body: layersEl, action: { icon: 'plus', label: 'Add layer', onclick: () => ctx.actions.addLayer() } },
     { title: 'Inspector', body: inspectorEl },

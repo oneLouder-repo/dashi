@@ -49,6 +49,12 @@ const feat = (id, label, description, extra = {}) => ({ id, label, description, 
 const BUILT_IN = {
   mapper: {
     category: 'Mapping',
+    // Alpha 0.3 PR 17: renamed Ecosystem and versioned as a plugin of its own.
+    version: '1.1.0',
+    changelog: [
+      { version: '1.1.0', date: '2026-11-22', notes: 'Renamed Ecosystem (was Ecosystem Mapper). Clicking a sticky opens the inspector with its details, even when the inspector was folded away.', by: 'Dashi' },
+      { version: '1.0.0', date: '2026-11-15', notes: 'Ships with Dashi.', by: 'Dashi' },
+    ],
     features: [
       feat('lenses', 'Systems lenses', 'Five lenses under the map: Micro/Meso/Macro, Water of Systems Change, Spheres, Leverage Points, Theory of System Change.'),
       feat('dataviz', 'Data view', 'Size and colour actors by their connections; focus on one actor’s network.'),
@@ -301,12 +307,12 @@ export const SCAFFOLDS = [
 export function builtInManifest(p) {
   const extra = BUILT_IN[p.id] ?? { category: 'Other', features: [], dataModel: { docs: [] } };
   return {
-    id: p.id, name: p.name, short: p.short ?? p.name, version: '1.0.0', status: 'installed',
+    id: p.id, name: p.name, short: p.short ?? p.name, version: extra.version ?? '1.0.0', status: 'installed',
     builtIn: true, core: !!p.core, category: extra.category, blurb: p.blurb, href: p.href, author: 'Dashi', homepage: '',
     look: { tone: p.tone, icon: p.icon, accent: 'soft' },
     features: structuredClone(extra.features), dataModel: structuredClone(extra.dataModel),
     plans: null,
-    changelog: [{ version: '1.0.0', date: '2026-11-15', notes: 'Ships with Dashi.', by: 'Dashi' }],
+    changelog: structuredClone(extra.changelog ?? [{ version: '1.0.0', date: '2026-11-15', notes: 'Ships with Dashi.', by: 'Dashi' }]),
   };
 }
 
@@ -413,14 +419,17 @@ export function cleanManifest(m) {
  * changes) then installed plugins. stored = { plugins: { id: manifest }, history: { id: [manifest...] } }.
  */
 /** Built-in plugins Dashi has renamed: a stored copy still carrying an old name takes the new one. */
-const RENAMED = { pages: ['Web views', 'Sites & Pages'], assets: ['Asset manager'] };
+const RENAMED = { pages: ['Web views', 'Sites & Pages'], assets: ['Asset manager'], mapper: ['Ecosystem Mapper', 'Mapper'] };
 
 export function mergeRegistry(stored = {}) {
   const plugins = {};
   for (const p of ORIGINAL) {
     let mine = stored.plugins?.[p.id];
     if (mine && RENAMED[p.id]?.includes(mine.name)) { mine = { ...mine }; delete mine.name; delete mine.short; delete mine.blurb; }
-    plugins[p.id] = mine ? { ...builtInManifest(p), ...mine, builtIn: true, core: !!p.core, id: p.id, href: p.href } : builtInManifest(p);
+    const base = builtInManifest(p);
+    // A new Dashi release of a built-in plugin brings its version and changelog with it.
+    if (mine && compareVersions(mine.version ?? '1.0.0', base.version) < 0) mine = { ...mine, version: base.version, changelog: [...base.changelog.filter((c) => compareVersions(c.version, mine.version ?? '1.0.0') > 0), ...(mine.changelog ?? [])] };
+    plugins[p.id] = mine ? { ...base, ...mine, builtIn: true, core: !!p.core, id: p.id, href: p.href } : base;
   }
   for (const [id, m] of Object.entries(stored.plugins ?? {})) if (!plugins[id]) plugins[id] = { ...m, builtIn: false, core: false };
   for (const sc of SCAFFOLDS) {

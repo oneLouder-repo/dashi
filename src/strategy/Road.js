@@ -17,8 +17,10 @@ import { addDays, daysBetween, short, today, parse, monthStarts } from './dates.
  *   RoadSvg(doc, planId, { compact: true })   a thumbnail: the landing page, a dashboard widget
  *   RoadmapRoad(ctx)                          the full roadmap page, which slides sideways
  */
-const DAY_PX = { year: 0.9, quarter: 2.2, month: 5 };
-let zoom = 'quarter';
+const DAY_PX = { fit: null, year: 0.9, quarter: 2.2, month: 5 };
+// Alpha 0.3 PR 17: the road opens at "Fit", a zoom worked out for the screen (see fitWindow).
+let zoom = 'fit';
+let fitW = null; // the road's width on screen, once measured
 let planPick = null;
 
 /** The plan we are in now: the shortest one whose dates hold today (else the first). */
@@ -77,9 +79,11 @@ let gradientN = 0;
  * `links: false` draws it without anchors (a public dashboard).
  * Returns { el, nowX, width, model, xOf }.
  */
-export function RoadSvg(doc, planId, { compact = false, dayPx = DAY_PX[zoom], onOpen = null, links = true } = {}) {
-  const m = roadModel(doc, planId);
-  if (!m) return null;
+export function RoadSvg(doc, planId, { compact = false, dayPx = DAY_PX[zoom] ?? DAY_PX.quarter, onOpen = null, links = true, span = null } = {}) {
+  const m0 = roadModel(doc, planId);
+  if (!m0) return null;
+  // A span reaches the road out past its own dates (the Fit zoom looks a little past the end).
+  const m = span ? { ...m0, from: span.from < m0.from ? span.from : m0.from, to: span.to > m0.to ? span.to : m0.to } : m0;
   const days = daysBetween(m.from, m.to);
   const runW = compact ? 640 : Math.max(900, Math.round(days * dayPx));
   const W = compact ? runW : runW + 220; // room past the last date for signs
@@ -127,12 +131,12 @@ export function RoadSvg(doc, planId, { compact = false, dayPx = DAY_PX[zoom], on
     svg('text', { class: 'road-year', x: x + 5, y: yearY }, el).textContent = String(y);
   }
   if (!compact) {
-    const step = zoom === 'month' ? 1 : 3;
+    const step = dayPx >= 4 ? 1 : dayPx >= 0.8 ? 3 : 6;
     for (const ms of monthStarts(m.from, m.to)) {
       const mo = +ms.slice(5, 7);
       if ((mo - 1) % step) continue;
       const x = xOf(ms);
-      const label = zoom === 'month' ? short(ms).slice(2, 5) : `Q${Math.ceil(mo / 3)}`;
+      const label = step === 1 ? short(ms).slice(2, 5) : step === 6 ? (mo === 1 ? 'Jan' : 'Jul') : `Q${Math.ceil(mo / 3)}`;
       svg('line', { class: 'road-tick', x1: x, x2: x, y1: 14, y2: 20 }, el);
       svg('text', { class: 'road-tick-label', x: x + 4, y: 12 }, el).textContent = mo === 1 ? `${label} ${ms.slice(0, 4)}` : label;
     }
@@ -307,14 +311,35 @@ export function RoadSvg(doc, planId, { compact = false, dayPx = DAY_PX[zoom], on
   return { el, nowX, width: W, model: m, xOf };
 }
 
+/**
+ * Alpha 0.3 PR 17: what the Fit zoom takes in. For one plan: the whole plan,
+ * with a little either side. For all plans end to end: the newest plan under
+ * way today, from a stretch before it began (the end of the plan before) to
+ * most of a year past its end.
+ */
+export function fitWindow(doc, planId, now = today()) {
+  const top = doc.nodes[planId];
+  const plans = Object.values(doc.nodes).filter((n) => n.type === 'plan' && n.start && n.end);
+  const pad = (p, before, after) => ({ from: addDays(p.start, -before), to: addDays(p.end, after) });
+  if (top?.type === 'plan' && top.start && top.end) return pad(top, 45, 90);
+  const live = plans.filter((p) => p.start <= now && now <= p.end).sort((a, b) => b.start.localeCompare(a.start))[0]
+    ?? plans.sort((a, b) => b.start.localeCompare(a.start))[0];
+  return live ? pad(live, 200, 460) : null;
+}
+
 /** The full roadmap page: plan picker, zoom, a road that slides sideways, a strip to move along it, and a legend. */
 export function RoadmapRoad(ctx) {
   const doc = withoutDrafts(ctx.store.doc);
   const plans = Object.values(doc.nodes).filter((n) => n.type === 'plan').sort((a, b) => (a.start ?? '').localeCompare(b.start ?? '') || a.order - b.order);
   if (!plans.length) return h('p', { class: 'empty' }, 'No plans yet.');
   // Start on the whole road: the longest plan whose dates hold today.
-  if (!doc.nodes[planPick]) planPick = (plans.filter((p) => p.start && p.end && p.start <= today() && today() <= p.end).sort((a, b) => daysBetween(b.start, b.end) - daysBetween(a.start, a.end))[0] ?? plans[0]).id;
-  const road = RoadSvg(doc, planPick, { onOpen: (n) => ctx.select(n.id) });
+  // With plans side by side, it opens on all of them end to end (PR 17), so the one just finished shows too.
+  if (!doc.nodes[planPick]) planPick = plans.length > 1 && rootOf(doc) ? rootOf(doc).id : (plans.filter((p) => p.start && p.end && p.start <= today() && today() <= p.end).sort((a, b) => daysBetween(b.start, b.end) - daysBetween(a.start, a.end))[0] ?? plans[0]).id;
+  const fit = zoom === 'fit' ? fitWindow(doc, planPick) : null;
+  // The screen the road has: the main column, less its padding and the arrows.
+  // Measured once the road is on screen; until then, a guess from the window.
+  const viewW = fitW ?? Math.max(600, innerWidth - 420);
+  const road = RoadSvg(doc, planPick, { onOpen: (n) => ctx.select(n.id), ...(fit ? { span: fit, dayPx: viewW / Math.max(30, daysBetween(fit.from, fit.to)) } : {}) });
   if (!road) return h('p', { class: 'empty' }, 'Give the plan’s workplans dates to draw its road.');
   const m = road.model;
   const scroller = h('div', { class: 'road-scroll', tabindex: 0, 'aria-label': 'Roadmap. Scroll sideways, drag the road, or use the arrow keys.' }, road.el);
@@ -362,7 +387,12 @@ export function RoadmapRoad(ctx) {
   strip.addEventListener('pointerdown', (e) => { scrub = true; strip.setPointerCapture(e.pointerId); scrubTo(e.clientX); });
   strip.addEventListener('pointermove', (e) => { if (scrub) scrubTo(e.clientX); });
   strip.addEventListener('pointerup', () => { scrub = null; });
-  requestAnimationFrame(() => { toToday(false); sync(); });
+  requestAnimationFrame(() => {
+    // The guess was off by more than a little: draw again at the width the road really has.
+    if (fit && scroller.clientWidth && Math.abs(scroller.clientWidth - viewW) > 24) { fitW = scroller.clientWidth; ctx.render(); return; }
+    if (fit) scroller.scrollLeft = Math.max(0, road.xOf(fit.from)); else toToday(false);
+    sync();
+  });
 
   const passed = m.posts.filter((p) => p.date < m.now);
   const ahead = m.posts.filter((p) => p.date >= m.now);

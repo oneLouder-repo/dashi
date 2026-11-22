@@ -287,7 +287,7 @@ function Teams(org) {
   const loose = staff.filter((s) => !s.teamIds.length).length;
   return h('div', { class: 'tm' },
     h('div', { class: 'ppl-head' },
-      h('div', {}, h('h2', {}, 'Teams'), h('p', { class: 'muted small' }, 'Teams group people who share work. Strategy & Work, the Mapper and dashboards use them to assign work and filter people. Click a team to change it.')),
+      h('div', {}, h('h2', {}, 'Teams'), h('p', { class: 'muted small' }, 'Teams group people who share work. Strategy & Work, Ecosystem and dashboards use them to assign work and filter people. Click a team to change it.')),
       isAdminHere() && h('button', { class: 'btn btn-sm btn-primary', onclick: newTeam }, icon('plus', 14), 'New team')),
     h('div', { class: 'tm-grid' },
       teams.map((t) => {

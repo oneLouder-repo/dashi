@@ -133,6 +133,9 @@ export default {
       const click = Math.hypot(e.worldX - drag.x, e.worldY - drag.y) * ctx.stage.scale < 4;
       if (click && drag.zone) mapView.signalRegion(drag.zone);
     }
+    // Alpha 0.3 PR 17: a click (not a drag) on a sticky brings up its details in the inspector,
+    // opening the side panel and its Inspector section if they were folded away.
+    if (drag.kind === 'move' && !drag.moved && !e.shiftKey && mapView.world.actors[drag.clicked] && mapView.selection.size === 1) ctx.panel?.reveal('inspector');
     drag = null;
   },
 

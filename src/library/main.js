@@ -385,7 +385,7 @@ function ItemPage(item) {
     h('div', { class: 'item-head' },
       h('input', { class: 'title-input', value: item.meta.title, placeholder: 'Title', 'aria-label': 'Title', onchange: (e) => { setMeta(item, { title: e.target.value }); render(); } }),
       h('div', { class: 'item-actions' },
-        isMapFile(item) && h('a', { class: 'btn btn-sm btn-primary', href: linkTo('mapper', `#open=${encodeURIComponent(item.id)}`), title: 'Open this map file in the Ecosystem Mapper, as a new map or in place of one' }, icon('mapper', 14), 'Open in the Mapper'),
+        isMapFile(item) && h('a', { class: 'btn btn-sm btn-primary', href: linkTo('mapper', `#open=${encodeURIComponent(item.id)}`), title: 'Open this map file in Ecosystem, as a new map or in place of one' }, icon('mapper', 14), 'Open in Ecosystem'),
         item.file && extOf(item.file.name) === 'pdf' && h('a', { class: 'btn btn-sm btn-primary', href: `#read/${item.id}` }, icon('book', 14), (item.notes ?? []).length ? `Read · ${n(item.notes.length, 'note')}` : 'Read and annotate'),
         item.file && !isMapFile(item) && h('button', { class: `btn btn-sm${extOf(item.file.name) === 'pdf' ? '' : ' btn-primary'}`, onclick: async () => openMedia(item, false) }, icon('globe', 14), 'Open'),
         item.file && h('button', { class: 'btn btn-sm', onclick: async () => openMedia(item, true) }, icon('download', 14), 'Download'),

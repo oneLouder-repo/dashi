@@ -178,8 +178,8 @@ body:not(.app-page, .mapper-page, .login-page, .platform-page, .studio-page, .st
 .side-fold { color: var(--ink-3); }
 
 /* ── Page headers ────────────────────────────────────────────────────── */
-.plugin-header { margin-bottom: 24px; }
-.plugin-header-row { gap: 16px; }
+.plugin-header { margin-bottom: 14px; }
+.plugin-header-row { gap: 12px; align-items: center; }
 .plugin-header-icon { width: 44px; height: 44px; border-radius: var(--r-card); box-shadow: 0 0 0 3px var(--sheet), 0 0 0 4px color-mix(in oklab, var(--color-primary) 20%, transparent); }
 .plugin-header-text p { max-width: 68ch; margin-top: 6px; line-height: 1.5; }
 .plugin-tabs a { color: var(--ink-3); transition: color 150ms var(--ease-out); }
@@ -990,3 +990,8 @@ body.mapper-page > main { border-radius: 0 0 var(--r-sheet, 14px) var(--r-sheet,
 .sb-step[hidden] { display: none; }
 .sb-step button { width: 22px; height: 20px; padding: 0; border: 1px solid #d5d8de; border-radius: 3px; background: #fff; color: #16181d; font-size: 9px; line-height: 1; cursor: pointer; }
 .sb-step button:hover { border-color: #b4b9c3; background: #f4f5f7; }
+
+/* Plugin headers (alpha 0.3 PR 17): just the title, tighter. */
+.plugin-header-icon { width: 36px; height: 36px; }
+.plugin-header-text h1 { font-size: 24px; line-height: 1.2; }
+.plugin-header-text p { display: none; }
