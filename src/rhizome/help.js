@@ -27,6 +27,7 @@ Opening Rhizome for the first time shows a checklist. Each step can be run again
 4. **Calibrate.** Thresholds are set from your own data. "Few links" means few *for you*: a small collective and a big foundation get different cut-offs.
 5. **Pick tip packs and starter analyses.** Analyses that fit your profile are chosen for you. Change the choice in **Analyses**.
 6. **First run.** The analyses run once, and the top findings show on **Home** as a welcome report.
+7. **Context harvest** (optional). Picks a reading list from the tip harvester's sources that fits your themes. You'll find it in **Tips**.
 
 [[shot:rhizome-setup]]
 
@@ -67,6 +68,9 @@ Each finding has a tip in plain words, the things it's about (click one to see i
 - **Why?** opens the rule behind it: what it looked at, each condition with the actual value, how the score was worked out, and where the tip comes from.
 - **Dismiss** puts it away. It comes back only if what it rests on changes.
 - **Show on map** opens the ecosystem map, for findings about actors.
+- **Show on Place** opens the Place map, for findings about things that have a real-world location. It shows only if you can open Place.
+
+Under each tip, **Read more** links to a source on its theme.
 
 # Your set
 Tick analyses to add them to **your set**. **Run my set** runs them all and keeps the run, and the top findings show on Home.`,
@@ -85,8 +89,31 @@ Rules are data, not code. The list at the bottom of **Analyses** shows every rul
 
 # Coming next
 - **The rack** (stage 3): build your own analyses by cabling modules together, like a modular synth, with a Patchbay at the top.
-- **The tip harvester**: fresh, reviewed tips from your own field.
 - **The critical AI visualiser** (stage 4) and **the Claude engine** (stage 5).`,
+    },
+    {
+      id: 'rhizome-tips',
+      title: 'Tips and the tip harvester',
+      body: `Open **Tips** to see every tip Rhizome can give, by theme.
+
+- **Library**: the built-in tip pack, tips the harvester brought in that a reviewer approved, and your own.
+- **Reading list**: sources on your themes, each with a link and its key idea.
+- **Your tips**: things your organisation has learned. Each one is **public** unless you switch it to private. Public tips will be offered to the shared library when it opens. A refresh never touches your own tips.
+
+# The tip harvester
+The harvester keeps the collection fresh. It works from a list of trusted sources, each filed under a theme, and it can be run again any time:
+
+1. **Discover**: pick the sources (all of them, one theme, or one source).
+2. **Fetch** (online runs only): read each page politely. It follows the site's robots.txt, pauses between requests, and never reads past a size limit.
+3. **Extract and score**: keep whole sentences that sound like advice on the theme.
+4. **Dedupe**: drop anything too close to a tip already in the library, already in the queue, or rejected before.
+5. **Review**: everything waits in the **review queue** until a platform admin approves it or rejects it.
+
+An offline run uses the key ideas written down for each source, so it needs no network at all. An online run also offers short **excerpts** from the pages. An excerpt can't be approved until it's rewritten in your own words.
+
+[[shot:rhizome-tips]]
+
+On the server, \`npm run tips:refresh\` runs it offline, and \`npm run tips:refresh -- --online\` fetches the pages too. **Distil from the registry**, in the review queue, does an offline run from the browser.`,
     },
     {
       id: 'rhizome-glossary',
@@ -101,6 +128,7 @@ Rules are data, not code. The list at the bottom of **Analyses** shows every rul
 - **Theory of change**: causal bets, assumptions and evidence.
 - **Collective impact**: shared agendas, measures and backbone work.
 - **Strategy hygiene**: an owner, a measure, a date and work behind every goal.
+- **Place-based development**: change led by and for one place, from its own people and assets (Tamarack Institute).
 - **AI literacy**, **curriculum design**, **equity of access** and **program evaluation**, for education and STEM work.
 
 Every tip names where its idea comes from. The tips are short summaries in our own words. Nothing is copied.`,

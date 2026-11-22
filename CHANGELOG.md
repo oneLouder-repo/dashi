@@ -6,6 +6,28 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### PR 20: Rhizome, the tip harvester, and getting ready for Place
+
+- **A Tips tab.** It has four parts:
+  - **Library**: the built-in tip pack, approved harvested tips and your own, by theme. The words filled in from what matched show shaded.
+  - **Reading list**: sources on your themes, with links and each one's key idea.
+  - **Your tips**: your organisation's own tips, each **public** by default or switched to private. A refresh never touches them.
+  - **Review queue**: for the platform admin.
+- **The tip harvester, a pipeline you can run again.** It works from a source registry: 22 trusted sources across 13 themes, each with its key ideas written in our own words. It runs discover, fetch, extract, score, dedupe and review. Nothing reaches the library until a reviewer approves it, and a rejected candidate never comes back.
+  - `npm run tips:refresh` runs offline, distilling from the registry.
+  - `-- --online` also fetches each page politely: it follows robots.txt, pauses five seconds between requests to one site, gives up after a timeout, caps the size, and caches 30 days. It names itself in its User-Agent.
+  - `--page id=file` reads a page you saved yourself.
+  - Online excerpts must be rewritten in your own words before they can be approved.
+  - **Distil from the registry** runs an offline harvest from the browser.
+  - The library lives on the server (`/api/tips`). Everyone sees approved public tips; only the platform admin sees the queue.
+- **Read more** under each finding links to sources on its theme. The set-up's optional **context harvest** now runs: it keeps a reading list for your themes.
+- **Ready for Place,** the geographic plugin being built alongside:
+  - Things can carry a real-world location (`geo`), and a new **place** type joins the facts. People never get a location by default.
+  - Other plugins plug their facts in through one adapter slot.
+  - Findings know which of their things have a location, and show **Show on Place** for people who can open it.
+  - A new theme, **Place-based development**, comes with a tip, a rule (things with no place yet) and a **Place-based view** analysis.
+- **Fix:** Facts no longer shows a stray "null" under a short list.
+
 ### PR 19: Rhizome, stage 2 (experimental): rules engine, tip library, analyses, About and Help
 
 - **A rules engine that works offline.** Each rule has four parts: **when** (conditions, which can compare against the org's own percentiles), **weigh** (a score from 0 to 1 for ranking; rules in the profile's themes count a little more, and links marked speculative count for what the profile says), **say** (a tip from the library, with names filled in) and **show** (on the map, or as a list). Rules are plain data, so the rack in stage 3 can draw and build them.

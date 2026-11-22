@@ -50,6 +50,7 @@ export const HELP_SHOTS = {
   'rhizome-setup': 'Rhizome’s set-up: the context profile beside the checklist.',
   'rhizome-facts': 'Facts: one actor with its measures, attributes and every tie.',
   'rhizome-analyses': 'Analyses: findings ranked by score, with Why? open on one of them.',
+  'rhizome-tips': 'The review queue: an excerpt from the web waits to be put in your own words.',
 };
 export const HELP_VERSION = 7;
 

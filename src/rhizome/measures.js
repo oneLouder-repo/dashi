@@ -168,7 +168,11 @@ export function measureFacts(facts, { today = new Date().toISOString().slice(0, 
   const leadsIn = new Set(R.filter((r) => r.kind === 'leads').map((r) => r.to));
   const unsupportedOutcomes = ofType('outcome').filter((o) => o.attrs.lane !== 'activity' && !leadsIn.has(o.id)).map((o) => o.id);
 
-  const lists = { abcdThin, isolates, fewLinks, hubs, bridges, oneWay, zoneGaps, hollowObjectives, hollowGoals, unstaffed, blockedWork, overdue, unusedAssets, looseIdeas, untestedLinks, unsupportedOutcomes, supported: [...supported] };
+  // Places: actors and assets with no real-world location yet (Place can give them one).
+  const placeable = [...actors.map((a) => a.id), ...assetIds.filter((id) => E[id].type === 'asset')];
+  const unplaced = placeable.filter((id) => !E[id].attrs.geo);
+
+  const lists = { unplaced, abcdThin, isolates, fewLinks, hubs, bridges, oneWay, zoneGaps, hollowObjectives, hollowGoals, unstaffed, blockedWork, overdue, unusedAssets, looseIdeas, untestedLinks, unsupportedOutcomes, supported: [...supported] };
   return {
     actors: per, calibration, lists, abcd,
     counts: {
@@ -176,6 +180,7 @@ export function measureFacts(facts, { today = new Date().toISOString().slice(0, 
       zoneGaps: zoneGaps.length, hollowObjectives: hollowObjectives.length, hollowGoals: hollowGoals.length, unstaffed: unstaffed.length,
       blockedWork: blockedWork.length, overdue: overdue.length, assets: assetIds.length, unusedAssets: unusedAssets.length,
       soar: ofType('soar').length, looseIdeas: looseIdeas.length, outcomes: ofType('outcome').length, untestedLinks: untestedLinks.length,
+      placed: placeable.length - unplaced.length, unplaced: unplaced.length,
     },
   };
 }

@@ -14,6 +14,8 @@
 import { buildFacts, factCounts } from './facts.js';
 import { measureFacts } from './measures.js';
 import { runAnalysis, analysesFor, ANALYSES } from './rules.js';
+import './adapters.js';
+import { readingFor } from './harvest.js';
 
 export const RHIZOME_VERSION = 1;
 
@@ -31,6 +33,7 @@ export const THEMES = [
   { id: 'curriculum', label: 'Curriculum design', blurb: 'Learning outcomes, pathways and assessment' },
   { id: 'equity', label: 'Equity of access', blurb: 'Who is reached, who is missing, and why' },
   { id: 'evaluation', label: 'Program evaluation', blurb: 'Knowing whether it worked, and for whom' },
+  { id: 'place', label: 'Place-based development', blurb: 'Change led by and for one place, from its own people and assets' },
 ];
 export const themeById = Object.fromEntries(THEMES.map((t) => [t.id, t]));
 
@@ -51,7 +54,7 @@ export const CONTEXT_PRESETS = {
     focus: ['Vital Signs', 'Granting', 'Community wellbeing', 'Partnerships across sectors', 'Local leadership'],
     serves: 'Everyone who calls Kestrel Bay home, a small coastal region',
     words: ['community foundation', 'Vital Signs', 'grants', 'donors', 'endowment', 'wellbeing'],
-    themes: ['network', 'abcd', 'leverage', 'impact', 'hygiene'],
+    themes: ['network', 'abcd', 'leverage', 'impact', 'hygiene', 'place'],
   },
   'actua-ai': {
     sector: 'education',
@@ -64,7 +67,7 @@ export const CONTEXT_PRESETS = {
   },
 };
 
-export const blankRhizome = () => ({ id: 'rhizome', version: RHIZOME_VERSION, profile: null, setup: {}, baseline: null, calibration: null, snapshots: [], analyses: null, runs: [], dismissed: {} });
+export const blankRhizome = () => ({ id: 'rhizome', version: RHIZOME_VERSION, profile: null, setup: {}, baseline: null, calibration: null, snapshots: [], analyses: null, runs: [], dismissed: {}, ownTips: {}, reading: null });
 
 /** A first context profile, from what Dashi already knows about the org. */
 export function profileFromOrg(org = {}, strategy = null) {
@@ -85,7 +88,7 @@ export const SETUP_STEPS = [
   { id: 'calibrate', label: 'Calibrate', blurb: 'Set thresholds from your own data (percentiles), so “few links” means few for you.', stage: 1 },
   { id: 'packs', label: 'Pick tip packs and starter analyses', blurb: 'Match the tip library and the canned analyses to your context profile. Change the choice any time in Analyses.', stage: 2 },
   { id: 'firstRun', label: 'First run', blurb: 'Run the chosen analyses and show a short welcome report on Home.', stage: 2 },
-  { id: 'harvest', label: 'Context harvest (optional)', blurb: 'Search for tips and resources from your own field, into a review queue. Arrives with the tip harvester.', stage: 3, optional: true },
+  { id: 'harvest', label: 'Context harvest', blurb: 'Pick a reading list from the tip harvester’s sources that fits your themes. Fresh tips from your field come through the review queue in Tips.', stage: 2, optional: true },
 ];
 export const STAGE_NOW = 2;
 export const stepsNow = () => SETUP_STEPS.filter((s) => s.stage <= STAGE_NOW && !s.optional);
@@ -113,6 +116,9 @@ export function runStep(doc, stepId, { docs = {}, plugins = null, profile = null
   } else if (stepId === 'packs') {
     doc.analyses = analysesFor(doc.profile ?? profileFromOrg(docs.org, docs.strategy));
     doc.setup.packs = now;
+  } else if (stepId === 'harvest') {
+    doc.reading = readingFor(doc.profile ?? profileFromOrg(docs.org, docs.strategy));
+    doc.setup.harvest = now;
   } else if (stepId === 'firstRun') {
     const facts = buildFacts(docs, { plugins });
     const m = measureFacts(facts, { today });

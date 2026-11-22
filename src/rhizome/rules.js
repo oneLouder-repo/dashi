@@ -11,11 +11,11 @@
  *     weigh: { base, plus: [{ field, w, scale? }] },   a score from 0 to 1, for ranking
  *     say: tipId,                        the words, from the tip library
  *     group: true,                       one finding for everything that matched, not one each
- *     show: 'map' | 'list',              what to light up
+ *     show: 'map' | 'list' | 'geo',      what to light up ('geo': on Place's map of real places)
  *   }
  *
  * A canned analysis is a named set of rules. Running one gives findings:
- *   { id, ruleId, analysisId, score, title, text, items: [entity ids], subject, why }
+ *   { id, ruleId, analysisId, score, title, text, items: [entity ids], placed: [ids with a location], subject, why }
  */
 import { tipById, fillTip, SOURCES } from './tips.js';
 
@@ -79,6 +79,9 @@ export const RULES = [
     weigh: { base: 0.35, plus: [] }, say: 'abcd-unused', show: 'list' },
   { id: 'abcd-thin', name: 'Thin ABCD types', theme: 'abcd', source: 'assets', from: { list: 'abcdThin' }, when: [],
     weigh: { base: 0.4, plus: [] }, say: 'abcd-thin', show: 'list' },
+  // Place (needs the Place plugin): things with no real-world location yet.
+  { id: 'place-unplaced', name: 'Things with no place yet', theme: 'place', source: 'place', from: { list: 'unplaced' }, when: [], group: true,
+    weigh: { base: 0.35, plus: [] }, say: 'place-unplaced', show: 'geo' },
   // Planning Studio
   { id: 'loose-soar', name: 'SOAR ideas never patched in', theme: 'soar', source: 'studio', from: { list: 'looseIdeas' }, when: [], group: true,
     weigh: { base: 0.4, plus: [] }, say: 'soar-loose', show: 'list' },
@@ -101,6 +104,8 @@ export const ANALYSES = [
     rules: ['unused-assets', 'abcd-thin'] },
   { id: 'studio-to-plan', name: 'From studio to plan', blurb: 'SOAR ideas and strengths that never made it into the plan, and causal bets nobody has tested.', icon: 'sec-studio',
     rules: ['loose-soar', 'strength-unused', 'untested-toc'] },
+  { id: 'place-based', name: 'Place-based view', blurb: 'Starting from one place: what it already has, who is on the edge, and what isn’t placed on the map yet.', icon: 'globe',
+    rules: ['place-unplaced', 'unused-assets', 'abcd-thin', 'community-thin'] },
   { id: 'across', name: 'Map meets plan', blurb: 'Where your ecosystem and your strategy don’t meet: central partners no plan leans on.', icon: 'connect',
     rules: ['hub-unplanned'] },
 ];
@@ -180,6 +185,8 @@ export function runRule(rule, ctx, { analysisId = null } = {}) {
   }
   if (!matched.length) return [];
   const why = (checks, w, count) => ({ rule: rule.id, from: rule.from, checks, weigh: w, tip: rule.say, theme: rule.theme, source: tip ? SOURCES[tip.source] : null, matched: count });
+  // Which of a finding's things have a real-world location (Place can show those).
+  const placedOf = (items) => items.filter((id) => ctx.facts.entities[id]?.attrs.geo);
   if (rule.group) {
     matched.sort((a, b) => b.w.score - a.w.score || a.row.name.localeCompare(b.row.name));
     const rows = matched.map((x) => x.row);
@@ -187,14 +194,14 @@ export function runRule(rule, ctx, { analysisId = null } = {}) {
     return [{
       id: `${rule.id}:all`, ruleId: rule.id, analysisId, score: best.w.score, title: rule.name, show: rule.show,
       text: fillTip(tip?.text ?? rule.name, { count: rows.length, items: nameList(rows), map: best.row.map, name: best.row.name }),
-      items: [...new Set(rows.flatMap((r) => r.items))], rows: rows.map((r) => ({ id: r.id, name: r.name })), sig: rows.map((r) => r.id).sort().join('|'),
+      items: [...new Set(rows.flatMap((r) => r.items))], placed: placedOf([...new Set(rows.flatMap((r) => r.items))]), rows: rows.map((r) => ({ id: r.id, name: r.name })), sig: rows.map((r) => r.id).sort().join('|'),
       why: why(best.checks, best.w, rows.length),
     }];
   }
   return matched.map(({ row, checks, w }) => ({
     id: `${rule.id}:${row.id}`, ruleId: rule.id, analysisId, score: w.score, title: rule.name, show: rule.show,
     text: fillTip(tip?.text ?? rule.name, { ...row, value: row.value, label: row.label ?? row.name, count: 1 }),
-    items: row.items, rows: [{ id: row.id, name: row.name }], sig: row.id,
+    items: row.items, placed: placedOf(row.items), rows: [{ id: row.id, name: row.name }], sig: row.id,
     why: why(checks, w, 1),
   })).sort((a, b) => b.score - a.score || a.text.localeCompare(b.text));
 }
