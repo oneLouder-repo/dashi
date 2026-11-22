@@ -2,6 +2,7 @@
 import { createReadStream, statSync } from 'node:fs';
 import { extname } from 'node:path';
 import { config } from './config.js';
+import { TILE_ORIGINS } from '../src/place/basemaps.js';
 
 export const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -137,7 +138,8 @@ export function clientIp(req) {
 export const CSP = [
   "default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:", "media-src 'self' data: blob: https:", "font-src 'self' data:",
-  "connect-src 'self'", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'self'",
+  // Place's street map fetches its tiles (src/place/basemaps.js); MapLibre's worker is a file here, never a blob.
+  `connect-src 'self' ${TILE_ORIGINS.join(' ')}`, "worker-src 'self'", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'self'",
 ].join('; ');
 export function securityHeaders(res) {
   res.setHeader('x-content-type-options', 'nosniff');

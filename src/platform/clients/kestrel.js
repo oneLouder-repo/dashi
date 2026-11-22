@@ -31,6 +31,7 @@ import { gatherAssets, blankAssets, migrateAssets } from '../assetHub.js';
 import { migrateSocial, mockPush } from '../social.js';
 import { seedRhizome } from '../../rhizome/setup.js';
 import { seedTeach, seedLearn } from '../../learning/seed.js';
+import { seedKestrelPlace } from '../../place/kestrel.js';
 
 export const KESTREL_SPEC = {
   id: 'org-kestrel', slug: 'kestrel', name: 'Kestrel Bay Community Foundation', plan: 'custom', sector: 'foundation',
@@ -328,7 +329,7 @@ export function kestrelBundle() {
     description: 'A community foundation for everyone who calls Kestrel Bay home: we pool gifts, grow local leadership and fund what the community asks for.',
     theme: { palette: 'custom', base: 'light', shape: 'rounded', colors: KESTREL_COLOURS },
     // A custom plan with every plugin switched on, including the newer, optional ones.
-    plugins: { podcasts: true, graph: true, rhizome: true, social: true, 'ai-policy': true, 'ai-register': true, 'prompt-commons': true, 'plain-words': true, 'critical-media': true, teach: true, learn: true },
+    plugins: { podcasts: true, graph: true, rhizome: true, place: true, social: true, 'ai-policy': true, 'ai-register': true, 'prompt-commons': true, 'plain-words': true, 'critical-media': true, teach: true, learn: true },
     // Teach is for staff who design learning; everyone can learn.
     pluginRoles: { ...(org.pluginRoles ?? {}), teach: { board: false, guest: false, viewer: false } },
     sites: {
@@ -363,6 +364,9 @@ export function kestrelBundle() {
   docs.plandocs = seedPlanDocs(docs.strategy, docs.data, org);
   const update = kestrelCommunityDoc(docs.strategy, docs.data, org, docs.assets);
   if (update) docs.plandocs.docs[update.id] = update;
+  // Place (Place stage 1): Kestrel Bay drawn as a made-up bay, its places, and pins for its actors, stories and documents.
+  // Before Rhizome, so its welcome report sees the places.
+  docs.place = seedKestrelPlace(docs);
   // Rhizome's pilot instance (Rhizome stage 1): switched on, with the set-up already run, so design can start straight away.
   docs.rhizome = seedRhizome(docs);
   // Teach and Learn (eLearning stages 1 and 2): three cartridges, and a learner part-way through Community Grantmaking 101.

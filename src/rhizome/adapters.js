@@ -6,4 +6,6 @@
  *
  *   import '../place/facts.js';   // Place: places, pins, "located at" and "serves"
  */
+import '../place/facts.js';
+
 export {};

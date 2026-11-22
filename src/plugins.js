@@ -192,6 +192,22 @@ export const PLUGINS = [
     stats: ({ learn }) => { const n = Object.values(learn?.people ?? {}).reduce((k, p) => k + Object.keys(p.enrolments ?? {}).length, 0); return `${n} enrolments · experimental`; },
   },
   {
+    id: 'place',
+    owns: ['place'],
+    // Pins point at other plugins' things by id; it reads them to name and place them, and never changes them.
+    reads: ['maps', 'map/*', 'assets', 'library', 'strategy', 'studio', 'podcasts', 'rhizome'],
+    short: 'Place',
+    tone: '#f4a93b',
+    name: 'Place',
+    href: 'place.html',
+    icon: 'sec-place',
+    experimental: true,
+    // Off until an org switches it on, like Rhizome.
+    defaultOff: true,
+    blurb: 'Experimental: your work on a real map, for place-based development. Name the places you work in, pin your actors, assets and stories to them, and see who is tied to where.',
+    stats: ({ place }) => (place?.places ? `${count(place.places)} places · ${count(place.pins)} pins · experimental` : 'No places yet · experimental'),
+  },
+  {
     id: 'pages',
     owns: ['pages'],
     reads: ['dashboards', 'data', 'plandocs', 'strategy', 'library'],

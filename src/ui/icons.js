@@ -101,6 +101,7 @@ export const SECTION_ICONS = {
   'sec-rhizome': `<path d="M2.5 13 C6 11 8 14.5 12 12.5 S18 10.5 21.5 12.5"/><path d="M7 12.2 L5.5 6.5 M7 12.2 L8.5 19 M12 12.5 L13.5 5.5 M16.5 11.6 L18.5 18.5 M16.5 11.6 L15.5 6.5"/><circle cx="12" cy="12.5" r="2.4" ${ACF}/>`,
   'sec-teach': `<path d="M3 6 H21 M3 12 H21 M3 18 H21" stroke-opacity=".35"/><rect x="4" y="4" width="7" height="4" rx="1"/><rect x="9" y="10" width="9" height="4" rx="1" ${ACF}/><rect x="6" y="16" width="5" height="4" rx="1"/><path d="M15 2.5 V21.5"/>`,
   'sec-learn': `<path d="M12 5 L2.5 9.5 L12 14 L21.5 9.5 Z"/><path d="M6 11.5 V16 C8.5 18.5 15.5 18.5 18 16 V11.5"/><path d="M21.5 9.5 V15"/><circle cx="21.5" cy="16.5" r="1.6" ${ACF}/>`,
+  'sec-place': `<path d="M3 19.5 C6 17.5 8.5 20.5 12 18.8 S18 17 21 19"/><path d="M12 15.5 C9 12 7.5 9.8 7.5 8 A4.5 4.5 0 0 1 16.5 8 C16.5 9.8 15 12 12 15.5 Z"/><circle cx="12" cy="8" r="1.9" ${ACF}/>`,
   'sec-plugins': `<rect x="4" y="4" width="7" height="7"/><rect x="13" y="13" width="7" height="7"/><path d="M4 13 H11 V20 H4 Z" stroke-dasharray="2 2"/><circle cx="16.5" cy="7.5" r="3.5" ${AC}/>`,
 };
 // The section names the pages used before: they now draw the Grid icons.

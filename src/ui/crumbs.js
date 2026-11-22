@@ -134,6 +134,11 @@ const ACTIONS = {
     { label: 'Catalogue', icon: 'books', href: own('learn', '#catalogue'), here: '#catalogue' },
     { label: 'About', icon: 'help', href: own('learn', '#about'), here: '#about' },
   ],
+  place: () => [
+    { label: 'Map', icon: 'mapTrifold', href: own('place', '#map'), here: '#map' },
+    { label: 'Places', icon: 'pin', href: own('place', '#places'), here: '#places' },
+    { label: 'About', icon: 'help', href: own('place', '#about'), here: '#about' },
+  ],
   library: () => [
     { label: 'Documents', icon: 'doc', href: own('library', '#files/all'), here: '#files' },
     { label: 'Bibliographies', icon: 'book', href: own('library', '#bibs'), here: '#bibs' },

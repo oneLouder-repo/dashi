@@ -14,6 +14,7 @@
 
 import { RHIZOME_HELP } from '../rhizome/help.js';
 import { LEARNING_HELP } from '../learning/help.js';
+import { PLACE_HELP } from '../place/help.js';
 
 /** The screenshots tutorials can show, by id, with their captions. Files are in media/help/. */
 export const HELP_SHOTS = {
@@ -50,23 +51,26 @@ export const HELP_SHOTS = {
   'rhizome-setup': 'Rhizome’s set-up: the context profile beside the checklist.',
   'rhizome-facts': 'Facts: one actor with its measures, attributes and every tie.',
   'rhizome-analyses': 'Analyses: findings ranked by score, with Why? open on one of them.',
+  'place-map': 'Place: Kestrel Bay on its drawn map, with place outlines, actors, stories and the links between them.',
+  'place-tray': 'A place’s tray: what’s here, who serves it from elsewhere, and the places inside it.',
   'rhizome-tips': 'The review queue: an excerpt from the web waits to be put in your own words.',
   'rhizome-output': 'The Output tab: a report pack on paper, ready to save as a PDF.',
   'rhizome-rack': 'The twin racks: controls on the left, screens and engines on the right, cabled together.',
 };
-// 8, not 7: Place (in its own branch) takes 7.
+// Place took 7, Teach and Learn 8.
 export const HELP_VERSION = 8;
 
 /**
  * Sections added since a version: a saved (edited) library that is older
  * gets them too, at the top, so new guides reach every server.
  */
-export const HELP_ADDED = { alpha: 2, 'new-in-0-2': 3, 'new-in-0-2-planning': 4, 'asset-graph': 5, rhizome: 6, learning: 8 };
+export const HELP_ADDED = { alpha: 2, 'new-in-0-2': 3, 'new-in-0-2-planning': 4, 'asset-graph': 5, rhizome: 6, place: 7, learning: 8 };
 
 export const HELP_SEED = {
   version: HELP_VERSION,
   sections: [
     LEARNING_HELP,
+    PLACE_HELP,
     RHIZOME_HELP,
     {
       id: 'asset-graph',

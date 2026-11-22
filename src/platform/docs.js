@@ -28,6 +28,7 @@ import { blankSocial, migrateSocial } from './social.js';
 import { blankRhizome } from '../rhizome/setup.js';
 import { blankTeach } from '../learning/cartridge.js';
 import { blankLearn } from '../learning/records.js';
+import { blankPlace, migratePlace } from '../place/model.js';
 
 const seedFor = (doc) => SEEDS[activeOrg()]?.[doc];
 
@@ -70,6 +71,8 @@ export const loadRhizome = () => ({ ...blankRhizome(), ...loadOrSeed('rhizome', 
 /** Teach's cartridges and Learn's learner records (eLearning stages 1 and 2). */
 export const loadTeach = () => ({ ...blankTeach(), ...loadOrSeed('teach', blankTeach) });
 export const loadLearn = () => ({ ...blankLearn(), ...loadOrSeed('learn', blankLearn) });
+/** Place's places and pins for this org (Place stage 1). */
+export const loadPlace = () => migratePlace(loadOrSeed('place', blankPlace));
 export const loadSocial = () => migrateSocial(loadOrSeed('social', blankSocial));
 
 /** Plan documents. Every org with a plan starts with a draft of one; example orgs publish it to their public site. */
