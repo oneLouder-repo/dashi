@@ -6,6 +6,16 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### PR 16: sunbursts that cope with hundreds of items, and a dial for picking
+
+- **Big rings are gathered.** When one ring holds more than 24 items under one parent, they're sorted by name and gathered into groups of about a dozen ("A–B", "G–N", "T"…). Each group is a ring you can open. A thousand items are gathered twice. Kestrel Bay's 200 assets now open as seven types and readable A–Z groups, in place of 114 slivers. Groups take the colour of what's inside them, and their tooltip says how many items they hold.
+- **The pick reads like a dial.** A picked item turns to three o'clock as before. Its full name now sits on a level tag there, wrapped onto up to three lines and reaching in over the inner ring if it needs room. A black pointer marks the spot, and small ▲ ▼ buttons (or the arrow keys) turn the dial to the item before or after it in the same ring. A short step turns quickly, and a long way round takes longer.
+- **Fixed: picks landing on hidden items.** Rounding left items just outside the zoomed ring as hairline arcs that could still be hit, so a pick could turn to an item you couldn't see. Those arcs are now properly hidden. Zooming out to a ring that still holds the pick turns it back to three o'clock.
+- Items that fill two rings (nothing inside them) use the room of both for their labels.
+- **Breadcrumbs.** The chips in the sunburst trail and the Strategy details panel are tight rounded rectangles (3px corners). They're white with a soft grey outline and a bar of the ring's colour on the left, like the ribbon's active buttons. The current step gets a pale wash of its colour. The details panel is white with a soft grey outline and 4px corners.
+- Tests: `test/pr16.test.js` covers grouping (small rings left alone, nothing lost, order kept, gathering twice) and the name wrapping.
+- Screenshots: `49-assets-sunburst-grouped.png`, `50-assets-sunburst-dial.png`, `51-strategy-sunburst-dial.png`.
+
 ### PR 14: a cleaner Plan designer panel, and calmer active buttons
 
 - The floating Design tools panel has a light title bar that matches the toolbars, in place of the dark one.
