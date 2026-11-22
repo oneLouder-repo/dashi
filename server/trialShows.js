@@ -215,7 +215,9 @@ export function seedTrialShows(db, { orgId = 'org-kestrel', dataDir, log = () =>
   doc.files ??= {}; doc.projects ??= {}; doc.episodes ??= {}; doc.podcasts ??= {};
   const todo = shows.filter((s) => !doc.files[trialIds(s.slug).file]);
   if (!todo.length) return '';
-  const tool = findVoice();
+  // A speech tool that misbehaves (alpha 0.4: Kestrel's shows went missing on a Mac) never stops the shows: they fall back to music only.
+  let tool = null;
+  try { tool = findVoice(); } catch (err) { log(`Trial shows: no voice (${err.message}), music only.`); }
   const tmp = mkdtempSync(join(tmpdir(), 'dashi-trial-'));
   const mediaDir = join(dataDir, 'media', orgId);
   mkdirSync(mediaDir, { recursive: true });
@@ -236,10 +238,14 @@ export function seedTrialShows(db, { orgId = 'org-kestrel', dataDir, log = () =>
   };
   let voiced = 0;
   try {
-    todo.forEach((show) => {
+    todo.forEach((show) => { try {
       const i = shows.indexOf(show);
       const ids = trialIds(show.slug);
-      const made = makeShow(show, { tool, dir: tmp });
+      let made;
+      try { made = makeShow(show, { tool, dir: tmp }); } catch (err) {
+        log(`Trial show “${show.title}”: the voice failed (${err.message}), so it is music only.`);
+        made = makeShow(show, { tool: null, dir: null });
+      }
       if (made.spoken) voiced++;
       const dur = Math.round(made.duration * 10) / 10;
       const mix = store(`${show.slug}`, made.mix);
@@ -268,10 +274,11 @@ export function seedTrialShows(db, { orgId = 'org-kestrel', dataDir, log = () =>
         status: 'published', publishedAt: isoDay(-(shows.length - i) * 2), audio: { mediaId: mix.mediaId, duration: Math.round(made.duration), mimetype: 'audio/wav', size: mix.size, name: `${show.slug}.wav` },
         personIds: hosts.slice(0, 1), guests: [], cover: null, explicit: false, chapters: made.chapters, slides: structuredClone(made.slides), tags: ['slideshow'], related: [],
       };
-    });
+    } catch (err) { log(`Trial show “${show.title}” was skipped: ${err.message}`); } });
   } finally { rmSync(tmp, { recursive: true, force: true }); }
   doc.trialShows = { tool: tool ?? 'none', at: stamp };
   db.prepare(`UPDATE docs SET json = ?, version = version + 1, updated_at = ?, updated_by = NULL WHERE org_id = ? AND name = 'podcasts'`).run(JSON.stringify(doc), stamp, orgId);
   const how = voiced ? `voiced with ${tool}` : 'music only (no speech tool found: macOS say, espeak or ffmpeg with flite)';
-  return `Trial shows: ${todo.length} slideshow podcast${todo.length === 1 ? '' : 's'} for Kestrel Bay, ${how}.`;
+  const made = todo.filter((sh) => doc.episodes[trialIds(sh.slug).episode]).length;
+  return `Trial shows: ${made} of ${todo.length} slideshow podcast${todo.length === 1 ? '' : 's'} for Kestrel Bay, ${how}.`;
 }
