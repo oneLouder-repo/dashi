@@ -13,6 +13,7 @@ import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { slideAt, sampleSlides } from '../podcasts/studio/slides.js';
 import { bestInk } from './checks.js';
+import { audioSrc } from '../platform/media.js';
 
 let studio;
 async function loadStudio() {
@@ -107,9 +108,11 @@ export async function playShow(el, podcasts, ref, opts = {}) {
   const s = await loadStudio();
   if (s) {
     try {
-      const show = s.showFor(podcasts ?? {}, ref, { mediaUrl: (id) => `media/${id}` });
+      const show = s.showFor(podcasts ?? {}, ref);
       if (show?.slides?.length) {
-        const ctl = s.mountShow(el, show, { audioUrl: show.audioUrl, autoplay: false, onEnd: opts.onEnd, onTime: opts.onTime });
+        // audioSrc resolves local and hosted media alike; the player takes a promise.
+        const audioUrl = show.audio ? audioSrc(show.audio).catch(() => show.audioUrl ?? null) : show.audioUrl;
+        const ctl = s.mountShow(el, show, { audioUrl, autoplay: false, onEnd: opts.onEnd, onTime: opts.onTime });
         return { ...ctl, show };
       }
     } catch { /* fall back to Learn's own player */ }
