@@ -174,14 +174,15 @@ export const seriesHref = (p) => linkTo('podcasts', `#series/${p.id}`);
  * (#<series>/<episode>) still land in the right place, and anything
  * unknown lands on the episode list.
  */
-const SCOPES = ['episodes', 'series', 'station', 'design', 'studio'];
+const SCOPES = ['home', 'episodes', 'series', 'station', 'design', 'studio'];
 export function podcastRoute(hash, doc) {
   let parts = decodeURIComponent(String(hash ?? '').replace(/^#/, '')).split('/').filter(Boolean);
   if (parts[0] && !SCOPES.includes(parts[0]) && doc.podcasts[parts[0]]) parts = ['series', ...parts];
-  if (!SCOPES.includes(parts[0])) parts = ['episodes'];
+  // Alpha 0.3 PR 17: the plugin opens on its home dashboard.
+  if (!SCOPES.includes(parts[0])) parts = ['home'];
   const scope = parts[0];
   const seriesId = scope === 'series' && doc.podcasts[parts[1]] ? parts[1] : null;
-  if (scope === 'series' && !seriesId) return { scope: 'episodes', seriesId: null, base: 'episodes', tray: null };
+  if (scope === 'series' && !seriesId) return { scope: 'home', seriesId: null, base: 'home', tray: null };
   const base = seriesId ? `series/${seriesId}` : scope;
   const [first, second] = parts.slice(seriesId ? 2 : 1);
   // The studio: #studio (sessions) or #studio/<session id>; no trays.

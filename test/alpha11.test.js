@@ -8,9 +8,9 @@ import { refoldDashboards } from '../src/platform/dashboards.js';
 const doc = migratePodcasts(seedPodcasts());
 
 test('the episode list is home, and anything unknown lands there', () => {
-  assert.deepEqual(podcastRoute('', doc), { scope: 'episodes', seriesId: null, base: 'episodes', tray: null });
-  assert.equal(podcastRoute('#nowhere/at-all', doc).base, 'episodes');
-  assert.equal(podcastRoute('#series/gone', doc).base, 'episodes');
+  assert.deepEqual(podcastRoute('', doc), { scope: 'home', seriesId: null, base: 'home', tray: null });
+  assert.equal(podcastRoute('#nowhere/at-all', doc).base, 'home');
+  assert.equal(podcastRoute('#series/gone', doc).base, 'home');
 });
 
 test('an episode, its form and a series’ settings open as trays over the page behind', () => {

@@ -6,6 +6,32 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### PR 17: roadmap Fit zoom, Ecosystem, a Podcasts home, and a slide track in the studio
+
+- **Roadmap opens at "Fit".** A new zoom (the default) is worked out for the screen. With plans side by side, the road opens on all plans end to end and takes in the newest plan under way today, from a stretch before it began (the end of the plan before) to over a year past its end. For Kestrel Bay that runs from mid-2025 to mid-2032, with both finish lines in view. One plan picked: the whole plan, with a little either side. Year, Quarter and Month still work as before, and the ruler's labels thin out at wide zooms.
+- **Ecosystem Mapper is now Ecosystem,** versioned as a plugin: 1.1.0, with a changelog in Platform admin. Stored copies with the old name take the new one, and a new Dashi release of a built-in plugin now brings its version and changelog with it.
+- **Ecosystem: clicking a sticky opens the inspector.** If the side panel or its Inspector section is folded away, a click (not a drag) on a sticky opens them, with the sticky's details.
+- **Plugin headers are just the title.** No sub-title line under any plugin's name; the icon and title are a little smaller and tighter.
+- **Podcasts home.** Podcasts opens on a dashboard:
+  - a hero for the latest episode, with Play;
+  - the station's numbers;
+  - every series as a card;
+  - what's featured on the station;
+  - what's just out, and what's coming up;
+  - the studio's latest sessions.
+  Panels are white with a soft grey outline and the plugin's colour as a bar on the left. Home is first in the side nav, and Episodes is still a click away.
+- **The studio wears the plugin's colours.** Studio and Audio files use the plugin header, with its coloured icon. Session and template cards have soft grey outlines and a colour bar on the left. The editor has a colour rule along its top.
+- **A slide track in the studio.** Along the audio tracks, a slide track runs a triggered slide show: each slide is a small card from its start to the next one's.
+  - Click a slide to jump there and edit it. Drag one along to retime it.
+  - Add a slide at the playhead with L, or Slide in the toolbar.
+  - A small screen in the transport shows the slide that's showing now. The Slides tab has a bigger screen and the editor: title, words, kind (title, point, quote, name) and colour.
+  - Long sessions open zoomed to fit.
+- **Audio files open in the studio.** Every audio file has "Open in studio". The first time makes a session from it, with its slide show if it has one; after that it goes back to the same session. Files with a deck show a "45 slides" badge.
+- **A sample slide show.** On `npm run clients`, podBeam gives the longest SJR mp3 in `media/podBeam/` a sample deck of lorem ipsum slides: 30 to 50 for a 45-minute show, about one a minute, the same every time. Open it from Audio files to see the slide track without making one first.
+- The studio no longer shows a session's name twice in the breadcrumb.
+- Tests: `test/pr17.test.js` covers the slides, a session from a file, the Podcasts home route, and the Ecosystem rename and version.
+- Screenshots: `52-roadmap-fit-zoom.png`, `53-ecosystem-sticky-opens-inspector.png`, `54-podcasts-home.png`, `55-studio-slide-track.png`, `56-audio-files-open-in-studio.png`.
+
 ### PR 16: sunbursts that cope with hundreds of items, and a dial for picking
 
 - **Big rings are gathered.** When one ring holds more than 24 items under one parent, they're sorted by name and gathered into groups of about a dozen ("A–B", "G–N", "T"…). Each group is a ring you can open. A thousand items are gathered twice. Kestrel Bay's 200 assets now open as seven types and readable A–Z groups, in place of 114 slivers. Groups take the colour of what's inside them, and their tooltip says how many items they hold.

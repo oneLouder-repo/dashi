@@ -125,12 +125,14 @@ function relatedChoices() {
 const relatedOf = (key) => relatedChoices().find((r) => r.key === key) ?? { key, label: key, href: null, icon: 'link' };
 
 /* ------------------------------------------------------------------ frame */
+const recentSessions = () => Object.values(doc().projects ?? {}).sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')).slice(0, 6);
 function render() {
   const r = route();
   const all = allEpisodes();
   const notYet = all.filter((e) => stateOf(e) !== 'live').length;
   side = swapSide(side, SideNav({ label: 'Episodes, series and station', sections: [
     { title: 'Podcasts', items: [
+      { label: 'Home', sub: 'Latest, featured, series and the studio', icon: 'home', href: '#home', on: r.scope === 'home' },
       { label: 'Episodes', sub: [`${all.length - notYet} published`, notYet && `${notYet} not yet`].filter(Boolean).join(' · '), icon: 'music', href: '#episodes', on: r.scope === 'episodes' },
       { label: 'Station', sub: doc().station.name, icon: 'radio', href: '#station', on: r.scope === 'station' },
       { label: 'Public station', sub: stationSite() ? `On ${stationSite().name}` : 'Not on a site yet', icon: 'globe', href: '#design', on: r.scope === 'design' },
@@ -138,7 +140,7 @@ function render() {
     { title: 'Studio', action: { label: 'New session', onclick: () => { location.hash = 'studio'; } }, items: [
       { label: 'Studio', sub: 'Record, edit and mix in the browser', icon: 'mic', href: '#studio', on: r.scope === 'studio' && !r.projectId && !r.page },
       { label: 'Audio files', sub: `${Object.keys(doc().files ?? {}).length} recordings, imports and beds`, icon: 'waveform', href: '#studio/files', on: r.page === 'files' },
-      ...Object.values(doc().projects ?? {}).sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')).slice(0, 6).map((p) => ({ label: p.title, sub: projectLength(p) ? clock(projectLength(p), { tenths: false }) : 'Empty', icon: 'waveform', href: `#studio/${p.id}`, on: r.projectId === p.id })),
+      ...recentSessions().map((p) => ({ label: p.title, sub: projectLength(p) ? clock(projectLength(p), { tenths: false }) : 'Empty', icon: 'waveform', href: `#studio/${p.id}`, on: r.projectId === p.id })),
     ] },
     { title: 'Series', action: { label: 'New series', onclick: newSeries }, items: [
       ...showsInOrder(doc()).map((p) => ({ label: p.title, sub: [countsOf(p.id).line, p.featured && 'featured'].filter(Boolean).join(' · '), lead: Cover(p, 28, 'side-cover'), href: `#series/${p.id}`, on: r.seriesId === p.id })),
@@ -164,8 +166,10 @@ function render() {
     else if (r.scope === 'studio') {
       const studio = { store, col, doc, org, me: currentUser(org)?.id ?? null, go: (hash) => { location.hash = hash; } };
       panel.replaceChildren(r.page === 'files' ? StudioFiles(studio) : r.projectId ? StudioEditor(studio, r.projectId) : StudioHome(studio));
-      if (r.projectId) setCrumbs([{ label: doc().projects[r.projectId].title }]);
+      // A session the side nav lists is named there already; one further down the list gets a crumb.
+      if (r.projectId && !recentSessions().some((p) => p.id === r.projectId)) setCrumbs([{ label: doc().projects[r.projectId].title }]);
     }
+    else if (r.scope === 'home') panel.replaceChildren(PodcastsHome(r));
     else panel.replaceChildren(EpisodesHome(r));
     if (samePage) { const m = panel.querySelector('.pc-main'); if (m) m.scrollTop = scroll; }
   }
@@ -576,6 +580,87 @@ function EpisodesHome(r) {
             group('Coming up and drafts', upcoming, filter.q ? 'Nothing coming up matches.' : 'Nothing scheduled. Drafts and future dates show here.'),
             group('Published', live, filter.q ? 'Nothing published matches.' : 'Nothing published yet.'))
           : shown.length ? rows(filter.state === 'live' ? live : upcoming) : h('p', { class: 'pc-empty' }, 'No episodes match.')));
+}
+
+/* ------------------------------------------------------------------ the plugin's home */
+/**
+ * Alpha 0.3 PR 17: the Podcasts home dashboard. A hero for the newest
+ * episode, the station's numbers, what's featured, every series as a card,
+ * what's coming up, and the studio's latest sessions. Panels are white with
+ * a soft grey outline and the plugin's colour as a bar on the left.
+ */
+function PodcastsHome(r) {
+  const eps = allEpisodes();
+  const live = eps.filter((e) => stateOf(e) === 'live').sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+  const coming = eps.filter((e) => stateOf(e) !== 'live').sort((a, b) => (a.publishedAt ?? '').localeCompare(b.publishedAt ?? ''));
+  const shows = showsInOrder(doc());
+  const sessions = Object.values(doc().projects ?? {}).sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
+  const files = Object.values(doc().files ?? {});
+  const decks = [...files.filter((f) => f.slides?.length), ...sessions.filter((p) => p.slides?.length)].length;
+  const latest = live[0];
+  const featured = (doc().station.featuredEpisodes ?? []).map((f) => ({ ...f, e: doc().episodes[f.episodeId] })).filter((f) => f.e && doc().podcasts[f.e.podcastId]);
+  const panelHead = (title, link) => h('div', { class: 'ph-head' }, h('h2', {}, title), link && h('a', { class: 'ph-more', href: link.href }, link.label, icon('chevronRight', 12)));
+  const stat = (num, label, href) => h('a', { class: 'ph-stat', href }, h('strong', {}, String(num)), h('span', {}, label));
+
+  const hero = latest ? (() => {
+    const show = doc().podcasts[latest.podcastId];
+    return h('section', { class: 'ph-panel ph-hero' },
+      h('div', { class: 'ph-hero-art' }, EpisodeArt(latest, show, 168)),
+      h('div', { class: 'ph-hero-text' },
+        h('small', { class: 'ph-kicker' }, 'Latest episode'),
+        h('h2', {}, latest.title),
+        h('p', { class: 'ph-hero-meta' }, [show?.title, episodeCode(latest), short(latest.publishedAt), fmtDuration(latest.audio?.duration)].filter(Boolean).join(' · ')),
+        latest.description && h('p', { class: 'ph-hero-desc' }, latest.description.length > 220 ? `${latest.description.slice(0, 219)}…` : latest.description),
+        h('div', { class: 'ph-hero-actions' },
+          h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => player.play([latest, ...live.slice(1, 8)]) }, icon('play', 14), 'Play'),
+          h('a', { class: 'btn btn-sm', href: `#home/${latest.id}` }, 'Open the episode'),
+          show && h('a', { class: 'btn btn-sm btn-ghost', href: `#series/${show.id}` }, `All of ${show.title}`))));
+  })() : h('section', { class: 'ph-panel ph-hero empty' }, icon('mic', 28), h('div', {}, h('h2', {}, 'No episodes out yet'), h('p', { class: 'muted' }, 'Add one from an .mp3, or make one in the studio.')), h('a', { class: 'btn btn-sm btn-primary', href: '#episodes/new' }, 'Add an episode'));
+
+  return h('div', { class: 'pc-main ph' },
+    PluginHeader('podcasts', { title: 'Podcasts', actions: [
+      h('a', { class: 'btn btn-sm', href: '#studio' }, icon('mic', 14), 'Open the studio'),
+      h('a', { class: 'btn btn-sm btn-primary', href: '#episodes/new' }, icon('upload', 14), 'Add episode'),
+    ] }),
+    h('div', { class: 'pc-body' }, h('div', { class: 'ph-grid' },
+      h('div', { class: 'ph-col' },
+        hero,
+        h('div', { class: 'ph-stats' },
+          stat(live.length, 'published', '#episodes'),
+          stat(coming.filter((e) => stateOf(e) === 'coming').length, 'scheduled', '#episodes'),
+          stat(coming.filter((e) => stateOf(e) === 'draft').length, 'drafts', '#episodes'),
+          stat(shows.length, shows.length === 1 ? 'series' : 'series', '#station'),
+          stat(sessions.length, sessions.length === 1 ? 'studio session' : 'studio sessions', '#studio')),
+        h('section', { class: 'ph-panel' },
+          panelHead('Your series', { label: 'Station line-up', href: '#station' }),
+          h('div', { class: 'ph-series' }, shows.map((s) => {
+            const c = countsOf(s.id);
+            return h('a', { class: 'ph-show', href: `#series/${s.id}` }, Cover(s, 72),
+              h('span', {}, h('strong', {}, s.title), h('small', {}, c.line || 'No episodes yet'), s.featured && h('em', {}, icon('star', 11), 'Featured')));
+          }), h('button', { type: 'button', class: 'ph-show ph-show-new', onclick: newSeries }, h('span', { class: 'ph-new-tile' }, icon('plus', 22)), h('span', {}, h('strong', {}, 'New series'), h('small', {}, 'A name is all it takes'))))),
+        h('section', { class: 'ph-panel' },
+          panelHead('Featured on the station', { label: 'Choose what’s featured', href: '#design' }),
+          featured.length
+            ? h('div', { class: 'ph-featured' }, featured.map(({ e, blurb }) => {
+              const show = doc().podcasts[e.podcastId];
+              return h('a', { class: 'ph-feat', href: `#home/${e.id}` }, EpisodeArt(e, show, 120),
+                h('strong', {}, e.title), h('small', {}, blurb || show?.title || ''));
+            }))
+            : h('p', { class: 'muted small' }, 'Nothing featured yet. Star an episode, or pick three to seven in Public station.'))),
+      h('div', { class: 'ph-col ph-side' },
+        h('section', { class: 'ph-panel' },
+          panelHead('Just out', { label: 'All episodes', href: '#episodes' }),
+          h('div', { class: 'pc-rows ph-rows' }, live.slice(1, 6).map((e) => EpisodeRow(e, { showShow: true, base: 'home' })))),
+        h('section', { class: 'ph-panel' },
+          panelHead('Coming up and drafts', { label: 'Plan episodes', href: '#episodes' }),
+          coming.length ? h('div', { class: 'pc-rows ph-rows' }, coming.slice(0, 4).map((e) => EpisodeRow(e, { showShow: true, base: 'home' }))) : h('p', { class: 'muted small' }, 'Nothing scheduled. Drafts and future dates show here.')),
+        h('section', { class: 'ph-panel ph-studio' },
+          panelHead('Studio', { label: 'All sessions', href: '#studio' }),
+          h('p', { class: 'muted small' }, `${files.length} audio files · ${decks} with a slide show`),
+          h('ul', { class: 'ph-sessions' }, sessions.slice(0, 4).map((p) => h('li', {}, h('a', { href: `#studio/${p.id}` }, icon('waveform', 14), h('span', {}, p.title), h('small', {}, [projectLength(p) ? clock(projectLength(p), { tenths: false }) : 'Empty', p.slides?.length ? `${p.slides.length} slides` : null].filter(Boolean).join(' · ')))))),
+          h('div', { class: 'ph-hero-actions' },
+            h('a', { class: 'btn btn-sm', href: '#studio' }, icon('mic', 14), 'New session'),
+            h('a', { class: 'btn btn-sm btn-ghost', href: '#studio/files' }, icon('waveform', 14), 'Audio files')))))));
 }
 
 /** On the episode list: the station, small, with the ways to its details and its public page. */

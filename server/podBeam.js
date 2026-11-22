@@ -17,6 +17,7 @@ import { readdirSync, readFileSync, statSync, writeFileSync, mkdirSync, existsSy
 import { join, basename } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
 import { randomBytes } from 'node:crypto';
+import { seedSampleSlides } from '../src/podcasts/studio/slides.js';
 
 const AUDIO = /\.(mp3|wav|m4a)$/i;
 export const mimetypeOf = (name) => (/\.wav$/i.test(name) ? 'audio/wav' : /\.m4a$/i.test(name) ? 'audio/mp4' : 'audio/mpeg');
@@ -180,7 +181,10 @@ export function importPodBeam(db, { dir, orgId, dataDir, log = () => {} }) {
       }
     } else if (fresh) log(`podBeam: ${f.from} doesn’t match an episode; it’s in Audio files.`);
   }
-  if (!added && !linked) return '';
+  // Alpha 0.3 PR 17: the longest podBeam file carries a sample slide show, so the studio's
+  // slide track can be seen without making one first.
+  const slid = seedSampleSlides(doc, { title: doc.station?.name || 'Social Justice Radio' });
+  if (!added && !linked && !slid) return '';
   db.prepare(`UPDATE docs SET json = ?, version = version + 1, updated_at = ?, updated_by = NULL WHERE org_id = ? AND name = 'podcasts'`).run(JSON.stringify(doc), stamp, orgId);
-  return `podBeam: ${added} new audio file${added === 1 ? '' : 's'}, ${matched} matched to episodes${linked ? ` (${linked} now play the uploaded file)` : ''}.`;
+  return `podBeam: ${added} new audio file${added === 1 ? '' : 's'}, ${matched} matched to episodes${linked ? ` (${linked} now play the uploaded file)` : ''}${slid ? ', and a sample slide show on the longest one' : ''}.`;
 }

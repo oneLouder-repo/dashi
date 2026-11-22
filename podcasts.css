@@ -647,3 +647,92 @@ dialog.drawer-panel.pc-tray .drawer-body { padding-top: 16px; }
 .pc-feature.on { color: #c98a00; }
 .pc-feature.on svg { fill: currentColor; }
 .fe-blurb.textarea { max-width: none; width: 100%; }
+
+/* The slide track (alpha 0.3 PR 17): a triggered slide show along the audio. */
+.st-head-slides { cursor: default; }
+.st-head-slides::before { background: #f4a93b; opacity: 1; }
+.st-head-slides strong { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; flex: 1; }
+.st-head-slides .btn { color: var(--desk-muted); }
+.st-slide-lane { background-color: rgb(244 169 59 / .04); }
+.st-slide { position: absolute; top: 6px; bottom: 6px; display: flex; align-items: flex-start; gap: 5px; padding: 4px 6px 4px 8px; border: 1px solid rgb(255 255 255 / .14); border-radius: 3px; background: color-mix(in oklab, var(--tone) 22%, var(--desk)); box-shadow: inset 3px 0 0 var(--tone); color: var(--desk-ink); font: 600 10.5px/1.25 inherit; text-align: left; overflow: hidden; cursor: grab; user-select: none; touch-action: none; }
+.st-slide b { flex: none; min-width: 16px; padding: 1px 3px; border-radius: 2px; background: var(--tone); color: #111; font-size: 9.5px; text-align: center; }
+.st-slide span { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.st-slide:hover { border-color: rgb(255 255 255 / .35); }
+.st-slide.live { background: color-mix(in oklab, var(--tone) 42%, var(--desk)); }
+.st-slide.on { border-color: #fff; box-shadow: inset 3px 0 0 var(--tone), 0 0 0 1px #fff; z-index: 2; }
+.st-slide-empty { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--desk-muted); }
+.st-mini-screen { width: 120px; height: 68px; padding: 0; border: 1px solid var(--desk-line); border-radius: 3px; background: #0b0d12; overflow: hidden; cursor: pointer; flex: none; }
+.st-mini-screen[hidden] { display: none; }
+.st-mini-screen .st-face { transform: scale(.4); transform-origin: 0 0; width: 300px; height: 170px; }
+.st-face { width: 100%; height: 100%; display: grid; align-content: center; gap: 6px; padding: 16px 20px; background: var(--tone, #333); color: #111; text-align: left; box-shadow: inset 0 -8px 0 rgb(0 0 0 / .12); }
+.st-face small { font: 700 10px/1 ui-monospace, Menlo, monospace; opacity: .6; }
+.st-face strong { font-size: 20px; line-height: 1.15; }
+.st-face p { margin: 0; font-size: 12.5px; line-height: 1.4; }
+.st-face.k-title strong { font-size: 24px; }
+.st-face.k-quote p { font-style: italic; font-size: 14px; }
+.st-face.k-name { background: linear-gradient(90deg, var(--tone) 0 10px, #f7f6f2 10px); }
+.st-face.empty { background: #0b0d12; color: var(--desk-muted); place-items: center; }
+.st-slides-panel { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: start; }
+.st-screen { width: 300px; height: 170px; border-radius: 3px; overflow: hidden; border: 1px solid var(--desk-line); }
+.st-screen-wrap p { margin: 6px 0 0; }
+.st-slide-edit { display: grid; gap: 10px; }
+.st-field.grow { flex: 1; display: grid; gap: 4px; }
+.st-field.grow input, .st-field.grow textarea { width: 100%; }
+.st-dock-body .textarea, .st-dock-body .select { background: var(--desk); color: var(--desk-ink); border-color: var(--desk-line); }
+.st-field input[type=color] { width: 32px; height: 22px; padding: 0; border: 1px solid var(--desk-line); border-radius: 3px; background: none; }
+.af-slides { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; padding: 1px 6px; border-radius: 3px; background: #fff4e0; color: #8a5a10; font-size: 11px; font-weight: 600; vertical-align: 1px; }
+.af-open { white-space: nowrap; }
+
+/* Podcasts home (alpha 0.3 PR 17): white panels, soft grey outlines, the plugin's colour as a left bar. */
+.ph-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: 16px; align-items: start; }
+.ph-col { display: grid; gap: 16px; min-width: 0; }
+.ph-panel { background: #fff; border: 1px solid #d5d8de; border-left: 3px solid var(--color-primary); border-radius: 4px; padding: 14px 16px; display: grid; gap: 10px; min-width: 0; }
+.ph-head { display: flex; align-items: baseline; gap: 10px; }
+.ph-head h2 { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2, #3a3f4b); margin: 0; flex: 1; }
+.ph-more { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; color: var(--ink-3, #6b7180); }
+.ph-more:hover { color: var(--color-primary); }
+.ph-hero { grid-template-columns: auto 1fr; gap: 18px; align-items: center; padding: 16px; background: linear-gradient(90deg, color-mix(in oklab, var(--color-primary) 7%, #fff), #fff 60%); }
+.ph-hero.empty { grid-template-columns: auto 1fr auto; color: var(--ink-3); }
+.ph-hero-art { width: 168px; height: 168px; border-radius: 3px; overflow: hidden; box-shadow: 0 2px 8px rgb(22 24 29 / .12); }
+.ph-hero-art > * { width: 100% !important; height: 100% !important; }
+.ph-kicker { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--color-primary); }
+.ph-hero h2 { margin: 2px 0 0; font-size: 24px; line-height: 1.2; }
+.ph-hero-meta { margin: 4px 0 0; font-size: 13px; color: var(--ink-3, #6b7180); }
+.ph-hero-desc { margin: 8px 0 0; font-size: 14px; line-height: 1.5; color: var(--ink-2, #3a3f4b); }
+.ph-hero-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.ph-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.ph-stat { display: grid; gap: 2px; padding: 10px 12px; background: #fff; border: 1px solid #d5d8de; border-radius: 4px; box-shadow: inset 3px 0 0 var(--color-primary); }
+.ph-stat strong { font-size: 22px; line-height: 1; }
+.ph-stat span { font-size: 12px; color: var(--ink-3, #6b7180); }
+.ph-stat:hover { border-color: #b4b9c3; }
+.ph-series { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.ph-show { display: flex; align-items: center; gap: 12px; padding: 8px; border: 1px solid #e3e5ea; border-radius: 4px; background: #fff; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.ph-show:hover { border-color: #b4b9c3; }
+.ph-show > span:last-child { display: grid; gap: 2px; min-width: 0; }
+.ph-show strong { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ph-show small { font-size: 12px; color: var(--ink-3, #6b7180); }
+.ph-show em { display: inline-flex; align-items: center; gap: 3px; font-style: normal; font-size: 11px; font-weight: 600; color: var(--color-primary); }
+.ph-new-tile { width: 72px; height: 72px; display: grid; place-items: center; border: 1px dashed #c4c8d0; border-radius: 3px; color: var(--ink-3); }
+.ph-featured { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.ph-feat { display: grid; gap: 4px; align-content: start; }
+.ph-feat > :first-child { width: 100% !important; height: auto !important; aspect-ratio: 1; border-radius: 3px; overflow: hidden; }
+.ph-feat strong { font-size: 13px; line-height: 1.3; }
+.ph-feat small { font-size: 12px; color: var(--ink-3, #6b7180); }
+.ph-rows .pc-row { border-radius: 3px; }
+.ph-rows .pc-row-desc { display: none; }
+.ph-sessions { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.ph-sessions a { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid #e3e5ea; border-radius: 3px; font-size: 13px; }
+.ph-sessions a span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.ph-sessions small { color: var(--ink-3, #6b7180); white-space: nowrap; }
+.ph-sessions a:hover { border-color: #b4b9c3; }
+@media (max-width: 1100px) { .ph-grid { grid-template-columns: 1fr; } .ph-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .ph-hero { grid-template-columns: 1fr; } .ph-hero-art { width: 120px; height: 120px; } }
+.ph a:not(.btn) { color: inherit; text-decoration: none; }
+.ph .ph-more { color: var(--ink-3, #6b7180); }
+/* Studio pages wear the plugin's chrome (alpha 0.3 PR 17): its header, soft grey outlines, the colour bar on the left. */
+.st-home > .plugin-header, .af > .plugin-header { padding: 0; margin: 0 0 10px; }
+.st-tpl, .st-session, .af-table { border-radius: 4px !important; border: 1px solid #d5d8de !important; }
+.st-tpl, .st-session { box-shadow: inset 3px 0 0 color-mix(in oklab, var(--color-primary) 35%, transparent) !important; }
+.st-tpl:hover, .st-session:hover { box-shadow: inset 3px 0 0 var(--color-primary) !important; border-color: #b4b9c3 !important; }
+.st-tpl-lanes, .st-session-mini { border-radius: 3px !important; }
+.st { border-top: 3px solid var(--color-primary); }

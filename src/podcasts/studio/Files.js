@@ -7,6 +7,9 @@ import { uid } from '../../core/ops.js';
 import { audioContext, keepBuffer } from './audio.js';
 import { clock } from './project.js';
 import { prettySize } from '../../platform/assetHub.js';
+import { sessionFromFile } from './slides.js';
+import { PluginHeader } from '../../ui/PluginHeader.js';
+import { showsInOrder } from '../../platform/podcasts.js';
 
 /**
  * The studio's audio files (alpha 0.3): every recording, import, jingle and
@@ -57,6 +60,20 @@ export const usesOf = (doc, file) => Object.values(doc.projects ?? {}).filter((p
 /** The episodes that play a file (podBeam imports, mixdowns published as episodes). */
 export const episodesOf = (doc, file) => Object.values(doc.episodes ?? {}).filter((e) => e.audio?.mediaId === file.mediaId);
 
+/**
+ * Alpha 0.3 PR 17: open a file in the studio's multitrack (DAW) view. The
+ * first time makes a session from it (with its slide show, if it has one);
+ * after that it goes back to that session.
+ */
+export function openInStudio(ctx, file) {
+  const doc = ctx.doc();
+  const had = Object.values(doc.projects ?? {}).find((p) => p.fromFile === file.id);
+  if (had) return ctx.go(`studio/${had.id}`);
+  const p = sessionFromFile(file, { podcastId: showsInOrder(doc)[0]?.id ?? null });
+  ctx.store.apply(ctx.col.add('projects', p));
+  ctx.go(`studio/${p.id}`);
+}
+
 /** A small play button that plays a file (one at a time across the page). */
 let playing = null;
 function PlayButton(file) {
@@ -96,7 +113,7 @@ export function StudioFiles(ctx) {
         const uses = usesOf(doc, f);
         return h('tr', {},
           h('td', {}, PlayButton(f)),
-          h('td', {}, h('strong', {}, f.name), h('small', { class: 'muted af-size' }, [prettySize(f.size), (f.tags ?? []).map((t) => `#${t}`).join(' ')].filter(Boolean).join(' · '))),
+          h('td', {}, h('strong', {}, f.name), f.slides?.length > 0 && h('span', { class: 'af-slides', title: 'This file has a slide show along it' }, icon('image', 12), `${f.slides.length} slides`), h('small', { class: 'muted af-size' }, [prettySize(f.size), (f.tags ?? []).map((t) => `#${t}`).join(' ')].filter(Boolean).join(' · '))),
           h('td', { class: 'af-num' }, clock(f.duration ?? 0, { tenths: false })),
           h('td', {}, ORIGINS[f.origin] ?? 'Imported'),
           h('td', {}, (() => {
@@ -104,6 +121,7 @@ export function StudioFiles(ctx) {
             return links.length ? links.slice(0, 2).map((a, i) => [i ? ', ' : '', a]) : h('span', { class: 'muted' }, 'Not used yet');
           })()),
           h('td', { class: 'af-tools' },
+            h('button', { type: 'button', class: 'btn btn-xs af-open', title: 'Open it in the studio’s multitrack view (with its slides, if it has them)', onclick: () => openInStudio(ctx, f) }, icon('waveform', 13), 'Open in studio'),
             h('button', { type: 'button', class: 'btn btn-ghost btn-xs', onclick: async () => { const n = await uiPrompt('Name', f.name, { title: 'Rename the file', ok: 'Rename' }); if (n?.trim()) { ctx.store.apply(ctx.col.update('files', f.id, { name: n.trim() })); draw(); } } }, 'Rename'),
             h('button', { type: 'button', class: 'btn btn-ghost btn-xs', onclick: async () => { const t = await uiPrompt('Tags, separated by commas', (f.tags ?? []).join(', '), { title: 'Tag the file', ok: 'Save' }); if (t != null) { ctx.store.apply(ctx.col.update('files', f.id, { tags: t.split(',').map((x) => x.trim().replace(/^#/, '')).filter(Boolean) })); draw(); } } }, 'Tags'),
             h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-error', 'aria-label': `Delete ${f.name}`, onclick: async () => {
@@ -118,11 +136,7 @@ export function StudioFiles(ctx) {
   const seg = h('div', { class: 'join af-filter' }, ['all', ...Object.keys(ORIGINS)].map((k) => h('button', { type: 'button', class: `btn btn-sm join-item${origin === k ? ' btn-active' : ''}`, onclick: (e) => { origin = k; [...seg.children].forEach((b) => b.classList.toggle('btn-active', b === e.currentTarget)); draw(); } }, k === 'all' ? `All ${c.all}` : `${ORIGINS[k]} ${c[k]}`)));
   draw();
   return h('div', { class: 'pc-main af' },
-    h('header', { class: 'st-home-head af-head' },
-      h('div', {},
-        h('h1', {}, icon('waveform', 24), 'Audio files'),
-        h('p', { class: 'muted' }, 'Every recording, interview, jingle and music bed, in one place to use in any session. They show in Assets too, as Studio audio.')),
-      h('label', { class: 'btn btn-primary btn-sm' }, icon('upload', 15), 'Upload audio', input)),
+    PluginHeader('podcasts', { title: 'Audio files', actions: [h('label', { class: 'btn btn-primary btn-sm' }, icon('upload', 15), 'Upload audio', input)] }),
     h('div', { class: 'af-bar' },
       h('label', { class: 'input input-sm af-search' }, icon('search', 14), h('input', { type: 'search', placeholder: 'Search names and tags', oninput: (e) => { query = e.target.value; draw(); } })),
       seg, status),

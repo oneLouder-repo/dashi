@@ -6,6 +6,8 @@ import { isAudioFile, slugify, nextNumber, seasonsOf, showsInOrder } from '../..
 import { today } from '../../strategy/dates.js';
 import * as P from './project.js';
 import { rememberFile, FilesPicker } from './Files.js';
+import * as S from './slides.js';
+import { PluginHeader } from '../../ui/PluginHeader.js';
 import { Transport, Recorder, loadBuffer, cachedBuffer, keepBuffer, sourceKey, mono, silencesOf, mixdown, playOnce, audioContext } from './audio.js';
 
 /**
@@ -33,10 +35,8 @@ export function StudioHome(ctx) {
     ctx.go(`studio/${p.id}`);
   };
   return h('div', { class: 'pc-main st-home' },
-    h('header', { class: 'st-home-head' },
-      h('div', {},
-        h('h1', {}, icon('mic', 24), 'Studio'),
-        h('p', { class: 'muted' }, 'Record, cut and arrange an episode here in the browser: voices, music and sound effects on their own tracks. When it sounds right, send it to the station as a draft episode, chapters and all.'))),
+    // The plugin's own header, with its colour (alpha 0.3 PR 17), like every other page.
+    PluginHeader('podcasts', { title: 'Studio', actions: [h('a', { class: 'btn btn-sm', href: '#studio/files' }, icon('waveform', 14), 'Audio files')] }),
     h('section', { class: 'st-templates' },
       h('h2', {}, 'Start a session'),
       h('div', { class: 'st-tpl-grid' }, P.TEMPLATES.map((t) =>
@@ -67,7 +67,8 @@ export function StudioEditor(ctx, projectId) {
   const transport = new Transport();
   const undo = [];
   const redo = [];
-  let pps = 40;                  // pixels per second
+  // Pixels per second: 40, or less for a long session so it opens seen whole (alpha 0.3 PR 17).
+  let pps = Math.max(0.2, Math.min(40, ((typeof innerWidth === 'number' ? innerWidth : 1400) - 560) / (P.projectLength(project) + 30)));
   let playhead = 0;
   let selected = null;           // clip id
   let track = project.tracks[0]?.id ?? null;   // the armed track
@@ -75,8 +76,10 @@ export function StudioEditor(ctx, projectId) {
   let snapOn = true;
   let recorder = null;
   let recStart = 0;
-  let dock = 'clip';
+  let dock = project.slides.length ? 'slides' : 'clip';
   let saveTimer = null;
+  let slidePick = null;          // the slide being edited
+  let shown = undefined;         // the slide on the screen now
 
   /* ---------- state changes */
   const save = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => ctx.store.apply(ctx.col.update('projects', project.id, structuredClone(project))), 300); };
@@ -106,7 +109,7 @@ export function StudioEditor(ctx, projectId) {
   const meter = h('span', { class: 'st-meter', 'aria-hidden': 'true' }, h('i'));
   const playBtn = h('button', { type: 'button', class: 'st-tbtn st-play', title: 'Play or pause (space)', 'aria-label': 'Play', onclick: () => togglePlay() }, icon('play', 18));
   const recBtn = h('button', { type: 'button', class: 'st-tbtn st-rec', title: 'Record on the selected track (R)', 'aria-label': 'Record', onclick: () => toggleRecord() }, h('span', { class: 'st-rec-dot' }));
-  const zoomIn = h('input', { type: 'range', class: 'st-zoom', min: 4, max: 400, value: pps, 'aria-label': 'Zoom', oninput: (e) => { const c = scroller.scrollLeft / pps + scroller.clientWidth / 2 / pps; pps = +e.target.value; draw(); scroller.scrollLeft = c * pps - scroller.clientWidth / 2; } });
+  const zoomIn = h('input', { type: 'range', class: 'st-zoom', min: 0.2, max: 400, step: 'any', value: pps, 'aria-label': 'Zoom', oninput: (e) => { const c = scroller.scrollLeft / pps + scroller.clientWidth / 2 / pps; pps = +e.target.value; draw(); scroller.scrollLeft = c * pps - scroller.clientWidth / 2; } });
   const fileIn = h('input', { type: 'file', accept: '.mp3,.wav,audio/*', multiple: true, class: 'sr-only', onchange: (e) => importFiles([...e.target.files], track, freeSpot(track, playhead)) });
   // Where an import goes: the playhead, or after the track's last clip if something is already there.
   const freeSpot = (trackId, at) => {
@@ -114,6 +117,9 @@ export function StudioEditor(ctx, projectId) {
     return on.some((c) => c.start <= at + 0.01 && P.clipEnd(c) > at) ? Math.max(...on.map(P.clipEnd)) : at;
   };
 
+  // The slide showing at the playhead, small, in the transport (alpha 0.3 PR 17). Click it for the Slides tab.
+  const miniScreen = h('button', { type: 'button', class: 'st-mini-screen', title: 'The slide showing now: open the Slides tab', onclick: () => { dock = 'slides'; drawDock(); } });
+  const bigScreen = h('div', { class: 'st-screen', 'aria-live': 'polite' });
   const heads = h('div', { class: 'st-heads' });
   const ruler = h('div', { class: 'st-ruler' });
   const lanes = h('div', { class: 'st-lanes' });
@@ -135,6 +141,7 @@ export function StudioEditor(ctx, projectId) {
     tool('Duplicate', 'copy', () => selected && commit(P.duplicateClip(project, selected)), { key: 'D' }),
     h('span', { class: 'st-sep' }),
     tool('Marker', 'flag', () => commit(P.addMarker(project, playhead)), { key: 'M', title: 'Add a chapter marker at the playhead' }),
+    tool('Slide', 'image', () => addSlideHere(), { key: 'L', title: 'Add a slide at the playhead, on the slide track' }),
     tool('Silence', 'plus', async () => { const s = Number(await uiPrompt('Seconds of silence to insert at the playhead', '2')); if (s > 0) commit(P.insertSilence(project, playhead, s)); }, { title: 'Insert silence at the playhead, pushing everything after it along' }),
     h('span', { class: 'st-sep' }),
     h('label', { class: 'st-snap', title: 'Snap clips to each other’s edges' }, h('input', { type: 'checkbox', class: 'toggle toggle-xs', checked: snapOn, onchange: (e) => { snapOn = e.target.checked; } }), 'Snap'),
@@ -151,12 +158,13 @@ export function StudioEditor(ctx, projectId) {
       h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => toEpisode() }, icon('radio', 14), project.episodeId && getEpisode(project.episodeId) ? 'Update the episode' : 'Send to the station')),
     h('div', { class: 'st-transport' },
       h('button', { type: 'button', class: 'st-tbtn', title: 'Back to the start (Home)', 'aria-label': 'Back to the start', onclick: () => seek(0) }, icon('skipBack', 16)),
-      playBtn, recBtn, timeEl, meter, toolbar),
+      playBtn, recBtn, timeEl, meter, toolbar, miniScreen),
     h('div', { class: 'st-body' }, heads, scroller),
     dockEl, status);
 
   /* ---------- drawing */
   const LANE = 76;
+  const SLANE = 62;
   const x = (t) => t * pps;
   const tAt = (clientX) => Math.max(0, (clientX - canvasWrap.getBoundingClientRect().left) / pps);
 
@@ -194,7 +202,10 @@ export function StudioEditor(ctx, projectId) {
           h('span', { class: 'spacer' }),
           h('button', { type: 'button', class: 'st-icon', title: 'Move up', 'aria-label': 'Move track up', disabled: i === 0, onclick: () => commit(P.moveTrack(project, t.id, -1)) }, icon('chevronUp', 12)),
           h('button', { type: 'button', class: 'st-icon', title: 'Move down', 'aria-label': 'Move track down', disabled: i === project.tracks.length - 1, onclick: () => commit(P.moveTrack(project, t.id, 1)) }, icon('chevronDown', 12)),
-          h('button', { type: 'button', class: 'st-icon', title: 'Remove track', 'aria-label': 'Remove track', onclick: async () => { if (!P.clipsOn(project, t.id).length || await uiConfirm(`Remove “${t.name}” and its clips?`, { danger: true, ok: 'Remove' })) commit(P.removeTrack(project, t.id)); } }, icon('trash', 12))))));
+          h('button', { type: 'button', class: 'st-icon', title: 'Remove track', 'aria-label': 'Remove track', onclick: async () => { if (!P.clipsOn(project, t.id).length || await uiConfirm(`Remove “${t.name}” and its clips?`, { danger: true, ok: 'Remove' })) commit(P.removeTrack(project, t.id)); } }, icon('trash', 12))))),
+      h('div', { class: 'st-head-row st-head-slides', style: `height:${SLANE}px` },
+        h('div', { class: 'st-head-top' }, h('strong', {}, icon('image', 13), 'Slides'), h('span', { class: 'muted small' }, String(project.slides.length))),
+        h('div', { class: 'st-head-bot' }, h('button', { type: 'button', class: 'btn btn-xs btn-ghost', onclick: () => addSlideHere() }, icon('plus', 12), 'At the playhead'))));
   }
 
   function drawRuler(len) {
@@ -214,7 +225,61 @@ export function StudioEditor(ctx, projectId) {
       lane.addEventListener('dragleave', () => lane.classList.remove('drop'));
       lane.addEventListener('drop', (e) => { e.preventDefault(); lane.classList.remove('drop'); importFiles([...e.dataTransfer.files], t.id, tAt(e.clientX)); });
       return lane;
-    }));
+    }), SlideLane());
+  }
+
+  /*
+   * The slide track (alpha 0.3 PR 17): a triggered slide show along the
+   * audio. Each slide is a small card from its start to the next one's.
+   * Click one to jump there and edit it; drag it along to retime it.
+   */
+  function SlideLane() {
+    const lane = h('div', { class: 'st-lane st-slide-lane', style: `height:${SLANE}px` });
+    const spans = S.slideSpans(project.slides, P.projectLength(project));
+    spans.forEach((sl, i) => {
+      const el = h('button', { type: 'button', class: `st-slide k-${sl.kind}${sl.id === slidePick ? ' on' : ''}`, style: `left:${x(sl.at)}px;width:${Math.max(6, x(sl.until - sl.at) - 2)}px;--tone:${sl.tone}`, title: `${i + 1}. ${sl.title} · ${P.clock(sl.at, { tenths: false })}` },
+        h('b', {}, String(i + 1)), h('span', {}, sl.title));
+      el.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        const x0 = e.clientX, at0 = sl.at;
+        let moved = false;
+        el.setPointerCapture(e.pointerId);
+        const move = (ev) => { const dx = ev.clientX - x0; if (Math.abs(dx) > 3) moved = true; if (moved) el.style.left = `${x(Math.max(0, at0 + dx / pps))}px`; };
+        const up = (ev) => {
+          el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up);
+          slidePick = sl.id; dock = 'slides';
+          if (moved) commit({ ...structuredClone(project), slides: S.updateSlide(project.slides, sl.id, { at: Math.max(0, at0 + (ev.clientX - x0) / pps) }) });
+          else { seek(sl.at); draw(); }
+        };
+        el.addEventListener('pointermove', move); el.addEventListener('pointerup', up);
+      });
+      lane.append(el);
+    });
+    if (!spans.length) lane.append(h('span', { class: 'st-slide-empty muted small' }, 'No slides yet. Press L, or Slide in the toolbar, to add one at the playhead.'));
+    return lane;
+  }
+  function addSlideHere() {
+    const at = transport.playing ? transport.position() : playhead;
+    const next = S.addSlide(project.slides, at);
+    slidePick = next.find((s) => !project.slides.some((o) => o.id === s.id))?.id ?? null;
+    dock = 'slides';
+    commit({ ...structuredClone(project), slides: next });
+  }
+  /** A slide as it shows on the screen: its colour, its kind, its words. */
+  const SlideFace = (sl, n) => (sl ? h('div', { class: `st-face k-${sl.kind}`, style: `--tone:${sl.tone}` },
+    h('small', {}, `${n}/${project.slides.length}`),
+    h('strong', {}, sl.title),
+    sl.body && h('p', {}, sl.body)) : h('div', { class: 'st-face empty' }, h('p', {}, project.slides.length ? 'Before the first slide' : 'No slides')));
+  function updateScreen(t) {
+    if (!project.slides.length) { miniScreen.hidden = true; return; }
+    miniScreen.hidden = false;
+    const sl = S.slideAt(project.slides, t);
+    if (sl === shown) return;
+    shown = sl;
+    const n = sl ? [...project.slides].sort((a, b) => a.at - b.at).indexOf(sl) + 1 : 0;
+    miniScreen.replaceChildren(SlideFace(sl, n));
+    bigScreen.replaceChildren(SlideFace(sl, n));
+    for (const el of lanes.querySelectorAll('.st-slide')) el.classList.toggle('live', el.title.startsWith(`${n}. `));
   }
 
   function Clip(c, t) {
@@ -274,13 +339,14 @@ export function StudioEditor(ctx, projectId) {
     const t = transport.playing ? transport.position() : playhead;
     playLine.style.transform = `translateX(${x(t)}px)`;
     timeEl.textContent = P.clock(t);
+    updateScreen(t);
   }
 
   /* ---------- the dock: clip, chapters, sound pads, episodes */
   function drawDock() {
     const c = project.clips[selected];
-    const tabs = [['clip', 'Clip'], ['chapters', `Chapters (${project.markers.length})`], ['files', `Audio files (${Object.keys(ctx.doc().files ?? {}).length})`], ['pads', 'Sound pads'], ['library', 'From the station'], ['keys', 'Shortcuts']];
-    const body = dock === 'chapters' ? Chapters() : dock === 'files' ? FilesTab() : dock === 'pads' ? Pads() : dock === 'library' ? Library() : dock === 'keys' ? Keys() : ClipPanel(c);
+    const tabs = [['clip', 'Clip'], ['slides', `Slides (${project.slides.length})`], ['chapters', `Chapters (${project.markers.length})`], ['files', `Audio files (${Object.keys(ctx.doc().files ?? {}).length})`], ['pads', 'Sound pads'], ['library', 'From the station'], ['keys', 'Shortcuts']];
+    const body = dock === 'slides' ? SlidesPanel() : dock === 'chapters' ? Chapters() : dock === 'files' ? FilesTab() : dock === 'pads' ? Pads() : dock === 'library' ? Library() : dock === 'keys' ? Keys() : ClipPanel(c);
     dockEl.replaceChildren(
       h('div', { class: 'st-tabs', role: 'tablist' }, tabs.map(([id, label]) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(dock === id), class: dock === id ? 'on' : '', onclick: () => { dock = id; drawDock(); } }, label))),
       h('div', { class: 'st-dock-body' }, body));
@@ -370,9 +436,36 @@ export function StudioEditor(ctx, projectId) {
       } }, icon('plus', 12), 'Add at the playhead'))));
   }
 
+  /** The Slides tab: the screen as it is at the playhead, and the slide picked, to edit. */
+  function SlidesPanel() {
+    shown = undefined; updateScreen(transport.playing ? transport.position() : playhead);
+    const sorted = [...project.slides].sort((a, b) => a.at - b.at);
+    const sl = project.slides.find((s) => s.id === slidePick) ?? S.slideAt(project.slides, playhead) ?? sorted[0];
+    const i = sl ? sorted.indexOf(sl) : -1;
+    const set = (patch) => commit({ ...structuredClone(project), slides: S.updateSlide(project.slides, sl.id, patch) });
+    const go = (d) => { const n = sorted[i + d]; if (!n) return; slidePick = n.id; seek(n.at); draw(); };
+    return h('div', { class: 'st-slides-panel' },
+      h('div', { class: 'st-screen-wrap' }, bigScreen, h('p', { class: 'muted small' }, 'What shows at the playhead. Play the session to watch the slides change.')),
+      sl ? h('div', { class: 'st-slide-edit' },
+        h('div', { class: 'st-field-row' },
+          h('button', { type: 'button', class: 'btn btn-xs btn-ghost', disabled: i <= 0, onclick: () => go(-1) }, icon('chevronLeft', 12)),
+          h('strong', {}, `Slide ${i + 1} of ${sorted.length}`),
+          h('button', { type: 'button', class: 'btn btn-xs btn-ghost', disabled: i >= sorted.length - 1, onclick: () => go(1) }, icon('chevronRight', 12)),
+          h('span', { class: 'muted small' }, `Starts ${P.clock(sl.at)}`),
+          h('button', { type: 'button', class: 'btn btn-xs', title: 'Start this slide at the playhead', onclick: () => set({ at: playhead }) }, 'Start at the playhead'),
+          h('span', { class: 'spacer' }),
+          h('button', { type: 'button', class: 'btn btn-xs btn-ghost text-error', 'aria-label': 'Delete this slide', onclick: () => { slidePick = null; commit({ ...structuredClone(project), slides: S.removeSlide(project.slides, sl.id) }); } }, icon('trash', 12))),
+        h('div', { class: 'st-field-row' },
+          h('label', { class: 'st-field grow' }, h('span', {}, 'Title'), h('input', { class: 'input input-xs', value: sl.title, onchange: (e) => set({ title: e.target.value || sl.title }) })),
+          h('label', { class: 'st-field' }, h('span', {}, 'Kind'), h('select', { class: 'select select-xs', onchange: (e) => set({ kind: e.target.value }) }, options(S.SLIDE_KINDS.map((k) => ({ id: k.id, label: k.label })), sl.kind))),
+          h('label', { class: 'st-field' }, h('span', {}, 'Colour'), h('input', { type: 'color', value: sl.tone, onchange: (e) => set({ tone: e.target.value }) }))),
+        h('label', { class: 'st-field grow' }, h('span', {}, 'Words'), h('textarea', { class: 'textarea textarea-xs', rows: 2, onchange: (e) => set({ body: e.target.value }) }, sl.body ?? '')))
+        : h('p', { class: 'muted' }, 'No slides yet. Add one at the playhead with L, or Slide in the toolbar. Each slide shows until the next one starts.'));
+  }
+
   const Keys = () => h('dl', { class: 'st-keys' }, [
     ['Space', 'Play or pause'], ['R', 'Record on the selected track'], ['S', 'Split at the playhead'], ['⌫ / Delete', 'Delete the clip or the selected time'],
-    ['D', 'Duplicate the clip'], ['M', 'Add a chapter marker'], ['⌘Z / ⇧⌘Z', 'Undo / redo'], ['+ / −', 'Zoom'], ['← / →', 'Nudge the playhead (⇧ for 5 s)'],
+    ['D', 'Duplicate the clip'], ['M', 'Add a chapter marker'], ['L', 'Add a slide'], ['⌘Z / ⇧⌘Z', 'Undo / redo'], ['+ / −', 'Zoom'], ['← / →', 'Nudge the playhead (⇧ for 5 s)'],
     ['Home', 'Back to the start'], ['1–9', 'Play a sound pad'], ['Double-click a clip', 'Split it there'],
   ].flatMap(([k, v]) => [h('dt', {}, h('kbd', {}, k)), h('dd', {}, v)]));
 
@@ -645,12 +738,13 @@ export function StudioEditor(ctx, projectId) {
     else if (k === 's' || k === 'S') splitHere();
     else if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); deleteSelection(); }
     else if (k === 'd' || k === 'D') { if (selected) commit(P.duplicateClip(project, selected)); }
+    else if (k === 'l' || k === 'L') addSlideHere();
     else if (k === 'm' || k === 'M') commit(P.addMarker(project, transport.playing ? transport.position() : playhead));
     else if (k === 'r' || k === 'R') toggleRecord();
     else if (k === 'Home') seek(0);
     else if (k === 'ArrowLeft' || k === 'ArrowRight') { e.preventDefault(); seek((transport.playing ? transport.position() : playhead) + (k === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 5 : 1)); }
     else if (k === '+' || k === '=') { pps = Math.min(400, pps * 1.3); zoomIn.value = pps; draw(); }
-    else if (k === '-' || k === '_') { pps = Math.max(4, pps / 1.3); zoomIn.value = pps; draw(); }
+    else if (k === '-' || k === '_') { pps = Math.max(0.2, pps / 1.3); zoomIn.value = pps; draw(); }
     else if (/^[1-9]$/.test(k) && project.pads[+k - 1]) playOnce(project.pads[+k - 1].source, getEpisode).catch(() => {});
     else if (k === 'Escape') { selected = null; range = null; draw(); }
   };
@@ -682,7 +776,7 @@ export function StudioEditor(ctx, projectId) {
 }
 
 function migrate(p) {
-  p.tracks ??= []; p.clips ??= {}; p.markers ??= []; p.pads ??= [];
+  p.tracks ??= []; p.clips ??= {}; p.markers ??= []; p.pads ??= []; p.slides ??= [];
   for (const t of p.tracks) { t.gain ??= 1; t.pan ??= 0; t.duck ??= t.kind === 'music'; }
   for (const c of Object.values(p.clips)) { c.gain ??= 1; c.fadeIn ??= 0; c.fadeOut ??= 0; c.offset ??= 0; }
 }
