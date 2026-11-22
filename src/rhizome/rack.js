@@ -52,7 +52,7 @@ export const MODULES = {
   weigh: { label: 'Weigh', cat: 'Shapers', look: 'analog', hp: 12, ins: ['in'], outs: ['out'], params: { base: 0.5, field: 'betweenness', w: 0.3 }, blurb: 'Gives each row a score from 0 to 1, so findings can be ranked.' },
   gate: { label: 'Gate', cat: 'Logic', look: 'analog', hp: 8, ins: ['a', 'b'], outs: ['out'], params: { mode: 'and' }, blurb: 'AND: in both. OR: in either. NOT: in A but not B.' },
   say: { label: 'Say', cat: 'Voice', look: 'analog', hp: 14, ins: ['in'], outs: ['out'], params: { tip: 'net-isolates', group: false }, blurb: 'Turns rows into findings, in the words of a tip.' },
-  scope: { label: 'Scope', cat: 'Displays', look: 'analog', hp: 18, ins: ['in'], outs: [], params: { phosphor: 'green' }, blurb: 'A CRT screen: shows what’s flowing in.' },
+  scope: { label: 'Scope', cat: 'Displays', look: 'analog', hp: 33, ins: ['in'], outs: [], params: { phosphor: 'green' }, blurb: 'A CRT screen: shows what’s flowing in.' },
   meter: { label: 'VU meter', cat: 'Displays', look: 'analog', hp: 9, ins: ['in'], outs: ['thru'], params: {}, blurb: 'A needle for how many rows flow through, and their top score.' },
   visualiser: { label: 'AI visualiser', cat: 'Engines', look: 'digital', hp: 16, ins: ['in'], outs: [], stage: 4, blurb: 'A tiny inference engine that shows, step by step, what happens when you ask a system a question.' },
   claude: { label: 'Claude engine', cat: 'Engines', look: 'digital', hp: 16, ins: ['in'], outs: ['out'], stage: 5, blurb: 'Real questions of your facts, through the server, with your own key and cost caps.' },
@@ -134,14 +134,14 @@ function loops(patch, fromM, toM) {
 }
 
 /** Patch an output into an input. An input takes one cable (a new one replaces it); an output can feed many. */
-export function connect(patch, from, to) {
+export function connect(patch, from, to, color) {
   const a = patch.modules.find((m) => m.id === from.m);
   const b = patch.modules.find((m) => m.id === to.m);
   if (!a || !b || a.id === b.id) return null;
   if (!MODULES[a.type].outs.includes(from.port) || !MODULES[b.type].ins.includes(to.port)) return null;
   if (loops(patch, a.id, b.id)) return null;
   patch.cables = patch.cables.filter((c) => !(c.to.m === to.m && c.to.port === to.port));
-  const cable = { id: nid('c'), from: { m: from.m, port: from.port }, to: { m: to.m, port: to.port }, color: CABLE_COLORS[patch.cables.length % CABLE_COLORS.length] };
+  const cable = { id: nid('c'), from: { m: from.m, port: from.port }, to: { m: to.m, port: to.port }, color: color || CABLE_COLORS[patch.cables.length % CABLE_COLORS.length] };
   patch.cables.push(cable);
   return cable;
 }

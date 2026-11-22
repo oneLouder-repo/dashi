@@ -91,7 +91,7 @@ export function Rack(env, patchId) {
         class: `rk-add ${d.look}`, title: d.blurb, disabled: !canSet || (type === 'patchbay' && patch.modules.some((m) => m.type === 'patchbay')),
         onclick: () => { addModule(patch, type); commit(`${d.label} added`); },
       }, h('b', {}, d.label), h('span', {}, d.stage ? `Stage ${d.stage}` : d.stage === null ? 'Open' : `${d.hp} HP`))))),
-    h('p', { class: 'rk-hint' }, 'Drag from a jack to a jack to patch a cable. Click a cable to pull it out. Drag a knob up or down, or use the arrow keys.'));
+    h('p', { class: 'rk-hint' }, 'Drag from a jack to a jack to patch a cable. Drag a plug to move it, or click a cable to pull it out. Drag a knob up or down, or use the arrow keys.'));
 
   /* ------------------------------------------------------ the twin racks */
   const stage = h('div', { class: 'rk-stage' });
@@ -333,36 +333,60 @@ export function Rack(env, patchId) {
       const d = sag(pa, pb);
       svg('path', { d, class: 'rk-cable-shadow' }, g);
       svg('path', { d, class: 'rk-cable-line', stroke: c.color }, g);
-      svg('path', { d, class: 'rk-cable-hit' }, g).addEventListener('click', () => { if (canSet) { disconnect(patch, c.id); commit('Cable pulled out'); } });
+      // Press a cable to lift its nearer plug: drag it to a jack to re-patch, or let go off a jack to pull it out.
+      svg('path', { d, class: 'rk-cable-hit' }, g).addEventListener('pointerdown', (e) => {
+        const s = stage.getBoundingClientRect(), x = e.clientX - s.left, y = e.clientY - s.top;
+        const toIn = Math.hypot(pb.x - x, pb.y - y) <= Math.hypot(pa.x - x, pa.y - y);
+        startCable(e, { id: toIn ? c.to.m : c.from.m }, toIn ? c.to.port : c.from.port, toIn ? 'in' : 'out', c);
+      });
       for (const p of [pa, pb]) svg('circle', { cx: p.x, cy: p.y, r: 6.5, class: 'rk-plug', fill: c.color }, g);
     }
   }
-  function startCable(e, m, port, dir) {
-    if (!canSet) return;
+  // Pressing a jack starts a cable. Pressing a jack that already has a cable
+  // pulls that plug out: drag it to another jack to re-patch, or let go
+  // anywhere else to take the cable away (like a real modular).
+  function startCable(e, m, port, dir, lifted) {
+    if (!canSet || e.button > 0) return;
     e.preventDefault();
-    const from = centre(e.currentTarget.querySelector('i'));
+    const held = lifted ?? patch.cables.filter((x) => (dir === 'in' ? x.to.m === m.id && x.to.port === port : x.from.m === m.id && x.from.port === port)).at(-1);
+    let start = { m: m.id, port, dir }, color = null;
+    if (held) {
+      // The fixed end is the other end of the lifted cable.
+      start = dir === 'in' ? { m: held.from.m, port: held.from.port, dir: 'out' } : { m: held.to.m, port: held.to.port, dir: 'in' };
+      color = held.color;
+      disconnect(patch, held.id);
+      drawCables();
+    }
+    const fixed = jackAt(start.m, start.port, start.dir);
+    if (!fixed) return;
+    const from = centre(fixed);
     const temp = svg('path', { class: 'rk-cable-temp', d: '' }, cables);
-    dragFrom = { m: m.id, port, dir };
-    const move = (ev) => {
-      const s = stage.getBoundingClientRect();
-      temp.setAttribute('d', sag(from, { x: ev.clientX - s.left, y: ev.clientY - s.top }));
-    };
-    const up = (ev) => {
+    if (color) temp.setAttribute('stroke', color);
+    dragFrom = start;
+    const at = (ev) => { const s = stage.getBoundingClientRect(); return { x: ev.clientX - s.left, y: ev.clientY - s.top }; };
+    temp.setAttribute('d', sag(from, at(e)));
+    const move = (ev) => temp.setAttribute('d', sag(from, at(ev)));
+    const end = (ev, cancelled) => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
       temp.remove();
-      const target = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-jack]');
-      const start = dragFrom;
       dragFrom = null;
-      if (!target) return;
+      const target = cancelled ? null : document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-jack]');
+      if (!target) return held ? commit('Cable pulled out') : undefined;
       const [tm, tport, tdir] = target.dataset.jack.split('|');
-      if (tdir === start.dir) return env.toast(start.dir === 'out' ? 'Patch an output into an input' : 'Patch an input from an output');
+      if (held && tm === m.id && tport === port && tdir === dir) { connect(patch, held.from, held.to, held.color); return drawCables(); } // put back
+      if (tdir === start.dir) { if (held) commit('Cable pulled out'); return env.toast(start.dir === 'out' ? 'Patch an output into an input' : 'Patch an input from an output'); }
       const a = start.dir === 'out' ? { m: start.m, port: start.port } : { m: tm, port: tport };
       const b = start.dir === 'out' ? { m: tm, port: tport } : { m: start.m, port: start.port };
-      if (connect(patch, a, b)) commit('Patched'); else env.toast('That cable would make a loop, or those jacks don’t fit');
+      if (connect(patch, a, b, color || undefined)) commit(held ? 'Re-patched' : 'Patched');
+      else { if (held) commit('Cable pulled out'); env.toast('That cable would make a loop, or those jacks don’t fit'); }
     };
+    const up = (ev) => end(ev, false);
+    const cancel = (ev) => end(ev, true);
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
   }
   // Draw once laid out, and again whenever the racks change size.
   requestAnimationFrame(drawCables);
