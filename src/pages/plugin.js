@@ -3,7 +3,7 @@ import { icon } from '../ui/icons.js';
 import { Shell } from '../ui/Shell.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
 import { uiConfirm, uiForm } from '../ui/dialog.js';
-import { PLUGINS, enabledPlugins } from '../plugins.js';
+import { PLUGINS, enabledPlugins, linkTo } from '../plugins.js';
 import { loadOrg } from '../platform/docs.js';
 import { loadDoc, saveDoc, session } from '../platform/storage.js';
 import { currentUser } from '../platform/session.js';
@@ -39,7 +39,11 @@ function render() {
   }
   const usable = enabledPlugins(org).some((x) => x.id === id);
   const features = Object.entries(m.features ?? {}).filter(([, on]) => on).length;
+  // A tool that lives inside another plugin (the AI tools inside AI, alpha 0.4) leads back to it.
+  const parent = p?.parent ? PLUGINS.find((x) => x.id === p.parent) : null;
+  const back = parent && linkTo(parent.id);
   app.replaceChildren(h('div', { class: 'page plugin-page', style: `--tone:${m.tone}` },
+    back && h('a', { class: 'pv-back', href: back }, icon('chevronLeft', 14), `In ${parent.name}`),
     PluginHeader(id, { actions: h('span', { class: 'pa-ver' }, `v${m.version}`) }),
     !usable && h('p', { class: 'alert alert-warning alert-soft' }, m.status === 'draft'
       ? 'In development: only the platform admin sees this page until the plugin is released.'

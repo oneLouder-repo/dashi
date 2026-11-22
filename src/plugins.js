@@ -237,6 +237,20 @@ export const PLUGINS = [
     stats: ({ social }) => { const ps = Object.values(social?.posts ?? {}); return `${ps.filter((p) => p.status === 'scheduled').length} scheduled · ${ps.filter((p) => p.status === 'posted').length} posted · experimental`; },
   },
   {
+    id: 'ai',
+    owns: ['ai'],
+    // Its prompt log and review queue are its own; the AI tools inside it keep their own documents.
+    reads: [],
+    short: 'AI',
+    tone: '#5a54c4',
+    name: 'AI',
+    href: 'ai.html',
+    icon: 'sparkle',
+    experimental: true,
+    blurb: 'Experimental: one home for AI at your organisation. Check prompts before they go anywhere, keep a log, keep people in the loop, and hold your AI policy, register, prompts and plain-language tools. A Claude connection comes later.',
+    stats: ({ ai }) => `${Object.keys(ai?.log ?? {}).length} prompts logged · experimental`,
+  },
+  {
     id: 'org',
     owns: ['org'],
     reads: [],

@@ -285,7 +285,7 @@ const release = (m, notes) => draft({
 });
 export const SCAFFOLDS = [
   release({
-    id: 'ai-policy', name: 'AI Policy Studio', short: 'AI policy', category: 'AI',
+    id: 'ai-policy', parent: 'ai', name: 'AI Policy Studio', short: 'AI policy', category: 'AI',
     blurb: 'Frame your organisation’s AI policy together: the principles you hold, which uses are fine, careful or off-limits, what data never goes in, and when you’ll look again.',
     look: { tone: '#5a54c4', icon: 'scales', accent: 'soft' },
     features: [
@@ -302,7 +302,7 @@ export const SCAFFOLDS = [
       { id: 'reviews', label: 'Reviews', fields: [f('date', 'Date', 'date', { required: true }), f('by', 'Led by', 'person'), f('changes', 'What changed', 'longtext'), f('next', 'Next review', 'date')] }] }] },
   }, 'First release: principles, a traffic-light board of uses, data rules, and the policy assembled in plain words.'),
   release({
-    id: 'ai-register', name: 'AI Use Register', short: 'AI register', category: 'AI',
+    id: 'ai-register', parent: 'ai', name: 'AI Use Register', short: 'AI register', category: 'AI',
     blurb: 'A simple, honest record of the AI tools your team uses: what for, what goes in, what it costs, and how risky it is, so nobody has to guess.',
     look: { tone: '#c0562f', icon: 'robot', accent: 'soft' },
     features: [
@@ -317,7 +317,7 @@ export const SCAFFOLDS = [
       { id: 'uses', label: 'Uses', fields: [f('tool', 'Tool', 'text', { required: true }), f('purpose', 'What for', 'longtext'), f('team', 'Team'), f('data', 'Kind of data', 'select', { options: ['Public', 'Internal', 'Personal', 'Restricted'] }), f('risk', 'Risk', 'select', { options: ['Low', 'Medium', 'High'] }), f('person', 'Who', 'person'), f('date', 'When', 'date')] }] }] },
   }, 'First release: the tool list, a quick use log, and a risk view with a one-page summary for the board.'),
   release({
-    id: 'prompt-commons', name: 'Prompt Commons', short: 'Prompts', category: 'AI',
+    id: 'prompt-commons', parent: 'ai', name: 'Prompt Commons', short: 'Prompts', category: 'AI',
     blurb: 'Your team’s shared recipes for free and accessible AI tools: prompts that work, examples of good output, and the care each one needs.',
     look: { tone: '#2f8a5b', icon: 'chats', accent: 'soft' },
     features: [
@@ -331,7 +331,7 @@ export const SCAFFOLDS = [
       { id: 'tools', label: 'Free tools', fields: [f('name', 'Tool', 'text', { required: true }), f('url', 'Web address', 'url'), f('offline', 'Runs on your own computer', 'boolean'), f('goodFor', 'Good for', 'longtext')] }] }] },
   }, 'First release: recipe cards to copy, tried-and-rated marks, starter recipes and a free tool guide.'),
   release({
-    id: 'plain-words', defaultOff: false, name: 'Plain Words', short: 'Plain words', category: 'AI',
+    id: 'plain-words', parent: 'ai', defaultOff: false, name: 'Plain Words', short: 'Plain words', category: 'AI',
     blurb: 'An accessibility kit for everything you publish: reading-level checks, plain-language rewrites, alt text and captions, using tools that are free and work in the browser.',
     look: { tone: '#2f6fb5', icon: 'textAa', accent: 'soft' },
     features: [
@@ -480,6 +480,9 @@ export function cleanManifest(m) {
 // Alpha 0.4: one-word names. Strategy & Work became Plan, Public Portal became Web, Podcasts became Listen.
 const RENAMED = { pages: ['Public Portal', 'Web views', 'Sites & Pages'], assets: ['Asset manager'], mapper: ['Ecosystem Mapper', 'Mapper'], strategy: ['Strategy & Work', 'Strategy'], podcasts: ['Podcasts', 'Radio & Podcasts'] };
 
+/** The AI tools that sit inside the AI plugin (alpha 0.4). */
+export const AI_TOOLS = ['ai-policy', 'ai-register', 'prompt-commons', 'plain-words'];
+
 export function mergeRegistry(stored = {}) {
   const plugins = {};
   for (const p of ORIGINAL) {
@@ -499,6 +502,8 @@ export function mergeRegistry(stored = {}) {
     const mine = plugins[sc.id];
     if (!mine || (sc.released && mine.author === 'Dashi' && compareVersions(mine.version, sc.version) < 0)) plugins[sc.id] = structuredClone(sc);
   }
+  // Alpha 0.4: the AI tools live inside the AI plugin. A stored copy from before keeps its own settings and joins it, unless the admin gave it another home.
+  for (const id of AI_TOOLS) if (plugins[id] && !plugins[id].parent) plugins[id].parent = 'ai';
   return { plugins, history: stored.history ?? {} };
 }
 
@@ -508,7 +513,7 @@ export function registryView(registry, { includeDrafts = false } = {}) {
     .filter((m) => includeDrafts || m.status !== 'draft')
     .map((m) => [m.id, {
       id: m.id, name: m.name, short: m.short, blurb: m.blurb, version: m.version, status: m.status, builtIn: m.builtIn, core: m.core,
-      category: m.category, href: m.href, tone: m.look?.tone, icon: m.look?.icon, defaultOff: !!m.defaultOff,
+      category: m.category, href: m.href, tone: m.look?.tone, icon: m.look?.icon, defaultOff: !!m.defaultOff, parent: m.parent ?? null,
       features: Object.fromEntries((m.features ?? []).map((x) => [x.id, x.enabled !== false])),
       featurePlans: Object.fromEntries((m.features ?? []).map((x) => [x.id, x.plans ?? ALL_TIERS])),
       featureList: (m.features ?? []).map((x) => ({ id: x.id, label: x.label, description: x.description })),
