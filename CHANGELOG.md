@@ -6,6 +6,17 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.4 is the learning release (Teach, Learn and what follows), opened from the `v0.3.0-alpha` tag and tested on a fresh `data-clients` seed. Rhizome's later stages and Place stage 2 onwards stay paused. Going live moves to 0.5. Newest first.
 
+### The rack, tightened, with set and graph modules
+
+- **Kestrel's test shows, every time.** On a fresh `data-clients` seed the trial slideshows could vanish when the computer's voice failed. Now a failing voice falls back to music only, and one bad show no longer drops the rest. The terminal says how many were made.
+- **Smaller, tighter modules.** Most modules are about a third narrower and the shelves are shorter. The starter patch's controls (Facts, three Filters, Weigh, Say) now sit on one shelf.
+- **A big chunky Facts knob.** Facts is the main input, so it gets a fluted knob with a chrome skirt and a bright index line.
+- **Dashi badges.** The main modules carry a cursive Dashi script at an angle. The AI visualiser gets a futuristic one (`DASHI · VIS·01`) ahead of its own stage.
+- **New: Sets & graphs modules.** **Neighbours** walks one to three hops out from what comes in (ring: only the new things; ball: start and ring). **Triads** splits things into tight circles (closed) and brokers across structural holes (open). **Prism** splits rows into their three biggest communities. **Complement** gives everything of the same type that isn't coming in.
+- **New displays.** **Venn**: three circles with the count in every overlap, and what's in all of them out. **Spectrum**: a segmented bar spread of one number, like a graphic equaliser. **Plotter**: a pen plotter that draws the rows and the ties between them on graph paper (blue, red or black ink). The starter patch now has a plotter beside the scope.
+- **Flip.** Turn the rack round. The **power bus** shows which plugins feed this patch (lit) and which could (with their fact counts). The **wiring** shows the patch as a flow, left to right, with how many rows run along every cable, and thicker wires carry more.
+- **Patching.** An output can now feed many inputs by dragging from it again, even with a plug already in it, and a cable sagging over a jack no longer gets in the way.
+
 ### Reorganisation before the next eLearning stage
 
 - **One-word plugin names.** Strategy & Work is now **Plan**, Public Portal is now **Web**, and Podcasts is now **Listen**. Rhizome's Output tab is now **Report** (old `#output` links still land there). A platform registry still carrying an old name takes the new one.
