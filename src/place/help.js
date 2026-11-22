@@ -32,6 +32,8 @@ Place is off until your organisation switches it on. An admin turns it on in **O
       body: `# Moving around
 Drag to move, scroll or pinch to zoom, and right-drag (or two fingers) to tilt and turn. **Fit everything** brings every place back into view.
 
+[[shot:place-map]]
+
 # Layers
 The side nav lists the layers. Click one to switch it on or off.
 
@@ -54,6 +56,8 @@ Click **Add place**, then click the map where it is. The tray opens on the new p
 
 # Open a place
 Click a place's label. Its tray shows what's **here** (things pinned to it or to a place inside it), who **serves** it from elsewhere, and the places inside it. Click any thing to open its pin.
+
+[[shot:place-tray]]
 
 # Pin a thing
 In a place's tray, click **Pin a thing here**, search for an actor, asset, story or document, and pick it. To give it its own spot, open its pin and click **Set its spot on the map**, then click the map.

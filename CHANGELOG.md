@@ -6,6 +6,20 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### Place, stage 1 (experimental): your work on a real map
+
+A new plugin for **place-based development**. It ships switched off; Kestrel Bay has it on. Built on MapLibre GL JS (free and open source, BSD licence), kept in `vendor/maplibre` like the other libraries.
+
+- **Places**: communities, neighbourhoods, sites, landmarks and regions, each with a point, an optional outline, and the place it sits inside.
+- **Pins**: any actor, asset, story or document tied to a place, with an optional exact spot, a note, and the places it **serves**. Pins point at things by their Rhizome fact id, so Place never writes into another plugin's documents. Every copy of an actor (one per ecosystem map) moves together.
+- **Layers** in the side nav: place outlines, links between actors (from the ecosystem maps, curved, dashed when speculative), who serves where, places, actors and assets.
+- **Base maps**: OpenStreetMap's street map, the org's own **drawn map** (works offline), or none. The free OpenStreetMap tiles are fine for testing but not for real traffic, so go-live needs a tile host (see the plan).
+- **Trays, not page jumps**: a place's tray shows what's here, who serves it from elsewhere and the places inside it; a pin's tray edits where it is and whom it serves. **Add place** and **Pin a thing here** work from the map.
+- **Kestrel Bay, drawn**: a made-up bay out in the Atlantic (so it never sits on a real town), with a coast, two islands, a salt marsh, a river and four roads; 13 places and 67 pins for its actors, stories and documents.
+- **Rhizome**: places become facts (a `place` type, "located at", "serves" and "part of"), only for people who can use Place. **Show on Place** from a Rhizome finding opens `place.html#show/<ids>` with those things ringed.
+- **About tab and Help**: the quick reference, and three tutorials that are the same pages as Help → Place.
+- The Content-Security-Policy now allows the street map's tile host for connections, and workers only from this address.
+
 ### PR 20: Rhizome, the tip harvester, and getting ready for Place
 
 - **A Tips tab.** It has four parts:

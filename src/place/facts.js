@@ -17,6 +17,7 @@
  * because the entity isn't there.
  */
 import { migratePlace, geoOfPin, kindLabel } from './model.js';
+import { addFactAdapter } from '../rhizome/facts.js';
 
 export function buildPlaceFacts(placeDoc, ent, rel, entities) {
   if (!placeDoc) return;
@@ -36,6 +37,9 @@ export function buildPlaceFacts(placeDoc, ent, rel, entities) {
     for (const s of pin.serves ?? []) if (s !== pin.placeId) rel(key, 'serves', `place:${s}`, 'place', 'locates');
   }
 }
+
+// Rhizome runs this after its own adapters, only when Place is on (src/rhizome/adapters.js imports this file).
+addFactAdapter('place', buildPlaceFacts);
 
 /**
  * The same facts, built on their own: for Place itself, before Rhizome

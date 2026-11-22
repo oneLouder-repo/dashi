@@ -216,7 +216,7 @@ function allPoints() {
 function fitAll(animate = true) {
   if (!map) return;
   const b = boundsOf(allPoints());
-  if (b) map.fitBounds(b, { padding: { top: 60, bottom: 60, left: 60, right: trayEl.hidden ? 60 : 420 }, maxZoom: 15, duration: animate ? 600 : 0 });
+  if (b) map.fitBounds(b, { padding: trayPad(), maxZoom: 15, duration: animate ? 600 : 0 });
 }
 
 function startMap() {
@@ -224,7 +224,7 @@ function startMap() {
     mapEl.replaceChildren(h('div', { class: 'pl-nomap' }, h('h3', {}, 'The map couldn’t start'), h('p', {}, 'This browser couldn’t load the map library. Places and pins are still listed under Places.')));
     return;
   }
-  const v = doc.view;
+  const v = lastView() ?? doc.view;
   map = new maplibregl.Map({
     container: mapEl,
     style: baseStyle(doc.basemap, { drawn: doc.drawn, dark }),
@@ -254,15 +254,16 @@ function startMap() {
   map.on('click', (e) => onMapClick(e));
   map.on('mouseenter', 'pl-areas-fill', () => { if (!picking) map.getCanvas().style.cursor = 'pointer'; });
   map.on('mouseleave', 'pl-areas-fill', () => { if (!picking) map.getCanvas().style.cursor = ''; });
+  // Where each person last looked stays in their browser, not in the shared document.
   map.on('moveend', () => {
-    if (!canEdit) return;
     const c = map.getCenter();
-    doc.view = { lat: +c.lat.toFixed(5), lng: +c.lng.toFixed(5), zoom: +map.getZoom().toFixed(2) };
-    clearTimeout(viewTimer);
-    viewTimer = setTimeout(() => saveDoc('place', doc), 1500);
+    try { localStorage.setItem(VIEW_KEY, JSON.stringify({ lat: +c.lat.toFixed(5), lng: +c.lng.toFixed(5), zoom: +map.getZoom().toFixed(2) })); } catch { /* private window */ }
   });
 }
-let viewTimer = 0;
+const VIEW_KEY = `dashi.place-view.${org.id}`;
+function lastView() {
+  try { const v = JSON.parse(localStorage.getItem(VIEW_KEY)); return Number.isFinite(v?.lat) && Number.isFinite(v?.lng) ? v : null; } catch { return null; }
+}
 function loadBase() {
   if (!map) return;
   baseFailed = false;
@@ -302,10 +303,20 @@ function thingDots() {
     if (!dots.has(id)) dots.set(id, { keys: [], geo: g, sort: s });
     dots.get(id).keys.push(key);
   }
+  // Things whose own plugin gave them a spot (an actor's geo on its map), with no pin in Place.
+  for (const e of Object.values(facts.entities)) {
+    const g = e.attrs.geo;
+    if (doc.pins[e.id] || e.type === 'place' || g?.precision !== 'exact') continue;
+    const s = sortOf(e.id);
+    if (!s) continue;
+    const id = `${twinKey(e.id)}@${g.lat.toFixed(5)},${g.lng.toFixed(5)}`;
+    if (!dots.has(id)) dots.set(id, { keys: [], geo: g, sort: s });
+    dots.get(id).keys.push(e.id);
+  }
   return [...dots.values()];
 }
 /** Where an actor sits on the map: its own spot, else its place's point. */
-const pointOf = (key) => { const g = geoOfPin(doc, doc.pins[key]); return onTheMap(g) ? g : null; };
+const pointOf = (key) => { const g = doc.pins[key] ? geoOfPin(doc, doc.pins[key]) : facts.entities[key]?.attrs.geo; return onTheMap(g) ? g : null; };
 
 function layerCounts() {
   const dots = facts ? thingDots() : [];
@@ -322,7 +333,7 @@ function layerCounts() {
 function linkFeatures() {
   const pairs = new Map();
   for (const r of facts.relations) {
-    if (r.kind !== 'link' || !doc.pins[r.from] || !doc.pins[r.to]) continue;
+    if (r.kind !== 'link') continue;
     const a = pointOf(r.from), b = pointOf(r.to);
     if (!a || !b || (a.lat === b.lat && a.lng === b.lng)) continue;
     const [k1, k2] = [twinKey(r.from), twinKey(r.to)].sort();
@@ -404,7 +415,7 @@ function drawMarkers() {
       const count = new Set(here.filter((k) => facts.entities[k]).map(twinKey)).size;
       const region = p.kind === 'region';
       const el = h('button', {
-        class: `pl-label${region ? ' region' : ''}${selected.place === p.id ? ' on' : ''}`, style: `--c:${KIND_COLOURS[p.kind]};--ink:${inkOn(KIND_COLOURS[p.kind])}`,
+        class: `pl-label ${p.kind}${region ? ' region' : ''}${selected.place === p.id || selected.show.includes(`place:${p.id}`) ? ' on' : ''}`, style: `--c:${KIND_COLOURS[p.kind]};--ink:${inkOn(KIND_COLOURS[p.kind])}`,
         title: `${p.name} · ${kindLabel(p.kind)}`,
         onclick: (e) => { e.stopPropagation(); if (!picking) location.hash = `#map/${encodeURIComponent(p.id)}`; },
       }, h('span', { class: 'pl-label-name' }, p.name), !region && count ? h('span', { class: 'pl-label-count' }, String(count)) : null);
@@ -485,9 +496,15 @@ function openTray(view, arg) {
     flyToSelection();
   }
 }
+/** Room for the tray: beside the map on a wide screen, under it on a phone. */
+function trayPad() {
+  const w = mapEl.clientWidth, hgt = mapEl.clientHeight;
+  if (trayEl.hidden) return { top: 60, bottom: 60, left: 60, right: 60 };
+  return w > 900 ? { top: 70, bottom: 70, left: 70, right: 430 } : { top: 40, bottom: Math.min(hgt * 0.55, hgt - 120) + 20, left: 30, right: 30 };
+}
 function flyToSelection() {
   if (!map) return;
-  const pad = { top: 70, bottom: 70, left: 70, right: 430 };
+  const pad = trayPad();
   if (selected.place) {
     const p = doc.places[selected.place];
     const pts = p.area ? p.area.coordinates[0].map(([lng, lat]) => ({ lat, lng })) : [p.geo];
@@ -499,7 +516,7 @@ function flyToSelection() {
     const g = pointOf(selected.pin);
     if (g) map.easeTo({ center: [g.lng, g.lat], zoom: Math.max(map.getZoom(), 13), padding: pad, duration: 600 });
   } else if (selected.show.length) {
-    const b = boundsOf(selected.show.map(pointOf));
+    const b = boundsOf(selected.show.map((k) => (k.startsWith('place:') ? doc.places[k.slice(6)]?.geo : pointOf(k))));
     if (b) map.fitBounds(b, { padding: pad, maxZoom: 14, duration: 600 });
   }
 }
@@ -668,13 +685,16 @@ function PinTray(key) {
 
 /** Things sent here to look at (Rhizome's "Show on Place"). */
 function ShowTray(keys) {
-  const placed = keys.filter((k) => pointOf(k));
-  const unplaced = keys.filter((k) => !pointOf(k));
+  const places = keys.filter((k) => k.startsWith('place:') && doc.places[k.slice(6)]).map((k) => doc.places[k.slice(6)]);
+  const things = keys.filter((k) => !k.startsWith('place:'));
+  const placed = things.filter((k) => pointOf(k));
+  const unplaced = things.filter((k) => !pointOf(k));
   return h('div', { class: 'pl-tray-in' },
     h('header', { class: 'pl-tray-head' }, h('div', {}, h('small', { class: 'pl-eyebrow' }, 'Picked out'), h('h2', {}, n(keys.length, 'thing'))), closeBtn()),
-    h('p', { class: 'pl-desc' }, placed.length ? 'Ringed on the map.' : 'None of these has a place yet.'),
+    h('p', { class: 'pl-desc' }, placed.length || places.length ? 'Ringed on the map.' : 'None of these has a place yet.'),
+    places.length ? h('section', {}, h('h3', {}, 'Places'), h('ul', { class: 'pl-places' }, places.map((p) => h('li', {}, h('a', { href: `#map/${encodeURIComponent(p.id)}` }, KindChip(p.kind), p.name))))) : null,
     placed.length ? h('section', {}, h('h3', {}, 'On the map'), ThingList(placed)) : null,
-    unplaced.length ? h('section', {}, h('h3', {}, 'Not on the map yet'), h('ul', { class: 'pl-things' }, unplaced.map((k) => h('li', {}, h('a', { href: `#pin/${encodeURIComponent(k)}` }, h('b', {}, nameOf(k)), h('small', {}, typeLabel(facts.entities[k].type))))))) : null);
+    unplaced.length ? h('section', {}, h('h3', {}, 'Not on the map yet'), h('ul', { class: 'pl-things' }, unplaced.map((k) => h('li', {}, h('a', { href: `#pin/${encodeURIComponent(k)}` }, h('span', { class: 'pl-swatch none' }), h('b', {}, nameOf(k)), h('small', {}, typeLabel(facts.entities[k].type))))))) : null);
 }
 
 /* ------------------------------------------------------------ places */
