@@ -13,6 +13,7 @@
  */
 import { buildFacts, factCounts } from './facts.js';
 import { measureFacts } from './measures.js';
+import { runAnalysis, analysesFor, ANALYSES } from './rules.js';
 
 export const RHIZOME_VERSION = 1;
 
@@ -63,7 +64,7 @@ export const CONTEXT_PRESETS = {
   },
 };
 
-export const blankRhizome = () => ({ id: 'rhizome', version: RHIZOME_VERSION, profile: null, setup: {}, baseline: null, calibration: null, snapshots: [] });
+export const blankRhizome = () => ({ id: 'rhizome', version: RHIZOME_VERSION, profile: null, setup: {}, baseline: null, calibration: null, snapshots: [], analyses: null, runs: [], dismissed: {} });
 
 /** A first context profile, from what Dashi already knows about the org. */
 export function profileFromOrg(org = {}, strategy = null) {
@@ -82,12 +83,12 @@ export const SETUP_STEPS = [
   { id: 'profile', label: 'Context profile', blurb: 'Sector, focus, who you serve, your words and the themes that matter. This tunes everything else.', stage: 1 },
   { id: 'index', label: 'Read in your data', blurb: 'Build the fact layer from every plugin you use, work out the measures, and keep a baseline to compare against later.', stage: 1 },
   { id: 'calibrate', label: 'Calibrate', blurb: 'Set thresholds from your own data (percentiles), so “few links” means few for you.', stage: 1 },
-  { id: 'packs', label: 'Pick tip packs and starter analyses', blurb: 'Match the shared library to your context. Arrives with the rules engine.', stage: 2 },
-  { id: 'harvest', label: 'Context harvest (optional)', blurb: 'Search for tips and resources from your own field, into a review queue. Arrives with the tip harvester.', stage: 2, optional: true },
-  { id: 'firstRun', label: 'First run', blurb: 'Run the starter analyses and show a short welcome report. Arrives with the rules engine.', stage: 2 },
+  { id: 'packs', label: 'Pick tip packs and starter analyses', blurb: 'Match the tip library and the canned analyses to your context profile. Change the choice any time in Analyses.', stage: 2 },
+  { id: 'firstRun', label: 'First run', blurb: 'Run the chosen analyses and show a short welcome report on Home.', stage: 2 },
+  { id: 'harvest', label: 'Context harvest (optional)', blurb: 'Search for tips and resources from your own field, into a review queue. Arrives with the tip harvester.', stage: 3, optional: true },
 ];
-export const STAGE_NOW = 1;
-export const stepsNow = () => SETUP_STEPS.filter((s) => s.stage <= STAGE_NOW);
+export const STAGE_NOW = 2;
+export const stepsNow = () => SETUP_STEPS.filter((s) => s.stage <= STAGE_NOW && !s.optional);
 
 /** The next step to run, or null when every step available now is done. */
 export const nextStep = (doc) => stepsNow().find((s) => !doc?.setup?.[s.id]) ?? null;
@@ -109,6 +110,15 @@ export function runStep(doc, stepId, { docs = {}, plugins = null, profile = null
   else if (stepId === 'profile') {
     doc.profile = cleanProfile(profile ?? doc.profile ?? profileFromOrg(docs.org, docs.strategy));
     doc.setup.profile = now;
+  } else if (stepId === 'packs') {
+    doc.analyses = analysesFor(doc.profile ?? profileFromOrg(docs.org, docs.strategy));
+    doc.setup.packs = now;
+  } else if (stepId === 'firstRun') {
+    const facts = buildFacts(docs, { plugins });
+    const m = measureFacts(facts, { today });
+    const findings = runAnalysis(doc.analyses ?? ANALYSES.map((a) => a.id), { facts, measures: m, calibration: doc.calibration ?? m.calibration, profile: doc.profile, plugins }, { dismissed: doc.dismissed ?? {} });
+    recordRun(doc, 'welcome', findings, now);
+    doc.setup.firstRun = now;
   } else if (stepId === 'index' || stepId === 'calibrate') {
     const facts = buildFacts(docs, { plugins });
     const m = measureFacts(facts, { today });
@@ -124,6 +134,13 @@ export function runStep(doc, stepId, { docs = {}, plugins = null, profile = null
   return doc;
 }
 
+/** Keep a run: when, which analysis, how many findings, and the top few (the last 20 runs). */
+export function recordRun(doc, analysisId, findings, now = new Date().toISOString()) {
+  const run = { at: now, analysis: analysisId, count: findings.length, top: findings.slice(0, 6).map((f) => ({ id: f.id, ruleId: f.ruleId, title: f.title, text: f.text, score: f.score, items: f.items.slice(0, 6) })) };
+  doc.runs = [run, ...(doc.runs ?? [])].slice(0, 20);
+  return run;
+}
+
 /** Run every step available now, in order: what the test platform's seed does for Kestrel. */
 export function runSetup(doc, opts = {}) {
   for (const s of stepsNow()) runStep(doc, s.id, opts);
@@ -136,6 +153,7 @@ export function resetSetup(doc) {
   doc.baseline = null;
   doc.calibration = null;
   doc.snapshots = [];
+  doc.runs = [];
   return doc;
 }
 

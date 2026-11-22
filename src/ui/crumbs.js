@@ -119,6 +119,11 @@ const ACTIONS = {
     { label: 'Insights', icon: 'chart', href: own('graph', '#insights'), here: '#insights' },
     { label: 'Export', icon: 'download', href: own('graph', '#export'), here: '#export' },
   ],
+  rhizome: () => [
+    { label: 'Analyses', icon: 'spark', href: own('rhizome', '#analyses'), here: '#analyses' },
+    { label: 'Facts', icon: 'sec-rhizome', href: own('rhizome', '#facts'), here: '#facts' },
+    { label: 'About', icon: 'help', href: own('rhizome', '#about'), here: '#about' },
+  ],
   library: () => [
     { label: 'Documents', icon: 'doc', href: own('library', '#files/all'), here: '#files' },
     { label: 'Bibliographies', icon: 'book', href: own('library', '#bibs'), here: '#bibs' },

@@ -9,6 +9,7 @@
  */
 import { betweenness } from '../platform/graphAlgo.js';
 import { LENS_ZONES } from './zones.js';
+import { ABCD as ABCD_TYPES } from '../platform/assetHub.js';
 
 /** The value at percentile p (0 to 1) of a list of numbers, by nearest rank. */
 export function percentile(values, p) {
@@ -156,6 +157,9 @@ export function measureFacts(facts, { today = new Date().toISOString().slice(0, 
   const unusedAssets = assetIds.filter((id) => !leanedOn.has(id));
   const abcd = {};
   for (const e of Object.values(E)) if (e.attrs.asset && e.attrs.abcd) abcd[e.attrs.abcd] = (abcd[e.attrs.abcd] ?? 0) + 1;
+  // ABCD types with few assets next to the fullest one (a tenth or less).
+  const abcdMax = Math.max(0, ...Object.values(abcd));
+  const abcdThin = abcdMax ? ABCD_TYPES.filter((t) => (abcd[t.id] ?? 0) <= abcdMax / 10).map((t) => ({ id: `abcd:${t.id}`, abcd: t.id, label: t.label.toLowerCase(), count: abcd[t.id] ?? 0 })) : [];
 
   // The studio: SOAR cards never patched into anything, aspirations with no result, untested causal bets.
   const wired = new Set(R.filter((r) => r.kind === 'feeds').flatMap((r) => [r.from, r.to]));
@@ -164,7 +168,7 @@ export function measureFacts(facts, { today = new Date().toISOString().slice(0, 
   const leadsIn = new Set(R.filter((r) => r.kind === 'leads').map((r) => r.to));
   const unsupportedOutcomes = ofType('outcome').filter((o) => o.attrs.lane !== 'activity' && !leadsIn.has(o.id)).map((o) => o.id);
 
-  const lists = { isolates, fewLinks, hubs, bridges, oneWay, zoneGaps, hollowObjectives, hollowGoals, unstaffed, blockedWork, overdue, unusedAssets, looseIdeas, untestedLinks, unsupportedOutcomes, supported: [...supported] };
+  const lists = { abcdThin, isolates, fewLinks, hubs, bridges, oneWay, zoneGaps, hollowObjectives, hollowGoals, unstaffed, blockedWork, overdue, unusedAssets, looseIdeas, untestedLinks, unsupportedOutcomes, supported: [...supported] };
   return {
     actors: per, calibration, lists, abcd,
     counts: {

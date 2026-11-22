@@ -147,12 +147,13 @@ test('a help library saved before the testing guide existed gets it, once', asyn
   const { withNewSections } = await import('../src/platform/help.js');
   const old = { version: 1, sections: [{ id: 'mine', title: 'Ours', pages: [] }] };
   const next = withNewSections(old);
-  assert.deepEqual(next.sections.map((s) => s.id), ['asset-graph', 'new-in-0-2-planning', 'new-in-0-2', 'alpha', 'mine'], 'new sections go on top');
-  assert.ok(next.sections[3].pages.some((p) => p.id === 'reporting'));
-  assert.deepEqual(withNewSections({ version: 2, sections: [] }).sections.map((s) => s.id), ['asset-graph', 'new-in-0-2-planning', 'new-in-0-2'], 'a 0.1 library gets the 0.2 guides');
-  assert.deepEqual(withNewSections({ version: 3, sections: [] }).sections.map((s) => s.id), ['asset-graph', 'new-in-0-2-planning'], 'one edited in early 0.2 gets the planning guides');
-  assert.deepEqual(withNewSections({ version: 4, sections: [] }).sections.map((s) => s.id), ['asset-graph'], 'then the asset graph');
-  assert.equal(withNewSections({ version: 5, sections: [] }).sections.length, 0, 'one the admin deleted after that stays deleted');
+  assert.deepEqual(next.sections.map((s) => s.id), ['rhizome', 'asset-graph', 'new-in-0-2-planning', 'new-in-0-2', 'alpha', 'mine'], 'new sections go on top');
+  assert.ok(next.sections[4].pages.some((p) => p.id === 'reporting'));
+  assert.deepEqual(withNewSections({ version: 2, sections: [] }).sections.map((s) => s.id), ['rhizome', 'asset-graph', 'new-in-0-2-planning', 'new-in-0-2'], 'a 0.1 library gets the 0.2 guides');
+  assert.deepEqual(withNewSections({ version: 3, sections: [] }).sections.map((s) => s.id), ['rhizome', 'asset-graph', 'new-in-0-2-planning'], 'one edited in early 0.2 gets the planning guides');
+  assert.deepEqual(withNewSections({ version: 4, sections: [] }).sections.map((s) => s.id), ['rhizome', 'asset-graph'], 'then the asset graph');
+  assert.deepEqual(withNewSections({ version: 5, sections: [] }).sections.map((s) => s.id), ['rhizome'], 'then Rhizome');
+  assert.equal(withNewSections({ version: 6, sections: [] }).sections.length, 0, 'one the admin deleted after that stays deleted');
 });
 
 test('every screenshot a help page shows exists, with a caption', async () => {

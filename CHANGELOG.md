@@ -6,6 +6,16 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### PR 19: Rhizome, stage 2 (experimental): rules engine, tip library, analyses, About and Help
+
+- **A rules engine that works offline.** Each rule has four parts: **when** (conditions, which can compare against the org's own percentiles), **weigh** (a score from 0 to 1 for ranking; rules in the profile's themes count a little more, and links marked speculative count for what the profile says), **say** (a tip from the library, with names filled in) and **show** (on the map, or as a list). Rules are plain data, so the rack in stage 3 can draw and build them.
+- **A tip library.** 22 short tips in our own words, filed under themes (network weaving, leverage points, the water of systems change, ABCD, SOAR, theory of change, collective impact, strategy hygiene, equity), each naming where its idea comes from.
+- **Six canned analyses, 22 rules:** Network health, Power and leverage, Plan hygiene, Assets in use, From studio to plan, and Map meets plan.
+- **Analyses tab.** Pick an analysis and its findings show at once, best first. Each finding has its tip, the things it's about (click through to Facts), **Why?** (the rule, each condition with the actual value, how the score was worked out, and the tip's source), **Show on map**, and **Dismiss** (it comes back only if what it rests on changes). Tick analyses into **My set** and **Run my set**. **Every rule** lists all of them, with **View as data**.
+- **The set-up gains two steps:** pick tip packs and starter analyses (matched to the context profile), and a first run. Home opens with a **welcome report**: the best finding from each rule. The context harvest shows as optional, arriving with the tip harvester.
+- **About tab.** A quick reference beside the work: what Rhizome does, the tabs, the words you'll see, the four parts of a rule, where the tips come from, and what happens to your data. Plus the tutorials.
+- **Helper docs, one source.** Rhizome's five tutorials live in Help (help.html#rhizome) and show in the About tab too, from the same help library, so an admin's edits in Help reach both. The ribbon's three actions are Analyses, Facts and About.
+
 ### PR 18: Rhizome, stage 1 (experimental): the fact layer, measures and the switch-on set-up
 
 Rhizome is a new, experimental plugin: a systems analysis toolbox that will grow, stage by stage, into a modular-synth-style rack of rules, tips and engines (see the Rhizome plan). Stage 1 is its foundation. It ships switched off; an org switches it on in Organisation → Plugins.

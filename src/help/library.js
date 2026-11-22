@@ -12,6 +12,8 @@
  * and for screenshots, [[shot:<id>]]: media/help/<id>.jpg with the caption in HELP_SHOTS.
  */
 
+import { RHIZOME_HELP } from '../rhizome/help.js';
+
 /** The screenshots tutorials can show, by id, with their captions. Files are in media/help/. */
 export const HELP_SHOTS = {
   'access-closed': 'Opening a plugin you can’t use says why, and where to ask.',
@@ -44,18 +46,22 @@ export const HELP_SHOTS = {
   'graph-path': 'The way from CIFAR to Apple Education, each link named.',
   'graph-insights': 'Insights: most connected, bridges, clusters, islands and the ABCD balance.',
   'graph-export': 'Export and API: Turtle, JSON-LD and N-Triples, and read-only keys.',
+  'rhizome-setup': 'Rhizome’s set-up: the context profile beside the checklist.',
+  'rhizome-facts': 'Facts: one actor with its measures, attributes and every tie.',
+  'rhizome-analyses': 'Analyses: findings ranked by score, with Why? open on one of them.',
 };
-export const HELP_VERSION = 5;
+export const HELP_VERSION = 6;
 
 /**
  * Sections added since a version: a saved (edited) library that is older
  * gets them too, at the top, so new guides reach every server.
  */
-export const HELP_ADDED = { alpha: 2, 'new-in-0-2': 3, 'new-in-0-2-planning': 4, 'asset-graph': 5 };
+export const HELP_ADDED = { alpha: 2, 'new-in-0-2': 3, 'new-in-0-2-planning': 4, 'asset-graph': 5, rhizome: 6 };
 
 export const HELP_SEED = {
   version: HELP_VERSION,
   sections: [
+    RHIZOME_HELP,
     {
       id: 'asset-graph',
       title: 'The asset graph (experimental)',
