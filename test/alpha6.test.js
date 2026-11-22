@@ -116,9 +116,9 @@ test('Markdown tables render with a head and rows', () => {
   assert.equal(blocks.filter((b) => b.t !== 'table').length, 2, 'the text either side stays');
 });
 
-test('a stored “Web views” manifest gives way to the Public Portal name', () => {
+test('a stored “Web views” manifest gives way to the Web name', () => {
   const reg = mergeRegistry({ plugins: { pages: { id: 'pages', name: 'Web views', short: 'Web', blurb: 'old', tier: 'basic' } } });
-  assert.equal(reg.plugins.pages.name, 'Public Portal');
+  assert.equal(reg.plugins.pages.name, 'Web');
   assert.equal(reg.plugins.pages.tier, 'basic', 'other settings are kept');
   const kept = mergeRegistry({ plugins: { pages: { id: 'pages', name: 'Our sites' } } });
   assert.equal(kept.plugins.pages.name, 'Our sites', 'a name the org chose is kept');
@@ -151,4 +151,13 @@ test('a strategy scorecard works for any plan: the road, headline numbers, goal 
   assert.equal(new Set(dash.widgets.map((w) => w.id)).size, dash.widgets.length);
   const empty = scorecardDashboard({ nodes: {} });
   assert.deepEqual(empty.widgets, []);
+});
+
+test('alpha 0.4 one-word names: stored Strategy & Work, Public Portal and Podcasts take Plan, Web and Listen', () => {
+  const reg = mergeRegistry({ plugins: {
+    strategy: { id: 'strategy', name: 'Strategy & Work', short: 'Strategy' },
+    pages: { id: 'pages', name: 'Public Portal', short: 'Portal' },
+    podcasts: { id: 'podcasts', name: 'Podcasts', short: 'Podcasts' },
+  } });
+  assert.deepEqual(['strategy', 'pages', 'podcasts'].map((id) => [reg.plugins[id].name, reg.plugins[id].short]), [['Plan', 'Plan'], ['Web', 'Web'], ['Listen', 'Listen']]);
 });

@@ -5,7 +5,7 @@
  * `npm run clients` brings them in as the station's own uploads:
  *
  *   - zips are opened on the fly and every audio file inside is taken;
- *   - each file is stored like an upload and listed in Podcasts → Studio →
+ *   - each file is stored like an upload and listed in Listen → Studio →
  *     Audio files (origin "import"), so it shows in Assets as Studio audio;
  *   - an episode whose original file name matches (episode.audio.name, the
  *     name on the SJR server) plays the uploaded file from then on; the

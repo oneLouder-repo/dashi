@@ -2,6 +2,26 @@
 
 Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and so on). Each point version (0.2, 0.3…) is one major platform feature; 0.2.1-alpha, 0.2.2-alpha… are fixes and polish from testing. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
+## 0.4.0-alpha (in progress): learning, on a clean build
+
+Alpha 0.4 is the learning release (Teach, Learn and what follows), opened from the `v0.3.0-alpha` tag and tested on a fresh `data-clients` seed. Rhizome's later stages and Place stage 2 onwards stay paused. Going live moves to 0.5. Newest first.
+
+### Reorganisation before the next eLearning stage
+
+- **One-word plugin names.** Strategy & Work is now **Plan**, Public Portal is now **Web**, and Podcasts is now **Listen**. Rhizome's Output tab is now **Report** (old `#output` links still land there). A platform registry still carrying an old name takes the new one.
+- **Public site nav that fits.** The links stay on one line. What doesn't fit goes, last first, under **More** at the end of the bar, and the page you're on is the last to go. On a phone the nav folds into one **Menu** button with a full-width sheet. Kestrel's site at 1440px used to run 90px off the edge.
+- **Tabs with a More menu.** A plugin's tabs keep to one row, like the plugin bar. Rhizome starts Measures, Set-up and About under More, and any tab that doesn't fit joins them. Every plugin gets this.
+- **The graph moves into Rhizome.** The asset graph is out of experimental and out of Assets: it is now Rhizome's **Graph** tab, with Rhizome's header and side nav.
+- **New: Graph → Loops.** The feedback loops drawn on your ecosystem maps (A to B to C and back to A), each drawn as a ring, with feedback links in red and learning links in green. Below them are the chains that are one link short of a loop, with the question to ask.
+- **Rhizome tools in Assets.** A tray in the asset manager (left panel, **Rhizome tools**) holds a graph search with quick asks, your most connected assets, the loop count, asset checks (not sorted yet, linked to nothing), the ABCD balance, and the way to Rhizome's Report, Tips and Analyses. It only shows for people who can use Rhizome.
+- **AI, one plugin (experimental).** A home for AI at your organisation, with people in charge:
+  - **Check a prompt.** AI literacy checks in the browser. Personal data stops a prompt, risky uses need care, and there are tips for a better prompt and a safer copy to use.
+  - **Prompt log.** Only the safer copies are kept.
+  - **Review.** Human in the loop: flagged prompts wait for a person to clear them.
+  - **Keys** and **Claude proxy** set out the plan. Nothing calls an AI yet.
+  - AI Policy Studio, AI Use Register, Prompt Commons and Plain Words now live inside it.
+- **Place: the empty street map, triaged.** Kestrel Bay is drawn out at sea, so the real street map there is open water: Place now says so and points to the drawn map. Dashi also sent no Referer to OpenStreetMap's tile servers, which ask for one; Place now sends the site's address. A refused tile gets its own note. Going live still needs Dashi's own tile host.
+
 ## 0.3.0-alpha (2026-11-22): UI tinkering and enhancements
 
 Alpha 0.3 was a round of UI work in about 20 pull requests, merged into master together on 2026-11-22 with every test passing. Going live (the Actua and SJR checklist, Stripe billing) moves to 0.5; 0.4 is the learning release, built from this tag (`v0.3.0-alpha`) on a fresh `data-clients` seed. Newest first.

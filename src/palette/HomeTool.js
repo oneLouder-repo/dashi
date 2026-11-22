@@ -29,7 +29,7 @@ export function HomeTool(ctx) {
     }),
     h('div', { class: 'stat-tiles' },
       stat('Dashboards', dashes.length, `${dashes.filter((d) => d.visibility === 'public' && d.siteId).length} on a public site`),
-      stat('Measures', measures.length, 'from Strategy & Work'),
+      stat('Measures', measures.length, 'from Plan'),
       stat('Latest data', months.length ? monthLabel(months.at(-1)) : 'None yet', `${months.length} months recorded`),
       stat('Feedback', answers, `answers to ${Object.keys(ctx.dashboards.doc.forms ?? {}).length} forms`),
       stat('Funder reports', reports.length, `${reports.filter((r) => r.status === 'sent').length} sent`)),
@@ -40,7 +40,7 @@ export function HomeTool(ctx) {
         h('p', { class: 'muted small' }, usesStrategy.length ? `In use on ${usesStrategy.map((d) => d.title).join(', ')}.` : 'Not on a dashboard yet.'),
         h('div', { class: 'stat-line' },
           h('a', { class: 'btn btn-sm btn-primary', href: `#${usesStrategy[0]?.id ?? 'dashboards'}` }, icon('chart', 14), usesStrategy.length ? `Open ${usesStrategy[0].title}` : 'Pick a dashboard'),
-          // The roadmap itself lives in Strategy & Work: only for people who have it.
+          // The roadmap itself lives in Plan: only for people who have it.
           linkTo('strategy', '#roadmap') && h('a', { class: 'btn btn-sm btn-ghost', href: linkTo('strategy', '#roadmap') }, 'The full roadmap'))),
       h('div', { class: 'wb-road' }, road.el)),
     h('h2', {}, 'Mini-tools'),

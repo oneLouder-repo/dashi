@@ -11,16 +11,20 @@ import { loadOrg, loadAssets, loadMaps, loadLibrary, loadPodcasts, loadStrategy,
 import { loadAllMaps } from '../platform/maps.js';
 import { ABCD, abcdById } from '../platform/assetHub.js';
 import { VOCABS, ABCD_CLASSES, CLASS_CHOICES, NODE_KINDS, defaultGraphSettings, buildGraph, EXPORTS, toTurtle } from '../platform/graph.js';
-import { adjacency, pageRank, betweenness, communities, components, ask, around, findNodes, ASK_CHIPS } from '../platform/graphAlgo.js';
+import { adjacency, pageRank, betweenness, communities, components, ask, around, findNodes, findLoops, ASK_CHIPS } from '../platform/graphAlgo.js';
+import { rhizomeTabs } from '../rhizome/tabs.js';
 import { enabledPlugins, linkTo } from '../plugins.js';
 
 /**
- * The asset graph (alpha 0.2, PR 7, experimental): a sub-plugin of Assets.
- * Everything the org knows, as one web of linked facts.
+ * The graph (alpha 0.2, PR 7, as the experimental asset graph under Assets).
+ * Alpha 0.4: out of experimental, and a tab of Rhizome (its sub-plugin now),
+ * with Rhizome's tabs and side nav. Everything the org knows, as one web of
+ * linked facts.
  *
  *   #explore[/<question>]   graph search: a name unfolds its network ring by ring,
  *                           "A to B" finds the way between two things, chips ask the rest
  *   #explore/@<iri>         the network around one thing (a click on the graph)
+ *   #loops                  the feedback loops drawn on the maps, and near misses (alpha 0.4)
  *   #insights               most connected, bridges, clusters, islands, ABCD balance
  *   #ontology               which vocabularies the graph speaks, and the class of each ABCD type
  *   #export                 Turtle, JSON-LD and N-Triples, and read-only API keys
@@ -83,6 +87,7 @@ function render() {
   const scroll = main.scrollTop;
   let page;
   if (view === 'insights') page = Insights();
+  else if (view === 'loops') page = Loops();
   else if (view === 'ontology') page = Ontology();
   else if (view === 'export') page = Export();
   else page = Explore(arg);
@@ -90,33 +95,34 @@ function render() {
   if (view !== 'explore') main.scrollTop = scroll;
 }
 
+const GRAPH_VIEWS = [
+  { id: 'explore', label: 'Graph search', icon: 'search' },
+  { id: 'loops', label: 'Loops', icon: 'refresh' },
+  { id: 'insights', label: 'Insights', icon: 'lightbulb' },
+  { id: 'ontology', label: 'Ontology', icon: 'tree' },
+  { id: 'export', label: 'Export and API', icon: 'export' },
+];
+let loopsOf = null;
+const loops = () => (loopsOf ??= findLoops(g));
+
 function drawSide(view) {
   const nodes = Object.values(g.nodes);
-  side = swapSide(side, SideNav({ label: 'Assets', sections: [
-    { title: 'Assets', items: [
-      { label: 'All assets', sub: 'Files, maps, people, stories and places', icon: 'dots', href: linkTo('assets') },
-      { label: 'Asset map', sub: 'Seen through the ABCD lens', icon: 'mapTrifold', href: linkTo('assets', '#view=map') },
+  const sub = { explore: `${n(nodes.length, 'thing')} · ${n(g.edges.length, 'link')}`, loops: `${n(loops().loops.length, 'feedback loop')} on your maps`, insights: 'Hubs, bridges, clusters, islands',
+    ontology: `${VOCABS.filter((v) => v.core || settings.vocabs[v.prefix] !== false).length} vocabularies in use`, export: `${n(g.triples.length, 'fact')} as linked data` };
+  side = swapSide(side, SideNav({ label: 'Rhizome', sections: [
+    { title: 'Graph', items: GRAPH_VIEWS.map((v) => ({ label: v.label, sub: sub[v.id], icon: v.icon, href: `#${v.id}`, on: view === v.id })) },
+    { title: 'Rhizome', items: rhizomeTabs('graph').filter((t) => t.id !== 'graph').map((t) => ({ label: t.label, icon: t.icon, href: t.href })) },
+    linkTo('assets') && { title: 'Elsewhere in Dashi', items: [
+      { label: 'Assets', sub: 'Files, maps, people, stories and places', icon: 'sec-assets', href: linkTo('assets') },
     ] },
-    { title: 'Asset graph · experimental', items: [
-      { label: 'Graph search', sub: `${n(nodes.length, 'thing')} · ${n(g.edges.length, 'link')}`, icon: 'search', href: '#explore', on: view === 'explore' },
-      { label: 'Insights', sub: 'Hubs, bridges, clusters, islands', icon: 'lightbulb', href: '#insights', on: view === 'insights' },
-      { label: 'Ontology', sub: `${VOCABS.filter((v) => v.core || settings.vocabs[v.prefix] !== false).length} vocabularies in use`, icon: 'tree', href: '#ontology', on: view === 'ontology' },
-      { label: 'Export and API', sub: `${n(g.triples.length, 'fact')} as linked data`, icon: 'export', href: '#export', on: view === 'export' },
-    ] },
-  ] }));
+  ].filter(Boolean) }));
 }
 
-const tabs = (current) => PluginHeader('graph', {
-  title: 'Asset graph',
-  blurb: 'Experimental. Your assets, people, maps and strategy as one web of linked facts, in the words the web already uses (schema.org, FOAF, SKOS, PROV) and ABCD’s.',
-  tabs: [
-    { id: 'explore', label: 'Graph search', icon: 'search' },
-    { id: 'insights', label: 'Insights', icon: 'lightbulb' },
-    { id: 'ontology', label: 'Ontology', icon: 'tree' },
-    { id: 'export', label: 'Export and API', icon: 'export' },
-  ],
-  current,
-});
+/** Rhizome's header with the Graph tab on, then the graph's own views. */
+const tabs = (current) => h('div', { class: 'gx-head' },
+  PluginHeader('rhizome', { tabs: rhizomeTabs('graph'), current: 'graph' }),
+  h('nav', { class: 'gx-views', 'aria-label': 'Graph views' }, GRAPH_VIEWS.map((v) =>
+    h('a', { href: `#${v.id}`, class: v.id === current ? 'on' : '', 'aria-current': v.id === current ? 'page' : null }, icon(v.icon, 14), v.label))));
 
 /* --------------------------------------------------------------- explore */
 
@@ -551,6 +557,73 @@ function ApiKeys() {
   return box;
 }
 const day = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+
+
+/* ----------------------------------------------------------------- loops */
+
+/**
+ * Alpha 0.4: the feedback loops already drawn into the ecosystem, and the
+ * near misses one link short of a loop. Change work runs on loops: who
+ * hears back from whom, and where learning comes round again.
+ */
+const LOOP_KINDS = {
+  feedback: { label: 'Feedback loop', note: 'Has a feedback link in it.' },
+  learning: { label: 'Learning loop', note: 'Has a learning link in it.' },
+  mixed: { label: 'Feedback and learning', note: 'Has both feedback and learning links.' },
+  plain: { label: 'Loop', note: 'Comes back round, through other kinds of tie.' },
+};
+function Loops() {
+  setCrumbs([]);
+  const { loops: list, almost } = loops();
+  const label = (iri) => g.nodes[iri]?.label ?? iri;
+  const mapOf = (iri) => { const m = iri.match(/^dashi:actor\/([^/]+)\//); return m ? g.nodes[`dashi:map/${m[1]}`]?.label ?? '' : ''; };
+  const by = { feedback: 0, learning: 0, mixed: 0, plain: 0 };
+  for (const l of list) by[l.kind] += 1;
+  return h('div', { class: 'graph-loops' },
+    tabs('loops'),
+    h('div', { class: 'gi-stats' },
+      Stat(list.length, list.length === 1 ? 'loop on your maps' : 'loops on your maps'), Stat(by.feedback + by.learning + by.mixed, 'with feedback or learning'),
+      Stat(new Set(list.flatMap((l) => l.iris)).size, 'actors in a loop'), Stat(almost.length, 'one link short')),
+    h('p', { class: 'gx-note gl-intro' }, 'A loop is a way round your ecosystem that comes back to where it started: A gives to B, B to C, and C back to A. Loops are how feedback and learning travel. They follow the direction of the links drawn on your maps.'),
+    list.length ? h('div', { class: 'gl-grid' }, list.map((l) => LoopCard(l, label, mapOf)))
+      : h('div', { class: 'card empty-card' }, h('p', {}, 'No loops yet. Draw links both ways on an ecosystem map, or round a few actors, and they show here.')),
+    almost.length > 0 && h('section', { class: 'gl-almost' },
+      h('h2', {}, 'One link short of a loop'),
+      h('p', { class: 'gx-note' }, 'Each of these runs two steps one way with no way back. Would the last one feed back to the first? Ask them, then draw the link on the map if it’s real. The ones furthest from any loop come first.'),
+      h('ul', { class: 'gl-almost-list' }, almost.map((x) => h('li', {},
+        x.iris.map((iri, i) => [i > 0 && h('span', { class: 'gl-arrow', 'aria-hidden': 'true' }, '→'), h('a', { href: exploreHref(`@${iri}`) }, label(iri))]),
+        h('span', { class: 'gl-missing' }, icon('question', 13), ` ${label(x.missing.s)} back to ${label(x.missing.o)}?`),
+        h('small', {}, mapOf(x.iris[0])))))));
+}
+/** One loop as a ring: its actors round a circle, the links as arrows. */
+function LoopCard(l, label, mapOf) {
+  const k = l.iris.length;
+  const R = 54, C = 70;
+  const at = (i) => { const a = -Math.PI / 2 + (2 * Math.PI * i) / k; return [C + R * Math.cos(a), C + R * Math.sin(a)]; };
+  const ring = svgEl('svg', { viewBox: '0 0 140 140', width: 140, height: 140, class: 'gl-ring', role: 'img', 'aria-label': `${l.iris.map(label).join(' to ')}, then back` });
+  ring.innerHTML = `<defs><marker id="gl-ah-${l.iris[0].replace(/[^a-z0-9]/gi, '')}${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>`;
+  const mk = `url(#gl-ah-${l.iris[0].replace(/[^a-z0-9]/gi, '')}${k})`;
+  l.iris.forEach((iri, i) => {
+    const [x1, y1] = at(i), [x2, y2] = at((i + 1) % k);
+    const dx = x2 - x1, dy = y2 - y1, d = Math.hypot(dx, dy) || 1, pad = 11;
+    const kind = /learn/i.test(`${l.edges[i]?.p} ${l.edges[i]?.label}`) ? 'learning' : /feedback/i.test(`${l.edges[i]?.p} ${l.edges[i]?.label}`) ? 'feedback' : 'plain';
+    // Two-actor loops bow apart so both arrows show.
+    const bow = k === 2 ? 18 : 6;
+    const mx = (x1 + x2) / 2 - (dy / d) * bow, my = (y1 + y2) / 2 + (dx / d) * bow;
+    ring.insertAdjacentHTML('beforeend', `<path class="gl-edge gl-${kind}" d="M${x1 + (dx / d) * pad} ${y1 + (dy / d) * pad} Q${mx} ${my} ${x2 - (dx / d) * pad} ${y2 - (dy / d) * pad}" marker-end="${mk}"/>`);
+  });
+  l.iris.forEach((iri, i) => { const [x, y] = at(i); ring.insertAdjacentHTML('beforeend', `<circle cx="${x}" cy="${y}" r="7" class="gl-node" style="--c:${colourOf(g.nodes[iri])}"/>`); });
+  const kind = LOOP_KINDS[l.kind];
+  return h('article', { class: `gl-card gl-k-${l.kind}` },
+    ring,
+    h('div', { class: 'gl-text' },
+      h('span', { class: 'gl-kind', title: kind.note }, kind.label, ` · ${k} actors`),
+      h('ol', { class: 'gl-steps' }, l.iris.map((iri, i) => h('li', {},
+        h('a', { href: exploreHref(`@${iri}`) }, label(iri)),
+        h('small', {}, l.edges[i]?.label ?? 'connected', ' → ', label(l.iris[(i + 1) % k]))))),
+      h('small', { class: 'gl-map' }, icon('sec-mapper', 12), ' ', mapOf(l.iris[0]))));
+}
+const svgEl = (tag, attrs) => { const el = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const [k2, v] of Object.entries(attrs)) el.setAttribute(k2, v); return el; };
 
 // Everything above is defined: draw the page.
 window.addEventListener('hashchange', render);

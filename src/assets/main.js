@@ -14,7 +14,8 @@ import { uid } from '../core/ops.js';
 import { StoryCard, StoryEditor } from '../ui/StoryEditor.js';
 import { storyOf, newStoryItem, applyStory } from '../platform/stories.js';
 import { saveDoc, onDocChange, session } from '../platform/storage.js';
-import { loadOrg, loadAssets, loadMaps, loadLibrary, loadPodcasts } from '../platform/docs.js';
+import { loadOrg, loadAssets, loadMaps, loadLibrary, loadPodcasts, loadStrategy } from '../platform/docs.js';
+import { openRhizomeTray } from './rhizomeTray.js';
 import { loadAllMaps } from '../platform/maps.js';
 import { currentUser } from '../platform/session.js';
 import { enabledPlugins, linkTo } from '../plugins.js';
@@ -193,11 +194,9 @@ function drawSide(cards) {
       { label: 'Bibliographies', sub: 'Annotated, with weekly briefs', icon: 'news', href: linkTo('library', '#bibs') },
       { label: 'Library tags', sub: 'What you’re reading about', icon: 'tag', href: linkTo('library', '#tags') },
     ] },
-    // The asset graph (0.2, experimental): the same assets as linked facts.
-    { title: 'Asset graph · experimental', items: [
-      { label: 'Graph search', sub: 'Type a name; its network unfolds', icon: 'search', href: linkTo('graph', '#explore') },
-      { label: 'Insights', sub: 'Hubs, bridges, clusters, islands', icon: 'lightbulb', href: linkTo('graph', '#insights') },
-      { label: 'Ontology and export', sub: 'Vocabularies, linked data, API', icon: 'tree', href: linkTo('graph', '#ontology') },
+    // Alpha 0.4: the asset graph moved into Rhizome; its tools stay a click away in a tray.
+    linkTo('rhizome') && { title: 'Rhizome tools', items: [
+      { label: 'Rhizome tools', sub: 'Graph search, loops, checks, the report', icon: 'sec-rhizome', onclick: () => openRhizomeTray({ docs: { ...docs, strategy: plugins.has('strategy') ? loadStrategy() : null }, hub, plugins, onFilter: (hash) => { location.hash = hash; } }) },
     ] },
     tags.length && { title: 'Tags', body: h('div', { class: 'ah-tags' }, tags.map((t) => h('a', { href: `#tag=${encodeURIComponent(t.tag)}`, class: `ah-tag${s.tag === t.tag ? ' on' : ''}` }, t.tag, h('small', {}, String(t.n))))) },
   ] }));

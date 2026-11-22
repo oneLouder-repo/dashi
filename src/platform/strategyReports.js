@@ -1,5 +1,5 @@
 /**
- * Read-only views of a strategy for the Strategy & Work overview tabs:
+ * Read-only views of a strategy for the Plan overview tabs:
  * the treemap's layout, workplan completion, and the roadmap's traffic
  * lights. Pure functions of the strategy doc, so they can be tested.
  */

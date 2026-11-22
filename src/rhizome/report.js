@@ -4,7 +4,7 @@
  * Rhizome found, the tips and their sources, the links to read, the data
  * behind it, and how to read it.
  *
- * buildReport(...) is pure: it gathers the sections as data, and the Output
+ * buildReport(...) is pure: it gathers the sections as data, and the Report
  * tab lays them out on paper. Sections, each of which can be left out:
  *
  *   summary   at a glance: counts, change since the baseline, findings by theme, the top three
@@ -161,7 +161,7 @@ export function buildReport(ctx, doc, opts = defaultReportOptions(), { tipsDoc =
         ['Calibration', 'Cut-offs worked out from your own data (percentiles).'],
       ],
       next: [
-        ['Ecosystem', 'Fix links and actors on the map.'], ['Strategy & Work', 'Give objectives work, people and measures.'],
+        ['Ecosystem', 'Fix links and actors on the map.'], ['Plan', 'Give objectives work, people and measures.'],
         ['Assets', 'Add what the community already has.'], ['Rhizome → Rack', 'Build your own rules, then run them again.'],
       ],
     });

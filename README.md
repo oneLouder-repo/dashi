@@ -9,10 +9,10 @@ A small, cohesive platform for nonprofits' planning, knowledge and learning work
 | Ecosystem Mapper | `mapper.html` | Map actors, agents, relationships and loops through five systems lenses (below) |
 | Asset manager | `assets.html` | Everything the org has to work with (files, links, notes, maps, actors, people, library items, episodes) in collections and tags, seen through an ABCD lens as tiles, a list or an asset map; chunked uploads |
 | Library | `library.html` | Literature and documents: references in APA, Chicago, MLA or Harvard, Zotero/BibTeX/RIS import and export, a PDF reader with highlights and page notes, annotated bibliographies |
-| Strategy & Work | `strategy.html` | Framework → plans (nested, dated, themed) → objectives → goals → workplans → tasks, with Gantt charts and task lifetime timelines |
+| Plan | `strategy.html` | Framework → plans (nested, dated, themed) → objectives → goals → workplans → tasks, with Gantt charts and task lifetime timelines |
 | Workbench | `palette.html` | Mini-tools for the data dialogue: design dashboards, keep program data current, publish to sites |
 | Podcasts | `podcasts.html` | Your own podcast station: shows by season, uploaded .mp3/.wav episodes, featured shows, RSS feeds, and the station's look |
-| Public Portal | `pages.html` | Every site and portal, and what is live on each; add a property; the look (colours and shapes) of every site; pages and news articles, with live dashboard and episode embeds |
+| Web | `pages.html` | Every site and portal, and what is live on each; add a property; the look (colours and shapes) of every site; pages and news articles, with live dashboard and episode embeds |
 | Organisation | `org.html` | Profile, contact and logo; people (a directory, with a drawer for each person) and their roles; teams; plugins; plan and usage; domain |
 | My profile | `me.html` | The signed-in person's picture, followed strategic areas, tasks, workplans, dashboards, maps and shows |
 | Help | `help.html` | User guide, how the systems lenses line up, and the data model, with diagrams |
@@ -24,7 +24,7 @@ The look: the **Ripple** mark (`media/brand/`), Dashi's **Grid** section icons a
 
 Two example organisations come built in (switch from the menu at the top left). Accounts are mocked: the menu under your picture signs you in as anyone on staff.
 
-### Strategy & Work, quickly
+### Plan, quickly
 
 - The left side is the whole strategy as a tree. Click to open, **+** to add the next level down.
 - Plans, objectives, goals and workplans show a Gantt chart of the workplans beneath them. Drag a task bar to move it, drag its ends to change dates, click it to open the task. Weeks / Months / Quarters zooms.
@@ -43,10 +43,10 @@ Two example organisations come built in (switch from the menu at the top left). 
 
 ### Podcasts and public sites, quickly
 
-- **Podcasts** holds shows, each organised by season. Upload an episode as an .mp3 or .wav file (it is kept in the browser for now), give it a season, notes and people, and publish it now, on a date, or keep it as a draft.
+- **Listen** holds shows, each organised by season. Upload an episode as an .mp3 or .wav file (it is kept in the browser for now), give it a season, notes and people, and publish it now, on a date, or keep it as a draft.
 - Toggle any show as a **featured show**, and drag the order with the arrows. The public **station page** leads with the newest episode, then the featured shows, then an archive of every show by season, with search.
 - The station's **look** (player style, cover art shape, banner or split header) sits on top of the org's palette and shape, so each org can skin its station.
-- **Public Portal** lists every site and what is on it, with a diagram of what is live and in design, and is where you write pages (in the site menu) and news articles. A line like `[[dashboard:dash-equity]]` or `[[episode:ep-sv-3]]` embeds live content.
+- **Web** lists every site and what is on it, with a diagram of what is live and in design, and is where you write pages (in the site menu) and news articles. A line like `[[dashboard:dash-equity]]` or `[[episode:ep-sv-3]]` embeds live content.
 - On a public site, links change the page without reloading, so the player keeps playing as visitors move around.
 
 ### Workbench and public sites, quickly
@@ -55,13 +55,13 @@ Two example organisations come built in (switch from the menu at the top left). 
 - **Play** steps a dashboard month by month through its data, in the editor and on public sites.
 - **Program data**: edit the monthly values behind each measure. Public sites open in another tab update as you type.
 - **Publishing**: everything that can go on a site (dashboards, stories, calculators, feedback forms), with a site picker and a Showing switch. Members-only sites show a sign-in message to visitors.
-- **From your strategy**: road, goal lights, next milestones and work progress widgets show where the plan stands, live from Strategy & Work.
+- **From your strategy**: road, goal lights, next milestones and work progress widgets show where the plan stands, live from Plan.
 - **Feedback forms**: short anonymous questions under a site's dashboards or on its front page; answers come back to the Workbench.
 - **Funder reports**: pick a funder, a period and what they fund, and get a first draft from your measures, workplans and stories to edit, print or keep in the Library.
 
 ### Board portal, quickly
 
-- Open it from **Public Portal → Members only → Board portal** (its page has a live preview and an Open the portal button), or `site.html?site=site-board`. Only signed-in members see it.
+- Open it from **Web → Members only → Board portal** (its page has a live preview and an Open the portal button), or `site.html?site=site-board`. Only signed-in members see it.
 - Governance guides, minutes and finance summaries are Library documents tagged `board` plus `governance`, `minutes` or `finance`. Tag a document and it appears; edit it in the Library.
 - The home page shows the **Board scorecard** dashboard (edit it in the Workbench) and a short feedback form for the board.
 
@@ -114,7 +114,7 @@ src/
   persistence/  local storage and JSON file import/export
   mapper.js     wires the mapper together
   platform/     org and strategy data models, example data, storage (shared by all tools)
-  strategy/     the Strategy & Work tool: tree, detail, Gantt, timeline
+  strategy/     the Plan tool: tree, detail, Gantt, timeline
   pages/        the dashboard and org overview
   toolbox.js    the list of tools
 test/           node:test tests for the stores, ops, lenses and strategy model

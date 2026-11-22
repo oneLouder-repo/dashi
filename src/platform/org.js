@@ -16,7 +16,7 @@
  *   Staff  { name, title, roleId, teamIds: [], email, avatar, interests: [strategy node ids] }
  *   Team   { name, color }
  *   Site   { name, url, visibility: 'public' | 'unlisted' | 'private', shows,
- *            look: { hero: 'band' | 'soft' | 'plain', type: 'sans' | 'serif' } }   how its pages are dressed (Public Portal)
+ *            look: { hero: 'band' | 'soft' | 'plain', type: 'sans' | 'serif' } }   how its pages are dressed (Web)
  *   A private site is a members-only portal (the board, funders): anyone in the org who signs in sees it, board directors and guests included.
  */
 export const SITE_HEROES = [
@@ -67,7 +67,7 @@ const staffRecords = (rows, domain) =>
     email: `${name.split(' ')[0].toLowerCase()}@${domain}`,
   }]));
 
-/** A microsite still in design: unlisted, with draft pages, so the Public Portal shows something in progress. */
+/** A microsite still in design: unlisted, with draft pages, so Web shows something in progress. */
 const YOUTH_SITE = { id: 'site-youth', name: 'Youth voices', url: 'https://example.org/youth', visibility: 'unlisted', shows: 'Stories and data chosen by the Youth data advisory circle', look: { hero: 'soft', type: 'sans' } };
 
 export function seedOrg() {

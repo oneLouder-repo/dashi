@@ -133,7 +133,7 @@ function render() {
   const all = allEpisodes();
   const notYet = all.filter((e) => stateOf(e) !== 'live').length;
   side = swapSide(side, SideNav({ label: 'Episodes, series and station', sections: [
-    { title: 'Podcasts', items: [
+    { title: 'Listen', items: [
       { label: 'Home', sub: 'Latest, featured, series and the studio', icon: 'home', href: '#home', on: r.scope === 'home' },
       { label: 'Episodes', sub: [`${all.length - notYet} published`, notYet && `${notYet} not yet`].filter(Boolean).join(' · '), icon: 'music', href: '#episodes', on: r.scope === 'episodes' },
       { label: 'Station', sub: doc().station.name, icon: 'radio', href: '#station', on: r.scope === 'station' },
@@ -586,7 +586,7 @@ function EpisodesHome(r) {
 
 /* ------------------------------------------------------------------ the plugin's home */
 /**
- * Alpha 0.3 PR 17: the Podcasts home dashboard. A hero for the newest
+ * Alpha 0.3 PR 17: the Listen home dashboard. A hero for the newest
  * episode, the station's numbers, what's featured, every series as a card,
  * what's coming up, and the studio's latest sessions. Panels are white with
  * a soft grey outline and the plugin's colour as a bar on the left.
@@ -620,7 +620,7 @@ function PodcastsHome(r) {
   })() : h('section', { class: 'ph-panel ph-hero empty' }, icon('mic', 28), h('div', {}, h('h2', {}, 'No episodes out yet'), h('p', { class: 'muted' }, 'Add one from an .mp3, or make one in the studio.')), h('a', { class: 'btn btn-sm btn-primary', href: '#episodes/new' }, 'Add an episode'));
 
   return h('div', { class: 'pc-main ph' },
-    PluginHeader('podcasts', { title: 'Podcasts', actions: [
+    PluginHeader('podcasts', { title: 'Listen', actions: [
       h('a', { class: 'btn btn-sm', href: '#studio' }, icon('mic', 14), 'Open the studio'),
       h('a', { class: 'btn btn-sm btn-primary', href: '#episodes/new' }, icon('upload', 14), 'Add episode'),
     ] }),

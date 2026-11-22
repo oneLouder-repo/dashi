@@ -1675,6 +1675,9 @@ export function createApp(db, options = {}) {
     } catch {
       return send(res, 400, 'Bad address');
     }
+    // Place's street map (alpha 0.4 triage): OpenStreetMap's tile servers ask for a Referer and may refuse
+    // tiles without one. Its page and MapLibre's worker send just the site's origin to other sites.
+    if (path === '/place.html' || path.startsWith('/vendor/maplibre/')) res.setHeader('referrer-policy', 'strict-origin-when-cross-origin');
     try {
       // Where to report a security problem (RFC 9116), on every address, staging included.
       if (path === '/.well-known/security.txt' || path === '/security.txt') {

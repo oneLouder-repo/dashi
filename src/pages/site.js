@@ -13,6 +13,7 @@ import { migratePages, siteContent } from '../platform/pages.js';
 import { pluginOn } from '../platform/org.js';
 import { siteDesign, templateById } from '../platform/siteDesign.js';
 import { Masthead } from '../site/mastheads.js';
+import { fitNav } from '../site/fitNav.js';
 import { measureIndex } from '../platform/strategy.js';
 import { measureFacts, seriesOf } from '../platform/data.js';
 import { migrateLibrary, yearOf, formatLabel } from '../platform/library.js';
@@ -37,9 +38,9 @@ import { linkTo } from '../plugins.js';
  *
  *   ?site=x                   home: the site's public dashboards, calculators and stories, latest news, latest episode
  *   ?site=x&story=<id>        a data story (Workbench)
- *   ?site=x&page=<slug>       an information page or article (Public Portal plugin)
+ *   ?site=x&page=<slug>       an information page or article (Web plugin)
  *   ?site=x&view=news         every article, newest first
- *   ?site=x&view=station      the podcast station, if this site hosts it (Podcasts plugin)
+ *   ?site=x&view=station      the podcast station, if this site hosts it (Listen plugin)
  *   ?site=x&show=<id>         a show, by season
  *   ?site=x&episode=<id>      an episode
  *   ?site=x&plan=<id>         a published strategic plan document (Plan designer), printable as PDF
@@ -130,9 +131,9 @@ function render() {
   // In a staff preview of the station, show the player (not playing) so its style can be seen.
   if (hasStation && staffView && params().frame === '1' && (p.view === 'station' || p.show || p.episode)) player.show(Object.values(pod.episodes).filter((e) => published(e, now)).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))[0]);
 
-  // The org's palette and look and feel (Public Portal → Look and feel), then the station's look.
-  // Station pages can wear their own colours (Podcasts → Public station).
-  // A site's own homepage (alpha 0.3, Public Portal → Sites → Homepage): the default, the podcast station, or one of its pages.
+  // The org's palette and look and feel (Web → Look and feel), then the station's look.
+  // Station pages can wear their own colours (Listen → Public station).
+  // A site's own homepage (alpha 0.3, Web → Sites → Homepage): the default, the podcast station, or one of its pages.
   const bare = !p.view && !p.page && !p.story && !p.plan && !p.show && !p.episode && !p.doc;
   const homeKind = site?.home?.kind ?? 'default';
   const stationHome = bare && homeKind === 'station' && hasStation && site?.visibility !== 'private';
@@ -227,12 +228,12 @@ function render() {
     h('header', { class: 'site-head' },
       h('div', { class: 'inner' },
         h('a', { class: 'site-brand', href: link({}) }, Logo(org, 36), h('span', {}, h('strong', {}, org.name), portal && h('small', {}, icon('lock', 11), site.name))),
-        board && h('nav', { 'aria-label': site.name },
+        board && h('nav', { class: 'site-nav', 'aria-label': site.name },
           navLink('home', link({}), 'Home'),
           board.governance.length > 0 && navLink('governance', link({ view: 'governance' }), 'Governance'),
           board.minutes.length > 0 && navLink('minutes', link({ view: 'minutes' }), 'Minutes'),
           board.finance.length > 0 && navLink('finance', link({ view: 'finance' }), 'Finance')),
-        site?.visibility === 'public' && h('nav', { 'aria-label': site.name },
+        site?.visibility === 'public' && h('nav', { class: 'site-nav', 'aria-label': site.name },
           navLink('home', link({}), 'Home'),
           content.nav.map((pg) => navLink(`page:${pg.slug}`, link({ page: pg.slug }), pg.title)),
           content.articles.length > 0 && navLink('news', link({ view: 'news' }), 'News'),
@@ -258,6 +259,8 @@ function render() {
       h('p', { class: 'site-small' }, 'Every chart has a table view for screen readers and printing.',
         isHosted() && !staffView && [' · ', h('a', { href: '/login.html?next=/index.html' }, 'Staff sign in')])),
   );
+  // One line of links that never runs off the edge: what doesn't fit goes under More (alpha 0.4).
+  fitNav(root.querySelector('.site-head .site-nav'));
 }
 
 function Home(site, content, hasStation, ctx) {
@@ -554,7 +557,7 @@ addEventListener('message', (e) => {
   docs.org = e.data.org;
   render();
 });
-// The station designer (Podcasts → Public station) sends the station the same way.
+// The station designer (Listen → Public station) sends the station the same way.
 addEventListener('message', (e) => {
   if (e.origin !== location.origin || e.data?.type !== 'dashi:podcasts' || !e.data.doc) return;
   docs.podcasts = migratePodcasts(e.data.doc);

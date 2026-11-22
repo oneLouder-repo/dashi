@@ -76,11 +76,11 @@ export function AssetLinkChooser(editor) {
       onclick: () => { insertLink(editor, x.r.label, x.r.href); dialog.close(); } },
       icon(kindById[x.asset.kind]?.icon ?? 'link', 18),
       h('span', { class: 'dashi-row-text' }, h('b', {}, x.r.label), h('small', {}, [x.r.sub, `used in ${x.from.map((n) => n.title).slice(0, 2).join(', ')}${x.from.length > 2 ? ` and ${x.from.length - 2} more` : ''}`].filter(Boolean).join(' · '))),
-      h('span', { class: 'dashi-row-go' }, x.r.href ? 'Insert' : '—'))) : [h('p', { class: 'muted' }, rows.length ? 'Nothing matches.' : 'No assets yet. Add them to workplans and tasks in Strategy & Work.')]));
+      h('span', { class: 'dashi-row-go' }, x.r.href ? 'Insert' : '—'))) : [h('p', { class: 'muted' }, rows.length ? 'Nothing matches.' : 'No assets yet. Add them to workplans and tasks in Plan.')]));
   };
   search.addEventListener('input', draw);
   kindSel.addEventListener('change', draw);
-  const dialog = Dialog('Link to an asset', 'Actors, people, documents, links and literature from the asset manager in Strategy & Work.', h('div', { class: 'dashi-filters' }, search, kindSel), list);
+  const dialog = Dialog('Link to an asset', 'Actors, people, documents, links and literature from the asset manager in Plan.', h('div', { class: 'dashi-filters' }, search, kindSel), list);
   draw();
 }
 

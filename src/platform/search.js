@@ -19,7 +19,7 @@ export const GROUPS = [
   { id: 'library', label: 'Library', icon: 'sec-library', plugin: 'library' },
   { id: 'assets', label: 'Assets', icon: 'sec-assets', plugin: 'assets' },
   { id: 'people', label: 'People', icon: 'person' },
-  { id: 'podcasts', label: 'Podcasts', icon: 'sec-podcasts', plugin: 'podcasts' },
+  { id: 'podcasts', label: 'Listen', icon: 'sec-podcasts', plugin: 'podcasts' },
   { id: 'pages', label: 'Web pages', icon: 'sec-sites', plugin: 'pages' },
 ];
 export const groupById = Object.fromEntries(GROUPS.map((g) => [g.id, g]));

@@ -1,0 +1,70 @@
+/* AI (alpha 0.4, experimental): one home for AI. App screen: calm, dense, plain. */
+.ai-page { display: flex; flex-direction: column; gap: 14px; padding-bottom: 32px; }
+.ai-intro { max-width: 76ch; }
+.ai-intro h2 { font-size: 20px; margin: 0 0 6px; }
+.ai-intro p { margin: 0 0 8px; line-height: 1.5; }
+.ai-soon { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.ai-lead { margin: 0 0 10px; }
+.ai-h2 { font-size: 16px; margin: 6px 0 10px; }
+.ai-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.ai-stat { padding: 12px 14px; border: 1px solid var(--line-soft); border-radius: 12px; background: var(--panel); display: flex; flex-direction: column; }
+.ai-stat strong { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--color-primary); }
+.ai-stat span { font-size: 12.5px; color: var(--muted); }
+.ai-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.ai-card { display: flex; flex-direction: column; gap: 4px; padding: 14px; border: 1px solid var(--line-soft); border-radius: 12px; background: var(--panel); color: var(--ink); text-decoration: none; transition: border-color 150ms; }
+.ai-card:hover { border-color: color-mix(in oklab, var(--color-primary) 40%, var(--line)); }
+.ai-card > svg { color: var(--color-primary); margin-bottom: 4px; }
+.ai-card b { font-size: 14.5px; }
+.ai-card span { font-size: 13px; color: var(--muted); line-height: 1.4; }
+.ai-check { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.ai-check .panel { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.ai-check .panel h2 { font-size: 16px; margin: 0; }
+.ai-tipsbox { grid-column: 1 / -1; }
+.ai-tipsbox ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 14px; }
+.ai-text { width: 100%; font-size: 14.5px; line-height: 1.5; }
+.ai-verdict { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; border-left: 4px solid var(--lv); background: color-mix(in oklab, var(--lv) 8%, var(--color-base-100)); }
+.ai-verdict b { font-size: 15px; }
+.ai-verdict span { font-size: 13px; color: var(--muted); }
+.lv-stop { --lv: #c0392b; } .lv-care { --lv: #c98a12; } .lv-ok { --lv: #2a8c5a; } .lv-tip { --lv: #6b7a90; }
+.ai-findings { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ai-findings li { display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: 10px; }
+.ai-findings b { font-size: 14px; }
+.ai-findings p { margin: 2px 0 0; font-size: 13px; color: var(--muted); line-height: 1.4; }
+.ai-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--lv, #999); margin-top: 5px; }
+.ai-hits { display: flex; flex-wrap: wrap; gap: 4px; }
+.ai-hits code { font-size: 12px; padding: 1px 6px; border-radius: 5px; background: color-mix(in oklab, var(--lv) 10%, transparent); color: var(--ink); }
+.ai-safe h3 { font-size: 13px; margin: 0 0 4px; }
+.ai-safe pre, .ai-entry pre { white-space: pre-wrap; font: inherit; font-size: 13.5px; margin: 0 0 8px; padding: 10px 12px; border-radius: 8px; background: color-mix(in oklab, var(--color-base-content) 4%, transparent); }
+.ai-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ai-log { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line-soft); border-radius: 12px; background: var(--panel); }
+.ai-row { border-top: 1px solid var(--line-soft); }
+.ai-row:first-child { border-top: 0; }
+.ai-row > button { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 10px; align-items: center; width: 100%; padding: 10px 14px; background: none; border: 0; text-align: left; font: inherit; color: var(--ink); cursor: pointer; }
+.ai-row > button:hover { background: color-mix(in oklab, var(--color-primary) 4%, transparent); }
+.ai-row .ai-dot { margin-top: 0; }
+.ai-row-text { display: flex; flex-direction: column; min-width: 0; }
+.ai-row-text b { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-row-text small { color: var(--muted); font-size: 12px; }
+.ai-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.ai-setting { padding: 14px 16px; }
+.ai-setting h3, .ai-plan h3 { font-size: 14px; margin: 0 0 8px; }
+.ai-radios { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; }
+.ai-radios label { display: inline-flex; align-items: center; gap: 6px; }
+.ai-keys { display: grid; gap: 8px; max-width: 720px; }
+.ai-key { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid var(--line-soft); border-radius: 12px; background: var(--panel); }
+.ai-key > svg { color: var(--color-primary); }
+.ai-key div { display: flex; flex-direction: column; }
+.ai-key small { color: var(--muted); font-size: 12.5px; }
+.ai-plan .panel { padding: 14px 16px; max-width: 720px; }
+.ai-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; }
+.ai-flow { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; max-width: 760px; counter-reset: s; }
+.ai-step { position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 10px 0 14px; }
+.ai-step:not(:last-child)::after { content: ''; position: absolute; left: 17px; top: 44px; bottom: -4px; width: 2px; background: var(--line); }
+.ai-step-ic { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); color: var(--muted); }
+.st-now .ai-step-ic { color: var(--color-primary); border-color: color-mix(in oklab, var(--color-primary) 45%, var(--line)); background: color-mix(in oklab, var(--color-primary) 8%, var(--panel)); }
+.ai-step b { font-size: 14.5px; }
+.ai-step p { margin: 2px 0 0; font-size: 13px; color: var(--muted); line-height: 1.4; }
+.ai-step-state { font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); padding-top: 8px; }
+.st-now .ai-step-state { color: var(--color-primary); }
+.ai-off { margin-top: 10px; }
+@media (max-width: 900px) { .ai-check { grid-template-columns: 1fr; } .ai-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

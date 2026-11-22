@@ -41,10 +41,10 @@ const planPhase = (p, now) => (!p.start || !p.end ? null : now < p.start ? 'ahea
  *
  * The side list keeps you inside the Studio: every plan, and under the open
  * one its planning tools in the order a planning season runs. A plan opens
- * where you last left it. Strategy & Work and the Plan designer sit apart at
+ * where you last left it. Plan and the Plan designer sit apart at
  * the bottom, marked as other plugins.
  *
- * The framework and plans are Strategy & Work's (the strategy document);
+ * The framework and plans are Plan's (the strategy document);
  * the planning around them is the studio document (platform/studio.js).
  * Other people's saves merge in as they arrive, so a session can run live.
  */
@@ -132,9 +132,9 @@ ctx.planRecord = (planId) => store.doc.plans[planId] ?? { id: planId, team: [], 
 ctx.savePlan = (planId, patch) => (store.doc.plans[planId] ? ctx.put('plans', planId, patch) : store.apply(studioOps.add('plans', { id: planId, team: [], notes: '', ...patch })));
 
 function drawSide({ planId, tab }) {
-  // The same panel on every Strategy & Work page (strategy/swNav.js), plus the theory's layers when it's open.
+  // The same panel on every Plan page (strategy/swNav.js), plus the theory's layers when it's open.
   const extra = planId && tab === 'assemble' ? [assembleLayers(ctx, planId)] : [];
-  side = swapSide(side, SideNav({ label: 'Strategy & Work', sections: swSections({ page: 'studio', tab, planId, strategy: strategy.doc, studio: store.doc, extra, onNewPlan: newPlan }) }));
+  side = swapSide(side, SideNav({ label: 'Plan', sections: swSections({ page: 'studio', tab, planId, strategy: strategy.doc, studio: store.doc, extra, onNewPlan: newPlan }) }));
 }
 
 async function newPlan() {
@@ -148,7 +148,7 @@ async function newPlan() {
 
 /**
  * The Studio's front page: the framework (editable, in the same look as
- * Strategy & Work), then the plans as a tree of cards, each with where its
+ * Plan), then the plans as a tree of cards, each with where its
  * planning stands (SOAR cards, results, team) and where its work stands
  * (tasks done), and the designed plan documents.
  */
@@ -189,7 +189,7 @@ function Framework() {
       h('footer', { class: 'studio-plan-foot' },
         AvatarStack(team, { max: 6, size: 24 }),
         h('span', { class: 'spacer' }),
-        h('a', { class: 'btn btn-xs btn-ghost', href: `strategy.html#${p.id}`, title: 'Opens Strategy & Work' }, icon('share', 13), 'Work'),
+        h('a', { class: 'btn btn-xs btn-ghost', href: `strategy.html#${p.id}`, title: 'Opens Plan' }, icon('share', 13), 'Work'),
         design ? h('a', { class: 'btn btn-xs btn-ghost', href: `plandoc.html#${design.id}` }, icon('brush', 13), design.status === 'published' ? 'Design · published' : 'Design')
           : h('a', { class: 'btn btn-xs btn-ghost', href: 'plandoc.html', title: 'Make a designed plan document from this plan' }, icon('brush', 13), 'Design it'),
         h('a', { class: 'btn btn-xs btn-primary', href: tabHref(p.id, lastTab(p.id)) }, lastTab(p.id) === 'home' ? 'Open the plan' : `Continue: ${TABS.find((t) => t.id === lastTab(p.id))?.label ?? 'Plan home'}`, icon('chevronRight', 13))));
@@ -199,12 +199,12 @@ function Framework() {
     return k ? h('small', {}, String(k)) : null;
   };
   return h('div', { class: 'studio-page-body studio-front' },
-    // Not "Planning Studio" any more: it is part of Strategy & Work (0.2). Mission and vision live in the Framework.
+    // Not "Planning Studio" any more: it is part of Plan (0.2). Mission and vision live in the Framework.
     PluginHeader('studio', { title: 'Framework and plans', blurb: 'Every plan your organisation has, where its planning stands, and the tools to plan it together.', actions: [
       h('a', { class: 'btn btn-sm btn-ghost', href: 'plandoc.html', title: 'Opens the Plan designer' }, icon('share', 14), 'Plan designer'),
       h('button', { class: 'btn btn-sm btn-primary', onclick: newPlan }, icon('plus', 14), 'New plan')] }),
-    !root ? h('p', { class: 'empty' }, 'Start a framework in Strategy & Work first.') : [
-      h('div', { class: 'sw-section-head' }, h('h2', {}, 'Plans'), h('span', { class: 'muted small' }, 'Plan together here; the plans become work in Strategy & Work.')),
+    !root ? h('p', { class: 'empty' }, 'Start a framework in Plan first.') : [
+      h('div', { class: 'sw-section-head' }, h('h2', {}, 'Plans'), h('span', { class: 'muted small' }, 'Plan together here; the plans become work in Plan.')),
       h('div', { class: 'studio-plans' }, plans.map(planCard)),
       h('div', { class: 'sw-section-head' }, h('h2', {}, 'Designed plans'), h('a', { class: 'small', href: 'plandoc.html' }, 'Open the plan designer →')),
       designs.length

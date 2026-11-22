@@ -1,6 +1,6 @@
 /**
  * The Social Media Integrator (alpha 0.3, experimental): a sub-plugin of the
- * Public Portal. Make a post once (an episode clip, a blog post, a data
+ * Web. Make a post once (an episode clip, a blog post, a data
  * card, a dashboard), fit it to each network, schedule it, and push it out.
  *
  * Pushing is MOCKED in this alpha: nothing leaves Dashi. A push writes a

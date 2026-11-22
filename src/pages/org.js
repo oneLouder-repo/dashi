@@ -26,7 +26,7 @@ const api = async (method, url, body) => {
  * Organisation settings: the org's profile, its people and teams, plugins,
  * plan and domain. The sections are listed in the shared sidebar and live in
  * the URL hash (#people/<staff id> opens that person). The public sites and
- * their look live in the Public Portal; other organisations on the platform
+ * their look live in Web; other organisations on the platform
  * are the platform admin's business, so they aren't listed here.
  */
 const store = new Store(loadOrg(), applyCollectionOp);
@@ -46,7 +46,7 @@ let side = h('nav');
 const route = () => decodeURIComponent(location.hash.slice(1)).split('/');
 const tab = () => { const [t] = route(); return t === 'sites' ? 'profile' : TABS.some(([id]) => id === t) ? t : 'profile'; };
 const set = (key, value) => store.apply(col.set(key, value));
-// Sites and their look moved to the Public Portal.
+// Sites and their look moved to Web.
 if (location.hash === '#sites') location.replace(linkTo('pages', '#look') ?? '#profile');
 if (location.hash === '#platform') history.replaceState(null, '', '#profile');
 
@@ -61,7 +61,7 @@ function render() {
   side = swapSide(side, SideNav({ label: 'Organisation', sections: [
     { title: 'Organisation', items: TABS.map(([id, label, ic, sub]) => ({ label, sub, icon: ic, href: `#${id}`, on: t === id })) },
     { title: 'Elsewhere', items: [
-      { label: 'Public sites and look', sub: 'In the Public Portal', icon: 'globe', href: linkTo('pages', '#look') },
+      { label: 'Public sites and look', sub: 'In Web', icon: 'globe', href: linkTo('pages', '#look') },
       { label: 'My profile', sub: 'Your own picture and details', icon: 'userCircle', href: 'me.html' },
     ] },
   ] }));
@@ -287,7 +287,7 @@ function Teams(org) {
   const loose = staff.filter((s) => !s.teamIds.length).length;
   return h('div', { class: 'tm' },
     h('div', { class: 'ppl-head' },
-      h('div', {}, h('h2', {}, 'Teams'), h('p', { class: 'muted small' }, 'Teams group people who share work. Strategy & Work, Ecosystem and dashboards use them to assign work and filter people. Click a team to change it.')),
+      h('div', {}, h('h2', {}, 'Teams'), h('p', { class: 'muted small' }, 'Teams group people who share work. Plan, Ecosystem and dashboards use them to assign work and filter people. Click a team to change it.')),
       isAdminHere() && h('button', { class: 'btn btn-sm btn-primary', onclick: newTeam }, icon('plus', 14), 'New team')),
     h('div', { class: 'tm-grid' },
       teams.map((t) => {
@@ -385,7 +385,7 @@ function openFromHash() {
 const READING_SET = ['strategy', 'palette', 'library', 'pages'];
 function Plugins(org) {
   const cats = [...new Set(PLUGINS.filter((p) => !p.platformOff).map((p) => p.category ?? 'Other'))];
-  // Sub-plugins sit right under their parent (Planning Studio under Strategy & Work).
+  // Sub-plugins sit right under their parent (Planning Studio under Plan).
   const tops = cats.flatMap((c) => PLUGINS.filter((p) => !p.platformOff && !p.parent && (p.category ?? 'Other') === c));
   const list = tops.flatMap((p) => [p, ...PLUGINS.filter((x) => !x.platformOff && x.parent === p.id)]);
   const optional = list.filter((p) => !p.core);
@@ -405,7 +405,7 @@ function Plugins(org) {
       set('pluginRoles', {});
       return;
     }
-    if (!await uiConfirm('Board directors, guests and viewers get the reading tools (Strategy, Data Workbench, Library, Public Portal); admins, leads and staff keep everything. You can fine-tune it after.', { ok: 'Use it' })) return;
+    if (!await uiConfirm('Board directors, guests and viewers get the reading tools (Plan, Data Workbench, Library, Web); admins, leads and staff keep everything. You can fine-tune it after.', { ok: 'Use it' })) return;
     const next = {};
     for (const p of optional) for (const r of ['board', 'guest', 'viewer']) if (!READING_SET.includes(p.id)) (next[p.id] ??= {})[r] = false;
     set('pluginRoles', next);

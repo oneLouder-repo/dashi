@@ -28,7 +28,7 @@ import { FunderReportsTool } from './FunderReportsTool.js';
  * `when(org)` limits a mini-tool to orgs with what it needs (a plugin).
  * The route lives in the URL hash: #home, #dashboards, #<dashboard id>,
  * #data, #postcards, #impact, #stories, #feedback, #reports. (0.2: the Workbench lives inside the
- * Public Portal; podcast publishing is in Podcasts, and each site chooses what it shows in the Portal.)
+ * Web; podcast publishing is in Listen, and each site chooses what it shows in the Portal.)
  */
 const MINI_TOOLS = [
   { id: 'home', name: 'Overview', blurb: 'Everything in the Data Workbench', icon: 'workbench', render: HomeTool },
@@ -93,8 +93,8 @@ function render() {
   const route = ctx.route;
   const dashList = Object.values(dashboards.doc.dashboards);
   const tool = tools.find((t) => t.id === route) ?? (dashboards.doc.dashboards[route] ? tools.find((t) => t.id === 'dashboards') : tools[0]);
-  const next = SideNav({ label: 'Public Portal', sections: [
-    { title: 'Public Portal', items: [
+  const next = SideNav({ label: 'Web', sections: [
+    { title: 'Web', items: [
       { label: 'Overview', sub: 'Every site, and what is live', icon: 'home', href: 'pages.html#sites' },
       { label: 'Look and feel', sub: 'Colours and shapes', icon: 'palette', href: 'pages.html#look' },
     ] },
@@ -128,7 +128,7 @@ function render() {
 dashboards.addEventListener('change', render);
 data.addEventListener('change', render);
 window.addEventListener('hashchange', () => { main.scrollTop = 0; render(); });
-// Measures edited in Strategy & Work in another tab show up here.
+// Measures edited in Plan in another tab show up here.
 onDocChange('strategy', (doc) => { strategy = migrateStrategy(doc); render(); });
 document.addEventListener('keydown', (e) => {
   if (e.target.closest('input, textarea, select')) return;
