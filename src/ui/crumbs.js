@@ -124,6 +124,16 @@ const ACTIONS = {
     { label: 'Rack', icon: 'connect', href: own('rhizome', '#rack'), here: '#rack' },
     { label: 'About', icon: 'help', href: own('rhizome', '#about'), here: '#about' },
   ],
+  teach: () => [
+    { label: 'Cartridges', icon: 'tiles', href: own('teach', '#home'), here: '#home' },
+    { label: 'New cartridge', icon: 'plus', href: own('teach', '#new'), here: '#new' },
+    { label: 'About', icon: 'help', href: own('teach', '#about'), here: '#about' },
+  ],
+  learn: () => [
+    { label: 'My learning', icon: 'graduation', href: own('learn', '#home'), here: '#home' },
+    { label: 'Catalogue', icon: 'books', href: own('learn', '#catalogue'), here: '#catalogue' },
+    { label: 'About', icon: 'help', href: own('learn', '#about'), here: '#about' },
+  ],
   library: () => [
     { label: 'Documents', icon: 'doc', href: own('library', '#files/all'), here: '#files' },
     { label: 'Bibliographies', icon: 'book', href: own('library', '#bibs'), here: '#bibs' },

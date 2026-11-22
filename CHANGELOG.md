@@ -6,6 +6,34 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### eLearning, stages 1 and 2: Teach and Learn (experimental, heading for alpha 0.4)
+
+Two new plugins, switched off until an org turns them on (Kestrel Bay has them on). Plan: [Dashi eLearning: Teach, Learn and the cartridge](https://claude.ai/artifact/27jYLuSYagLRdMviVgo5Df).
+
+- **The cartridge.** One unit of learning: a course, workshop, professional development block or open offering. Tracks of blocks on a timeline of course days, counted from day 0, so a run can move to new dates. Four phases: pre-start, in session, post-end and archive. Saved as Dashi's own JSON (`dashi.cartridge`), with import and export.
+- **Teach, the editor.** A DAW turned towards a calendar:
+  - track headers, a ruler of real dates with today marked, and the phases shaded;
+  - blocks as coloured clips: drag to move (across tracks too), drag the right edge to stretch, arrow keys to nudge;
+  - a floating block palette with 22 kinds of block (lessons, slideshow podcasts, live sessions, office hours, whiteboard sessions, quizzes, assignments, peer review, reflections, check-ins, feedback, comms);
+  - a drawer for each block, a load meter of hours per week, a pace lane, and Fit, Term, Month, Week and Day zooms.
+- **Checks built in.** Accessibility and Universal Design for Learning, live like a spell checker:
+  - a missing transcript, captions or alt text stops publishing;
+  - time limits without extensions, overloaded weeks and contrast are flagged;
+  - ideas cover many ways in, teaching, social and reflective presence, feedback loops, kind dates (no deadlines in the first 48 hours or on Nova Scotia holidays) and reading level;
+  - a UDL balance panel shows engagement, representation, action and expression.
+- **Learn, the learner's space.**
+  - My learning: up next, this week, your courses with a quiet progress line, and no leaderboards.
+  - The player: the course week by week, blocks that open on their day or after others, slideshow podcasts playing inline with a transcript, self-check quizzes, reflections, check-ins and live session links that light up 10 minutes before.
+  - Settings: text size, a more spacious font, no motion, captions.
+  - My record: everything Learn keeps, in plain words, downloadable as xAPI statements (an account id, never an email).
+- **Slideshow podcasts as blocks.** Blocks link to the Studio's shows by reference and never copy them. Learn uses the Studio's player (`src/podcasts/show/`) once it lands, and plays a sample deck until then.
+- **Collab, mocked.** Whiteboard session blocks reserve a pretend board. `src/learning/collab.js` sets out the API the real whiteboard plugin must meet.
+- **Kestrel's seed.**
+  - Community Grantmaking 101: a 6-week cohort course, running now, with the first admin part-way through.
+  - Welcome to the Board: a self-paced module.
+  - Reading Vital Signs: a draft open course with things for the checks to find.
+- **Help.** A new section, Teach and Learn, appears in Help and on both plugins' About tabs.
+
 ### PR 21: Rhizome, stage 3: the rack
 
 - **Twin racks.** Build your own analyses by cabling modules together, like a modular synth. Rack A holds the controls and rack B the screens and engines, so you can turn a knob and watch the result side by side. Cables run across both.

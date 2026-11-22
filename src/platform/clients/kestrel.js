@@ -28,6 +28,7 @@ import { photoMasthead, photoById, photoFor } from '../photos.js';
 import { gatherAssets, blankAssets, migrateAssets } from '../assetHub.js';
 import { migrateSocial, mockPush } from '../social.js';
 import { seedRhizome } from '../../rhizome/setup.js';
+import { seedTeach, seedLearn } from '../../learning/seed.js';
 
 export const KESTREL_SPEC = {
   id: 'org-kestrel', slug: 'kestrel', name: 'Kestrel Bay Community Foundation', plan: 'custom', sector: 'foundation',
@@ -325,7 +326,9 @@ export function kestrelBundle() {
     description: 'A community foundation for everyone who calls Kestrel Bay home: we pool gifts, grow local leadership and fund what the community asks for.',
     theme: { palette: 'custom', base: 'light', shape: 'rounded', colors: KESTREL_COLOURS },
     // A custom plan with every plugin switched on, including the newer, optional ones.
-    plugins: { podcasts: true, graph: true, rhizome: true, social: true, 'ai-policy': true, 'ai-register': true, 'prompt-commons': true, 'plain-words': true, 'critical-media': true },
+    plugins: { podcasts: true, graph: true, rhizome: true, social: true, 'ai-policy': true, 'ai-register': true, 'prompt-commons': true, 'plain-words': true, 'critical-media': true, teach: true, learn: true },
+    // Teach is for staff who design learning; everyone can learn.
+    pluginRoles: { ...(org.pluginRoles ?? {}), teach: { board: false, guest: false, viewer: false } },
     sites: {
       'site-main': { id: 'site-main', name: 'Kestrel Bay Community Foundation', url: 'https://kestrelbay.example', visibility: 'public', shows: 'Who we are, grants, giving, stories, podcasts and documents',
         home: { kind: 'page', slug: 'home' },
@@ -356,5 +359,8 @@ export function kestrelBundle() {
   docs.assets = shapeAssets(docs);
   // Rhizome's pilot instance (Rhizome stage 1): switched on, with the set-up already run, so design can start straight away.
   docs.rhizome = seedRhizome(docs);
+  // Teach and Learn (eLearning stages 1 and 2): three cartridges, and a learner part-way through Community Grantmaking 101.
+  docs.teach = seedTeach(org);
+  docs.learn = seedLearn(org, docs.teach);
   return { docs, files };
 }

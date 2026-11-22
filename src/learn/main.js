@@ -1,0 +1,362 @@
+import { h, options } from '../ui/dom.js';
+import { icon } from '../ui/icons.js';
+import { Shell, toast } from '../ui/Shell.js';
+import { SideNav, swapSide } from '../ui/SideNav.js';
+import { PluginHeader } from '../ui/PluginHeader.js';
+import { setCrumbs } from '../ui/crumbs.js';
+import { Markdown } from '../ui/markdown.js';
+import { saveDoc, canWriteDoc } from '../platform/storage.js';
+import { loadOrg, loadTeach, loadLearn, loadPodcasts } from '../platform/docs.js';
+import { enabledPlugins, linkTo, currentWho } from '../plugins.js';
+import { blockType, pathByWeek, dateOf, shortDate, kindLabel, weekOf, weekLabel, phaseOf } from '../learning/cartridge.js';
+import { personOf, settingsOf, enrol, leave, markDone, saveNote, saveAnswer, setLast, saveSettings, progress, isOpen, nextBlock, dueSoon, todayDay, startFor, recordLines, toStatement } from '../learning/records.js';
+import { bestInk } from '../learning/checks.js';
+import { getBoard, templateLabel } from '../learning/collab.js';
+import { playShow } from '../learning/show.js';
+import { About } from '../learning/About.js';
+
+/**
+ * Learn (eLearning stage 2, experimental): the learner's own space. It
+ * plays published cartridges made in Teach, keeps each person's progress,
+ * reflections and settings in Learn's own document, and shows the learner
+ * everything it keeps. No leaderboards, no tracking beyond what's shown.
+ *
+ *   #home                      My learning: up next, this week, your courses
+ *   #catalogue                 published cartridges to join
+ *   #play/<cartridge>[/<block>] the player
+ *   #preview/<cartridge>[/<block>] a teacher's preview, nothing saved
+ *   #record                    everything Learn keeps about you
+ *   #settings                  text size, font, motion, captions
+ *   #about                     quick reference and tutorials
+ */
+const org = loadOrg();
+Shell(document.querySelector('#shell'), { current: 'learn', org });
+const plugins = new Set(enabledPlugins(org).map((p) => p.id));
+const app = document.querySelector('#app');
+app.classList.add('frame', 'ln-app');
+let side = h('nav');
+const main = h('section', { class: 'palette-main ln-main' });
+app.replaceChildren(side, main);
+
+const canSave = canWriteDoc('learn');
+const teach = loadTeach();
+let doc = loadLearn();
+const podcasts = plugins.has('podcasts') ? loadPodcasts() : null;
+const meId = currentWho(org).staffId ?? 'me';
+const me = org.staff?.[meId] ?? null;
+const today = new Date().toISOString().slice(0, 10);
+let show = null; // the playing slideshow, stopped when the block changes
+
+const route = () => (location.hash.slice(1) || 'home').split('/').map(decodeURIComponent);
+const published = () => Object.values(teach.cartridges ?? {}).filter((c) => c.status === 'published');
+const mine = () => personOf(doc, meId);
+const enrolment = (cid) => mine().enrolments?.[cid] ?? null;
+const myCourses = () => Object.keys(mine().enrolments ?? {}).map((id) => teach.cartridges?.[id]).filter(Boolean);
+function save(next, note) {
+  doc = next;
+  if (canSave) saveDoc('learn', doc);
+  if (note) toast(note);
+}
+const toneOf = (c, b) => c.tracks.find((t) => t.id === b.trackId)?.tone ?? '#3e8fa6';
+const n = (k, word, plural = `${word}s`) => `${k} ${k === 1 ? word : plural}`;
+
+function applySettings() {
+  const s = settingsOf(doc, meId);
+  document.body.classList.toggle('ln-text-l', s.textSize === 'l');
+  document.body.classList.toggle('ln-text-xl', s.textSize === 'xl');
+  document.body.classList.toggle('ln-font-readable', s.font === 'readable');
+  document.body.classList.toggle('ln-calm', s.motion === 'calm');
+}
+
+function render() {
+  show?.destroy?.();
+  show = null;
+  applySettings();
+  const [view, a, b] = route();
+  drawSide(view, a);
+  let page;
+  if ((view === 'play' || view === 'preview') && teach.cartridges?.[a]) page = Player(teach.cartridges[a], b, view === 'preview');
+  else if (view === 'catalogue') page = Catalogue();
+  else if (view === 'record') page = Record();
+  else if (view === 'settings') page = Settings();
+  else if (view === 'about') page = h('div', { class: 'lx-wrap' }, tabs('about'), About({ arg: a, title: 'What Learn does', rerender: render,
+    intro: 'Learn is your own learning space. Take the courses, workshops and modules your organisation makes in Teach, week by week, at your own pace or with a group. Your progress, notes and reflections are yours, and Learn shows you everything it keeps.',
+    refs: [
+      ['The pages', [['My learning', 'What’s next, what’s due this week, your courses'], ['Catalogue', 'Courses you can join'], ['My record', 'Everything Learn keeps about you, in plain words'], ['Settings', 'Text size, a readable font, less motion, captions']]],
+      ['In a course', [['The path', 'Each week on the left, ticked as you go'], ['Mark done', 'When you’ve finished a block; shows and quizzes mark themselves'], ['A dashed circle', 'A block that opens later, or after another one'], ['Optional', 'Nice to do, never needed to finish']]],
+    ],
+    data: 'Learn keeps your enrolments, what you’ve finished, your answers and reflections, and your settings, in your organisation’s Learn document. Nothing tracks where you look or how long you linger, and nothing ranks you against anyone.' }));
+  else page = Home();
+  main.replaceChildren(page);
+  main.scrollTop = 0;
+}
+
+function drawSide(view, a) {
+  const courses = myCourses();
+  side = swapSide(side, SideNav({ label: 'Learn', sections: [
+    { title: 'Learn · experimental', items: [
+      { label: 'My learning', sub: `${n(courses.length, 'course')} · what’s next`, icon: 'graduation', href: '#home', on: view === 'home' },
+      { label: 'Catalogue', sub: `${n(published().filter((c) => !enrolment(c.id)).length, 'course')} to join`, icon: 'books', href: '#catalogue', on: view === 'catalogue' },
+      { label: 'My record', sub: 'Everything Learn keeps about you', icon: 'history', href: '#record', on: view === 'record' },
+      { label: 'Settings', sub: 'Text, font, motion, captions', icon: 'textAa', href: '#settings', on: view === 'settings' },
+      { label: 'About', sub: 'Quick reference and tutorials', icon: 'help', href: '#about', on: view === 'about' },
+    ] },
+    courses.length && { title: 'Your courses', items: courses.map((c) => ({ label: c.title, sub: `${progress(c, enrolment(c.id)).pct}% · ${kindLabel(c.kind).toLowerCase()}`, icon: 'sec-learn', href: `#play/${c.id}`, on: view === 'play' && a === c.id })) },
+    { title: 'Elsewhere in Dashi', items: [{ label: 'Teach', sub: 'Make a course', icon: 'sec-teach', href: linkTo('teach', '#home') }] },
+    { title: 'Coming next', items: [{ label: 'Credentials', sub: 'Microcredentials you earn', icon: 'seal' }, { label: 'Lyceum', sub: 'Open learning across Dashi', icon: 'globe' }] },
+  ].filter(Boolean) }));
+}
+
+const tabs = (current) => PluginHeader('learn', {
+  tabs: [{ id: 'home', label: 'My learning', icon: 'graduation' }, { id: 'catalogue', label: 'Catalogue', icon: 'books' }, { id: 'record', label: 'My record', icon: 'history' }, { id: 'settings', label: 'Settings', icon: 'textAa' }, { id: 'about', label: 'About', icon: 'help' }],
+  current,
+});
+
+/* ------------------------------------------------------------------ home */
+
+function Home() {
+  setCrumbs([]);
+  const courses = myCourses();
+  const first = (me?.name ?? '').split(' ')[0];
+  const next = courses.map((c) => ({ c, b: nextBlock(c, enrolment(c.id), today) })).filter((x) => x.b);
+  const due = courses.flatMap((c) => dueSoon(c, enrolment(c.id), today, 7).map((d) => ({ ...d, c }))).sort((x, y) => x.date.localeCompare(y.date));
+  return h('div', { class: 'lx-wrap' }, tabs('home'),
+    h('div', { class: 'ln-hello' }, h('h2', {}, first ? `Hello, ${first}` : 'Hello'), h('p', { class: 'lx-note' }, courses.length ? 'Here’s where you are. Go at a pace that works for you.' : 'You’re not in a course yet. Have a look in the catalogue.')),
+    courses.length ? h('div', { class: 'ln-grid' },
+      h('section', { class: 'lx-stack' },
+        h('section', { class: 'lx-panel' }, h('h3', {}, icon('play', 15), 'Up next'),
+          next.length ? h('div', { class: 'ln-next' }, next.map(({ c, b }) => NextCard(c, b))) : h('p', { class: 'lx-note' }, 'You’re all caught up. Well done.')),
+        h('section', { class: 'lx-panel' }, h('h3', {}, icon('graduation', 15), 'Your courses'),
+          h('div', { class: 'ln-courses' }, courses.map((c) => CourseCard(c))))),
+      h('section', { class: 'lx-panel' }, h('h3', {}, icon('calendar', 15), 'This week'),
+        due.length ? h('ul', { class: 'ln-due' }, due.map(({ block, date, c }) => h('li', {}, h('time', { datetime: date }, date === today ? 'Today' : shortDate(date)),
+          h('span', {}, h('a', { href: `#play/${c.id}/${block.id}` }, block.title), h('small', {}, `${blockType(block.type).label}${block.at ? ` at ${block.at}` : ''} · ${c.title}`))))) : h('p', { class: 'lx-note' }, 'Nothing due in the next seven days.'),
+        h('p', { class: 'lx-note' }, 'Dates are reminders, not deadlines carved in stone. If life gets in the way, tell your teacher: that’s what office hours are for.')))
+      : h('a', { class: 'btn btn-primary btn-sm', href: '#catalogue' }, icon('books', 14), 'Browse the catalogue'));
+}
+
+function NextCard(c, b) {
+  const t = blockType(b.type);
+  const tone = toneOf(c, b);
+  return h('div', { class: 'ln-next-card', style: `--tone:${tone};--ink:${bestInk(tone)}` },
+    h('span', { class: 'ln-ic', 'aria-hidden': 'true' }, icon(t.icon, 20)),
+    h('div', {}, h('b', {}, b.title), h('small', {}, `${t.label} · ${c.title}${b.minutes ? ` · about ${b.minutes} min` : ''}`)),
+    h('a', { class: 'btn btn-sm btn-primary', href: `#play/${c.id}/${b.id}` }, 'Open'));
+}
+
+function CourseCard(c, { join = false } = {}) {
+  const e = enrolment(c.id);
+  const p = progress(c, e);
+  const day = todayDay(c, e, today);
+  const where = c.pacing === 'self' ? 'Self-paced' : day < 0 ? `Starts ${shortDate(c.run.start)}` : phaseOf(c, day) === 'session' ? `${weekLabel(weekOf(day))} of ${Math.ceil(c.span.length / 7)}` : phaseOf(c, day) === 'post' ? 'Wrapping up' : 'Finished';
+  return h(join ? 'div' : 'a', { class: 'ln-course', ...(join ? {} : { href: `#play/${c.id}` }) },
+    h('h3', {}, c.title),
+    c.subtitle && h('p', {}, c.subtitle),
+    h('p', {}, `${kindLabel(c.kind)} · ${where} · about ${c.hoursPerWeek} h a week`),
+    e ? [h('div', { class: 'ln-progress', role: 'progressbar', 'aria-valuenow': String(p.pct), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-label': `${c.title} progress`, style: `--p:${p.pct}%` }, h('i')),
+      h('span', { class: 'ln-progress-label' }, `${p.done} of ${p.of} required blocks done`)]
+      : join && h('div', { class: 'lx-row' },
+        c.summary && h('p', {}, c.summary),
+        h('button', { type: 'button', class: 'btn btn-sm btn-primary', disabled: !canSave, onclick: () => { save(enrol(doc, meId, c), `You joined ${c.title}`); location.hash = `#play/${c.id}`; } }, icon('plus', 14), 'Join')));
+}
+
+function Catalogue() {
+  setCrumbs([]);
+  const list = published();
+  const joined = list.filter((c) => enrolment(c.id));
+  const open = list.filter((c) => !enrolment(c.id));
+  return h('div', { class: 'lx-wrap' }, tabs('catalogue'),
+    h('p', { class: 'lx-note' }, 'Courses, workshops and modules your organisation has published in Teach.'),
+    open.length ? h('div', { class: 'ln-courses' }, open.map((c) => CourseCard(c, { join: true }))) : h('p', { class: 'lx-note' }, 'You’ve joined everything on offer.'),
+    joined.length > 0 && h('section', { class: 'lx-panel' }, h('h3', {}, 'Already joined'), h('div', { class: 'ln-courses' }, joined.map((c) => CourseCard(c)))));
+}
+
+/* ---------------------------------------------------------------- player */
+
+function Player(c, blockId, preview) {
+  const e = preview ? null : enrolment(c.id);
+  if (!preview && !e) {
+    setCrumbs([{ label: c.title }]);
+    return h('div', { class: 'lx-wrap' }, tabs('catalogue'), h('section', { class: 'lx-panel' }, h('h3', {}, c.title), h('p', {}, c.summary),
+      h('button', { type: 'button', class: 'btn btn-sm btn-primary', disabled: !canSave || c.status !== 'published', onclick: () => { save(enrol(doc, meId, c), `You joined ${c.title}`); render(); } }, icon('plus', 14), 'Join this course')));
+  }
+  const weeks = pathByWeek(c);
+  const all = weeks.flatMap((w) => w.blocks);
+  const fallback = preview ? all[0] : nextBlock(c, e, today) ?? (e.last && c.blocks[e.last]) ?? all[0];
+  const b = c.blocks[blockId] && all.includes(c.blocks[blockId]) ? c.blocks[blockId] : fallback;
+  if (!b) return h('div', { class: 'lx-wrap' }, tabs('home'), h('p', { class: 'lx-note' }, 'This course has nothing in it yet.'));
+  if (!preview && e.last !== b.id && canSave) { doc = setLast(doc, meId, c.id, b.id); saveDoc('learn', doc); }
+  setCrumbs(preview ? [{ label: c.title }, { label: b.title }] : [{ label: b.title }]);
+  const p = progress(c, e);
+  const start = startFor(c, e);
+  const day = todayDay(c, e, today);
+  const base = preview ? 'preview' : 'play';
+  const path = h('nav', { class: 'ln-path', 'aria-label': 'Course path' }, weeks.map((w) => [
+    h('h4', {}, h('span', {}, w.label), h('span', {}, w.week === 0 ? '' : shortDate(dateOf(start, w.from)))),
+    h('ol', {}, w.blocks.map((x) => {
+      const done = !!e?.done?.[x.id];
+      const op = preview ? { open: true } : isOpen(c, e, x, today);
+      return h('li', {}, h('a', { href: `#${base}/${c.id}/${x.id}`, class: `${x.id === b.id ? 'on' : ''}${op.open ? '' : ' locked'}`, 'aria-current': x.id === b.id ? 'step' : null },
+        h('span', { class: `ln-state${done ? ' done' : op.open ? '' : ' locked'}`, 'aria-label': done ? 'Done' : op.open ? 'Not done yet' : 'Opens later' }, done ? icon('check', 12) : null),
+        h('span', {}, x.title), h('small', {}, `${blockType(x.type).label}${x.required ? '' : ' · optional'}${op.open ? '' : ` · ${op.why}`}`)));
+    })),
+  ]));
+  const i = all.indexOf(b);
+  const prev = all[i - 1];
+  const next = all[i + 1];
+  return h('div', { class: 'lx-wrap' }, tabs('home'),
+    preview && h('p', { class: 'ln-preview' }, icon('eye', 14), ` Preview: you’re seeing “${c.title}”${c.status === 'published' ? '' : ' (a draft)'} as a learner would. Nothing you do here is saved.`),
+    h('div', { class: 'ln-courseline' },
+      h('h2', {}, c.title),
+      h('span', { class: 'lx-note' }, c.pacing === 'self' ? 'Self-paced' : day < 0 ? `Starts ${shortDate(c.run.start)}` : `Day ${day + 1} of ${c.span.length}`),
+      !preview && h('div', { class: 'ln-progress', role: 'progressbar', 'aria-valuenow': String(p.pct), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-label': 'Your progress', style: `--p:${p.pct}%` }, h('i')),
+      !preview && h('span', { class: 'ln-progress-label' }, `${p.pct}% · ${p.done} of ${p.of} required`)),
+    h('div', { class: 'ln-player' }, path, BlockView(c, e, b, { preview, start, prev, next, base })));
+}
+
+function BlockView(c, e, b, { preview, start, prev, next, base }) {
+  const t = blockType(b.type);
+  const tone = toneOf(c, b);
+  const done = !!e?.done?.[b.id];
+  const op = preview ? { open: true } : isOpen(c, e, b, today);
+  const mark = (v = true, note = null) => { if (preview) { toast('Preview: nothing is saved'); return; } save(markDone(doc, meId, c.id, b.id, v), note ?? (v ? 'Marked done' : 'Marked not done')); render(); };
+  const opens = dateOf(start, b.start);
+  const closes = dateOf(start, b.start + b.length - 1);
+  const live = ['live', 'office', 'whiteboard', 'meetup'].includes(b.type);
+  const when = live ? `${shortDate(opens)}${b.at ? ` at ${b.at} (${c.run.tz.replace('America/', '').replace('_', ' ')} time)` : ''}` : b.length > 1 ? `Open ${shortDate(opens)} to ${shortDate(closes)}` : shortDate(opens);
+  const content = op.open ? Content(c, e, b, { preview, mark }) : h('p', { class: 'ln-locked' }, icon('lock', 14), ` ${op.why}. It’ll be here when it’s ready.`);
+  return h('article', { class: 'ln-block', style: `--tone:${tone}` },
+    h('header', { class: 'ln-block-head' },
+      h('span', { class: 'ln-kind' }, h('i', { 'aria-hidden': 'true' }), t.label, b.required ? '' : ' · optional'),
+      h('h2', {}, b.title),
+      h('p', { class: 'ln-when' }, `${when}${b.minutes ? ` · about ${b.minutes} minutes` : ''}`)),
+    content,
+    h('footer', { class: 'ln-foot' },
+      prev && h('a', { class: 'btn btn-sm btn-ghost', href: `#${base}/${c.id}/${prev.id}` }, icon('chevronLeft', 14), 'Back'),
+      op.open && !['quiz', 'slideshow'].includes(b.type) && (done
+        ? [h('span', { class: 'ln-done-note' }, icon('check', 15), 'Done'), h('button', { type: 'button', class: 'btn btn-xs btn-ghost', onclick: () => mark(false) }, 'Not done yet')]
+        : h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => mark(true) }, icon('check', 14), 'Mark done')),
+      op.open && ['quiz', 'slideshow'].includes(b.type) && done && h('span', { class: 'ln-done-note' }, icon('check', 15), 'Done'),
+      h('span', { class: 'tc-grow' }),
+      next && h('a', { class: 'btn btn-sm', href: `#${base}/${c.id}/${next.id}` }, 'Next', icon('chevronRight', 14))));
+}
+
+function Content(c, e, b, { preview, mark }) {
+  const text = b.body ? h('div', { class: 'ln-body' }, Markdown(b.body)) : null;
+  const img = (b.settings?.images ?? []).filter((x) => x.src).map((x) => h('img', { src: x.src, alt: x.decorative ? '' : x.alt ?? '', loading: 'lazy' }));
+  const note = (prompt) => {
+    const box = h('textarea', { class: 'textarea textarea-sm w-full', rows: 5, 'aria-label': prompt, placeholder: 'Your own words. Only you and your teacher can see them.', value: e?.notes?.[b.id] ?? '' });
+    return h('div', { class: 'lx-field' }, h('span', {}, prompt), box,
+      h('div', { class: 'lx-row' }, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { if (preview) return toast('Preview: nothing is saved'); save(saveNote(doc, meId, c.id, b.id, box.value), 'Saved to your record'); } }, icon('check', 14), 'Save')));
+  };
+  switch (b.type) {
+    case 'slideshow': case 'podcast': {
+      const stage = h('div', { class: 'ln-show-host' }, h('p', { class: 'lx-note' }, 'Loading the show…'));
+      queueMicrotask(async () => {
+        show = await playShow(stage, podcasts, b.ref, { reducedMotion: settingsOf(doc, meId).motion === 'calm' || matchMedia('(prefers-reduced-motion: reduce)').matches, onEnd: () => { if (!preview && !e?.done?.[b.id]) mark(true, 'Show finished: marked done'); } });
+      });
+      return h('div', { class: 'lx-stack' }, text, b.ref ? stage : h('p', { class: 'ln-locked' }, 'No show chosen yet.'));
+    }
+    case 'video': return h('div', { class: 'lx-stack' }, text, b.settings?.url ? h('a', { class: 'btn btn-sm', href: b.settings.url, target: '_blank', rel: 'noopener' }, icon('video', 14), 'Watch (opens in a new tab)') : null, (b.alts ?? []).includes('captions') && h('p', { class: 'lx-note' }, 'Captions are on.'));
+    case 'live': case 'office': case 'meetup': {
+      const startAt = new Date(`${dateOf(startFor(c, e), b.start)}T${b.at ?? '12:00'}:00`);
+      const mins = (startAt - Date.now()) / 6e4;
+      const soon = mins <= 10 && mins > -(b.minutes || 60);
+      return h('div', { class: 'lx-stack' }, text,
+        h('div', { class: 'ln-live' },
+          h('b', {}, icon('clock', 14), ` ${startAt.toLocaleString([], { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' })} (your time)`),
+          b.type === 'office' && b.settings?.repeat === 'weekly' && h('span', { class: 'lx-note' }, 'Every week at this time, while the course runs.'),
+          b.settings?.url ? h('a', { class: `btn btn-sm${soon ? ' btn-primary' : ''}`, href: b.settings.url, target: '_blank', rel: 'noopener' }, icon('video', 14), soon ? 'Join now' : 'Join link (lights up 10 minutes before)') : h('span', { class: 'lx-note' }, 'The link will be here before it starts.'),
+          h('span', { class: 'lx-note' }, 'Can’t make it? A recording and notes will follow.')));
+    }
+    case 'whiteboard': {
+      const board = b.ref?.plugin === 'collab' ? getBoard(b.ref.id, { title: b.title, template: b.settings?.template }) : null;
+      return h('div', { class: 'lx-stack' }, text,
+        h('div', { class: 'ln-board' }, h('b', {}, icon('brush', 14), ` ${templateLabel(b.settings?.template)}`),
+          board ? h('div', { class: 'ln-sticky-notes', 'aria-label': 'Sticky notes on the board' }, board.snapshot.notes.map((x) => h('span', {}, x))) : null,
+          h('span', { class: 'lx-note' }, 'Whiteboards arrive with Collab, Dashi’s whiteboard plugin. This is a preview of the board.')));
+    }
+    case 'quiz': case 'exam': return Quiz(c, e, b, { preview, mark });
+    case 'reflection': return h('div', { class: 'lx-stack' }, text, note('Your reflection'));
+    case 'discussion': return h('div', { class: 'lx-stack' }, text, note('Your reply (shared with your group when discussions arrive; kept in your record for now)'));
+    case 'assignment': return h('div', { class: 'lx-stack' }, text, h('p', { class: 'lx-note' }, b.settings?.handIn === 'any' ? 'Hand in a Dashi doc, a file, or an audio or video note: whatever suits you.' : b.settings?.handIn === 'file' ? 'Hand in a file.' : 'Hand in a Dashi doc. Handing in arrives in the next stage; for now, note where your work is.'), note('Notes on your work'));
+    case 'checkin': {
+      const moods = [['great', 'Going well'], ['ok', 'Getting there'], ['stuck', 'A bit stuck'], ['swamped', 'Swamped']];
+      const was = e?.answers?.[b.id]?.mood;
+      return h('div', { class: 'lx-stack' }, text ?? h('p', {}, 'How are you doing? Only your teacher sees this, so they know who might like a hand.'),
+        h('div', { class: 'ln-moods', role: 'group', 'aria-label': 'How are you doing?' }, moods.map(([k, label]) => h('button', { type: 'button', class: `btn btn-sm${was === k ? ' on' : ''}`, 'aria-pressed': String(was === k), onclick: () => { if (preview) return toast('Preview: nothing is saved'); doc = saveAnswer(doc, meId, c.id, b.id, { mood: k }); save(markDone(doc, meId, c.id, b.id, true), 'Thanks for telling us'); render(); } }, label))));
+    }
+    case 'feedback': return h('div', { class: 'lx-stack' }, text, h('p', { class: 'lx-note' }, 'Your teacher’s feedback will appear here.'), note('Your feedback on the course (what to keep, change or drop)'));
+    case 'resource': return h('div', { class: 'lx-stack' }, text, b.settings?.url && h('a', { class: 'btn btn-sm', href: b.settings.url, target: '_blank', rel: 'noopener' }, icon('link', 14), 'Open'));
+    default: return h('div', { class: 'lx-stack' }, ...img, text ?? h('p', { class: 'lx-note' }, 'Nothing more to read here.'));
+  }
+}
+
+function Quiz(c, e, b, { preview, mark }) {
+  const qs = b.settings?.questions ?? [];
+  if (!qs.length) return h('p', { class: 'lx-note' }, 'No questions yet.');
+  const prev = e?.answers?.[b.id];
+  const form = h('form', { class: 'ln-quiz' });
+  const picks = prev?.picks ? [...prev.picks] : qs.map(() => null);
+  const shown = !!prev;
+  qs.forEach((q, i) => form.append(h('fieldset', {}, h('legend', {}, `${i + 1}. ${q.q}`),
+    q.options.map((o, k) => h('label', { class: shown && k === q.answer ? 'right' : shown && picks[i] === k ? 'wrong' : '' },
+      h('input', { type: 'radio', name: `q${i}`, value: String(k), checked: picks[i] === k, onchange: () => { picks[i] = k; } }), o, shown && k === q.answer ? ' ✓' : '')))));
+  form.append(h('div', { class: 'lx-row' },
+    h('button', { type: 'submit', class: 'btn btn-sm btn-primary' }, shown ? 'Check again' : 'Check my answers'),
+    shown && h('span', { class: 'lx-note' }, `${prev.right} of ${qs.length} right. Try again as often as you like: this is for you, not a mark.`),
+    b.settings?.timeLimit > 0 && h('span', { class: 'lx-note' }, `Time limit ${b.settings.timeLimit} minutes${b.settings.extensions ? '; ask your teacher for more time' : ''}.`)));
+  form.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const right = qs.filter((q, i) => picks[i] === q.answer).length;
+    if (preview) { toast(`${right} of ${qs.length} right (preview: not saved)`); return; }
+    doc = saveAnswer(doc, meId, c.id, b.id, { picks, right });
+    save(markDone(doc, meId, c.id, b.id, true), `${right} of ${qs.length} right`);
+    render();
+  });
+  return form;
+}
+
+/* --------------------------------------------------------- record, settings */
+
+function Record() {
+  setCrumbs([]);
+  const courses = myCourses();
+  const download = () => {
+    const out = { learner: meId, exported: new Date().toISOString(), courses: courses.map((c) => ({ id: c.id, title: c.title, enrolment: enrolment(c.id), statements: (enrolment(c.id)?.log ?? []).map((l) => toStatement(c, meId, l)) })) };
+    const a = h('a', { href: URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' })), download: 'my-learning-record.json' });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  return h('div', { class: 'lx-wrap' }, tabs('record'),
+    h('div', { class: 'tc-toolbar' }, h('p', { class: 'lx-note' }, 'Everything Learn keeps about you, in plain words, newest first. It’s yours: download it whenever you like, as xAPI statements any learning record store can read.'), h('span', { class: 'tc-grow' }),
+      h('button', { type: 'button', class: 'btn btn-sm', onclick: download }, icon('download', 14), 'Download my record')),
+    courses.length ? courses.map((c) => {
+      const e = enrolment(c.id);
+      const notes = Object.entries(e?.notes ?? {}).filter(([, v]) => v);
+      return h('section', { class: 'lx-panel' }, h('h3', {}, c.title, h('small', {}, ` joined ${shortDate((e?.at ?? today).slice(0, 10))}`)),
+        notes.length > 0 && h('div', { class: 'lx-stack' }, h('h4', { class: 'ln-kind' }, 'Your notes and reflections'), notes.map(([bid, v]) => h('blockquote', { class: 'lx-note' }, h('b', {}, `${c.blocks[bid]?.title ?? 'A removed block'}: `), v))),
+        h('ul', { class: 'ln-record' }, recordLines(c, e).map((l) => h('li', {}, h('time', { datetime: l.at }, `${shortDate(l.at.slice(0, 10))} ${l.at.slice(11, 16)}`), h('span', {}, l.text)))),
+        canSave && h('div', { class: 'lx-row' }, h('button', { type: 'button', class: 'btn btn-xs btn-ghost', onclick: () => { save(leave(doc, meId, c.id), `You left ${c.title}`); render(); } }, 'Leave this course and forget my record')));
+    }) : h('p', { class: 'lx-note' }, 'Nothing yet.'));
+}
+
+function Settings() {
+  setCrumbs([]);
+  const s = settingsOf(doc, meId);
+  const set = (patch) => { save(saveSettings(doc, meId, patch), 'Saved'); render(); };
+  const group = (label, key, choices) => h('fieldset', { class: 'lx-panel' }, h('legend', { class: 'sr-only' }, label), h('h3', {}, label),
+    h('div', { class: 'lx-row' }, choices.map(([v, l]) => h('label', { class: 'lx-chip' }, h('input', { type: 'radio', name: key, checked: s[key] === v, onchange: () => set({ [key]: v }) }), l))));
+  return h('div', { class: 'lx-wrap' }, tabs('settings'),
+    h('p', { class: 'lx-note' }, 'These follow you into every course. Your device’s own settings (like reduced motion) are always respected too.'),
+    h('div', { class: 'lx-two' },
+      h('div', { class: 'lx-stack' },
+        group('Text size', 'textSize', [['m', 'Standard'], ['l', 'Large'], ['xl', 'Extra large']]),
+        group('Font', 'font', [['standard', 'Standard'], ['readable', 'More space between letters and lines (easier for many dyslexic readers)']])),
+      h('div', { class: 'lx-stack' },
+        group('Motion', 'motion', [['full', 'Slides move gently'], ['calm', 'No movement']]),
+        group('Captions', 'captions', [[true, 'Captions and transcripts open'], [false, 'Closed until I open them']]))));
+}
+
+addEventListener('hashchange', render);
+render();
