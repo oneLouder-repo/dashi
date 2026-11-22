@@ -6,6 +6,10 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### Plugin bar: a More menu when there are lots of plugins
+- The plugin bar keeps to one row. Plugins that don't fit go into **More** at its end, a two-column menu with a count, and a link to Organisation → Plugins.
+- The plugin you're in always stays on the bar. It is measured again whenever the window changes size, so it works at any width and with every plugin switched on.
+
 ### PR 21: Rhizome, stage 3: the rack
 
 - **Twin racks.** Build your own analyses by cabling modules together, like a modular synth. Rack A holds the controls and rack B the screens and engines, so you can turn a knob and watch the result side by side. Cables run across both.
