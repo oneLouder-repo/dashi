@@ -436,9 +436,12 @@ function Facts(arg) {
   const listBox = h('ul', { class: 'rz-entities' });
   const fill = () => {
     const found = searchEntities(facts, factQuery, { type: factType, limit: 300 });
-    listBox.replaceChildren(...found.map((e) => h('li', { class: e.id === focus ? 'on' : '' },
-      h('a', { href: `#facts/${encodeURIComponent(e.id)}` }, h('b', {}, e.name), h('small', {}, subOf(e))))),
-    found.length === 300 ? h('li', { class: 'rz-more' }, 'Showing the first 300. Narrow it with a type or a search.') : null);
+    // replaceChildren turns null into the text "null" (unlike h()), so leave the note out rather than pass null.
+    const rows = found.map((e) => h('li', { class: e.id === focus ? 'on' : '' },
+      h('a', { href: `#facts/${encodeURIComponent(e.id)}` }, h('b', {}, e.name), h('small', {}, subOf(e)))));
+    if (found.length === 300) rows.push(h('li', { class: 'rz-more' }, 'Showing the first 300. Narrow it with a type or a search.'));
+    if (!found.length) rows.push(h('li', { class: 'rz-more' }, 'Nothing matches that.'));
+    listBox.replaceChildren(...rows);
   };
   fill();
   const search = h('input', { class: 'input input-bordered input-sm rz-search', type: 'search', placeholder: 'Find a thing by name or tag', value: factQuery, oninput: (e) => { factQuery = e.target.value; fill(); } });
