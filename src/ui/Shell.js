@@ -75,10 +75,7 @@ export function Shell(el, { current, org }) {
                 try { await signInAs(org.id, s.id); location.reload(); } catch (err) { uiAlert(err.message, { title: 'Couldn’t switch' }); }
               } }, Avatar(s, 20), s.name)))],
           can.signOut() && h('li', { class: 'shell-out' }, h('button', { onclick: signOut }, icon('swap', 16), 'Sign out'))))),
-    h('nav', { class: 'shell-bar', 'aria-label': 'Plugins' },
-      link('home', 'index.html', 'Home', 'sec-home'),
-      h('span', { class: 'shell-bar-sep', 'aria-hidden': 'true' }),
-      enabledPlugins(org).filter((p) => p.nav !== false && !p.parent).map((p) => link(p.id, p.href, p.name, p.icon))),
+    PluginBar(org, link),
   );
   wireSearchKey();
   RoleGate(org, current, role);
@@ -103,6 +100,51 @@ export function Shell(el, { current, org }) {
 }
 let wired = false;
 let netLight = null;
+
+/**
+ * The plugin bar keeps to one row. Plugins that don't fit go into a
+ * "More" menu at its end, as a grid of tiles; the plugin you're in always
+ * stays on the bar (it takes the last place that fits). It is measured
+ * again whenever the bar changes width, so it works at any screen size and
+ * with any number of plugins switched on.
+ */
+export function PluginBar(org, link) {
+  const plugins = enabledPlugins(org).filter((p) => p.nav !== false && !p.parent);
+  const links = plugins.map((p) => link(p.id, p.href, p.name, p.icon));
+  const tiles = h('div', { class: 'shell-more-grid' });
+  const count = h('b', { class: 'shell-more-count' });
+  const more = h('details', { class: 'dropdown dropdown-end shell-more' },
+    h('summary', { class: 'shell-link', style: '--tone:#5b6270', title: 'More plugins', 'aria-label': 'More plugins' }, icon('sec-plugins', 18), h('span', {}, 'More'), count),
+    h('div', { class: 'dropdown-content shell-more-menu' },
+      h('p', { class: 'shell-more-title' }, 'More plugins'),
+      tiles,
+      h('a', { class: 'shell-more-manage', href: 'org.html#plugins' }, icon('settings', 15), 'Organisation → Plugins')));
+  const nav = h('nav', { class: 'shell-bar', 'aria-label': 'Plugins' },
+    link('home', 'index.html', 'Home', 'sec-home'),
+    h('span', { class: 'shell-bar-sep', 'aria-hidden': 'true' }),
+    links, more);
+  const fits = () => nav.scrollWidth <= nav.clientWidth + 1;
+  const fit = () => {
+    if (!nav.isConnected || !nav.clientWidth) return;
+    for (const a of links) a.hidden = false;
+    more.hidden = true;
+    if (fits()) return;
+    more.hidden = false;
+    const active = links.find((a) => a.classList.contains('active'));
+    // Hide from the end, keeping the plugin you're in.
+    for (let i = links.length - 1; i >= 0 && !fits(); i--) if (links[i] !== active) links[i].hidden = true;
+    // Still too wide (a very narrow screen): the active one goes last of all.
+    if (!fits() && active) active.hidden = true;
+    const hidden = plugins.filter((_, i) => links[i].hidden);
+    count.textContent = hidden.length;
+    tiles.replaceChildren(...hidden.map((p) => link(p.id, p.href, p.name, p.icon)));
+    more.querySelector('summary').classList.toggle('holds-active', !!active?.hidden);
+  };
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => requestAnimationFrame(fit)).observe(nav);
+  requestAnimationFrame(fit);
+  document.fonts?.ready?.then(fit);
+  return nav;
+}
 
 /**
  * A plugin this person can't open: switched off for the org, inside a

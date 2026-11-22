@@ -18,6 +18,10 @@ Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the
 - **Publish keeps the latest released version.** Publishing freezes the design and the plan together as a numbered version. The site page, the PDF download and every link show the latest one, so you can keep designing without visitors seeing half-done pages. The header says what's live and whether there are changes since; the Publish tool lists the versions. Plan docs published before this became version 1, unchanged. A site's plan link with `&print=1` opens the PDF download.
 - Fixed: headings inside the document were picking up the app's small grey section headings in the designer.
 
+### Plugin bar: a More menu when there are lots of plugins
+- The plugin bar keeps to one row. Plugins that don't fit go into **More** at its end, a two-column menu with a count, and a link to Organisation → Plugins.
+- The plugin you're in always stays on the bar. It is measured again whenever the window changes size, so it works at any width and with every plugin switched on.
+
 ### PR 21: Rhizome, stage 3: the rack
 
 - **Twin racks.** Build your own analyses by cabling modules together, like a modular synth. Rack A holds the controls and rack B the screens and engines, so you can turn a knob and watch the result side by side. Cables run across both.
