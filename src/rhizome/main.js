@@ -136,7 +136,7 @@ function drawSide(view) {
       { label: 'About', sub: 'Quick reference and tutorials', icon: 'help', href: '#about', on: view === 'about' },
     ] },
     { title: 'Coming next', items: [
-      { label: 'Visualiser and Claude', sub: 'Stages 4 and 5: the engines', icon: 'eye' },
+      { label: 'Claude engine', sub: 'Stage 5: real questions, your own key', icon: 'eye' },
     ] },
   ] }));
 }
@@ -204,7 +204,6 @@ const Row = (id) => {
 
 function Coming() {
   const stages = [
-    ['Stage 4', 'Critical AI visualiser', 'A tiny inference engine that slowly shows what happens when you ask a system a question.'],
     ['Stage 5', 'Claude engine', 'Real questions of your graphs and links, through the server, with your own key and cost caps.'],
   ];
   return h('section', { class: 'rz-coming' }, h('h3', {}, 'Coming next'),

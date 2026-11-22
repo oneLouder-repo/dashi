@@ -98,7 +98,7 @@ export function vennCounts(sets) {
  * lines, in a unit box. Deterministic (seeded by position in the list).
  * Returns { nodes: [{ id, name, x, y, deg }], edges: [[i, j]] }.
  */
-export function plotLayout(g, rows, { max = 48, iterations = 160 } = {}) {
+export function plotLayout(g, rows, { max = 48, iterations = 160, gravity = 1.6 } = {}) {
   const pick = rows.slice(0, max);
   const index = new Map(pick.map((r, i) => [r.id, i]));
   const edges = [];
@@ -122,7 +122,7 @@ export function plotLayout(g, rows, { max = 48, iterations = 160 } = {}) {
     }
     for (let i = 0; i < N; i++) {
       // A gentle pull to the middle keeps loose points on the paper.
-      d[i].x += (0.5 - P[i].x) * 1.6; d[i].y += (0.5 - P[i].y) * 1.6;
+      d[i].x += (0.5 - P[i].x) * gravity; d[i].y += (0.5 - P[i].y) * gravity;
       const len = Math.max(1e-9, Math.hypot(d[i].x, d[i].y));
       P[i].x = Math.min(0.96, Math.max(0.04, P[i].x + (d[i].x / len) * Math.min(len, temp)));
       P[i].y = Math.min(0.94, Math.max(0.06, P[i].y + (d[i].y / len) * Math.min(len, temp)));
