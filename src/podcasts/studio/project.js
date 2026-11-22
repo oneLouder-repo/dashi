@@ -29,6 +29,7 @@ export const TRACK_KINDS = [
 ];
 
 export const TEMPLATES = [
+  { id: 'slideshow', label: 'Slideshow podcast', blurb: 'A voice and music, with phone-card slides timed to it', tracks: [['Voice', 'voice'], ['Music', 'music']], kind: 'slideshow' },
   { id: 'interview', label: 'Interview', blurb: 'A host, a guest, and music under the open and close', tracks: [['Host', 'voice'], ['Guest', 'voice'], ['Music', 'music']] },
   { id: 'solo', label: 'Solo show', blurb: 'One voice and a music bed', tracks: [['Voice', 'voice'], ['Music', 'music']] },
   { id: 'panel', label: 'Panel', blurb: 'Three voices around a table, plus music and effects', tracks: [['Host', 'voice'], ['Guest 1', 'voice'], ['Guest 2', 'voice'], ['Music', 'music'], ['Effects', 'fx']] },
@@ -40,7 +41,7 @@ export const makeTrack = (name, kind = 'voice') => ({ id: rid('trk'), name, kind
 
 export function newProject({ title = 'Untitled session', template = 'interview', podcastId = null } = {}) {
   const t = TEMPLATES.find((x) => x.id === template) ?? TEMPLATES[0];
-  return { id: rid('proj'), title, podcastId, episodeId: null, template: t.id, tracks: t.tracks.map(([n, k]) => makeTrack(n, k)), clips: {}, markers: [], pads: [], updatedAt: new Date().toISOString() };
+  return { id: rid('proj'), title, podcastId, episodeId: null, template: t.id, ...(t.kind ? { kind: t.kind } : {}), tracks: t.tracks.map(([n, k]) => makeTrack(n, k)), clips: {}, markers: [], pads: [], slides: [], updatedAt: new Date().toISOString() };
 }
 
 const touch = (p) => { p.updatedAt = new Date().toISOString(); return p; };
