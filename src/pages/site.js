@@ -13,6 +13,7 @@ import { migratePages, siteContent } from '../platform/pages.js';
 import { pluginOn } from '../platform/org.js';
 import { siteDesign, templateById } from '../platform/siteDesign.js';
 import { Masthead } from '../site/mastheads.js';
+import { fitNav } from '../site/fitNav.js';
 import { measureIndex } from '../platform/strategy.js';
 import { measureFacts, seriesOf } from '../platform/data.js';
 import { migrateLibrary, yearOf, formatLabel } from '../platform/library.js';
@@ -227,12 +228,12 @@ function render() {
     h('header', { class: 'site-head' },
       h('div', { class: 'inner' },
         h('a', { class: 'site-brand', href: link({}) }, Logo(org, 36), h('span', {}, h('strong', {}, org.name), portal && h('small', {}, icon('lock', 11), site.name))),
-        board && h('nav', { 'aria-label': site.name },
+        board && h('nav', { class: 'site-nav', 'aria-label': site.name },
           navLink('home', link({}), 'Home'),
           board.governance.length > 0 && navLink('governance', link({ view: 'governance' }), 'Governance'),
           board.minutes.length > 0 && navLink('minutes', link({ view: 'minutes' }), 'Minutes'),
           board.finance.length > 0 && navLink('finance', link({ view: 'finance' }), 'Finance')),
-        site?.visibility === 'public' && h('nav', { 'aria-label': site.name },
+        site?.visibility === 'public' && h('nav', { class: 'site-nav', 'aria-label': site.name },
           navLink('home', link({}), 'Home'),
           content.nav.map((pg) => navLink(`page:${pg.slug}`, link({ page: pg.slug }), pg.title)),
           content.articles.length > 0 && navLink('news', link({ view: 'news' }), 'News'),
@@ -258,6 +259,8 @@ function render() {
       h('p', { class: 'site-small' }, 'Every chart has a table view for screen readers and printing.',
         isHosted() && !staffView && [' · ', h('a', { href: '/login.html?next=/index.html' }, 'Staff sign in')])),
   );
+  // One line of links that never runs off the edge: what doesn't fit goes under More (alpha 0.4).
+  fitNav(root.querySelector('.site-head .site-nav'));
 }
 
 function Home(site, content, hasStation, ctx) {
