@@ -33,6 +33,7 @@ export const ICONS = {
   check: 'M5 12.5 L10 17.5 L19 7',
   download: 'M12 4 V15 M7 10.5 L12 15.5 L17 10.5 M5 20 H19',
   chevronDown: 'M6 9 L12 15 L18 9',
+  menu: 'M4 7 L20 7 M4 12 L20 12 M4 17 L20 17',
   chevronUp: 'M6 15 L12 9 L18 15',
   chevronRight: 'M9 6 L15 12 L9 18',
   close: 'M6 6 L18 18 M18 6 L6 18',

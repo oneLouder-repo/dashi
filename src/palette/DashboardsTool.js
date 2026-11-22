@@ -71,7 +71,7 @@ function Gallery(ctx) {
         h('span', { class: 'dg-start-icon' }, icon('target', 20)),
         h('strong', {}, 'From an objective or goal'),
         h('p', {}, 'A headline number and a chart for every measure on it, then the work.'),
-        nodes.length ? [from, h('button', { class: 'btn btn-sm btn-primary', onclick: () => ctx.create(from.value) }, 'Create')] : h('p', { class: 'muted small' }, 'Add measures to an objective or goal in Strategy & Work first.')),
+        nodes.length ? [from, h('button', { class: 'btn btn-sm btn-primary', onclick: () => ctx.create(from.value) }, 'Create')] : h('p', { class: 'muted small' }, 'Add measures to an objective or goal in Plan first.')),
       h('div', { class: 'dg-start-card featured' },
         h('span', { class: 'dg-start-icon board' }, icon('org', 20)),
         h('strong', {}, 'Board dashboard'),
@@ -215,7 +215,7 @@ function AddPanel(ctx, dash, { measures, add }) {
           h('button', { type: 'button', title: 'Add as a headline number', onclick: () => add(widget('kpi', { measureId: m.id })) }, '123'),
           h('button', { type: 'button', title: 'Add as a line over time', onclick: () => add(widget('line', { measureId: m.id })) }, '⟋'),
           h('button', { type: 'button', title: 'Add as monthly columns', onclick: () => add(widget('bar', { measureId: m.id })) }, '▮▮')))))));
-    if (!shown.length) list.replaceChildren(h('p', { class: 'muted small' }, measures.length ? 'No measures match.' : 'Add measures to objectives and goals in Strategy & Work.'));
+    if (!shown.length) list.replaceChildren(h('p', { class: 'muted small' }, measures.length ? 'No measures match.' : 'Add measures to objectives and goals in Plan.'));
   };
   q.addEventListener('input', draw);
   draw();
@@ -226,7 +226,7 @@ function AddPanel(ctx, dash, { measures, add }) {
       add(widget(t.id, first[t.needs]));
     } }, h('span', { class: `dd-kind-icon k-${t.id}`, 'aria-hidden': 'true' }), t.label))),
     h('h3', {}, 'From your strategy'),
-    h('p', { class: 'muted small' }, 'Show where the plan stands, live from Strategy & Work: the road, the goals’ lights, what is coming up.'),
+    h('p', { class: 'muted small' }, 'Show where the plan stands, live from Plan: the road, the goals’ lights, what is coming up.'),
     h('div', { class: 'dd-strategic' },
       [['road', 'The road so far', 'Lights passed and ahead, milestones, today', { nodeId: planFor(ctx, dash) }],
         ['lights', 'Goal lights', 'A light per workplan, goal by goal', { nodeId: dash.sourceNodeId ?? planFor(ctx, dash) }],

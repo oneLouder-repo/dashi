@@ -58,9 +58,9 @@ export const PLUGINS = [
     id: 'strategy',
     owns: ['strategy', 'plandocs'],
     reads: ['maps', 'map/*', 'data', 'dashboards', 'library', 'assets'],
-    short: 'Strategy',
+    short: 'Plan',
     tone: '#7b2fe8',
-    name: 'Strategy & Work',
+    name: 'Plan',
     href: 'strategy.html',
     icon: 'sec-strategy',
     blurb: 'From mission and vision to plans, objectives, goals, workplans and tasks, with Gantt charts and task timelines.',
@@ -103,9 +103,9 @@ export const PLUGINS = [
     id: 'podcasts',
     owns: ['podcasts'],
     reads: [],
-    short: 'Podcasts',
+    short: 'Listen',
     tone: '#c8432f',
-    name: 'Podcasts',
+    name: 'Listen',
     href: 'podcasts.html',
     icon: 'sec-podcasts',
     blurb: 'Your own podcast station: shows organised by season, uploaded .mp3 or .wav episodes, featured shows, RSS feeds, and a public station page skinned to your look.',
@@ -132,18 +132,18 @@ export const PLUGINS = [
   },
   {
     id: 'graph',
-    parent: 'assets',
+    // Alpha 0.4: out of experimental and out of Assets; a tab of Rhizome.
+    parent: 'rhizome',
     owns: ['graph'],
     // The same as Assets reads, so the graph never opens a door Assets keeps shut.
     reads: ['assets', 'maps', 'map/*', 'library', 'strategy', 'dashboards'],
     short: 'Graph',
     tone: '#e0705f',
-    name: 'Asset Graph',
+    name: 'Graph',
     href: 'graph.html',
     icon: 'sec-graph',
-    experimental: true,
-    blurb: 'Experimental: your assets, people, maps and strategy as one web of linked facts. Search it for fun, find who bridges groups, and export it as linked data.',
-    stats: ({ assets }) => `${Object.keys(assets?.items ?? {}).length} assets linked in · experimental`,
+    blurb: 'A tab of Rhizome: your assets, people, maps and strategy as one web of linked facts. Search it, find the feedback loops on your maps and who bridges groups, and export it as linked data.',
+    stats: ({ assets }) => `${Object.keys(assets?.items ?? {}).length} assets linked in`,
   },
   {
     id: 'rhizome',
@@ -211,9 +211,9 @@ export const PLUGINS = [
     id: 'pages',
     owns: ['pages'],
     reads: ['dashboards', 'data', 'plandocs', 'strategy', 'library'],
-    short: 'Portal',
+    short: 'Web',
     tone: '#4da65c',
-    name: 'Public Portal',
+    name: 'Web',
     href: 'pages.html',
     icon: 'sec-sites',
     blurb: 'One way in to everything you show outside: public sites, dashboards, your plan, podcasts, pages and news, plus members-only portals for your board.',
@@ -235,6 +235,20 @@ export const PLUGINS = [
     experimental: true,
     blurb: 'Experimental: make posts from your episodes, blog posts, data and dashboards, fit them to each network, schedule them and push them to Instagram, Facebook, TikTok, YouTube and more (pretend pushes in this alpha).',
     stats: ({ social }) => { const ps = Object.values(social?.posts ?? {}); return `${ps.filter((p) => p.status === 'scheduled').length} scheduled · ${ps.filter((p) => p.status === 'posted').length} posted · experimental`; },
+  },
+  {
+    id: 'ai',
+    owns: ['ai'],
+    // Its prompt log and review queue are its own; the AI tools inside it keep their own documents.
+    reads: [],
+    short: 'AI',
+    tone: '#5a54c4',
+    name: 'AI',
+    href: 'ai.html',
+    icon: 'sparkle',
+    experimental: true,
+    blurb: 'Experimental: one home for AI at your organisation. Check prompts before they go anywhere, keep a log, keep people in the loop, and hold your AI policy, register, prompts and plain-language tools. A Claude connection comes later.',
+    stats: ({ ai }) => `${Object.keys(ai?.log ?? {}).length} prompts logged · experimental`,
   },
   {
     id: 'org',
@@ -350,7 +364,7 @@ export const orgUses = (org, id) => orgHas(PLUGINS, org, id);
  */
 let linkOrg = null;
 export const setLinkOrg = (org) => { linkOrg = org; };
-/** Pages of a plugin beyond its main one: linkTo('plandoc') opens the Plan designer, gated on Strategy & Work. */
+/** Pages of a plugin beyond its main one: linkTo('plandoc') opens the Plan designer, gated on Plan. */
 export const PAGES = { plandoc: { plugin: 'strategy', href: 'plandoc.html' } };
 export function linkTo(id, route = '', org = linkOrg) {
   const page = PAGES[id];
@@ -365,5 +379,5 @@ export const reach = (id, org = linkOrg) => (org ? canOpen(org, id) : true);
 /** Each page's colour: a plugin's tone, or Dashi's own for the dashboard and the rest. */
 export const DASHI_TONE = '#d0621b';
 export const toneFor = (id) => PLUGINS.find((p) => p.id === id)?.tone ?? DASHI_TONE;
-/** The top-level plugin a page belongs to: a sub-plugin's parent (Data Workbench → Public Portal), else itself. */
+/** The top-level plugin a page belongs to: a sub-plugin's parent (Data Workbench → Web), else itself. */
 export const topOf = (id) => { let p = PLUGINS.find((x) => x.id === id); while (p?.parent) p = PLUGINS.find((x) => x.id === p.parent) ?? null; return p?.id ?? id; };

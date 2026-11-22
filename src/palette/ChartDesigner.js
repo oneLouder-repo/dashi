@@ -35,7 +35,7 @@ export function ChartDesigner(ctx) {
   const { data, dashboards, org } = ctx;
   const index = measureIndex(ctx.strategy);
   const measures = [...Object.values(index), ...Object.values(data.doc.calcs ?? {}).map(calcMeasure)];
-  if (!measures.length) return h('p', { class: 'empty' }, 'Add measures to objectives or goals in Strategy & Work first.');
+  if (!measures.length) return h('p', { class: 'empty' }, 'Add measures to objectives or goals in Plan first.');
   const d = (ctx.design ??= { kind: 'line', ids: [measures[0].id], period: '12', shape: 'wide', title: '', note: '' });
   d.ids = d.ids.filter((id) => measures.some((m) => m.id === id));
   if (!d.ids.length) d.ids = [measures[0].id];

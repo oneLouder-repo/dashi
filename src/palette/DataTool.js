@@ -35,7 +35,7 @@ export function DataTool(ctx) {
 function OneMeasure(ctx) {
   const { data } = ctx;
   const measures = Object.values(measureIndex(ctx.strategy));
-  if (!measures.length) return h('p', { class: 'empty' }, 'Add measures to objectives or goals in Strategy & Work first.');
+  if (!measures.length) return h('p', { class: 'empty' }, 'Add measures to objectives or goals in Plan first.');
   ctx.measureId = measures.some((m) => m.id === ctx.measureId) ? ctx.measureId : measures[0].id;
   const m = measures.find((x) => x.id === ctx.measureId);
   const series = data.doc.series[m.id] ?? { id: m.id, points: [] };

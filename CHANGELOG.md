@@ -2,6 +2,52 @@
 
 Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and so on). Each point version (0.2, 0.3…) is one major platform feature; 0.2.1-alpha, 0.2.2-alpha… are fixes and polish from testing. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
+## 0.4.0-alpha (in progress): learning, on a clean build
+
+Alpha 0.4 is the learning release (Teach, Learn and what follows), opened from the `v0.3.0-alpha` tag and tested on a fresh `data-clients` seed. Rhizome's later stages and Place stage 2 onwards stay paused. Going live moves to 0.5. Newest first.
+
+### Rhizome stage 4: the critical AI visualiser
+
+- **The AI visualiser works.** It is a full rack wide in rack B. Ask it a question about your facts and watch a tiny, see-through engine answer it in six steps, with six lane lights blinking in order:
+  1. **Tokens**: filler words fade.
+  2. **Meaning**: words are matched to names, types, categories, zones and measures, and words it has no match for stay grey.
+  3. **Retrieval**: matches glow on a mini graph, and the glow spreads two hops along ties.
+  4. **Attention**: weight bars, with sliders for closeness, links and word match.
+  5. **Reasoning**: the heaviest facts run past the measure rules, as a chain.
+  6. **Answer**: every phrase is linked to its facts and rules, with an evidence meter.
+- **The critical lens.** At each step a note asks where it could go wrong: dropped words, words it has no match for, facts never reached, link-heavy weights that favour big organisations, and confident answers on thin evidence.
+- **Controls.** Play, pause, step back and forward, jump to the start or the answer, and three speeds. Open it big in a tray. It sends its answer out as findings, so the Scope or the Claude engine can take it. It says on screen that it is a toy, not a real language model.
+- **Moving modules.** The pop-up toolbar is gone, so nothing covers the Say module's chooser any more. Each module has a grab handle (top left) to drag it anywhere in either rack, with a glowing marker where it will land. There is a × (top right) to take it out. On the handle, the arrow keys move a module, and up or down sends it to the other rack.
+- **A quieter badge.** The cursive script is now the small Dashi ripple mark, pressed into the faceplate in its own colour so it looks worn in.
+- **Cables step back** while you work the visualiser's screen.
+
+### The rack, tightened, with set and graph modules
+
+- **Kestrel's test shows, every time.** On a fresh `data-clients` seed the trial slideshows could vanish when the computer's voice failed. Now a failing voice falls back to music only, and one bad show no longer drops the rest. The terminal says how many were made.
+- **Smaller, tighter modules.** Most modules are about a third narrower and the shelves are shorter. The starter patch's controls (Facts, three Filters, Weigh, Say) now sit on one shelf.
+- **A big chunky Facts knob.** Facts is the main input, so it gets a fluted knob with a chrome skirt and a bright index line.
+- **Dashi badges.** The main modules carry a cursive Dashi script at an angle. The AI visualiser gets a futuristic one (`DASHI · VIS·01`) ahead of its own stage.
+- **New: Sets & graphs modules.** **Neighbours** walks one to three hops out from what comes in (ring: only the new things; ball: start and ring). **Triads** splits things into tight circles (closed) and brokers across structural holes (open). **Prism** splits rows into their three biggest communities. **Complement** gives everything of the same type that isn't coming in.
+- **New displays.** **Venn**: three circles with the count in every overlap, and what's in all of them out. **Spectrum**: a segmented bar spread of one number, like a graphic equaliser. **Plotter**: a pen plotter that draws the rows and the ties between them on graph paper (blue, red or black ink). The starter patch now has a plotter beside the scope.
+- **Flip.** Turn the rack round. The **power bus** shows which plugins feed this patch (lit) and which could (with their fact counts). The **wiring** shows the patch as a flow, left to right, with how many rows run along every cable, and thicker wires carry more.
+- **Patching.** An output can now feed many inputs by dragging from it again, even with a plug already in it, and a cable sagging over a jack no longer gets in the way.
+
+### Reorganisation before the next eLearning stage
+
+- **One-word plugin names.** Strategy & Work is now **Plan**, Public Portal is now **Web**, and Podcasts is now **Listen**. Rhizome's Output tab is now **Report** (old `#output` links still land there). A platform registry still carrying an old name takes the new one.
+- **Public site nav that fits.** The links stay on one line. What doesn't fit goes, last first, under **More** at the end of the bar, and the page you're on is the last to go. On a phone the nav folds into one **Menu** button with a full-width sheet. Kestrel's site at 1440px used to run 90px off the edge.
+- **Tabs with a More menu.** A plugin's tabs keep to one row, like the plugin bar. Rhizome starts Measures, Set-up and About under More, and any tab that doesn't fit joins them. Every plugin gets this.
+- **The graph moves into Rhizome.** The asset graph is out of experimental and out of Assets: it is now Rhizome's **Graph** tab, with Rhizome's header and side nav.
+- **New: Graph → Loops.** The feedback loops drawn on your ecosystem maps (A to B to C and back to A), each drawn as a ring, with feedback links in red and learning links in green. Below them are the chains that are one link short of a loop, with the question to ask.
+- **Rhizome tools in Assets.** A tray in the asset manager (left panel, **Rhizome tools**) holds a graph search with quick asks, your most connected assets, the loop count, asset checks (not sorted yet, linked to nothing), the ABCD balance, and the way to Rhizome's Report, Tips and Analyses. It only shows for people who can use Rhizome.
+- **AI, one plugin (experimental).** A home for AI at your organisation, with people in charge:
+  - **Check a prompt.** AI literacy checks in the browser. Personal data stops a prompt, risky uses need care, and there are tips for a better prompt and a safer copy to use.
+  - **Prompt log.** Only the safer copies are kept.
+  - **Review.** Human in the loop: flagged prompts wait for a person to clear them.
+  - **Keys** and **Claude proxy** set out the plan. Nothing calls an AI yet.
+  - AI Policy Studio, AI Use Register, Prompt Commons and Plain Words now live inside it.
+- **Place: the empty street map, triaged.** Kestrel Bay is drawn out at sea, so the real street map there is open water: Place now says so and points to the drawn map. Dashi also sent no Referer to OpenStreetMap's tile servers, which ask for one; Place now sends the site's address. A refused tile gets its own note. Going live still needs Dashi's own tile host.
+
 ## 0.3.0-alpha (2026-11-22): UI tinkering and enhancements
 
 Alpha 0.3 was a round of UI work in about 20 pull requests, merged into master together on 2026-11-22 with every test passing. Going live (the Actua and SJR checklist, Stripe billing) moves to 0.5; 0.4 is the learning release, built from this tag (`v0.3.0-alpha`) on a fresh `data-clients` seed. Newest first.

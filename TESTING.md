@@ -16,7 +16,7 @@ Each round, pick a few. Testers don't need to do them all.
 2. **Two people, one document.** Two windows, two people, the same plan or map. Edit in one; does the other update? Edit in both at once; do you get the reload prompt instead of losing work?
 3. **Map an ecosystem.** Add actors and connectors, switch lenses, use the Panels menu to dock, float and tidy the tool panels. Save the map to the library, then open it again from there.
 4. **A week of reading.** In the Library, use **Add a reading** for a few papers or links: annotate, tag, file them in a bibliography. Open the week, lay the brief out by STEEPLE, write a short state of play and a recommendation.
-5. **Plan some work.** In Strategy & Work, add a goal, a workplan and tasks; drag task bars on the Gantt chart; attach a map or a library item as an asset.
+5. **Plan some work.** In Plan, add a goal, a workplan and tasks; drag task bars on the Gantt chart; attach a map or a library item as an asset.
 6. **Publish something.** Build a dashboard in the Workbench and put it on a public site.
 7. **Invite someone.** As an org admin, add a person in Organisation → People and send them an invitation. Follow the link (on a server without email, it is in the server log).
 8. **Phone width.** Try any of the above on a phone.

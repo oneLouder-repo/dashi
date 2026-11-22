@@ -78,7 +78,7 @@ Tick analyses to add them to **your set**. **Run my set** runs them all and keep
     {
       id: 'rhizome-output',
       title: 'Your report pack',
-      body: `Open **Output** for a report of everything Rhizome found, to print, save as a PDF, or share. It's the reason to run Rhizome at all: something to take to a team meeting or a board.
+      body: `Open **Report** for a report of everything Rhizome found, to print, save as a PDF, or share. It's the reason to run Rhizome at all: something to take to a team meeting or a board.
 
 [[shot:rhizome-output]]
 
@@ -110,7 +110,19 @@ On the left, give it a title, pick where the findings come from (your set, one a
 Rules are data, not code. The list at the bottom of **Analyses** shows every rule, and **View as data** shows exactly what Rhizome runs. Open any rule in **the rack** to see it as modules and cables.
 
 # Coming next
-- **The critical AI visualiser** (stage 4) and **the Claude engine** (stage 5). Their modules already sit in the rack, waiting.`,
+- **The Claude engine** (stage 5). Its module already sits in the rack, waiting.
+
+# The AI visualiser
+The **AI visualiser** fills a whole rack in rack B. Ask it a question about your facts and watch it work through six steps:
+
+1. **Tokens**: the question splits into pieces, and filler words fade.
+2. **Meaning**: each piece is matched to names, types, categories and measures it knows. Words it has no match for stay grey.
+3. **Retrieval**: the matches light up on a little graph, and the glow spreads along ties, fading with each hop.
+4. **Attention**: each fact gets a weight from closeness, links and word matches. Move the sliders and the answer changes, with the same facts.
+5. **Reasoning**: the heaviest facts run past the measure rules, and each rule that fires is a step in the chain.
+6. **Answer**: a short answer, with every phrase linked to the facts and rules behind it.
+
+At each step the **critical lens** asks where it could go wrong: missing data, biased weights, words it doesn't know, and confident answers built on thin evidence. Play, pause, step back and forward, or pick a speed. Open it big in a tray to see more. It is a toy engine, not a real language model, so it can show every step.`,
     },
     {
       id: 'rhizome-rack',

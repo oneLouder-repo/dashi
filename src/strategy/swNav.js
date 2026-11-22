@@ -3,7 +3,7 @@ import { linkTo } from '../plugins.js';
 import { plansOf, ofPlan } from '../platform/studio.js';
 
 /**
- * The one left panel of Strategy & Work (0.2), the same on every page of it
+ * The one left panel of Plan (0.2), the same on every page of it
  * (strategy.html, studio.html, plandoc.html), laid out like the mapper's
  * tool panel: sections of tools that fold, always in the same order, so
  * nothing appears or moves as you go.

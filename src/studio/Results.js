@@ -13,7 +13,7 @@ import { LevelBadge, LEVELS } from '../ui/strategyLook.js';
  * a single task (a task's own result, say "600 instructors trained").
  * Each row reads at a glance: the result, what is counted, baseline to
  * target, how often and where the number comes from. Click a row to edit
- * it in the side drawer. A result can use a measure in Strategy & Work for
+ * it in the side drawer. A result can use a measure in Plan for
  * its live data, and on the Assemble canvas a result wired into a goal
  * becomes that goal's measure.
  *
@@ -89,7 +89,7 @@ function ResultRow(ctx, plan, r, src, measures, tree) {
     h('span', { class: 'result-row-target' },
       h('span', { class: 'result-bt' }, h('span', {}, r.baseline || '–'), icon('chevronRight', 12), h('strong', {}, r.target || '–')),
       h('i', { class: 'result-bar', style: share == null ? 'visibility:hidden' : `--f:${share}` })),
-    h('span', { class: 'result-row-meta' }, r.frequency || '', linked && h('span', { class: 'badge badge-xs badge-success badge-soft', title: `Uses ${linked.name} in Strategy & Work` }, 'live data'))));
+    h('span', { class: 'result-row-meta' }, r.frequency || '', linked && h('span', { class: 'badge badge-xs badge-success badge-soft', title: `Uses ${linked.name} in Plan` }, 'live data'))));
 }
 
 /** Edit one result in the side drawer. */
@@ -108,7 +108,7 @@ function openResult(ctx, plan, id, measures, tree) {
       h('select', { class: 'select select-sm w-full', name: `r-${id}-from`, onchange: (e) => set({ nodeId: e.target.value === plan.id ? null : e.target.value, taskId: null }) },
         tree.map((n) => h('option', { value: n.id, selected: (r().nodeId ?? r().taskId ?? plan.id) === n.id }, `${'\u00a0\u00a0'.repeat(depth(n))}${n.id === plan.id ? 'The whole plan' : `${levelName(n)}: ${n.title}`}`))),
       h('small', { class: 'muted' }, 'Any level of the plan, down to a single task.')),
-    h('label', { class: 'rf' }, h('span', {}, 'Measure in Strategy & Work (for live data)'),
+    h('label', { class: 'rf' }, h('span', {}, 'Measure in Plan (for live data)'),
       h('select', { class: 'select select-sm w-full', name: `r-${id}-m`, onchange: (e) => {
         const m = measures.find((x) => x.id === e.target.value);
         set(m ? { measureId: m.id, indicator: r().indicator || m.name, target: r().target || m.target, unit: r().unit || m.unit } : { measureId: null });

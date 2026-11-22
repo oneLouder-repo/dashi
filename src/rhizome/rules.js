@@ -61,7 +61,7 @@ export const RULES = [
   // Across plugins
   { id: 'hub-unplanned', name: 'Central partners no plan leans on', theme: 'impact', source: 'mapper', needs: ['strategy'], from: { list: 'hubs' }, when: [{ field: 'used', op: 'no' }],
     weigh: { base: 0.5, plus: [{ field: 'degree', w: 0.25, scale: 'degree' }] }, say: 'net-hub-unplanned', show: 'map' },
-  // Strategy & Work
+  // Plan
   { id: 'hollow-objective', name: 'Objectives with no work behind them', theme: 'hygiene', source: 'strategy', from: { list: 'hollowObjectives' }, when: [],
     weigh: { base: 0.75, plus: [] }, say: 'hyg-hollow-objective', show: 'list' },
   { id: 'hollow-goal', name: 'Goals with no workplan', theme: 'hygiene', source: 'strategy', from: { list: 'hollowGoals' }, when: [],

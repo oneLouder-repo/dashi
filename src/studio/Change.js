@@ -286,7 +286,7 @@ function openSend(ctx, plan) {
     const fresh = out.preview.filter((p) => p.action === 'new').length;
     const upd = out.preview.filter((p) => p.action === 'update').length;
     return h('div', { class: 'toc-send' },
-      h('p', { class: 'muted small' }, 'Each lasting change becomes an objective, each early change a goal, what you do a workplan and what it produces a task. They arrive in Strategy & Work as drafts, so the team can accept or discard each one. Drafts stay out of reports until accepted. Assumptions and signposts go in their notes.'),
+      h('p', { class: 'muted small' }, 'Each lasting change becomes an objective, each early change a goal, what you do a workplan and what it produces a task. They arrive in Plan as drafts, so the team can accept or discard each one. Drafts stay out of reports until accepted. Assumptions and signposts go in their notes.'),
       h('fieldset', { class: 'toc-send-layers' }, h('legend', {}, 'Send these layers'),
         layers.map((l) => h('label', { style: `--lh:${l.hue}` },
           h('input', { type: 'checkbox', name: `send-${l.id}`, checked: pick.has(l.id), onchange: (e) => { if (e.target.checked) pick.add(l.id); else pick.delete(l.id); d.setBody(body()); } }),

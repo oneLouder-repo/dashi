@@ -237,6 +237,7 @@ function startMap() {
   map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
   map.on('style.load', () => { addOverlayLayers(); drawOverlays(); });
   map.once('load', () => {
+    streetNote();
     if (selected.place || selected.pin || selected.show.length) flyToSelection();
     else if (!v) fitAll(false);
   });
@@ -246,9 +247,13 @@ function startMap() {
   zoomClass();
   map.on('error', (e) => {
     // The street map's tiles didn't come (offline, or blocked): say so once, and keep going.
-    if (doc.basemap === 'street' && !baseFailed && /tile|fetch|Failed|load/i.test(String(e?.error?.message ?? ''))) {
+    const msg = String(e?.error?.message ?? '');
+    if (doc.basemap === 'street' && !baseFailed && /tile|fetch|Failed|load|Forbidden|40\d|AJAX/i.test(msg)) {
       baseFailed = true;
-      showNote(doc.drawn ? 'The street map’s tiles didn’t load. Try the drawn map, which works offline.' : 'The street map’s tiles didn’t load (no internet?). Your places and links still show.');
+      const refused = /Forbidden|403|429|418/.test(msg);
+      showNote(refused
+        ? 'The street map’s tile server refused the tiles. OpenStreetMap’s free tiles are for light testing only; a live Dashi needs its own tile host.'
+        : doc.drawn ? 'The street map’s tiles didn’t load. Try the drawn map, which works offline.' : 'The street map’s tiles didn’t load (no internet?). Your places and links still show.');
     }
   });
   map.on('click', (e) => onMapClick(e));
@@ -269,6 +274,14 @@ function loadBase() {
   baseFailed = false;
   showNote(null);
   map.setStyle(baseStyle(doc.basemap, { drawn: doc.drawn, dark }));
+  streetNote();
+}
+/**
+ * Alpha 0.4 triage: the street map looked empty for Kestrel Bay. Kestrel is made up and drawn
+ * out at sea (src/place/kestrel.js), so real street tiles there are open water. Say so.
+ */
+function streetNote() {
+  if (doc.basemap === 'street' && doc.drawn) showNote('These places sit on your drawn map. On the street map they are out at sea, so it shows only water here. Switch to the drawn map to see the coast and roads.');
 }
 function showNote(text) {
   noteEl.hidden = !text;

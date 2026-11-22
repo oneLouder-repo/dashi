@@ -1,5 +1,5 @@
 /**
- * How a public site is designed (Public Portal → Look and feel): a template
+ * How a public site is designed (Web → Look and feel): a template
  * (the composition of every page), a masthead banner across the top, and
  * the type. Colours and shapes come from the org's theme (themes.js), so
  * every template wears the org's own palette.

@@ -162,9 +162,9 @@ export function migratePodcasts(doc) {
 
 export const slugify = (s) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_-]+/g, '-');
 
-/** Where an episode opens in the Podcasts plugin: in a tray over the episode list. */
+/** Where an episode opens in the Listen plugin: in a tray over the episode list. */
 export const episodeHref = (e) => linkTo('podcasts', `#episodes/${e.id}`);
-/** Where a series opens in the Podcasts plugin. */
+/** Where a series opens in the Listen plugin. */
 export const seriesHref = (p) => linkTo('podcasts', `#series/${p.id}`);
 
 /**

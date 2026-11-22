@@ -14,10 +14,10 @@ import { uiAlert, uiConfirm } from '../ui/dialog.js';
  * objective blocks; then patch outlets (right) into inlets (left): ideas
  * and workplans into goals, goals into objectives, objectives into the
  * plan. "Send to plan" makes the objectives, goals and workplans in
- * Strategy & Work, and sending again updates them. "Bring in the plan" lays
- * the plan as it stands in Strategy & Work out on the canvas.
+ * Plan, and sending again updates them. "Bring in the plan" lays
+ * the plan as it stands in Plan out on the canvas.
  *
- * Blocks linked to Strategy & Work show the title from there, and renaming
+ * Blocks linked to Plan show the title from there, and renaming
  * one renames it there straight away.
  */
 const W = 2400;
@@ -150,7 +150,7 @@ export function Assemble(ctx, plan) {
       h('button', { class: 'btn btn-sm btn-outline', onclick: () => addBlock({ kind: 'objective', title: 'New objective' }) }, icon('plus', 14), 'Objective'),
       h('button', { class: 'btn btn-sm btn-outline bin-add-wp', title: 'A workplan: wire it into a goal', onclick: () => addBlock({ kind: 'workplan', title: 'New workplan' }) }, icon('plus', 14), 'Workplan'),
       h('button', { class: 'btn btn-sm btn-ghost bin-add-note', title: 'A note on the canvas, as in Max: words, no wires', onclick: () => addBlock({ kind: 'note', title: 'A note' }, { x: 40, y: Math.max(30, ...blocks.map((b) => b.y + 140)) }) }, icon('note', 14), 'Note'),
-      h('button', { class: 'btn btn-sm btn-soft bin-add-plan', title: planOnCanvas ? 'Add anything from Strategy & Work that isn’t on the canvas yet' : 'Lay out the plan, its objectives, goals and workplans from Strategy & Work', onclick: bringIn }, icon('strategy', 14), planOnCanvas ? 'Bring in the rest of the plan' : 'Bring in the plan')),
+      h('button', { class: 'btn btn-sm btn-soft bin-add-plan', title: planOnCanvas ? 'Add anything from Plan that isn’t on the canvas yet' : 'Lay out the plan, its objectives, goals and workplans from Plan', onclick: bringIn }, icon('strategy', 14), planOnCanvas ? 'Bring in the rest of the plan' : 'Bring in the plan')),
     QUADRANTS.map((q) => bin(q.label, cards.filter((c) => c.quadrant === q.id).sort((a, b) => b.votes.length - a.votes.length)
       .map((c) => chip(c.text, { kind: 'card', ref: c.id }, c.votes.length ? `● ${c.votes.length}` : null, q.color)), q.id !== 'r')),
     bin('Results framework', ofPlan(doc, 'results', plan.id).map((r) => chip(r.title, { kind: 'result', ref: r.id }, r.indicator, KIND.result.color))),
@@ -302,12 +302,12 @@ export function Assemble(ctx, plan) {
   const send = async () => {
     const out = sendToPlan(doc, ctx.strategy.doc, plan.id);
     if (!out.made && !out.updated) { uiAlert('Add an objective block, and wire goals (and workplans into those) into it, to send them to the plan.'); return; }
-    const msg = [`This makes ${out.made} new and updates ${out.updated} existing objectives, goals and workplans in “${plan.title}” in Strategy & Work.`,
+    const msg = [`This makes ${out.made} new and updates ${out.updated} existing objectives, goals and workplans in “${plan.title}” in Plan.`,
       out.loose && `${out.loose} goal${out.loose === 1 ? ' isn’t' : 's aren’t'} wired into an objective yet, so ${out.loose === 1 ? 'it stays' : 'they stay'} here.`].filter(Boolean).join('\n\n');
     if (!await uiConfirm(msg)) return;
     ctx.strategy.apply(col.batch(out.strategyOps));
     if (out.studioOps.length) ctx.store.apply(col.batch(out.studioOps));
-    ctx.flash = { text: `Sent to Strategy & Work: ${out.made} made, ${out.updated} updated.`, until: Date.now() + 10000 };
+    ctx.flash = { text: `Sent to Plan: ${out.made} made, ${out.updated} updated.`, until: Date.now() + 10000 };
     ctx.render();
   };
   // The note stays up a while, through redraws from other people's saves.
@@ -347,7 +347,7 @@ function Block(ctx, b, doc, wires, z) {
       h('span', {}, q ? q.label.replace(/s$/, '').replace(/ie$/, 'y') : k.label),
       editable && feeds > 0 && h('small', {}, `${feeds} in`),
       h('span', { class: 'spacer' }),
-      inPlan && h('a', { class: 'block-link', href: `strategy.html#${b.strategyId}`, title: inPlan.draft ? 'A draft in Strategy & Work: open it to accept or discard' : 'In Strategy & Work: open it', onpointerdown: (e) => e.stopPropagation() }, inPlan.draft ? 'Draft' : '✓ in plan'),
+      inPlan && h('a', { class: 'block-link', href: `strategy.html#${b.strategyId}`, title: inPlan.draft ? 'A draft in Plan: open it to accept or discard' : 'In Plan: open it', onpointerdown: (e) => e.stopPropagation() }, inPlan.draft ? 'Draft' : '✓ in plan'),
       h('button', { class: 'block-x', title: 'Remove from the canvas', 'aria-label': 'Remove block', onpointerdown: (e) => e.stopPropagation(),
         onclick: () => {
           ctx.remove('wires', wires.filter((w) => w.from === b.id || w.to === b.id).map((w) => w.id));

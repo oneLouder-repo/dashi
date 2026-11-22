@@ -22,7 +22,7 @@ import { uiConfirm } from '../ui/dialog.js';
 import { linkTo } from '../plugins.js';
 
 /**
- * Strategy & Work, in sections listed down the shared sidebar:
+ * Plan, in sections listed down the shared sidebar:
  *
  *   #overview     the framework at a glance, with a treemap down to workplans
  *   #framework    the interactive framework: the strategy as a tree on the
@@ -101,10 +101,10 @@ let side = h('nav');
 app.replaceChildren(side, h('div', { class: 'strategy-column' }, head, framework, report));
 
 function drawSide(tab) {
-  // The same panel on every Strategy & Work page (swNav.js): its tools, then the Planning Studio's.
+  // The same panel on every Plan page (swNav.js): its tools, then the Planning Studio's.
   const sel = store.doc.nodes[ctx.selectedId];
   const planId = tab === 'framework' && sel ? planOfNode(sel) : null;
-  side = swapSide(side, SideNav({ label: 'Strategy & Work', sections: swSections({ page: 'strategy', tab, planId, strategy: store.doc, studio: null, extra: [LayersSection()] }) }));
+  side = swapSide(side, SideNav({ label: 'Plan', sections: swSections({ page: 'strategy', tab, planId, strategy: store.doc, studio: null, extra: [LayersSection()] }) }));
 }
 
 /*

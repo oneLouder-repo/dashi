@@ -6,7 +6,7 @@ import { staffList, teamList } from '../platform/org.js';
 import { rootOf, childrenOf, descendants, ancestors } from '../platform/strategy.js';
 
 /**
- * One look for strategy, shared by Strategy & Work and the Planning Studio,
+ * One look for strategy, shared by Plan and the Planning Studio,
  * so a framework, plan, objective, goal, workplan or task reads the same in
  * both: the same icon, the same level colour, the same objective hue.
  *
