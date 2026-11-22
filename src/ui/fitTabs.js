@@ -33,7 +33,10 @@ export function fitTabs(nav) {
     }
     const onRow = () => [...nav.querySelectorAll(':scope > a')];
     more.hidden = false;
-    while (nav.scrollWidth > nav.clientWidth + 1 && onRow().some((a) => !a.classList.contains('on'))) {
+    // The row may be wider than what shows (a phone, a clipped column): fit to the part on screen.
+    const left = nav.getBoundingClientRect().left;
+    const avail = Math.min(nav.clientWidth, document.documentElement.clientWidth - Math.max(0, left) - 8);
+    while (nav.scrollWidth > avail + 1 && onRow().some((a) => !a.classList.contains('on'))) {
       const pick = onRow().reverse().find((a) => !a.classList.contains('on'));
       menu.prepend(pick);
     }
@@ -45,5 +48,7 @@ export function fitTabs(nav) {
   let w = -1;
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (nav.clientWidth !== w) { w = nav.clientWidth; fit(); } }).observe(nav);
   else requestAnimationFrame(fit);
+  // The window narrowing can clip the row without resizing it.
+  addEventListener('resize', () => { if (nav.isConnected) fit(); });
   return fit;
 }

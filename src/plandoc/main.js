@@ -310,7 +310,7 @@ function CoverTool(pd) {
     h('div', { class: 'pd-cover-grid' }, COVERS.map((c) => h('button', { type: 'button', class: `pd-cover-pick k-${c.id}${(pd.cover ?? 'template') === c.id ? ' on' : ''}`, 'aria-pressed': String((pd.cover ?? 'template') === c.id), onclick: () => touch(pd, { cover: c.id }) },
       h('span', { class: 'pd-cover-thumb', 'aria-hidden': 'true' }, h('i'), h('b'), c.id === 'mosaic' && [h('em'), h('em')]), h('span', {}, c.label)))),
     h('h3', { class: 'pd-h3' }, 'Photo'),
-    h('p', { class: 'pd-hint' }, 'Nature photos from the Web plugin's photo library. One click puts it on the cover.'),
+    h('p', { class: 'pd-hint' }, 'Nature photos from the Web plugin’s photo library. One click puts it on the cover.'),
     h('div', { class: 'pd-photo-strip' }, nature.map((p) => h('button', { type: 'button', class: `pd-photo${img?.photoId === p.id ? ' on' : ''}`, title: `${p.title} · ${photoCredit(p)}`, 'aria-label': p.title, 'aria-pressed': String(img?.photoId === p.id),
       onclick: () => touch(pd, { images: { ...pd.images, cover: libraryImage(p) } }) }, h('img', { src: photoThumb(p), alt: '', loading: 'lazy' })))),
     h('button', { type: 'button', class: 'btn btn-sm w-full', onclick: () => pickCover('cover', 'the cover') }, icon('image', 14), 'More pictures: art, photos, upload'),
