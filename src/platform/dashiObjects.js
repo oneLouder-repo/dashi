@@ -206,7 +206,7 @@ export function strategySvg(outline, { orgName = '', colours = {} } = {}) {
     bottom = Math.max(bottom, cy);
   });
   if (!outline.objectives.length) {
-    parts.push(`<text x="${pad}" y="${y + 30}" font-size="18" fill="${c.ink}" opacity="0.6">Add objectives and goals to this plan in Strategy &amp; Work.</text>`);
+    parts.push(`<text x="${pad}" y="${y + 30}" font-size="18" fill="${c.ink}" opacity="0.6">Add objectives and goals to this plan in Plan.</text>`);
     bottom = y + 60;
   }
   const H = bottom + 34;

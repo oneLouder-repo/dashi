@@ -103,8 +103,8 @@ function create(planId) {
 }
 
 function drawSide(pd) {
-  // The same panel as the rest of Strategy & Work (strategy/swNav.js), then this page's own documents.
-  side = swapSide(side, SideNav({ label: 'Strategy & Work', sections: swSections({ page: 'plandoc', planId: pd?.planId ?? null, strategy, extra: [
+  // The same panel as the rest of Plan (strategy/swNav.js), then this page's own documents.
+  side = swapSide(side, SideNav({ label: 'Plan', sections: swSections({ page: 'plandoc', planId: pd?.planId ?? null, strategy, extra: [
     { title: 'Plan documents', fold: 'sw-plandocs', items: Object.values(doc.docs).map((d) => ({
       label: d.text?.title || strategy.nodes[d.planId]?.title || 'A removed plan', sub: [d.status === 'published' ? `Published${d.release ? `, v${d.release.version}` : ''}` : 'Draft', d.text?.title && strategy.nodes[d.planId]?.title].filter(Boolean).join(' · '), icon: 'doc', href: `#${d.id}`, on: d.id === pd?.id,
     })) },
@@ -121,13 +121,13 @@ function render() {
     stage.replaceChildren(
       h('div', { class: 'card empty-card' }, plans().length
         ? [h('p', {}, 'Pick a plan on the left to make its document.'), h('button', { class: 'btn btn-primary btn-sm', onclick: () => create(plans()[0].id) }, `Make one for “${plans()[0].title}”`)]
-        : h('p', {}, 'Add a strategic plan in Strategy & Work first: its mission, vision, objectives and goals fill the document.')));
+        : h('p', {}, 'Add a strategic plan in Plan first: its mission, vision, objectives and goals fill the document.')));
     return;
   }
   const snap = planSnapshot(strategy, data, pd.planId, org);
   if (!snap) {
     panel.hidden = true;
-    stage.replaceChildren(h('div', { class: 'card empty-card' }, h('p', {}, 'The plan this document was made from is gone from Strategy & Work.'),
+    stage.replaceChildren(h('div', { class: 'card empty-card' }, h('p', {}, 'The plan this document was made from is gone from Plan.'),
       h('button', { class: 'btn btn-sm', onclick: () => { delete doc.docs[pd.id]; saveDoc('plandocs', doc); location.hash = ''; render(); } }, 'Delete this document')));
     return;
   }
@@ -310,7 +310,7 @@ function CoverTool(pd) {
     h('div', { class: 'pd-cover-grid' }, COVERS.map((c) => h('button', { type: 'button', class: `pd-cover-pick k-${c.id}${(pd.cover ?? 'template') === c.id ? ' on' : ''}`, 'aria-pressed': String((pd.cover ?? 'template') === c.id), onclick: () => touch(pd, { cover: c.id }) },
       h('span', { class: 'pd-cover-thumb', 'aria-hidden': 'true' }, h('i'), h('b'), c.id === 'mosaic' && [h('em'), h('em')]), h('span', {}, c.label)))),
     h('h3', { class: 'pd-h3' }, 'Photo'),
-    h('p', { class: 'pd-hint' }, 'Nature photos from the Public Portal library. One click puts it on the cover.'),
+    h('p', { class: 'pd-hint' }, 'Nature photos from the Web plugin's photo library. One click puts it on the cover.'),
     h('div', { class: 'pd-photo-strip' }, nature.map((p) => h('button', { type: 'button', class: `pd-photo${img?.photoId === p.id ? ' on' : ''}`, title: `${p.title} · ${photoCredit(p)}`, 'aria-label': p.title, 'aria-pressed': String(img?.photoId === p.id),
       onclick: () => touch(pd, { images: { ...pd.images, cover: libraryImage(p) } }) }, h('img', { src: photoThumb(p), alt: '', loading: 'lazy' })))),
     h('button', { type: 'button', class: 'btn btn-sm w-full', onclick: () => pickCover('cover', 'the cover') }, icon('image', 14), 'More pictures: art, photos, upload'),
@@ -423,7 +423,7 @@ function PartSettings(pd, snap, id) {
     a.kind === 'text' && h('p', { class: 'pd-hint' }, a.style === 'quote' ? 'Click the quote on the page to write it, and the name under it.' : 'Click the words on the page to write. Select words for bold, lists and links.'),
     a.kind === 'image' && h('div', { class: 'pd-two' }, pic(0, a.style === 'pair' ? 'First photo' : 'Change the photo'), a.style === 'pair' && pic(1, 'Second photo')),
     a.kind === 'data' && [
-      h('p', { class: 'pd-hint' }, measures.length ? `Pick up to ${MAX_AREA_MEASURES}. With none picked, the page shows the plan’s headline numbers.` : 'This plan has no measures yet. Add them in Strategy & Work.'),
+      h('p', { class: 'pd-hint' }, measures.length ? `Pick up to ${MAX_AREA_MEASURES}. With none picked, the page shows the plan’s headline numbers.` : 'This plan has no measures yet. Add them in Plan.'),
       h('div', { class: 'pd-measure-pick' }, measures.map((m) => h('label', { class: 'pd-check' },
         h('input', { type: 'checkbox', class: 'checkbox checkbox-xs', checked: chosen.includes(m.id), disabled: !chosen.includes(m.id) && chosen.length >= MAX_AREA_MEASURES,
           onchange: (e) => setArea({ measureIds: e.target.checked ? [...chosen, m.id] : chosen.filter((x) => x !== m.id) }) }),
@@ -633,7 +633,7 @@ function publish(pd, snap) {
   // No site chosen yet: the first public one (and say so).
   let siteId = pd.siteId;
   if (!siteId) siteId = Object.values(org.sites ?? {}).find((x) => x.visibility === 'public')?.id ?? null;
-  if (!siteId) { toast('Add a public site in the Public Portal first, then publish to it.'); return; }
+  if (!siteId) { toast('Add a public site in Web first, then publish to it.'); return; }
   refreshStories(pd);
   const patch = releasePatch(pd, snap, me?.id ?? null);
   touch(pd, { ...patch, siteId }, { keep: false });

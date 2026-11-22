@@ -99,7 +99,7 @@ function render() {
                     h('a', { href: linkTo('strategy', `#${t.id}`) }, t.title),
                     h('small', {}, docs.strategy.nodes[t.parentId]?.title ?? '')),
                   h('span', { class: `me-when ${g.id}` }, t.end ? short(t.end) : 'No date')))))))
-          : empty('No tasks assigned to you. When someone assigns you one in Strategy & Work, it shows here.'),
+          : empty('No tasks assigned to you. When someone assigns you one in Plan, it shows here.'),
           { icon: 'features', cls: 'tasks' }),
         card('My workplans', myWorkplans.length, myWorkplans.length
           ? h('ul', { class: 'me-workplans' }, myWorkplans.map((w) => {
@@ -134,7 +134,7 @@ function render() {
           : empty('You don’t own or belong to any maps yet.'), { icon: 'sec-mapper' }),
         card('Dashboards I made', myDashboards.length, myDashboards.length
           ? h('ul', { class: 'me-links' }, myDashboards.map((d) => h('li', {}, h('a', { href: linkTo('palette', `#${d.id}`) }, d.title), h('small', {}, `${d.widgets.length} widgets · ${d.visibility}`))))
-          : empty('Make one from an objective in Strategy & Work, or in the Data Workbench.'), { icon: 'sec-data' }),
+          : empty('Make one from an objective in Plan, or in the Data Workbench.'), { icon: 'sec-data' }),
         myShows.length > 0 && card('Shows I host', myShows.length,
           h('ul', { class: 'me-links' }, myShows.map((p) => h('li', {}, h('a', { href: linkTo('podcasts', `#series/${p.id}`) }, p.title), h('small', {}, p.category)))), { icon: 'sec-podcasts' }))),
     h('p', { class: 'note' }, session() ? 'Your name, title, picture, contact details, bio and the areas you follow are yours to change. Your role and teams are set by your organisation’s admin.' : 'Accounts are mocked for now: use the menu under your picture (top right) to see the platform as anyone in the org.'),
@@ -169,7 +169,7 @@ async function editProfile(me, update, emailLocked) {
 async function chooseAreas(me, areas, update) {
   const picked = new Set(me.interests ?? []);
   const out = await uiPanel({
-    title: 'Areas you follow', message: 'Objectives and goals from Strategy & Work. Followed ones show on your profile with their progress.', ok: 'Save', cancel: 'Cancel',
+    title: 'Areas you follow', message: 'Objectives and goals from Plan. Followed ones show on your profile with their progress.', ok: 'Save', cancel: 'Cancel',
     build: (set) => {
       set([...picked]);
       return h('ul', { class: 'me-pick' }, areas.map((n) => h('li', {}, h('label', {},

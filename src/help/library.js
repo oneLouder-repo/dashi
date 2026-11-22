@@ -22,8 +22,8 @@ export const HELP_SHOTS = {
   'plugins-tree': 'Organisation → Plugins: sub-plugins sit under their parent and only work when it does.',
   'access-one-person': 'Open a plugin to set it off (or on) for one person, whatever their role.',
   'domain-check': 'Organisation → Domain checks a new address as you type.',
-  'portal-data': 'The Data Workbench now lives in the Public Portal, under Data.',
-  'studio-in-strategy': 'The Planning Studio now lives inside Strategy & Work.',
+  'portal-data': 'The Data Workbench now lives in Web, under Data.',
+  'studio-in-strategy': 'The Planning Studio now lives inside Plan.',
   'library-in-assets': 'The Library now lives inside Assets.',
   'palette-builder': 'The palette builder: pick a colour, then adjust its shade, strength and lightness.',
   'station-colours': 'The podcast station can follow the site or wear colours of its own.',
@@ -38,11 +38,11 @@ export const HELP_SHOTS = {
   'form-on-site': 'The same form on the public site, one question at a time.',
   'toc-layers': 'Theory layers: what the plan already says, and new thinking on a layer of its own.',
   'toc-send': 'Send to plan: a tray shows the drafts before anything changes.',
-  'plan-drafts': 'A draft in Strategy & Work, with Accept and Discard.',
+  'plan-drafts': 'A draft in Plan, with Accept and Discard.',
   'results-v2': 'Results, grouped by objective, each saying where it comes from.',
   'roadmap-dusk': 'The roadmap: green objective signposts, white goal signs and traffic lights.',
   'asset-sunburst': 'The asset map as a sunburst: types, then collections, then assets.',
-  'framework-sunburst': 'The whole framework as a sunburst on the Strategy & Work overview.',
+  'framework-sunburst': 'The whole framework as a sunburst on the Plan overview.',
   'mapper-share': 'The mapper: its panel beside the board, and the Share menu.',
   'graph-unfold': 'Graph search: CIFAR in the middle, its network unfolding ring by ring.',
   'graph-path': 'The way from CIFAR to Apple Education, each link named.',
@@ -54,7 +54,7 @@ export const HELP_SHOTS = {
   'place-map': 'Place: Kestrel Bay on its drawn map, with place outlines, actors, stories and the links between them.',
   'place-tray': 'A place’s tray: what’s here, who serves it from elsewhere, and the places inside it.',
   'rhizome-tips': 'The review queue: an excerpt from the web waits to be put in your own words.',
-  'rhizome-output': 'The Output tab: a report pack on paper, ready to save as a PDF.',
+  'rhizome-output': 'The Report tab: a report pack on paper, ready to save as a PDF.',
   'rhizome-rack': 'The twin racks: controls on the left, screens and engines on the right, cabled together.',
 };
 // Place took 7, Teach and Learn 8.
@@ -145,7 +145,7 @@ A key only reads, and only the graph. Revoke it at any time.
           body: `An organisation often has a plan but no theory of change. The theory of change now starts from the plan, and can grow new thinking beside it.
 
 # Bring the plan in as a layer
-1. Open **Strategy & Work → Planning Studio**, pick a plan, then **Theory of change**.
+1. Open **Plan → Planning Studio**, pick a plan, then **Theory of change**.
 2. Press **Bring in the plan as a layer**. Its objectives, goals and workplans appear, linked the way the plan nests them, on the **From the plan** layer.
 
 # Add new thinking
@@ -156,13 +156,13 @@ A key only reads, and only the graph. Revoke it at any time.
 
 # Send it to the plan as drafts
 1. Press **Send to plan**. A tray shows what it would make: each lasting change becomes an objective, each early change a goal, what you do a workplan, and what it produces a task. Pick which layers to send.
-2. Press **Send as drafts**. Nothing is final yet: they arrive in Strategy & Work as drafts, striped and marked **Draft**, and stay out of reports.
+2. Press **Send as drafts**. Nothing is final yet: they arrive in Plan as drafts, striped and marked **Draft**, and stay out of reports.
 3. Change the theory and send again: the drafts are updated, not doubled.
 
 [[shot:toc-send]]
 
 # Accept or discard
-In **Strategy & Work → Framework**, open a draft and press **Accept** (it keeps the drafts above it too), **Discard**, or **Accept all**.
+In **Plan → Framework**, open a draft and press **Accept** (it keeps the drafts above it too), **Discard**, or **Accept all**.
 
 [[shot:plan-drafts]]
 
@@ -183,7 +183,7 @@ The assumptions behind each link, and any signposts, go into the draft's notes.`
           id: 'roadmap-sunbursts',
           title: 'The roadmap and the sunbursts',
           body: `# A calmer roadmap
-**Strategy & Work → Roadmap** is shorter and duskier. Below the road, **green signposts** name the strategic objectives (O1, O2…) like freeway signs, then **white signs** for goals, one light per workplan. Above the road, each workplan is a **traffic light**.
+**Plan → Roadmap** is shorter and duskier. Below the road, **green signposts** name the strategic objectives (O1, O2…) like freeway signs, then **white signs** for goals, one light per workplan. Above the road, each workplan is a **traffic light**.
 
 [[shot:roadmap-dusk]]
 
@@ -193,7 +193,7 @@ The assumptions behind each link, and any signposts, go into the draft's notes.`
 [[shot:asset-sunburst]]
 
 # The whole framework as a sunburst
-The **Strategy & Work overview** has the whole framework as a sunburst: plans, objectives, goals, workplans and tasks, coloured by objective. A workplan's outline is its traffic light and drafts are striped. The panel beside it shows what's in the middle, or whatever you point at, with its progress; click a task to keep it there.
+The **Plan overview** has the whole framework as a sunburst: plans, objectives, goals, workplans and tasks, coloured by objective. A workplan's outline is its traffic light and drafts are striped. The panel beside it shows what's in the middle, or whatever you point at, with its progress; click a task to keep it there.
 
 [[shot:framework-sunburst]]`,
         },
@@ -204,7 +204,7 @@ The **Strategy & Work overview** has the whole framework as a sunburst: plans, o
 
 - **The panel is beside the board**, where other plugins have their sidebar, not on top of the map. Drag its edge to resize it, or tuck it away from **View**.
 - **The top bar is styled like the ribbon** on other plugins' pages, with **Works with** links on the right.
-- **Share** holds what was under File, Connect and People: who can edit the map, saving a copy or a picture, opening a map file, and using the map in Strategy & Work, Assets and the Library.
+- **Share** holds what was under File, Connect and People: who can edit the map, saving a copy or a picture, opening a map file, and using the map in Plan, Assets and the Library.
 - Help on the map type is under **View → About this map type**, and in the top bar's **?**.
 
 [[shot:mapper-share]]`,
@@ -223,10 +223,10 @@ The **Strategy & Work overview** has the whole framework as a sunburst: plans, o
           body: `Alpha 0.2 is about plugins that own their own data, screens and designers. Each guide in this section takes a few minutes.
 
 # Where things moved
-- **Planning Studio** is now inside **Strategy & Work** (it needs Strategy & Work to be on).
-- **Data Workbench** (dashboards, program data, postcards, calculators, stories, feedback forms and funder reports) is now in the **Public Portal**, under **Data**.
+- **Planning Studio** is now inside **Plan** (it needs Plan to be on).
+- **Data Workbench** (dashboards, program data, postcards, calculators, stories, feedback forms and funder reports) is now in **Web**, under **Data**.
 - **Library** is now inside **Assets**.
-- The separate podcast and publishing mini-tools are gone: use **Podcasts** and the **Public Portal**.
+- The separate podcast and publishing mini-tools are gone: use **Listen** and **Web**.
 
 [[shot:studio-in-strategy]]
 
@@ -266,7 +266,7 @@ A menu item or link to a plugin someone can't use simply isn't there. If they op
           title: 'Make your own colours',
           body: `Start from any palette and adjust it until it's exactly your shade.
 
-1. Open **Public Portal → Look and feel**, and find **Colours and shape**.
+1. Open **Web → Look and feel**, and find **Colours and shape**.
 2. Pick the palette closest to yours.
 3. Click a colour (main, second, accent, dark, page or text) and adjust it: type a hex code, pick from the shade strip, or move the **hue**, **strength** and **lightness** sliders. The preview follows as you go.
 4. Watch the contrast badge. **AA** or **AAA** means text is easy to read. If a pair turns red, press **fix the text colours**.
@@ -277,7 +277,7 @@ A menu item or link to a plugin someone can't use simply isn't there. If they op
 An adjusted palette remembers where it started ("Emerald, adjusted"), and **Back to Emerald** undoes everything.
 
 # The podcast station's colours
-In **Podcasts → Public station**, choose **Same as the site**, or give the station a palette of its own, brand palettes included.
+In **Listen → Public station**, choose **Same as the site**, or give the station a palette of its own, brand palettes included.
 
 [[shot:station-colours]]`,
         },
@@ -286,7 +286,7 @@ In **Podcasts → Public station**, choose **Same as the site**, or give the sta
           title: 'Edit a page where it stands',
           body: `Staff who can write pages can change them right on the public site.
 
-1. Open your site while signed in (or press **Edit on the page** in the Public Portal page editor).
+1. Open your site while signed in (or press **Edit on the page** in Web page editor).
 2. Turn on **Edit this page** in the staff bar at the top.
 3. Click the title or any paragraph and type. Use **+** to add a block (paragraph, heading, list, quote or embed), drag or use the arrows to move one, and the bin to remove it.
 4. It saves as you go. Turn the switch off to see the page as visitors do.
@@ -296,7 +296,7 @@ In **Podcasts → Public station**, choose **Same as the site**, or give the sta
         {
           id: 'podcast-studio',
           title: 'Make an episode in the Podcast Studio',
-          body: `The studio is a multitrack recorder and editor, in **Podcasts → Studio**. It works best on a laptop or desktop with headphones.
+          body: `The studio is a multitrack recorder and editor, in **Listen → Studio**. It works best on a laptop or desktop with headphones.
 
 # 1. Start a session
 Under **Start a session**, pick a template: **Interview**, **Solo show**, **Panel**, **Radio hour** or **Blank**. Each comes with voice, music and effects tracks.
@@ -321,7 +321,7 @@ Press **M** to drop a chapter marker, and name it in the **Chapters** tab. The *
 [[shot:studio-pads]]
 
 # 5. Send it out
-**Download WAV** saves the mix. **Send to the station** makes a draft episode with the audio and chapters. Finish it in Podcasts and publish when you're ready.`,
+**Download WAV** saves the mix. **Send to the station** makes a draft episode with the audio and chapters. Finish it in Listen and publish when you're ready.`,
         },
         {
           id: 'asset-map',
@@ -349,7 +349,7 @@ In the focused view, drag an asset onto another kind's chip at the top. On the o
         {
           id: 'form-designer',
           title: 'Design a feedback form',
-          body: `Feedback forms ask the people who read your numbers what they make of them. Answers are anonymous. Find them in **Public Portal → Feedback forms**.
+          body: `Feedback forms ask the people who read your numbers what they make of them. Answers are anonymous. Find them in **Web → Feedback forms**.
 
 1. Press **New form**. It starts with three good questions.
 2. Open **Design the form**. The middle shows the form just as visitors will see it, in your site's colours.
@@ -403,7 +403,7 @@ Answers come back to the **Answers** tab, with stars, scales and choices added u
 - [ ] **To library** keeps the map as a file in the Library; open it again from there.
 
 # If you plan
-- [ ] In **Strategy & Work**, add an objective, a goal, a workplan and a few tasks with dates and people.
+- [ ] In **Plan**, add an objective, a goal, a workplan and a few tasks with dates and people.
 - [ ] Attach assets to a task: an actor, a whole map, a document.
 - [ ] Make the plan document in the **Plan designer** and look at its web view.
 
@@ -476,7 +476,7 @@ Your reports are under **Help → Support**. Replies arrive there and by email. 
 - **Tidy** (beside Fit) spaces the actors out for the lens you're on. Each stays in its zone and layer; Undo puts them back.
 - Put actors into **groups** to show coalitions or sectors, give a group a description, and move it (with its connectors) to its own layer to show and hide it.
 - **Data viz** (D): click an actor or connector to light up everything it's connected to for 15 seconds while the rest dims.
-- A task in Strategy & Work can point at map actors as assets, so work and the ecosystem stay linked.
+- A task in Plan can point at map actors as assets, so work and the ecosystem stay linked.
 - Members of a map can edit it; everyone else in the organisation can view it.`,
         },
         {
@@ -521,15 +521,15 @@ Its iceberg rows run from events (macro), through patterns and structures (meso)
         {
           id: 'your-station',
           title: 'Your station',
-          body: `**Podcasts** gives your organisation its own station: a public page with your shows, organised by season, with a player that keeps playing as listeners move around your site.
+          body: `**Listen** gives your organisation its own station: a public page with your shows, organised by season, with a player that keeps playing as listeners move around your site.
 
 # Set it up
-1. In Podcasts, open **Station**. Give it a name, a tagline and some art.
+1. In Listen, open **Station**. Give it a name, a tagline and some art.
 2. Choose the **public site** the station lives on. The site must be public for listeners to find it.
 3. Choose how it looks: the player, the cover art style and the top of the page. These sit on top of your organisation's colours.
 4. Mark the shows to **feature**. Featured shows lead the station page, in the order you set.
 
-If Podcasts isn't in your header, ask your platform admin to switch it on for your organisation.`,
+If Listen isn't in your header, ask your platform admin to switch it on for your organisation.`,
         },
         {
           id: 'publishing-episodes',
@@ -540,7 +540,7 @@ If Podcasts isn't in your header, ask your platform admin to switch it on for yo
 The Workbench has a **Podcast publishing** mini-tool: pick a show and season, choose a file, give it a title, and publish it now, schedule it, or save it as a draft. Drafts and scheduled episodes are listed there with a **Publish now** button.
 
 # With all the details
-In Podcasts, open a show and press **Add episode**. There you can also write show notes (bold, italic, lists and links work), choose the episode type (full, trailer or bonus), and credit the people in it.
+In Listen, open a show and press **Add episode**. There you can also write show notes (bold, italic, lists and links work), choose the episode type (full, trailer or bonus), and credit the people in it.
 
 # Who can hear what
 - **Draft**: only staff can see it.
@@ -567,7 +567,7 @@ The fields follow [Castopod](https://castopod.org)'s model, so moving to a Casto
         {
           id: 'making-a-dashboard',
           title: 'Making a dashboard',
-          body: `Dashboards live in the **Data Workbench**. They are built from the measures you give objectives and goals in Strategy & Work.
+          body: `Dashboards live in the **Data Workbench**. They are built from the measures you give objectives and goals in Plan.
 
 1. In the Data Workbench, open **Dashboards**.
 2. Pick an objective or goal under **Start from** and press **Create dashboard**. You get a widget for each of its measures. Or start blank.
@@ -579,7 +579,7 @@ The fields follow [Castopod](https://castopod.org)'s model, so moving to a Casto
           title: 'Keeping the numbers current',
           body: `The **Program data** mini-tool in the Workbench holds the monthly value of each measure. Change a number and every dashboard and public site using it updates.
 
-The **Strategic data** tab in Strategy & Work shows every measure's latest value against its target, so you can see where data is missing or out of date.`,
+The **Strategic data** tab in Plan shows every measure's latest value against its target, so you can see where data is missing or out of date.`,
         },
         {
           id: 'sharing',
@@ -603,18 +603,18 @@ Both publish like dashboards: make one public and choose a site. Calculators sho
       id: 'studio',
       title: 'Planning Studio',
       icon: 'studio',
-      blurb: 'Inside Strategy & Work. Facilitate a strategic plan together: SOAR, context, results, and wiring ideas into objectives and goals.',
+      blurb: 'Inside Plan. Facilitate a strategic plan together: SOAR, context, results, and wiring ideas into objectives and goals.',
       pages: [
         {
           id: 'studio-flow',
           title: 'From SOAR to a plan',
-          body: `The Planning Studio works on the plans in your strategic framework (the same ones as in Strategy & Work). Each plan has:
+          body: `The Planning Studio works on the plans in your strategic framework (the same ones as in Plan). Each plan has:
 
 - **Plan home:** its dates, the mission and vision it serves, its operating context and its planning team.
 - **SOAR board:** one big shared canvas with the four quadrants meeting in the middle. Double-click anywhere to add a sticky note, drag notes to move them (into another quadrant too), and click the dot to vote. The nearer a note is to the centre, the more it matters: its border is thickest (5px) at the centre and thins out further away. Drag the background to pan, use − and + (or Ctrl/⌘ + scroll) to zoom, and **Centre** to come back. **Rank by dots** moves the most-voted notes closest in. Everyone with the plan open sees changes as they save.
 - **Strengths, Opportunities, Aspirations:** the same cards as lists, most dotted first, where you can say more and link assets with the asset chooser.
-- **Results:** a grid of result cards, each with an indicator, baseline, target, source and how often it is measured. Link a Strategy & Work measure to use its live data.
-- **Assemble:** drag cards, context, results and assets onto the canvas, add goals, objectives and workplans, and patch outlets into inlets: ideas and workplans into goals, goals into objectives, objectives into the plan. **Bring in the plan** lays out the plan as it already stands in Strategy & Work, so you can see and rearrange the whole thing. Renaming a block that is already in the plan renames it there too; a workplan's link opens it in Strategy & Work for dates, people and tasks. **Send to plan** makes anything new in Strategy & Work, and sending again updates rather than copies. Zoom with − and +, and **Centre** fits everything in view.`,
+- **Results:** a grid of result cards, each with an indicator, baseline, target, source and how often it is measured. Link a Plan measure to use its live data.
+- **Assemble:** drag cards, context, results and assets onto the canvas, add goals, objectives and workplans, and patch outlets into inlets: ideas and workplans into goals, goals into objectives, objectives into the plan. **Bring in the plan** lays out the plan as it already stands in Plan, so you can see and rearrange the whole thing. Renaming a block that is already in the plan renames it there too; a workplan's link opens it in Plan for dates, people and tasks. **Send to plan** makes anything new in Plan, and sending again updates rather than copies. Zoom with − and +, and **Centre** fits everything in view.`,
         },
         {
           id: 'studio-live',
@@ -634,7 +634,7 @@ Ctrl+Z (or ⌘+Z) undoes your own last change.`,
         {
           id: 'how-sites-work',
           title: 'How a site is put together',
-          body: `An organisation can have several sites, each **public** or **private** (staff and board only). Set them up in the **Public Portal**: add a site from the overview, and pick its colours and shapes under **Look and feel**.
+          body: `An organisation can have several sites, each **public** or **private** (staff and board only). Set them up in **Web**: add a site from the overview, and pick its colours and shapes under **Look and feel**.
 
 - **Home**: the site's public dashboards, with the latest news and the newest episode above them.
 - **Menu**: pages marked "In the menu", then News and the podcast station when the site has them.
@@ -645,7 +645,7 @@ Visitors only ever see what is published: public dashboards, published episodes 
         {
           id: 'pages-and-news',
           title: 'Pages and news',
-          body: `**Public Portal** (formerly Web views, and Sites & Pages before that) is where you write information pages and news articles.
+          body: `**Web** (formerly the Public Portal, Web views, and Sites & Pages before that) is where you write information pages and news articles.
 
 # Writing
 Bodies use light markdown: **bold**, _italic_, lists, links, quotes and headings that start with #.

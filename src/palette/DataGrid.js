@@ -47,7 +47,7 @@ export function DataGrid(ctx) {
   // A message from the last change (pasted, imported), shown once after the redraw it causes.
   let pending = st.msg ?? null;
   st.msg = null;
-  if (!cols.length) return h('p', { class: 'empty' }, 'Add measures to objectives or goals in Strategy & Work first.');
+  if (!cols.length) return h('p', { class: 'empty' }, 'Add measures to objectives or goals in Plan first.');
 
   // Months: from the first with data to this month (or the last with data, if later).
   const known = dataMonths(doc);

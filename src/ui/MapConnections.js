@@ -54,7 +54,7 @@ export async function linkToStrategy(ctx, { actor = null } = {}) {
       } },
       h('span', { class: 'pick-glyph' }, NODE_TYPES[n.type].glyph),
       h('span', { class: 'pick-text' }, h('strong', {}, n.title || 'Untitled'), h('small', {}, `${NODE_TYPES[n.type].label}${parentTitle(n) ? ` · ${parentTitle(n)}` : ''}`)),
-      h('span', { class: 'pick-state' }, has(n) ? [icon('check', 14), ' Linked'] : 'Link')))) : [h('li', { class: 'muted' }, nodes.length ? 'Nothing matches.' : 'There are no workplans or tasks yet. Make some in Strategy & Work.')]));
+      h('span', { class: 'pick-state' }, has(n) ? [icon('check', 14), ' Linked'] : 'Link')))) : [h('li', { class: 'muted' }, nodes.length ? 'Nothing matches.' : 'There are no workplans or tasks yet. Make some in Plan.')]));
   };
   draw();
   await uiPanel({

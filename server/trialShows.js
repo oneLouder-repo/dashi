@@ -3,7 +3,7 @@
  * `npm run clients`, the made-up Kestrel Bay org gets ten short slideshow
  * shows to play with (src/podcasts/show/trials.js), each as
  *
- *   - an audio file (the mix) carrying its slides, in Podcasts → Studio → Audio files,
+ *   - an audio file (the mix) carrying its slides, in Listen → Studio → Audio files,
  *   - a studio session (voice and music on their own tracks, the slides above them),
  *   - a published episode in the series "Kestrel in a Minute", with its slides and chapters.
  *

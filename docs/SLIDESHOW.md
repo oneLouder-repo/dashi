@@ -1,6 +1,6 @@
 # Slideshow podcasts
 
-A slideshow podcast is a podcast's audio with a deck of phone-card slides timed to it, like a short film. People make one in **Podcasts → Studio** (the *Slideshow podcast* template, or any session with slides), and it plays on episodes, on the station and inside Learn cartridges.
+A slideshow podcast is a podcast's audio with a deck of phone-card slides timed to it, like a short film. People make one in **Listen → Studio** (the *Slideshow podcast* template, or any session with slides), and it plays on episodes, on the station and inside Learn cartridges.
 
 Code:
 

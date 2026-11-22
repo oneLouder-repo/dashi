@@ -20,7 +20,7 @@ import { mapDocName } from '../platform/maps.js';
  *   View ▾                 the panel and its sections, the board's grid and hover cards, zoom, help
  *   Share ▾                people who can edit it, files and pictures, and the map in
  *                          Strategy, Assets and the Library (File, Connect and People until PR 10)
- *   Works with             Assets and Strategy & Work, as in every plugin's ribbon
+ *   Works with             Assets and Plan, as in every plugin's ribbon
  *
  * Since PR 10 it is styled like the page ribbon other plugins have, and,
  * like it, has no help button: help is in the top bar (and View ▾).
@@ -87,7 +87,7 @@ export function TopBar(el, ctx) {
       { label: 'Open a map file…', icon: 'folderOpen', hint: 'A .dashi-map.json file', onclick: () => fileInput.click() },
       { label: 'New map…', icon: 'plus', onclick: async () => { const t = await uiPrompt('Name', 'Untitled map', { title: 'New ecosystem map', ok: 'Create map' }); if (t?.trim()) ctx.actions.newMap(t.trim()); } },
       (has('strategy') || has('assets') || has('library')) && 'sep',
-      has('strategy') && { heading: 'Strategy & Work' },
+      has('strategy') && { heading: 'Plan' },
       has('strategy') && { label: 'Link the map to workplans or tasks…', icon: 'sec-strategy', hint: uses.length ? `Used ${uses.length} time${uses.length === 1 ? '' : 's'}: ${[...new Set(uses.map((u) => u.node.title))].slice(0, 3).join(', ')}` : 'List it among their assets', onclick: () => linkToStrategy(ctx) },
       has('strategy') && actor && { label: `Link “${actor.label || 'Untitled'}” to workplans or tasks…`, icon: actor.kind === 'agent' ? 'agent' : 'actor', onclick: () => linkToStrategy(ctx, { actor }) },
       has('assets') && { heading: 'Assets' },

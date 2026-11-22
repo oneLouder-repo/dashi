@@ -6,7 +6,7 @@
  *   Relation { from, rel, to, source, kind, weight?, basis?, ... }
  *
  * One adapter per plugin turns that plugin's documents into facts:
- * Ecosystem maps, Assets, Strategy & Work, and the Planning Studio (SOAR
+ * Ecosystem maps, Assets, Plan, and the Planning Studio (SOAR
  * cards, context, the assembler's wires and the theory of change). People
  * come from the org. Each adapter runs only when its plugin is on for the
  * person (`plugins`, a Set of ids), so nobody gets facts from a plugin they
@@ -32,7 +32,7 @@ import { zoneOf, LENS_ZONES } from './zones.js';
 export const FACT_SOURCES = [
   { id: 'mapper', label: 'Ecosystem maps', icon: 'sec-mapper' },
   { id: 'assets', label: 'Assets', icon: 'sec-assets' },
-  { id: 'strategy', label: 'Strategy & Work', icon: 'sec-strategy' },
+  { id: 'strategy', label: 'Plan', icon: 'sec-strategy' },
   { id: 'studio', label: 'Assembler and theory of change', icon: 'sec-studio' },
   { id: 'org', label: 'People', icon: 'person' },
   { id: 'place', label: 'Place', icon: 'globe' },
@@ -83,7 +83,7 @@ export function addFactAdapter(id, build, { doc = id } = {}) {
 
 const SOAR = { s: 'Strength', o: 'Opportunity', a: 'Aspiration', r: 'Result' };
 
-/** The entity id of an asset as Strategy & Work and the assembler hold it ({ kind, ref, mapId } or { type, id, mapId }). */
+/** The entity id of an asset as Plan and the assembler hold it ({ kind, ref, mapId } or { type, id, mapId }). */
 export function assetKey(a) {
   if (!a) return null;
   if (typeof a === 'string') return a;

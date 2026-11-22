@@ -9,7 +9,7 @@ import { FEATURED_MAX, published } from '../platform/podcasts.js';
  * home as "Featured episodes". Kept as station.featuredEpisodes =
  * [{ episodeId, blurb }], in order.
  *
- *   FeaturedEpisodesBox(ctx)  the list in Podcasts → Design
+ *   FeaturedEpisodesBox(ctx)  the list in Listen → Design
  *   featureToggle(ctx, e)     the star in an episode's tray
  *
  * ctx = { doc(), store, col }

@@ -83,7 +83,8 @@ if (setupDone(doc) && canSet && !(doc.snapshots ?? []).some((s) => s.at.slice(0,
 
 const n = (count, word, plural = `${word}s`) => `${count.toLocaleString()} ${count === 1 ? word : plural}`;
 const route = () => {
-  const raw = location.hash.slice(1) || 'home';
+  // Alpha 0.4: Output became Report; old #output links still land there.
+  const raw = (location.hash.slice(1) || 'home').replace(/^output\b/, 'report');
   const i = raw.indexOf('/');
   return i < 0 ? [raw, ''] : [raw.slice(0, i), decodeURIComponent(raw.slice(i + 1))];
 };
@@ -108,7 +109,7 @@ function render() {
   if (view === 'analyses') page = Analyses(arg);
   else if (view === 'tips') page = Tips(arg);
   else if (view === 'rack') page = RackPage(arg);
-  else if (view === 'output') page = OutputPage();
+  else if (view === 'report') page = ReportPage();
   else if (view === 'about') page = About(arg);
   else if (view === 'facts') page = Facts(arg);
   else if (view === 'measures') page = Measures();
@@ -126,7 +127,7 @@ function drawSide(view) {
       { label: 'Analyses', sub: `${n(ANALYSES.length, 'canned analysis', 'canned analyses')} · ${n(RULES.length, 'rule')}`, icon: 'spark', href: '#analyses', on: view === 'analyses' },
       { label: 'The rack', sub: `${n(Object.keys(doc.patches ?? {}).length, 'patch', 'patches')} · twin racks`, icon: 'connect', href: '#rack', on: view === 'rack' },
       { label: 'Facts', sub: `${n(fc.entities, 'thing')} · ${n(fc.relations, 'tie')}`, icon: 'sec-rhizome', href: '#facts', on: view === 'facts' },
-      { label: 'Output', sub: 'Your report pack, to print or save as PDF', icon: 'file', href: '#output', on: view === 'output' },
+      { label: 'Report', sub: 'Everything Rhizome found, to print or save as PDF', icon: 'file', href: '#report', on: view === 'report' },
       { label: 'Tips', sub: `${n(TIPS.length + (tipsDoc?.approved.length ?? 0) + Object.keys(doc.ownTips ?? {}).length, 'tip')} · reading list`, icon: 'book', href: '#tips', on: view === 'tips' },
       { label: 'Measures', sub: 'Calibrated to this organisation', icon: 'chart', href: '#measures', on: view === 'measures' },
       { label: 'Set-up', sub: setupDone(doc) ? 'Context profile, run again' : `Next: ${nextStep(doc)?.label}`, icon: 'settings', href: '#setup', on: view === 'setup' },
@@ -143,7 +144,7 @@ const tabs = (current) => PluginHeader('rhizome', {
     { id: 'home', label: 'Home', icon: 'home' },
     { id: 'analyses', label: 'Analyses', icon: 'spark' },
     { id: 'rack', label: 'Rack', icon: 'connect' },
-    { id: 'output', label: 'Output', icon: 'file' },
+    { id: 'report', label: 'Report', icon: 'file' },
     { id: 'facts', label: 'Facts', icon: 'sec-rhizome' },
     { id: 'tips', label: 'Tips', icon: 'book' },
     { id: 'measures', label: 'Measures', icon: 'chart' },
@@ -423,11 +424,11 @@ function RackPage(arg) {
     Rack({ doc, save, render, ctx, canSet, toast, confirm: uiConfirm }, arg));
 }
 
-/* -------------------------------------------------------------- output */
+/* -------------------------------------------------------------- report */
 
-function OutputPage() {
+function ReportPage() {
   setCrumbs([]);
-  return h('div', { class: 'rz-page rz-page-wide' }, tabs('output'),
+  return h('div', { class: 'rz-page rz-page-wide' }, tabs('report'),
     Output({ ctx, doc, save, render, canSet, toast, org, tipsDoc: () => tipsDoc }));
 }
 
@@ -436,7 +437,7 @@ function OutputPage() {
 // The platform's tip library and review queue (the tip harvester), loaded once.
 let tipsDoc = null;
 const reviewer = can.editHelp();
-loadTips().then((t) => { tipsDoc = t; if (['tips', 'home', 'analyses', 'output'].includes(route()[0])) render(); }).catch(() => { tipsDoc = { queue: [], approved: [], rejected: [], runs: [] }; });
+loadTips().then((t) => { tipsDoc = t; if (['tips', 'home', 'analyses', 'report'].includes(route()[0])) render(); }).catch(() => { tipsDoc = { queue: [], approved: [], rejected: [], runs: [] }; });
 let tipTheme = null;
 const tipWords = (text) => String(text).split(/(\{\w+\})/).map((bit) => (/^\{\w+\}$/.test(bit) ? h('span', { class: 'rz-slot', title: 'Filled in from what matched' }, bit.slice(1, -1)) : bit));
 const ThemePill = (theme) => h('span', { class: 'rz-theme', style: `--t:${THEME_TONE[theme] ?? '#56657f'}` }, themeById[theme]?.label ?? theme);

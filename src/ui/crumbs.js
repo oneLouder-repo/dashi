@@ -68,9 +68,9 @@ function draw() {
   // Home (alpha 0.3 PR 9) has the ribbon too, so it sits like every plugin.
   const p = plugin === 'home' ? { id: 'home', name: 'Home', href: 'index.html' } : PLUGINS.find((x) => x.id === plugin);
   if (!p) { box.remove(); return; }
-  // A sub-plugin's trail starts at its parent: Public Portal / Data Workbench / Dashboards.
+  // A sub-plugin's trail starts at its parent: Web / Data Workbench / Dashboards.
   const parent = p.parent && PLUGINS.find((x) => x.id === p.parent);
-  // The studio is part of Strategy & Work now (0.2), so its own name drops out: Strategy & Work / Framework and plans.
+  // The studio is part of Plan now (0.2), so its own name drops out: Plan / Framework and plans.
   const steps = [...(parent ? [{ label: parent.name, href: parent.href }] : []), ...(p.id === 'studio' && parent ? [] : [{ label: p.name, href: p.href }])];
   if (section && !(home && !tail.length)) steps.push(section);
   steps.push(...tail);
@@ -157,7 +157,7 @@ const ACTIONS = {
   social: () => [
     { label: 'Create a post', icon: 'plus', href: own('social', '#compose'), here: '#compose' },
     { label: 'Calendar', icon: 'calendar', href: own('social', '#calendar'), here: '#calendar' },
-    { label: 'Public Portal', icon: 'globe', href: linkTo('pages') },
+    { label: 'Web', icon: 'globe', href: linkTo('pages') },
   ],
   palette: () => [
     { label: 'Dashboards', icon: 'chart', href: own('palette', '#dashboards'), here: '#dashboards' },

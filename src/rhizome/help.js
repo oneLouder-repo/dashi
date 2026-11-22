@@ -78,7 +78,7 @@ Tick analyses to add them to **your set**. **Run my set** runs them all and keep
     {
       id: 'rhizome-output',
       title: 'Your report pack',
-      body: `Open **Output** for a report of everything Rhizome found, to print, save as a PDF, or share. It's the reason to run Rhizome at all: something to take to a team meeting or a board.
+      body: `Open **Report** for a report of everything Rhizome found, to print, save as a PDF, or share. It's the reason to run Rhizome at all: something to take to a team meeting or a board.
 
 [[shot:rhizome-output]]
 

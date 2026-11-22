@@ -37,9 +37,9 @@ import { linkTo } from '../plugins.js';
  *
  *   ?site=x                   home: the site's public dashboards, calculators and stories, latest news, latest episode
  *   ?site=x&story=<id>        a data story (Workbench)
- *   ?site=x&page=<slug>       an information page or article (Public Portal plugin)
+ *   ?site=x&page=<slug>       an information page or article (Web plugin)
  *   ?site=x&view=news         every article, newest first
- *   ?site=x&view=station      the podcast station, if this site hosts it (Podcasts plugin)
+ *   ?site=x&view=station      the podcast station, if this site hosts it (Listen plugin)
  *   ?site=x&show=<id>         a show, by season
  *   ?site=x&episode=<id>      an episode
  *   ?site=x&plan=<id>         a published strategic plan document (Plan designer), printable as PDF
@@ -130,9 +130,9 @@ function render() {
   // In a staff preview of the station, show the player (not playing) so its style can be seen.
   if (hasStation && staffView && params().frame === '1' && (p.view === 'station' || p.show || p.episode)) player.show(Object.values(pod.episodes).filter((e) => published(e, now)).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))[0]);
 
-  // The org's palette and look and feel (Public Portal → Look and feel), then the station's look.
-  // Station pages can wear their own colours (Podcasts → Public station).
-  // A site's own homepage (alpha 0.3, Public Portal → Sites → Homepage): the default, the podcast station, or one of its pages.
+  // The org's palette and look and feel (Web → Look and feel), then the station's look.
+  // Station pages can wear their own colours (Listen → Public station).
+  // A site's own homepage (alpha 0.3, Web → Sites → Homepage): the default, the podcast station, or one of its pages.
   const bare = !p.view && !p.page && !p.story && !p.plan && !p.show && !p.episode && !p.doc;
   const homeKind = site?.home?.kind ?? 'default';
   const stationHome = bare && homeKind === 'station' && hasStation && site?.visibility !== 'private';
@@ -554,7 +554,7 @@ addEventListener('message', (e) => {
   docs.org = e.data.org;
   render();
 });
-// The station designer (Podcasts → Public station) sends the station the same way.
+// The station designer (Listen → Public station) sends the station the same way.
 addEventListener('message', (e) => {
   if (e.origin !== location.origin || e.data?.type !== 'dashi:podcasts' || !e.data.doc) return;
   docs.podcasts = migratePodcasts(e.data.doc);

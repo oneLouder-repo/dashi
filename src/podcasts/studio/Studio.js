@@ -21,7 +21,7 @@ import { Transport, Recorder, loadBuffer, cachedBuffer, keepBuffer, sourceKey, m
  *   #studio            sessions, and a new one from a template
  *   #studio/<id>       the editor: tracks, clips, the transport and the toolbox
  *
- * It is the Podcasts plugin's own: sessions live in the podcasts document
+ * It is the Listen plugin's own: sessions live in the podcasts document
  * (`projects`), recordings and imports are stored media like episode audio.
  *
  * ctx = { store, col, doc(), go(hash), org }
@@ -754,7 +754,7 @@ export function StudioEditor(ctx, projectId) {
   async function toEpisode() {
     const doc = ctx.doc();
     const series = doc.podcasts[project.podcastId] ?? showsInOrder(doc)[0];
-    if (!series) { uiAlert('Make a series first (Podcasts → New series), then send the session to it.'); return; }
+    if (!series) { uiAlert('Make a series first (Listen → New series), then send the session to it.'); return; }
     const existing = project.episodeId && doc.episodes[project.episodeId];
     if (existing && !(await uiConfirm(`Replace the audio and chapters of “${existing.title}” with this mix?`, { ok: 'Replace' }))) return;
     try {

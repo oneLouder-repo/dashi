@@ -1,6 +1,6 @@
 /**
  * Planning Studio: the workshop where a strategic plan is worked out,
- * before (and alongside) its objectives and goals in Strategy & Work.
+ * before (and alongside) its objectives and goals in Plan.
  * The framework and its plans live in the strategy document; this one
  * holds the planning around each plan:
  *
@@ -316,7 +316,7 @@ function seedToc(doc, strategy, planId) {
 }
 
 /**
- * Put the plan as it stands in Strategy & Work onto the Assemble canvas:
+ * Put the plan as it stands in Plan onto the Assemble canvas:
  * the plan, its objectives, their goals and the goals' workplans, wired
  * together, leaving out anything already there. Returns studio ops.
  */
@@ -550,7 +550,7 @@ export function studioFromPlans(strategy, spec = {}) {
 
 /**
  * Theory layers: each plan's theory can hold several layers of thinking.
- * "From the plan" holds what was laid out from Strategy & Work; "New
+ * "From the plan" holds what was laid out from Plan; "New
  * thinking" holds what the team adds; more can be named. A layer can be
  * hidden on the board. Layers live on the plan's studio record as
  * { id, name, hue }; a toc item's layer is x.layer, or, when it has none,

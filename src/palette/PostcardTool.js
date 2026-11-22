@@ -21,7 +21,7 @@ const withUnit = (v, unit) => (unit === '%' ? `${num(v)}%` : num(v));
 
 export function PostcardTool(ctx) {
   const measures = Object.values(measureIndex(ctx.strategy)).filter((m) => ctx.data.doc.series[m.id]?.points.length);
-  if (!measures.length) return h('div', {}, h('h1', {}, 'Data postcards'), h('p', { class: 'empty' }, 'Add measures in Strategy & Work and some program data first.'));
+  if (!measures.length) return h('div', {}, h('h1', {}, 'Data postcards'), h('p', { class: 'empty' }, 'Add measures in Plan and some program data first.'));
   const s = (ctx.postcard ??= { measureId: measures[0].id, size: 'wide', style: 'bold', headline: '', note: '' });
   if (!measures.some((m) => m.id === s.measureId)) s.measureId = measures[0].id;
   const m = measures.find((x) => x.id === s.measureId);

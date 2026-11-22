@@ -66,7 +66,7 @@ export function ImpactTool(ctx) {
             const m = measures.find((x) => !c.outcomes.some((o) => o.measureId === x.id)) ?? measures[0];
             save({ outcomes: [...c.outcomes, { id: uid('o'), measureId: m.id, label: `more ${m.name.toLowerCase()}` }] });
           } }, icon('plus', 14), 'Add an outcome'),
-          !measures.length && h('p', { class: 'muted small' }, 'Add measures that count something in Strategy & Work first.')),
+          !measures.length && h('p', { class: 'muted small' }, 'Add measures that count something in Plan first.')),
         field('Suggested amounts ($)', h('input', { class: 'input input-sm', name: 'calc-amounts', value: (c.amounts ?? []).join(', '), placeholder: '25, 50, 100, 250',
           onchange: (e) => save({ amounts: e.target.value.split(/[\s,]+/).map(Number).filter((n) => n > 0).slice(0, 6) }) })),
         h('div', { class: 'maker-row' },

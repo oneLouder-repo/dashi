@@ -17,7 +17,7 @@ import { uiAlert } from '../ui/dialog.js';
 /**
  * The public podcast station: its pages (station home, a show, an
  * episode), the cards other pages embed, and the player. Used by the
- * public site (pages/site.js) and, for previews, by the Podcasts plugin.
+ * public site (pages/site.js) and, for previews, by the Listen plugin.
  *
  * Everything is skinned twice: by the org's theme (palette and shape,
  * platform/themes.js) and by the station's look (player style, cover art

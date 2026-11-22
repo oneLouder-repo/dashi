@@ -133,7 +133,7 @@ const BUILT_IN = {
       feat('rss', 'RSS feeds', 'For podcast apps.'),
       feat('station', 'Station page', 'A public station skinned to the org’s look.'),
     ],
-    dataModel: { docs: [{ name: 'podcasts', label: 'Podcasts', collections: [
+    dataModel: { docs: [{ name: 'podcasts', label: 'Listen', collections: [
       { id: 'podcasts', label: 'Shows', fields: [f('title', 'Title', 'text', { required: true }), f('category', 'Category'), f('featured', 'Featured', 'boolean'), f('hostIds', 'Hosts', 'list')] },
       { id: 'episodes', label: 'Episodes', fields: [f('podcastId', 'Series', 'reference', { required: true }), f('title', 'Title', 'text', { required: true }), f('season', 'Season', 'number'), f('status', 'Status', 'select', { options: ['draft', 'scheduled', 'published'] }), f('publishAt', 'Publish on', 'date'), f('mediaId', 'Audio', 'reference')] }] }] },
   },
@@ -246,7 +246,7 @@ const BUILT_IN = {
   },
   org: {
     category: 'Platform',
-    features: [feat('people', 'People and teams', 'Staff, roles and teams.'), feat('sites', 'Public sites', 'Sites and their look, in the Public Portal.'), feat('domains', 'Own domains', 'yourorg.org', { plans: { free: false, basic: false, standard: false, custom: true } })],
+    features: [feat('people', 'People and teams', 'Staff, roles and teams.'), feat('sites', 'Public sites', 'Sites and their look, in Web.'), feat('domains', 'Own domains', 'yourorg.org', { plans: { free: false, basic: false, standard: false, custom: true } })],
     dataModel: { docs: [{ name: 'org', label: 'Organisation', collections: [
       { id: 'staff', label: 'Staff', fields: [f('name', 'Name', 'text', { required: true }), f('email', 'Email'), f('roleId', 'Role', 'select'), f('title', 'Title'), f('teamIds', 'Teams', 'list')] },
       { id: 'teams', label: 'Teams', fields: [f('name', 'Name', 'text', { required: true }), f('color', 'Colour')] },
@@ -477,7 +477,8 @@ export function cleanManifest(m) {
  * changes) then installed plugins. stored = { plugins: { id: manifest }, history: { id: [manifest...] } }.
  */
 /** Built-in plugins Dashi has renamed: a stored copy still carrying an old name takes the new one. */
-const RENAMED = { pages: ['Web views', 'Sites & Pages'], assets: ['Asset manager'], mapper: ['Ecosystem Mapper', 'Mapper'] };
+// Alpha 0.4: one-word names. Strategy & Work became Plan, Public Portal became Web, Podcasts became Listen.
+const RENAMED = { pages: ['Public Portal', 'Web views', 'Sites & Pages'], assets: ['Asset manager'], mapper: ['Ecosystem Mapper', 'Mapper'], strategy: ['Strategy & Work', 'Strategy'], podcasts: ['Podcasts', 'Radio & Podcasts'] };
 
 export function mergeRegistry(stored = {}) {
   const plugins = {};

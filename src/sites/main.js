@@ -35,7 +35,7 @@ import { uiAlert, uiConfirm, uiPrompt, uiPanel } from '../ui/dialog.js';
 import { linkTo } from '../plugins.js';
 
 /**
- * Public Portal (formerly Web views, and before that Sites & Pages): one
+ * Web (formerly the Public Portal, Web views, and before that Sites & Pages): one
  * way in to everything the org shows outside, and to its members-only
  * portals (the board's). The overview opens on a map of the org's web
  * properties (each site, and what is live or still in design on it,
@@ -97,8 +97,8 @@ function renderSide() {
   const siteItem = (x) => ({ label: x.name, href: `#site/${x.id}`, on: r === `site/${x.id}`, icon: x.visibility === 'private' ? 'lock' : x.visibility === 'unlisted' ? 'eyeOff' : 'globe',
     sub: x.visibility === 'private' ? 'Members only' : `${x.visibility === 'unlisted' ? 'Unlisted' : 'Public'} · ${propertiesOf(x).filter((q) => q.live).length} live` });
   const byVis = (v) => Object.values(org.sites).filter((x) => (v === 'private' ? x.visibility === 'private' : x.visibility !== 'private'));
-  side = swapSide(side, SideNav({ label: 'Public Portal', sections: [
-    { title: 'Public Portal', items: [
+  side = swapSide(side, SideNav({ label: 'Web', sections: [
+    { title: 'Web', items: [
       { label: 'Overview', sub: 'Every site, and what is live', icon: 'home', href: '#sites', on: r === 'sites' },
       { label: 'Look and feel', sub: org.theme?.palette ? `${themeLabel(org.theme)} colours, ${shapeById[org.theme.shape]?.label?.toLowerCase() ?? 'rounded'}` : 'Colours and shapes', icon: 'palette', href: '#look', on: r === 'look' || r.startsWith('look/') },
     ].filter(Boolean) },
@@ -310,7 +310,7 @@ function PropertiesMap() {
   svg('circle', { cx: 92, cy: hubY, r: 58, class: 'pm-hub-ring' }, hub);
   svg('circle', { cx: 92, cy: hubY, r: 46, class: 'pm-hub-core' }, hub);
   svg('text', { x: 92, y: hubY - 4, 'text-anchor': 'middle', class: 'pm-hub-title' }, hub).textContent = 'Public';
-  svg('text', { x: 92, y: hubY + 13, 'text-anchor': 'middle', class: 'pm-hub-title' }, hub).textContent = 'Portal';
+  svg('text', { x: 92, y: hubY + 13, 'text-anchor': 'middle', class: 'pm-hub-title' }, hub).textContent = 'Web';
   let y = 20;
   let live = 0, design = 0;
   for (const l of layout) {
@@ -608,7 +608,7 @@ async function addProperty() {
     { id: 'story', label: 'Data story', sub: 'In the Data Workbench', icon: 'story', href: linkTo('palette', '#stories') },
     { id: 'calculator', label: 'Impact calculator', sub: 'In the Data Workbench', icon: 'gift', href: linkTo('palette', '#impact') },
     { id: 'plan', label: 'Strategic plan', sub: 'In the Plan designer', icon: 'strategy', href: linkTo('plandoc') },
-    pluginOn(org, 'podcasts') && { id: 'station', label: 'Podcast station', sub: 'In Podcasts', icon: 'mic', href: linkTo('podcasts', '#station') },
+    pluginOn(org, 'podcasts') && { id: 'station', label: 'Podcast station', sub: 'In Listen', icon: 'mic', href: linkTo('podcasts', '#station') },
   ].filter(reachable);
   let pick = KINDS[1];
   let siteId = sites.find((s) => s.visibility === 'public')?.id ?? sites[0]?.id ?? null;

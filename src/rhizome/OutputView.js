@@ -1,5 +1,5 @@
 /**
- * The Output tab: the report pack on paper, ready to print or save as a PDF.
+ * The Report tab (Output before alpha 0.4): the report pack on paper, ready to print or save as a PDF.
  * Choose what goes in on the left; the page on the right is the document.
  * Printing hides everything but the paper (rhizome.css, @media print).
  *
