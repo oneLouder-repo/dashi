@@ -12,12 +12,15 @@
  */
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
-import { MODULES, CATEGORIES, FIELDS, HP, LIST_SOURCE, TYPE_SOURCE, order, isNumeric, blankPatch, addModule, removeModule, moveModule, swapRack, inRack, rowsOf, connect, disconnect, runPatch, ruleToPatch, patchToRule, starterPatch, describeModule } from './rack.js';
+import { MODULES, CATEGORIES, FIELDS, HP, LIST_SOURCE, TYPE_SOURCE, order, isNumeric, blankPatch, addModule, removeModule, moveModule, swapRack, placeModule, inRack, rowsOf, connect, disconnect, runPatch, ruleToPatch, patchToRule, starterPatch, describeModule } from './rack.js';
 import { RULES, ruleById, OPS } from './rules.js';
 import { TIPS, tipById } from './tips.js';
 import { ENTITY_TYPES, typeLabel } from './facts.js';
 import { themeById } from './setup.js';
 import { graphOf, plotLayout, spectrumOf, vennCounts } from './rackGraph.js';
+import { VisualiserPanel } from './VisualiserView.js';
+import { RippleMark } from '../ui/Wordmark.js';
+import { Drawer } from '../ui/drawer.js';
 import { PLUGINS } from '../plugins.js';
 
 const svgNS = 'http://www.w3.org/2000/svg';
@@ -34,6 +37,7 @@ const PCT_LABEL = { p25: '25%', p50: 'median', p75: '75%', p90: '90%' };
 
 let dragFrom = null; // { m, port, dir, x, y } while a cable is being patched
 let flipped = false; // looking at the back of the rack
+const visState = {}; // where each visualiser is up to (lane, playing, speed), kept across re-renders
 
 export function Rack(env, patchId) {
   const { doc, canSet } = env;
@@ -48,7 +52,7 @@ export function Rack(env, patchId) {
     if (canSet) { doc.patches[patch.id] = patch; env.save(note); }
     env.render();
   };
-  const { signals, inputs } = runPatch(patch, env.ctx());
+  const { signals, inputs, traces } = runPatch(patch, env.ctx());
   const facts = env.ctx().facts;
   const measures = env.ctx().measures;
 
@@ -126,21 +130,101 @@ export function Rack(env, patchId) {
     const outs = signals[m.id] ?? {};
     const p = m.params ?? {};
     const set = (patchParams, note = null) => { Object.assign(m.params, patchParams); commit(note); };
-    const face = def.look === 'digital' ? Digital(m, def, ins) : Face(m, def, ins, outs, p, set);
+    const face = m.type === 'visualiser' ? VisFace(m, p, set) : def.look === 'digital' ? Digital(m, def, ins) : Face(m, def, ins, outs, p, set);
+    const movable = canSet && m.type !== 'patchbay';
     return h('div', { class: `rk-mod ${def.look} t-${m.type}`, style: `flex:${def.hp} 1 0;--c:${CAT_TONE[def.cat]}`, 'data-mod': m.id },
       h('header', {},
-        h('i', { class: 'rk-screw' }),
+        movable ? Grip(m, def) : h('i', { class: 'rk-screw' }),
         h('span', { class: 'rk-title', title: def.label }, h('span', { class: 'rk-title-long' }, def.label), def.short ? h('span', { class: 'rk-title-short' }, def.short) : null),
-        h('i', { class: 'rk-screw' })),
+        movable ? h('button', { type: 'button', class: 'rk-x', title: `Take the ${def.label} out of the rack`, 'aria-label': `Take the ${def.label} out of the rack`, onclick: () => { removeModule(patch, m.id); commit(`${def.label} taken out`); } }, '×') : h('i', { class: 'rk-screw' })),
+      m.type === 'visualiser' ? h('span', { class: 'rk-brand-future', 'aria-hidden': 'true' }, h('b', {}, 'DASHI'), h('i', {}), h('small', {}, 'VIS·01')) : null,
       face,
-      def.brand ? h('span', { class: 'rk-brand', 'aria-hidden': 'true' }, 'Dashi') : null,
-      def.look === 'digital' && m.type === 'visualiser' ? h('span', { class: 'rk-brand-future', 'aria-hidden': 'true' }, h('b', {}, 'DASHI'), h('i', {}), h('small', {}, 'VIS·01')) : null,
-      Jacks(m, def, ins, outs),
-      canSet && m.type !== 'patchbay' ? h('div', { class: 'rk-tools' },
-        h('button', { title: 'Move left', onclick: () => { if (moveModule(patch, m.id, -1)) commit(); } }, '‹'),
-        h('button', { title: 'Move to the other rack', onclick: () => { swapRack(patch, m.id); commit(); } }, '⇄'),
-        h('button', { title: 'Move right', onclick: () => { if (moveModule(patch, m.id, 1)) commit(); } }, '›'),
-        h('button', { title: 'Take it out of the rack', onclick: () => { removeModule(patch, m.id); commit(`${def.label} taken out`); } }, '×')) : null);
+      def.brand ? h('span', { class: 'rk-logo', title: 'Dashi' }, RippleMark(15, 'rk-logo-mark')) : null,
+      Jacks(m, def, ins, outs));
+  }
+
+  /* ------------------------------------------------------ grab a module by its handle */
+  // Drag the handle to move a module anywhere in either rack; the arrow keys
+  // move it too (left and right along the rack, up and down to the other rack).
+  function Grip(m, def) {
+    return h('button', {
+      type: 'button', class: 'rk-grip', title: `Drag to move the ${def.label}. Arrow keys move it too.`, 'aria-label': `Move the ${def.label}`,
+      onkeydown: (e) => {
+        const d = { ArrowLeft: -1, ArrowRight: 1 }[e.key];
+        if (d) { e.preventDefault(); if (moveModule(patch, m.id, d)) { commit(); refocus(m.id); } }
+        else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); swapRack(patch, m.id); commit(); refocus(m.id); }
+        else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); removeModule(patch, m.id); commit(`${def.label} taken out`); }
+      },
+      onpointerdown: (e) => startMove(e, m),
+    }, h('i', {}), h('i', {}), h('i', {}));
+  }
+  const refocus = (id) => requestAnimationFrame(() => document.querySelector(`[data-mod="${id}"] .rk-grip`)?.focus());
+  function startMove(e, m) {
+    if (e.button > 0) return;
+    e.preventDefault();
+    const el = stage.querySelector(`[data-mod="${m.id}"]`);
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const ghost = el.cloneNode(true);
+    ghost.classList.add('rk-ghost');
+    Object.assign(ghost.style, { width: `${r.width}px`, height: `${r.height}px`, left: `${r.left}px`, top: `${r.top}px` });
+    document.body.append(ghost);
+    el.classList.add('rk-moving');
+    const dx = e.clientX - r.left, dy = e.clientY - r.top;
+    let drop = null;
+    const clear = () => stage.querySelectorAll('.rk-drop-before, .rk-drop-after, .rk-drop-end').forEach((x) => x.classList.remove('rk-drop-before', 'rk-drop-after', 'rk-drop-end'));
+    const move = (ev) => {
+      ghost.style.left = `${ev.clientX - dx}px`;
+      ghost.style.top = `${ev.clientY - dy}px`;
+      ghost.hidden = true;
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      ghost.hidden = false;
+      clear();
+      drop = null;
+      const target = under?.closest('[data-mod]');
+      const caseEl = under?.closest('.rk-case');
+      if (target && target !== el && target.closest('.rk-twins') === racks) {
+        const tm = patch.modules.find((x) => x.id === target.dataset.mod);
+        if (!tm) return;
+        const tr = target.getBoundingClientRect();
+        const after = tm.type === 'patchbay' || ev.clientX > tr.left + tr.width / 2;
+        target.classList.add(after ? 'rk-drop-after' : 'rk-drop-before');
+        drop = { rack: tm.rack ?? (caseEl?.classList.contains('rk-b') ? 'b' : 'a'), ref: tm.id, after };
+      } else if (caseEl && !target) {
+        caseEl.classList.add('rk-drop-end');
+        drop = { rack: caseEl.classList.contains('rk-b') ? 'b' : 'a', ref: null, after: false };
+      }
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      ghost.remove();
+      el.classList.remove('rk-moving');
+      clear();
+      if (drop && placeModule(patch, m.id, drop.rack, drop.ref, drop.after)) commit('Moved');
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+  }
+
+  /* ------------------------------------------------------ the AI visualiser */
+  function VisFace(m, p, set) {
+    const trace = traces[m.id];
+    const state = (visState[m.id] ??= { lane: 0, playing: false, speed: 'normal' });
+    if (!trace) return h('div', { class: 'rk-face' });
+    const panel = (big, st) => VisualiserPanel({
+      trace, state: st, big, canSet, graph: graphOf(facts),
+      onAsk: (q) => { set({ q }, 'Asked the visualiser'); },
+      onWeights: (weights) => set({ weights }),
+      onExpand: big ? null : () => openTray(),
+    });
+    const openTray = () => {
+      const st = { ...state, playing: false };
+      Drawer({ title: 'AI visualiser', sub: 'Watch a tiny engine think, one step at a time', wide: true, body: panel(true, st), onClose: () => { Object.assign(state, st, { playing: false }); env.render(); } });
+    };
+    return h('div', { class: 'rk-face rk-vis-face' }, panel(false, state));
   }
 
   function Jacks(m, def, ins, outs) {

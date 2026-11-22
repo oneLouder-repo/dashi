@@ -22,6 +22,7 @@ import { rowsFor, check, weigh, OPS, ruleById } from './rules.js';
 import { tipById, fillTip, SOURCES } from './tips.js';
 import { ENTITY_TYPES } from './facts.js';
 import { graphOf, neighbourhood, triadsOf, communities, entityRows } from './rackGraph.js';
+import { visualise, DEFAULT_QUESTION, DEFAULT_WEIGHTS } from './visualiser.js';
 
 export const HP = 42; // a rack row is 42 HP wide (each of the twin racks is half an 84 HP case)
 
@@ -62,7 +63,7 @@ export const MODULES = {
   plotter: { label: 'Plotter', cat: 'Displays', look: 'analog', hp: 18, brand: true, ins: ['in'], outs: [], params: { ink: 'blue' }, blurb: 'A pen plotter: draws what comes in as a little network on paper, with the ties between them.' },
   spectrum: { label: 'Spectrum', short: 'Spect.', cat: 'Displays', look: 'analog', hp: 12, ins: ['in'], outs: ['thru'], params: { field: 'degree' }, blurb: 'A bar spectrum of one number across the rows, so you can see the spread at a glance.' },
   venn: { label: 'Venn', cat: 'Displays', look: 'analog', hp: 12, ins: ['a', 'b', 'c'], outs: ['all'], params: {}, blurb: 'Three circles and the counts in every overlap. Out: what is in all the circles you patched.' },
-  visualiser: { label: 'AI visualiser', cat: 'Engines', look: 'digital', hp: 12, ins: ['in'], outs: [], stage: 4, blurb: 'A tiny inference engine that shows, step by step, what happens when you ask a system a question.' },
+  visualiser: { label: 'AI visualiser', cat: 'Engines', look: 'digital', hp: 42, ins: ['in'], outs: ['out'], params: { q: DEFAULT_QUESTION, weights: { ...DEFAULT_WEIGHTS } }, blurb: 'A tiny, see-through inference engine: ask it a question and watch, step by step, how a system turns your words into an answer, and where it can go wrong.' },
   claude: { label: 'Claude engine', cat: 'Engines', look: 'digital', hp: 12, ins: ['in'], outs: ['out'], stage: 5, blurb: 'Real questions of your facts, through the server, with your own key and cost caps.' },
   slot: { label: 'Open engine slot', cat: 'Engines', look: 'digital', hp: 7, ins: ['in'], outs: ['out'], stage: null, blurb: 'Room for another engine later. Every engine plugs in the same way: facts and a question in, findings out.' },
 };
@@ -110,6 +111,21 @@ export function moveModule(patch, id, by) {
   if (!other || other.type === 'patchbay') return false;
   const i = patch.modules.indexOf(m), j = patch.modules.indexOf(other);
   [patch.modules[i], patch.modules[j]] = [patch.modules[j], patch.modules[i]];
+  return true;
+}
+
+/**
+ * Drag and drop: put a module in a rack, before (or after) another module,
+ * or at the end of the rack when there is no reference. The patchbay stays put.
+ */
+export function placeModule(patch, id, rack, refId = null, after = false) {
+  const m = patch.modules.find((x) => x.id === id);
+  if (!m || m.type === 'patchbay' || !['a', 'b'].includes(rack)) return false;
+  const ref = refId && refId !== id ? patch.modules.find((x) => x.id === refId) : null;
+  patch.modules.splice(patch.modules.indexOf(m), 1);
+  m.rack = rack;
+  if (!ref) patch.modules.push(m);
+  else patch.modules.splice(patch.modules.indexOf(ref) + (after || ref.type === 'patchbay' ? 1 : 0), 0, m);
   return true;
 }
 
@@ -182,6 +198,7 @@ export function runPatch(patch, ctx) {
   const byId = Object.fromEntries(patch.modules.map((m) => [m.id, m]));
   const signals = {};
   const inputs = {};
+  const traces = {};
   for (const id of order(patch)) {
     const m = byId[id];
     const def = MODULES[m.type];
@@ -250,10 +267,16 @@ export function runPatch(patch, ctx) {
       }
     }
     else if (m.type === 'patchbay') for (const port of def.outs) out[port] = ins[port] ?? empty();
-    else if (m.type === 'claude' || m.type === 'slot') out.out = empty(); // engines arrive in later stages
+    else if (m.type === 'visualiser') {
+      const sig = ins.in;
+      const rows = sig?.kind === 'rows' ? sig.rows : sig?.kind === 'findings' ? sig.findings.flatMap((f) => f.rows ?? []) : [];
+      const trace = visualise({ question: p.q || DEFAULT_QUESTION, rows, facts: ctx.facts, measures: ctx.measures, weights: p.weights });
+      traces[id] = trace;
+      out.out = { kind: 'findings', findings: trace.findings };
+    } else if (m.type === 'claude' || m.type === 'slot') out.out = empty(); // engines arrive in later stages
     signals[id] = out;
   }
-  return { signals, inputs };
+  return { signals, inputs, traces };
 }
 
 export const filterCond = (p) => ({ field: p.field, op: p.op, ...(p.pct && isNumeric(p.field) && !['yes', 'no'].includes(p.op) ? { pct: p.pct } : { value: p.value }) });
@@ -362,6 +385,7 @@ export function describeModule(m) {
   if (m.type === 'say') return `${p.tip}${p.group ? ', grouped' : ''}`;
   if (m.type === 'neighbours') return `${p.hops ?? 1} ${Number(p.hops ?? 1) === 1 ? 'hop' : 'hops'} out`;
   if (m.type === 'spectrum') return `spread of ${FIELDS[p.field] ?? p.field}`;
+  if (m.type === 'visualiser') return `“${p.q || DEFAULT_QUESTION}”`;
   return MODULES[m.type]?.label ?? m.type;
 }
 
