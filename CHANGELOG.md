@@ -21,6 +21,16 @@ Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the
 - **Live.** Every screen, counter and meter shows what is flowing through it. A knob turned updates the whole rack.
 - **Patches and rules are one thing.** **Open a rule…** puts any built-in rule in the rack as modules and cables, and gives the same findings. A straight chain becomes one of **your rules** with **Add to analyses**. It runs in Analyses beside the built-in ones, with **Open in the rack** to change it. Patches are public unless switched to private.
 - The ribbon's three actions are now Analyses, Rack and About. There's a new Help page, **The rack**.
+- **Output: your report pack.** A new Output tab lays out everything Rhizome found as one A4 document, ready to print or save as a PDF. It has:
+  - a cover;
+  - at a glance (counts, change since the baseline, findings by theme, three to start with);
+  - findings and tips by theme, one block per rule, each with what it's about, why it was raised, the idea's source and links to read more;
+  - the data behind it (central actors, calibration, ABCD balance, signals);
+  - a reading list, and more tips on those themes;
+  - how to read it, and an appendix of the rules that ran.
+
+  Choose the title, where the findings come from, how many, and which sections. Only the paper prints, with page numbers. **Copy as text** gives a plain-text version for email.
+- **Fix:** the rack's view file was renamed so it no longer clashes with `rack.js` on macOS, which saw them as one file and showed a blank Rhizome page. A test now catches file names that differ only by case.
 
 ### PR 20: Rhizome, the tip harvester, and getting ready for Place
 

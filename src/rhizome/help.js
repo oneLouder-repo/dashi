@@ -76,6 +76,28 @@ Under each tip, **Read more** links to a source on its theme.
 Tick analyses to add them to **your set**. **Run my set** runs them all and keeps the run, and the top findings show on Home.`,
     },
     {
+      id: 'rhizome-output',
+      title: 'Your report pack',
+      body: `Open **Output** for a report of everything Rhizome found, to print, save as a PDF, or share. It's the reason to run Rhizome at all: something to take to a team meeting or a board.
+
+[[shot:rhizome-output]]
+
+# What's in it
+- **At a glance**: counts, change since your baseline, findings by theme, and three findings to start with.
+- **Findings and tips**: grouped by theme, one block per rule. Each block has the tip in full, what it's about, why it was raised, where the idea comes from, and links to read more. Other findings from the same rule are listed under it.
+- **The data behind it**: the most central actors, your calibration, assets by ABCD type, and the signals.
+- **Reading list**: sources on the themes your findings touch, with links.
+- **More tips**: your own tips, and approved ones from the tip library, on those themes.
+- **How to read this report**: what the scores mean, the words it uses, and where to go next in Dashi.
+- **Appendix**: every rule that ran, and what it found.
+
+# Choosing what goes in
+On the left, give it a title, pick where the findings come from (your set, one analysis, or your rules), how many to include, and which sections. Your choice is remembered. Findings you dismissed are left out.
+
+# Saving it
+**Save as PDF** opens your browser's print window: choose **Save as PDF** as the printer. Only the report prints, on A4, with page numbers. **Copy as text** copies it as plain text, ready for an email or a doc.`,
+    },
+    {
       id: 'rhizome-rules',
       title: 'How a rule works',
       body: `Every rule has four parts:

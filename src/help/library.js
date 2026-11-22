@@ -50,6 +50,7 @@ export const HELP_SHOTS = {
   'rhizome-facts': 'Facts: one actor with its measures, attributes and every tie.',
   'rhizome-analyses': 'Analyses: findings ranked by score, with Why? open on one of them.',
   'rhizome-tips': 'The review queue: an excerpt from the web waits to be put in your own words.',
+  'rhizome-output': 'The Output tab: a report pack on paper, ready to save as a PDF.',
   'rhizome-rack': 'The twin racks: controls on the left, screens and engines on the right, cabled together.',
 };
 export const HELP_VERSION = 6;
