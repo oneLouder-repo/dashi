@@ -7,6 +7,9 @@ import { today } from '../../strategy/dates.js';
 import * as P from './project.js';
 import { rememberFile, FilesPicker } from './Files.js';
 import * as S from './slides.js';
+import * as F from '../show/format.js';
+import { Face, Fitted } from '../show/face.js';
+import { Movie } from './Movie.js';
 import { PluginHeader } from '../../ui/PluginHeader.js';
 import { Transport, Recorder, loadBuffer, cachedBuffer, keepBuffer, sourceKey, mono, silencesOf, mixdown, playOnce, audioContext } from './audio.js';
 
@@ -80,6 +83,11 @@ export function StudioEditor(ctx, projectId) {
   let saveTimer = null;
   let slidePick = null;          // the slide being edited
   let shown = undefined;         // the slide on the screen now
+  // The slideshow view (a film editor over snug tracks) or the plain audio view.
+  let view = project.view ?? (project.kind === 'slideshow' || project.slides.length ? 'movie' : 'daw');
+  if (view === 'movie' && dock === 'slides') dock = 'files';
+  let dockOpen = view !== 'movie';  // the dock under the tracks, folded to its tabs in the slideshow view
+  let keepStageOnce = false;     // the change came from words typed on the stage, which already shows it
 
   /* ---------- state changes */
   const save = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => ctx.store.apply(ctx.col.update('projects', project.id, structuredClone(project))), 300); };
@@ -94,8 +102,11 @@ export function StudioEditor(ctx, projectId) {
     if (!project.tracks.some((t) => t.id === track)) track = project.tracks[0]?.id ?? null;
     save();
     if (transport.playing) restart();
-    draw();
+    const keepStage = keepStageOnce;
+    keepStageOnce = false;
+    draw({ keepStage });
   };
+  const commitSlides = (slides, { keepStage = false } = {}) => { keepStageOnce = keepStage; commit({ ...structuredClone(project), slides: F.normaliseSlides(slides) }); };
   const doUndo = () => { if (!undo.length) return; redo.push(project); project = undo.pop(); save(); draw(); };
   const doRedo = () => { if (!redo.length) return; undo.push(project); project = redo.pop(); save(); draw(); };
   const restart = () => { const t = transport.position(); transport.play(project, t, getEpisode); };
@@ -148,14 +159,48 @@ export function StudioEditor(ctx, projectId) {
     h('span', { class: 'spacer' }),
     h('label', { class: 'st-zoom-wrap' }, icon('search', 14), zoomIn));
 
+  const viewToggle = h('div', { class: 'st-view', role: 'group', 'aria-label': 'View' });
+  const drawViewToggle = () => viewToggle.replaceChildren(...[['movie', 'Slideshow', 'image'], ['daw', 'Audio', 'waveform']].map(([id, label, ic]) =>
+    h('button', { type: 'button', class: view === id ? 'on' : '', 'aria-pressed': String(view === id), title: id === 'movie' ? 'Slides above snug tracks, like a film editor' : 'Full-size audio tracks', onclick: () => setView(id) }, icon(ic, 13), label)));
+  const movie = Movie({
+    project: () => project,
+    playhead: () => (transport.playing ? transport.position() : playhead),
+    playing: () => transport.playing,
+    length: () => P.projectLength(project),
+    pick: () => slidePick,
+    setPick: (id) => { slidePick = id; },
+    commitSlides,
+    seek: (t) => { seek(t); draw(); },
+    addSlideHere: () => addSlideHere(),
+    play: () => { if (!transport.playing) togglePlay(); },
+    say: (...m) => say(...m),
+  });
+  function setView(v) {
+    view = v;
+    project = { ...project, view: v };
+    save();
+    applyView();
+    draw();
+  }
+  function applyView() {
+    root.classList.toggle('movie', view === 'movie');
+    movie.el.hidden = view !== 'movie';
+    LANE = view === 'movie' ? 44 : 76;
+    SLANE = view === 'movie' ? 70 : 62;
+    if (view === 'movie' && dock === 'slides') dock = 'files';
+    drawViewToggle();
+  }
+
   root.append(
     h('header', { class: 'st-head' },
       h('a', { class: 'btn btn-sm btn-ghost btn-square', href: '#studio', title: 'All sessions', 'aria-label': 'All sessions' }, icon('chevronLeft', 16)),
       titleIn, seriesSel,
+      viewToggle,
       h('span', { class: 'spacer' }),
       h('label', { class: 'btn btn-sm' }, icon('upload', 14), 'Import audio', fileIn),
       h('button', { type: 'button', class: 'btn btn-sm', onclick: () => exportWav() }, icon('download', 14), 'Download WAV'),
       h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => toEpisode() }, icon('radio', 14), project.episodeId && getEpisode(project.episodeId) ? 'Update the episode' : 'Send to the station')),
+    movie.el,
     h('div', { class: 'st-transport' },
       h('button', { type: 'button', class: 'st-tbtn', title: 'Back to the start (Home)', 'aria-label': 'Back to the start', onclick: () => seek(0) }, icon('skipBack', 16)),
       playBtn, recBtn, timeEl, meter, toolbar, miniScreen),
@@ -163,12 +208,13 @@ export function StudioEditor(ctx, projectId) {
     dockEl, status);
 
   /* ---------- drawing */
-  const LANE = 76;
-  const SLANE = 62;
+  let LANE = 76;
+  let SLANE = 62;
+  applyView();
   const x = (t) => t * pps;
   const tAt = (clientX) => Math.max(0, (clientX - canvasWrap.getBoundingClientRect().left) / pps);
 
-  function draw() {
+  function draw({ keepStage = false } = {}) {
     const len = Math.max(P.projectLength(project) + 30, (scroller.clientWidth || 900) / pps);
     canvasWrap.style.width = `${x(len)}px`;
     drawToolbar();
@@ -177,6 +223,7 @@ export function StudioEditor(ctx, projectId) {
     drawLanes();
     drawRange();
     drawDock();
+    if (view === 'movie') movie.draw({ keepStage });
     placePlayhead();
     titleIn.value = project.title;
   }
@@ -235,10 +282,15 @@ export function StudioEditor(ctx, projectId) {
    */
   function SlideLane() {
     const lane = h('div', { class: 'st-lane st-slide-lane', style: `height:${SLANE}px` });
-    const spans = S.slideSpans(project.slides, P.projectLength(project));
+    const spans = F.spans(project.slides, P.projectLength(project));
+    const cur = view === 'movie' ? movie.current()?.id : slidePick;
     spans.forEach((sl, i) => {
-      const el = h('button', { type: 'button', class: `st-slide k-${sl.kind}${sl.id === slidePick ? ' on' : ''}`, style: `left:${x(sl.at)}px;width:${Math.max(6, x(sl.until - sl.at) - 2)}px;--tone:${sl.tone}`, title: `${i + 1}. ${sl.title} · ${P.clock(sl.at, { tenths: false })}` },
-        h('b', {}, String(i + 1)), h('span', {}, sl.title));
+      const w = Math.max(6, x(sl.until - sl.at) - 2);
+      const thumb = view === 'movie' && w > 44;
+      const el = h('button', { type: 'button', class: `st-slide k-${sl.kind}${sl.id === cur ? ' on' : ''}${thumb ? ' thumb' : ''}`, 'data-slide': sl.id, style: `left:${x(sl.at)}px;width:${w}px;--tone:${sl.tone}`, title: `${i + 1}. ${sl.title} · ${P.clock(sl.at, { tenths: false })} · ${sl.transition.type}` },
+        thumb && Fitted(Face(sl), { height: SLANE - 14, fit: false }),
+        h('b', {}, String(i + 1)), h('span', {}, sl.title),
+        view === 'movie' && i > 0 && sl.transition.type !== 'cut' && h('i', { class: `st-tr t-${sl.transition.type}`, 'aria-hidden': 'true', style: `width:${Math.max(4, Math.min(w / 2, x(sl.transition.ms / 1000)))}px` }));
       el.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
         const x0 = e.clientX, at0 = sl.at;
@@ -248,7 +300,7 @@ export function StudioEditor(ctx, projectId) {
         const up = (ev) => {
           el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up);
           slidePick = sl.id; dock = 'slides';
-          if (moved) commit({ ...structuredClone(project), slides: S.updateSlide(project.slides, sl.id, { at: Math.max(0, at0 + (ev.clientX - x0) / pps) }) });
+          if (moved) commitSlides(F.patchSlide(project.slides, sl.id, { at: Math.max(0, at0 + (ev.clientX - x0) / pps) }));
           else { seek(sl.at); draw(); }
         };
         el.addEventListener('pointermove', move); el.addEventListener('pointerup', up);
@@ -260,26 +312,25 @@ export function StudioEditor(ctx, projectId) {
   }
   function addSlideHere() {
     const at = transport.playing ? transport.position() : playhead;
-    const next = S.addSlide(project.slides, at);
-    slidePick = next.find((s) => !project.slides.some((o) => o.id === s.id))?.id ?? null;
-    dock = 'slides';
-    commit({ ...structuredClone(project), slides: next });
+    // A new slide takes the look of the one showing before it, with fresh words.
+    const before = S.slideAt(project.slides, at);
+    const fresh = F.newSlide(at, before ? { bg: before.bg, banner: before.banner, tone: before.tone, ink: before.ink, transition: before.transition } : {}, project.slides.length);
+    slidePick = fresh.id;
+    if (view !== 'movie') dock = 'slides';
+    commitSlides([...project.slides, fresh]);
   }
   /** A slide as it shows on the screen: its colour, its kind, its words. */
-  const SlideFace = (sl, n) => (sl ? h('div', { class: `st-face k-${sl.kind}`, style: `--tone:${sl.tone}` },
-    h('small', {}, `${n}/${project.slides.length}`),
-    h('strong', {}, sl.title),
-    sl.body && h('p', {}, sl.body)) : h('div', { class: 'st-face empty' }, h('p', {}, project.slides.length ? 'Before the first slide' : 'No slides')));
+  const SlideFace = (sl, n, height) => (sl ? Fitted(Face(sl, { n, total: project.slides.length }), { height }) : h('div', { class: 'st-face empty' }, h('p', {}, project.slides.length ? 'Before the first slide' : 'No slides')));
   function updateScreen(t) {
-    if (!project.slides.length) { miniScreen.hidden = true; return; }
+    if (!project.slides.length || view === 'movie') { miniScreen.hidden = true; return; }
     miniScreen.hidden = false;
     const sl = S.slideAt(project.slides, t);
     if (sl === shown) return;
     shown = sl;
     const n = sl ? [...project.slides].sort((a, b) => a.at - b.at).indexOf(sl) + 1 : 0;
-    miniScreen.replaceChildren(SlideFace(sl, n));
-    bigScreen.replaceChildren(SlideFace(sl, n));
-    for (const el of lanes.querySelectorAll('.st-slide')) el.classList.toggle('live', el.title.startsWith(`${n}. `));
+    miniScreen.replaceChildren(SlideFace(sl, n, 62));
+    if (dock === 'slides') bigScreen.replaceChildren(SlideFace(sl, n, 220));
+    for (const el of lanes.querySelectorAll('.st-slide')) el.classList.toggle('live', el.dataset.slide === sl?.id);
   }
 
   function Clip(c, t) {
@@ -345,11 +396,17 @@ export function StudioEditor(ctx, projectId) {
   /* ---------- the dock: clip, chapters, sound pads, episodes */
   function drawDock() {
     const c = project.clips[selected];
-    const tabs = [['clip', 'Clip'], ['slides', `Slides (${project.slides.length})`], ['chapters', `Chapters (${project.markers.length})`], ['files', `Audio files (${Object.keys(ctx.doc().files ?? {}).length})`], ['pads', 'Sound pads'], ['library', 'From the station'], ['keys', 'Shortcuts']];
+    const tabs = [['clip', 'Clip'], view !== 'movie' && ['slides', `Slides (${project.slides.length})`], ['chapters', `Chapters (${project.markers.length})`], ['files', `Audio files (${Object.keys(ctx.doc().files ?? {}).length})`], ['pads', 'Sound pads'], ['library', 'From the station'], ['keys', 'Shortcuts']];
     const body = dock === 'slides' ? SlidesPanel() : dock === 'chapters' ? Chapters() : dock === 'files' ? FilesTab() : dock === 'pads' ? Pads() : dock === 'library' ? Library() : dock === 'keys' ? Keys() : ClipPanel(c);
     dockEl.replaceChildren(
-      h('div', { class: 'st-tabs', role: 'tablist' }, tabs.map(([id, label]) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(dock === id), class: dock === id ? 'on' : '', onclick: () => { dock = id; drawDock(); } }, label))),
-      h('div', { class: 'st-dock-body' }, body));
+      h('div', { class: 'st-tabs', role: 'tablist' }, tabs.filter(Boolean).map(([id, label]) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(dock === id), class: dock === id ? 'on' : '', onclick: () => {
+        // In the slideshow view the dock folds to its tabs, to leave room for the stage: the open tab's button folds it.
+        if (view === 'movie' && dock === id) dockOpen = !dockOpen; else { dock = id; dockOpen = true; }
+        drawDock();
+      } }, label)),
+        view === 'movie' && h('button', { type: 'button', class: 'st-dock-fold', 'aria-label': dockOpen ? 'Fold the panel away' : 'Open the panel', onclick: () => { dockOpen = !dockOpen; drawDock(); } }, icon(dockOpen ? 'chevronDown' : 'chevronUp', 13))),
+      (view !== 'movie' || dockOpen) ? h('div', { class: 'st-dock-body' }, body) : '');
+    dockEl.classList.toggle('folded', view === 'movie' && !dockOpen);
   }
 
   function ClipPanel(c) {
@@ -442,7 +499,7 @@ export function StudioEditor(ctx, projectId) {
     const sorted = [...project.slides].sort((a, b) => a.at - b.at);
     const sl = project.slides.find((s) => s.id === slidePick) ?? S.slideAt(project.slides, playhead) ?? sorted[0];
     const i = sl ? sorted.indexOf(sl) : -1;
-    const set = (patch) => commit({ ...structuredClone(project), slides: S.updateSlide(project.slides, sl.id, patch) });
+    const set = (patch) => commitSlides(F.patchSlide(project.slides, sl.id, patch));
     const go = (d) => { const n = sorted[i + d]; if (!n) return; slidePick = n.id; seek(n.at); draw(); };
     return h('div', { class: 'st-slides-panel' },
       h('div', { class: 'st-screen-wrap' }, bigScreen, h('p', { class: 'muted small' }, 'What shows at the playhead. Play the session to watch the slides change.')),
@@ -454,12 +511,13 @@ export function StudioEditor(ctx, projectId) {
           h('span', { class: 'muted small' }, `Starts ${P.clock(sl.at)}`),
           h('button', { type: 'button', class: 'btn btn-xs', title: 'Start this slide at the playhead', onclick: () => set({ at: playhead }) }, 'Start at the playhead'),
           h('span', { class: 'spacer' }),
-          h('button', { type: 'button', class: 'btn btn-xs btn-ghost text-error', 'aria-label': 'Delete this slide', onclick: () => { slidePick = null; commit({ ...structuredClone(project), slides: S.removeSlide(project.slides, sl.id) }); } }, icon('trash', 12))),
+          h('button', { type: 'button', class: 'btn btn-xs btn-ghost text-error', 'aria-label': 'Delete this slide', onclick: () => { slidePick = null; commitSlides(S.removeSlide(project.slides, sl.id)); } }, icon('trash', 12))),
         h('div', { class: 'st-field-row' },
           h('label', { class: 'st-field grow' }, h('span', {}, 'Title'), h('input', { class: 'input input-xs', value: sl.title, onchange: (e) => set({ title: e.target.value || sl.title }) })),
-          h('label', { class: 'st-field' }, h('span', {}, 'Kind'), h('select', { class: 'select select-xs', onchange: (e) => set({ kind: e.target.value }) }, options(S.SLIDE_KINDS.map((k) => ({ id: k.id, label: k.label })), sl.kind))),
-          h('label', { class: 'st-field' }, h('span', {}, 'Colour'), h('input', { type: 'color', value: sl.tone, onchange: (e) => set({ tone: e.target.value }) }))),
-        h('label', { class: 'st-field grow' }, h('span', {}, 'Words'), h('textarea', { class: 'textarea textarea-xs', rows: 2, onchange: (e) => set({ body: e.target.value }) }, sl.body ?? '')))
+          h('label', { class: 'st-field' }, h('span', {}, 'Kind'), h('select', { class: 'select select-xs', onchange: (e) => set({ kind: e.target.value }) }, options(F.KINDS.map((k) => ({ id: k.id, label: k.label })), sl.kind))),
+          h('label', { class: 'st-field' }, h('span', {}, 'Card colour'), h('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(sl.bg.colour) ? sl.bg.colour : '#ffffff', onchange: (e) => set({ bg: { ...sl.bg, colour: e.target.value } }) }))),
+        h('p', { class: 'muted small' }, 'Words, lists, pictures, data cards, backgrounds and transitions are designed in the slideshow view. ',
+          h('button', { type: 'button', class: 'btn btn-xs', onclick: () => setView('movie') }, icon('image', 12), 'Open the slideshow view')))
         : h('p', { class: 'muted' }, 'No slides yet. Add one at the playhead with L, or Slide in the toolbar. Each slide shows until the next one starts.'));
   }
 
@@ -522,7 +580,7 @@ export function StudioEditor(ctx, projectId) {
     ruler.setPointerCapture(e.pointerId);
     let dragged = false;
     const move = (ev) => { const t1 = tAt(ev.clientX); if (Math.abs(t1 - t0) * pps > 3) { dragged = true; range = { from: Math.min(t0, t1), to: Math.max(t0, t1) }; selected = null; drawRange(); } };
-    const up = () => { ruler.removeEventListener('pointermove', move); ruler.removeEventListener('pointerup', up); if (!dragged) { range = null; seek(t0); } draw(); };
+    const up = () => { ruler.removeEventListener('pointermove', move); ruler.removeEventListener('pointerup', up); if (!dragged) { range = null; slidePick = null; seek(t0); } draw(); };
     ruler.addEventListener('pointermove', move);
     ruler.addEventListener('pointerup', up);
   });
@@ -533,7 +591,7 @@ export function StudioEditor(ctx, projectId) {
     if (lane) track = lane.dataset.track;
     selected = null;
     const t0 = tAt(e.clientX);
-    if (!e.shiftKey) { range = null; seek(t0); draw(); return; }
+    if (!e.shiftKey) { range = null; slidePick = null; seek(t0); draw(); return; }
     lanes.setPointerCapture(e.pointerId);
     const move = (ev) => { const t1 = tAt(ev.clientX); range = { from: Math.min(t0, t1), to: Math.max(t0, t1) }; drawRange(); };
     const up = () => { lanes.removeEventListener('pointermove', move); lanes.removeEventListener('pointerup', up); draw(); };
@@ -707,13 +765,15 @@ export function StudioEditor(ctx, projectId) {
       const audio = { mediaId, duration: Math.round(duration), mimetype: 'audio/wav', size: file.size, name: file.name };
       const chapters = P.chaptersOf(project);
       let id = existing?.id;
-      if (existing) ctx.store.apply(ctx.col.update('episodes', id, { audio, chapters }));
+      // The slides go with the mix, so the episode plays as a slideshow on the station and in Learn.
+      const slides = structuredClone(project.slides);
+      if (existing) ctx.store.apply(ctx.col.update('episodes', id, { audio, chapters, slides }));
       else {
         const season = seasonsOf(doc, series.id).at(-1)?.number ?? 1;
         const add = ctx.col.add('episodes', {
           podcastId: series.id, season, number: nextNumber(doc, series.id, season), type: 'full', title: project.title, slug: slugify(project.title),
           description: '', notes: '', transcript: '', status: 'draft', publishedAt: today(), audio, personIds: [], guests: [], cover: null, explicit: false,
-          chapters, tags: [], related: [],
+          chapters, slides, tags: [], related: [],
         });
         id = add.id;
         ctx.store.apply(add);
@@ -728,7 +788,7 @@ export function StudioEditor(ctx, projectId) {
   /* ---------- keys and the clock */
   const onKey = (e) => {
     if (!root.isConnected) { removeEventListener('keydown', onKey); return; }
-    if (e.target.closest('input,textarea,select,[contenteditable="true"],dialog')) return;
+    if (e.target.isContentEditable || e.target.closest('input,textarea,select,[contenteditable],dialog')) return;
     const mod = e.metaKey || e.ctrlKey;
     const k = e.key;
     if (k === ' ') { e.preventDefault(); togglePlay(); }
@@ -760,6 +820,7 @@ export function StudioEditor(ctx, projectId) {
       if (px > scroller.scrollLeft + scroller.clientWidth - 60 || px < scroller.scrollLeft) scroller.scrollLeft = px - 80;
     }
     placePlayhead();
+    if (view === 'movie') movie.tick(transport.playing ? transport.position() : playhead);
     const lv = recorder ? recorder.level() : transport.playing ? transport.level() : 0;
     meter.firstChild.style.width = `${Math.min(100, lv * 100)}%`;
     meter.classList.toggle('hot', lv > 0.95);
@@ -776,7 +837,7 @@ export function StudioEditor(ctx, projectId) {
 }
 
 function migrate(p) {
-  p.tracks ??= []; p.clips ??= {}; p.markers ??= []; p.pads ??= []; p.slides ??= [];
+  p.tracks ??= []; p.clips ??= {}; p.markers ??= []; p.pads ??= []; p.slides = F.normaliseSlides(p.slides ?? []);
   for (const t of p.tracks) { t.gain ??= 1; t.pan ??= 0; t.duck ??= t.kind === 'music'; }
   for (const c of Object.values(p.clips)) { c.gain ??= 1; c.fadeIn ??= 0; c.fadeOut ??= 0; c.offset ??= 0; }
 }

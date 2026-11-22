@@ -20,7 +20,9 @@ import { PaletteBuilder } from '../ui/PaletteBuilder.js';
 import { DevicePreview, DeviceToggle, deviceMode } from '../ui/DevicePreview.js';
 import { setCrumbs } from '../ui/crumbs.js';
 import { Drawer } from '../ui/drawer.js';
-import { putMedia, deleteMedia, audioDuration, maxUploadMb } from '../platform/media.js';
+import { putMedia, deleteMedia, audioDuration, maxUploadMb, audioSrc } from '../platform/media.js';
+import { mountShow } from './show/player.js';
+import { showFor } from './show/resolve.js';
 import { readImage } from '../ui/images.js';
 import { Cover, EpisodeArt, Player, fmtDuration } from '../site/station.js';
 import { COVER_TONES } from '../ui/standIn.js';
@@ -767,6 +769,7 @@ function EpisodeDetail(e) {
           [episodeCode(e), short(e.publishedAt), fmtDuration(e.audio?.duration)].filter(Boolean).join(' · ')),
         h('p', { class: 'pc-ep-file muted small' }, icon('music', 13), e.audio?.name ?? (e.audio?.mediaId ? 'Uploaded audio' : 'Sample audio')),
         e.description ? h('p', { class: 'pc-ep-desc' }, e.description) : h('p', { class: 'pc-ep-desc muted' }, 'No summary yet.'))),
+    e.slides?.length > 0 && SlideshowBlock(e),
     crew.length > 0 && h('section', { class: 'pc-block' }, h('h3', {}, 'In this episode'),
       h('div', { class: 'pc-people' }, crew.map(({ p, tag }) => h('span', { class: 'pc-person' }, Avatar(p, 22), p.name, tag && h('small', { class: 'pc-person-tag' }, tag))))),
     chapters.length > 0 && h('section', { class: 'pc-block' }, h('h3', {}, 'Chapters'),
@@ -777,6 +780,23 @@ function EpisodeDetail(e) {
     e.notes && h('section', { class: 'pc-block' }, h('h3', {}, 'Episode notes'), h('div', { class: 'pc-notes' }, Markdown(e.notes))),
     e.transcript && h('details', { class: 'pc-block pc-transcript' }, h('summary', {}, h('h3', {}, 'Transcript'), h('span', { class: 'muted small' }, `${e.transcript.split(/\s+/).filter(Boolean).length} words`)),
       h('div', {}, e.transcript.split(/\n{2,}/).map((x) => h('p', {}, x)))));
+}
+
+/**
+ * A slideshow episode plays as a phone card in its tray (slideshow podcasts),
+ * with a link to its studio session for editing the slides.
+ */
+function SlideshowBlock(e) {
+  const box = h('div', { class: 'pc-show' });
+  const session = Object.values(doc().projects ?? {}).find((p) => p.episodeId === e.id);
+  const show = showFor(doc(), { type: 'episode', id: e.id });
+  queueMicrotask(() => mountShow(box, show, { audioUrl: e.audio ? audioSrc(e.audio) : null }));
+  return h('section', { class: 'pc-block pc-show-block' },
+    h('h3', {}, 'Slideshow'),
+    h('div', { class: 'pc-show-row' }, box,
+      h('div', { class: 'pc-show-about' },
+        h('p', { class: 'muted small' }, `${e.slides.length} slides, timed to the audio. Press play to watch them change.`),
+        session && h('a', { class: 'btn btn-sm', href: `#studio/${session.id}` }, icon('image', 14), 'Edit the slides in the studio'))));
 }
 
 /** The episode tray's footer: edit, publish or pull back, its public page, delete. */

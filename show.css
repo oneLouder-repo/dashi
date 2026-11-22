@@ -1,0 +1,106 @@
+/*
+ * Slideshow podcasts: the phone card (src/podcasts/show/face.js) and the
+ * player (src/podcasts/show/player.js). Any page that shows a slideshow
+ * links this file: Podcasts (the studio and episode trays), the public
+ * station, Learn.
+ *
+ * A card is laid out at 405 × 720 and scaled (--k) to fit its box, so the
+ * type sizes below are for that size. --fit steps the type down when a
+ * slide holds a lot of words.
+ */
+.sf-fit { position: relative; flex: none; }
+.sf-fit > .sf { position: absolute; left: 0; top: 0; transform: scale(var(--k, 1)); transform-origin: 0 0; }
+.sf-fit.fill { margin: auto; }
+
+.sf { --fit: 1; --ink: #16181d; --card: #fff; --tone: #2c4fa3; --shade: 0;
+  width: 405px; height: 720px; position: relative; overflow: hidden; border-radius: 22px; background: var(--card); color: var(--ink);
+  font-family: var(--font-body, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif); box-shadow: 0 1px 0 rgb(0 0 0 / .06), 0 0 0 1px rgb(0 0 0 / .08); text-align: left; }
+.sf-blank { background: #0b0d12; box-shadow: none; }
+.sf-bg { position: absolute; inset: 0; background-size: cover; background-position: center; }
+.sf-shade { position: absolute; inset: 0; background: rgb(10 12 18 / var(--shade)); }
+.sf-banner { height: 250px; background-size: cover; background-position: center; border-bottom: 4px solid var(--tone); }
+.sf-inner { position: absolute; inset: 0; display: flex; flex-direction: column; gap: calc(14px * var(--fit)); padding: 44px 32px 36px; overflow: hidden; }
+.sf.has-banner .sf-inner { top: 254px; padding-top: 24px; }
+.sf-count { position: absolute; top: 16px; right: 20px; font-size: 13px; font-weight: 600; opacity: .55; letter-spacing: .04em; }
+.sf.has-banner .sf-count { top: -238px; color: #fff; text-shadow: 0 1px 3px rgb(0 0 0 / .5); opacity: .9; }
+.sf-head { display: grid; gap: calc(6px * var(--fit)); }
+.sf-head::before { content: ''; width: 44px; height: 5px; border-radius: 3px; background: var(--tone); margin-bottom: calc(8px * var(--fit)); }
+.sf .sf-title { margin: 0; text-transform: none; color: inherit; font-size: calc(34px * var(--fit)); line-height: 1.08; font-weight: 750; letter-spacing: -.015em; overflow-wrap: anywhere; }
+.sf .sf-sub { margin: 0; font-size: calc(19px * var(--fit)); line-height: 1.3; opacity: .8; font-weight: 500; }
+.sf-blocks { display: flex; flex-direction: column; gap: calc(12px * var(--fit)); min-height: 0; }
+.sf-text { font-size: calc(18px * var(--fit)); line-height: 1.45; overflow-wrap: anywhere; }
+.sf-text a, .sf-list a { color: inherit; text-decoration-color: var(--tone); text-decoration-thickness: 2px; text-underline-offset: 2px; }
+.sf-list { margin: 0; padding-left: 1.3em; font-size: calc(18px * var(--fit)); line-height: 1.4; display: grid; gap: calc(6px * var(--fit)); }
+.sf-list li::marker { color: var(--tone); font-weight: 800; }
+ul.sf-list { list-style: square; }
+.sf-img { margin: 0; display: grid; gap: 6px; }
+.sf-img img { width: 100%; max-height: calc(210px * var(--fit)); object-fit: cover; border-radius: 12px; display: block; }
+.sf-img figcaption { font-size: calc(14px * var(--fit)); opacity: .7; }
+.sf-img-empty { display: grid; place-items: center; height: 150px; border-radius: 12px; border: 2px dashed color-mix(in oklab, var(--ink) 30%, transparent); font-size: 15px; opacity: .7; cursor: pointer; }
+.sf-card { display: grid; gap: 2px; padding: calc(16px * var(--fit)) 18px; border-radius: 14px; background: color-mix(in oklab, var(--tone) 14%, var(--card)); border-left: 6px solid var(--tone); }
+.sf-card-value { font-size: calc(46px * var(--fit)); font-weight: 800; line-height: 1; letter-spacing: -.02em; color: var(--tone); }
+.sf.has-bg .sf-card-value, .sf-card.k-quote .sf-card-value { color: inherit; }
+.sf-card-label { font-size: calc(16px * var(--fit)); font-weight: 600; }
+.sf-card-note { font-size: calc(14px * var(--fit)); opacity: .7; }
+.sf-card.k-quote .sf-card-value { font-size: calc(22px * var(--fit)); font-weight: 600; line-height: 1.3; font-style: italic; letter-spacing: 0; }
+.sf-card.k-quote .sf-card-value::before { content: '“'; } .sf-card.k-quote .sf-card-value::after { content: '”'; }
+.sf-card.k-quote .sf-card-label::before { content: '— '; }
+.sf-card.k-callout { background: var(--tone); color: #fff; }
+.sf-card.k-callout .sf-card-value { color: #fff; font-size: calc(24px * var(--fit)); line-height: 1.2; }
+.sf-bar { display: block; height: 10px; border-radius: 5px; background: color-mix(in oklab, var(--tone) 22%, transparent); overflow: hidden; margin-top: 8px; }
+.sf-bar i { display: block; height: 100%; background: var(--tone); border-radius: 5px; }
+.sf.has-bg .sf-card { background: rgb(255 255 255 / .14); backdrop-filter: blur(6px); }
+
+/* kinds */
+.sf.k-title .sf-inner { justify-content: center; }
+.sf.k-title .sf-title { font-size: calc(46px * var(--fit)); }
+.sf.k-title .sf-sub { font-size: calc(21px * var(--fit)); }
+.sf.k-quote .sf-title { font-size: calc(30px * var(--fit)); font-style: italic; font-weight: 600; line-height: 1.2; }
+.sf.k-quote .sf-title::before { content: '“'; display: block; font-size: 90px; line-height: .6; color: var(--tone); font-style: normal; margin: 10px 0 4px; }
+.sf.k-name .sf-inner { justify-content: flex-end; }
+.sf.k-name .sf-head { padding: 16px 18px; border-radius: 14px; background: color-mix(in oklab, var(--card) 88%, transparent); color: var(--ink); }
+.sf.k-name.has-bg .sf-head { background: rgb(10 12 18 / .55); color: #fff; }
+.sf.k-data .sf-card:first-child .sf-card-value { font-size: calc(76px * var(--fit)); }
+
+/* editing in place (the studio's stage) */
+.sf-edit { outline: none; border-radius: 6px; cursor: text; transition: box-shadow .12s; }
+.sf-edit:hover { box-shadow: 0 0 0 2px color-mix(in oklab, var(--tone) 35%, transparent); }
+.sf-edit:focus { box-shadow: 0 0 0 2px var(--tone); }
+.sf-edit:empty::before { content: attr(data-placeholder); opacity: .4; }
+.sf.sf-over .sf-inner::after { content: 'More words than fit'; position: absolute; left: 0; right: 0; bottom: 0; padding: 6px; text-align: center; font-size: 13px; font-weight: 600; background: #c8432f; color: #fff; }
+
+/* the screen and its transitions */
+.sp-screen { position: relative; overflow: hidden; }
+.sp-stage { position: absolute; left: 50%; top: 50%; transform-origin: center; transform: translate(-50%, -50%); }
+.sp-layer { position: absolute; inset: 0; }
+.sp-layer.in { z-index: 2; animation-duration: var(--ms, 500ms); animation-fill-mode: both; animation-timing-function: cubic-bezier(.3, .7, .2, 1); }
+.sp-layer.out { z-index: 1; animation-duration: var(--ms, 500ms); animation-fill-mode: both; animation-timing-function: cubic-bezier(.3, .7, .2, 1); }
+.sp-layer.in.t-fade { animation-name: sp-fade-in; }
+.sp-layer.in.t-slide { animation-name: sp-slide-in; }
+.sp-layer.in.t-push { animation-name: sp-slide-in; } .sp-layer.out.t-push { animation-name: sp-push-out; }
+.sp-layer.in.t-zoom { animation-name: sp-zoom-in; }
+.sp-layer.in.t-wipe { animation-name: sp-wipe-in; }
+@keyframes sp-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sp-slide-in { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes sp-push-out { from { transform: none; } to { transform: translateX(-100%); } }
+@keyframes sp-zoom-in { from { opacity: 0; transform: scale(.86); } to { opacity: 1; transform: none; } }
+@keyframes sp-wipe-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@media (prefers-reduced-motion: reduce) { .sp-layer.in, .sp-layer.out { animation-name: sp-fade-in !important; } .sp-layer.out { animation-name: none !important; } }
+
+/* the player */
+.sp { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 8px; height: 100%; min-height: 320px; outline: none; }
+.sp:focus-visible { box-shadow: 0 0 0 2px var(--color-primary, #2c4fa3); border-radius: 12px; }
+.sp-view { min-height: 260px; }
+.sp-controls { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.sp-btn { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 999px; border: 1px solid rgb(0 0 0 / .14); background: #fff; color: #16181d; cursor: pointer; flex: none; }
+.sp-play { width: 36px; height: 36px; background: #16181d; color: #fff; border: 0; }
+.sp-bar { flex: 1; min-width: 30px; width: 0; accent-color: #16181d; }
+.sp-time, .sp-count { font-variant-numeric: tabular-nums; color: #5b6170; white-space: nowrap; }
+.sp.no-audio .sp-play { opacity: .4; }
+/* App styles colour headings and paragraphs; on a card they take the card's ink. */
+.sf .sf-title, .sf .sf-sub, .sf .sf-text, .sf .sf-list, .sf figcaption, .sf .sf-card { color: inherit; }
+.sf .sf-card.k-callout { color: #fff; }
+.sp-controls { min-width: 0; }
+.sp-count { display: none; }
+@container (min-width: 360px) { .sp-count { display: inline; } }
+.sp { container-type: inline-size; }

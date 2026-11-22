@@ -6,6 +6,19 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### Slideshow podcasts
+
+- **A slideshow view in the studio.** Sessions with slides open in a small film editor: the slides as a filmstrip on the left, the slide as a big phone card in the middle, a design panel on the right, and snug audio tracks underneath with the slides as thumbnails. **Slideshow · Audio** in the header switches back to the full-size tracks. The panel under the tracks folds to its tabs to leave room.
+- **Edit slides in place.** Click the words on the card to change the title, subtitle, text and lists. **B**, *I*, U, links and lists in the format bar. Add text, bullets, a picture or a data card (number, progress bar, quote, callout), up to about 300 words and two pictures a card.
+- **Design.** Six layouts (title, point, story, data, quote, name). Card colours from the colour wheel or any colour; a picture from the photo library, designs made in the slide's colours, an upload or a web address, as a banner across the top or filling the card with a shade over it. Word and accent colours.
+- **Transitions.** Each slide arrives with a cut, fade, slide, push, zoom or wipe, and a length; **Use on every slide** copies one to all. Press play and the stage becomes the screen. Reduced motion turns them into fades.
+- **Checks as you go.** Contrast between words and card, pictures without a description, too many words, and slides with no notes (the notes are the transcript).
+- **A Slideshow podcast template**, and *Send to the station* now takes the slides with the mix.
+- **A player for episodes.** An episode with slides plays as a phone card in its tray, with a link back to the studio. The same player (`mountShow`) is ready for Learn and the station.
+- **Ten trial shows for Kestrel Bay**, in a new series **Kestrel in a Minute**: nine of 30 to 45 seconds and a five-minute year in review, each with a voice (made with macOS `say`, espeak or flite when the computer has one) and a music bed made on the spot.
+- The format is written up in `docs/SLIDESHOW.md`, with the plan for a clip manager, YouTube clips that pause the podcast, assets in slides, a downloadable supplement pack, and xAPI/cmi5 for Moodle.
+- Tests: `test/slideshow.test.js`. Screenshots: `81-slideshow-studio.png`, `82-slideshow-story-slide.png`, `83-slideshow-episode-player.png`.
+
 ### PR 21: Rhizome, stage 3: the rack
 
 - **Twin racks.** Build your own analyses by cabling modules together, like a modular synth. Rack A holds the controls and rack B the screens and engines, so you can turn a knob and watch the result side by side. Cables run across both.
