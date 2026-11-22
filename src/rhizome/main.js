@@ -21,7 +21,7 @@ import { HELP_SHOTS } from '../help/library.js';
 import { Markdown } from '../ui/markdown.js';
 import { linkTo } from '../plugins.js';
 import './adapters.js';
-import { Rack } from './Rack.js';
+import { Rack } from './RackView.js'; // not Rack.js: macOS would mix it up with rack.js
 import { loadTips, saveTips } from '../platform/tipsLibrary.js';
 import { can } from '../platform/session.js';
 import { harvest, mergeHarvest, knownTexts, approve, reject, needsRewrite, sourceLabel, readingFor } from './harvest.js';

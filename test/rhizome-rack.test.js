@@ -116,3 +116,15 @@ test('the starter patch is cabled through to the engines in rack B', () => {
   assert.ok(patchToRule(p).rule, 'and it is still a rule');
   assert.match(describeModule(p.modules.find((m) => m.type === 'filter')), /category|links/);
 });
+
+test('no two files differ only by letter case (macOS and Windows would see one file)', async () => {
+  const { readdirSync } = await import('node:fs');
+  const seen = new Map();
+  for (const dir of ['src', 'server', 'test', 'media/help']) {
+    for (const f of readdirSync(dir, { recursive: true })) {
+      const key = `${dir}/${f}`.toLowerCase();
+      assert.ok(!seen.has(key), `${dir}/${f} clashes with ${seen.get(key)}`);
+      seen.set(key, `${dir}/${f}`);
+    }
+  }
+});
