@@ -217,7 +217,8 @@ export function runAnalysis(analysisIds, ctx, { dismissed = {} } = {}) {
     for (const rid of a.rules) {
       if (seen.has(rid)) continue;
       seen.add(rid);
-      const rule = ruleById[rid];
+      // Your own rules (built in the rack) sit beside the built-in ones.
+      const rule = ruleById[rid] ?? ctx.customRules?.[rid];
       if (!rule) continue;
       for (const f of runRule(rule, ctx, { analysisId: aid })) {
         // A dismissed finding stays away until what it rests on changes.

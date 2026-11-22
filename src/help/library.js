@@ -53,6 +53,7 @@ export const HELP_SHOTS = {
   'place-map': 'Place: Kestrel Bay on its drawn map, with place outlines, actors, stories and the links between them.',
   'place-tray': 'A place’s tray: what’s here, who serves it from elsewhere, and the places inside it.',
   'rhizome-tips': 'The review queue: an excerpt from the web waits to be put in your own words.',
+  'rhizome-rack': 'The twin racks: controls on the left, screens and engines on the right, cabled together.',
 };
 export const HELP_VERSION = 7;
 

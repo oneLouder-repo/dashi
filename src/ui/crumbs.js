@@ -121,7 +121,7 @@ const ACTIONS = {
   ],
   rhizome: () => [
     { label: 'Analyses', icon: 'spark', href: own('rhizome', '#analyses'), here: '#analyses' },
-    { label: 'Facts', icon: 'sec-rhizome', href: own('rhizome', '#facts'), here: '#facts' },
+    { label: 'Rack', icon: 'connect', href: own('rhizome', '#rack'), here: '#rack' },
     { label: 'About', icon: 'help', href: own('rhizome', '#about'), here: '#about' },
   ],
   place: () => [

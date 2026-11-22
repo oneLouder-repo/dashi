@@ -27,7 +27,7 @@ test('Rhizome is a plugin that ships switched off and owns only its own instance
   // The registry keeps it switched off by default, so the server agrees.
   const view = registryView(mergeRegistry({}));
   assert.equal(view.rhizome.defaultOff, true);
-  assert.equal(view.rhizome.version, '0.2.0');
+  assert.equal(view.rhizome.version, '0.3.0');
   // It reads strategy but can never write it.
   assert.equal(docMode(BUILT_IN_PLUGINS, { plugins: { rhizome: true, strategy: false } }, 'strategy', {}), 'read');
 });

@@ -67,7 +67,7 @@ export const CONTEXT_PRESETS = {
   },
 };
 
-export const blankRhizome = () => ({ id: 'rhizome', version: RHIZOME_VERSION, profile: null, setup: {}, baseline: null, calibration: null, snapshots: [], analyses: null, runs: [], dismissed: {}, ownTips: {}, reading: null });
+export const blankRhizome = () => ({ id: 'rhizome', version: RHIZOME_VERSION, profile: null, setup: {}, baseline: null, calibration: null, snapshots: [], analyses: null, runs: [], dismissed: {}, ownTips: {}, reading: null, patches: {}, ownRules: {} });
 
 /** A first context profile, from what Dashi already knows about the org. */
 export function profileFromOrg(org = {}, strategy = null) {
