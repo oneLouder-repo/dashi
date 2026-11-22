@@ -6,6 +6,22 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### PR 21: Rhizome, stage 3: the rack
+
+- **Twin racks.** Build your own analyses by cabling modules together, like a modular synth. Rack A holds the controls and rack B the screens and engines, so you can turn a knob and watch the result side by side. Cables run across both.
+- **A 1950s look.** Wood cheeks and brushed rails with screws. Ivory faceplates with bakelite knobs, nixie-tube counters and LEDs. Green or amber CRT screens with scanlines, a VU needle, toggle switches, and coloured patch cables that sag.
+- **The modules:**
+  - **Patchbay**: normalled jack pairs at the top.
+  - **Facts** and **Measure**: the sources.
+  - **Filter**: with a pass and a reject output, and percentile thresholds.
+  - **Weigh**, and **Gate** (AND, OR, NOT).
+  - **Say**: picks a tip, each or grouped.
+  - **Scope** and **VU meter**: show what flows through.
+  - **The engines**, in modern glass on purpose: the AI visualiser (stage 4), the Claude engine (stage 5) and an open slot.
+- **Live.** Every screen, counter and meter shows what is flowing through it. A knob turned updates the whole rack.
+- **Patches and rules are one thing.** **Open a rule…** puts any built-in rule in the rack as modules and cables, and gives the same findings. A straight chain becomes one of **your rules** with **Add to analyses**. It runs in Analyses beside the built-in ones, with **Open in the rack** to change it. Patches are public unless switched to private.
+- The ribbon's three actions are now Analyses, Rack and About. There's a new Help page, **The rack**.
+
 ### PR 20: Rhizome, the tip harvester, and getting ready for Place
 
 - **A Tips tab.** It has four parts:

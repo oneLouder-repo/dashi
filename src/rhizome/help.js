@@ -85,11 +85,39 @@ Tick analyses to add them to **your set**. **Run my set** runs them all and keep
 - **Say**: a tip from the tip library, filled in with names from what matched.
 - **Show**: what to light up, on a map or as a list.
 
-Rules are data, not code. The list at the bottom of **Analyses** shows every rule, and **View as data** shows exactly what Rhizome runs.
+Rules are data, not code. The list at the bottom of **Analyses** shows every rule, and **View as data** shows exactly what Rhizome runs. Open any rule in **the rack** to see it as modules and cables.
 
 # Coming next
-- **The rack** (stage 3): build your own analyses by cabling modules together, like a modular synth, with a Patchbay at the top.
-- **The critical AI visualiser** (stage 4) and **the Claude engine** (stage 5).`,
+- **The critical AI visualiser** (stage 4) and **the Claude engine** (stage 5). Their modules already sit in the rack, waiting.`,
+    },
+    {
+      id: 'rhizome-rack',
+      title: 'The rack',
+      body: `The rack is where you build your own analyses, like patching a modular synth. It has two racks side by side, so you can turn a knob and watch the result at the same time:
+
+- **Rack A** holds the controls: sources, shapers, logic and voice.
+- **Rack B** holds the screens and the engines.
+
+[[shot:rhizome-rack]]
+
+# Modules
+- **Patchbay**: the routing strip at the top. Whatever goes into a jack comes out of the jack below it, so one signal can feed many places.
+- **Facts** and **Measure** are sources. Facts gives every thing of one type; Measure gives a list the measures worked out, such as isolates or hubs. The orange tubes count the rows.
+- **Filter** lets through the rows that meet a condition. The rest go out of **reject**. A number can be compared with your own percentiles.
+- **Weigh** gives each row a score from 0 to 1, so findings can be ranked.
+- **Gate** joins two streams: AND (in both), OR (in either), NOT (in A but not B).
+- **Say** turns rows into findings, in the words of a tip.
+- **Scope** is a screen that shows what's flowing in. **VU meter** shows how much, and the top score.
+- **AI visualiser**, **Claude engine** and **the open slot** are the engines. They arrive in stages 4 and 5, and you can already patch into them.
+
+# Patching
+- **Patch a cable:** drag from a jack to a jack, an output to an input. An output can feed many inputs; an input takes one cable.
+- **Pull a cable out:** click it.
+- **Turn a knob:** drag it up or down, or use the arrow keys. Clicking a knob with a list steps to the next choice.
+- **Move a module:** hover over it for move, swap rack and remove.
+
+# From patch to rule
+A straight chain from a source, through filters and Weigh, into Say is a rule. **Add to analyses** keeps it as one of **your rules**, and it runs in Analyses beside the built-in ones. **Open a rule…** opens any built-in rule in the rack, ready to change. A patch with a Gate stays a patch for now. Each patch is **public** unless you switch it to private.`,
     },
     {
       id: 'rhizome-tips',

@@ -21,6 +21,7 @@ import { HELP_SHOTS } from '../help/library.js';
 import { Markdown } from '../ui/markdown.js';
 import { linkTo } from '../plugins.js';
 import './adapters.js';
+import { Rack } from './Rack.js';
 import { loadTips, saveTips } from '../platform/tipsLibrary.js';
 import { can } from '../platform/session.js';
 import { harvest, mergeHarvest, knownTexts, approve, reject, needsRewrite, sourceLabel, readingFor } from './harvest.js';
@@ -105,6 +106,7 @@ function render() {
   let page;
   if (view === 'analyses') page = Analyses(arg);
   else if (view === 'tips') page = Tips(arg);
+  else if (view === 'rack') page = RackPage(arg);
   else if (view === 'about') page = About(arg);
   else if (view === 'facts') page = Facts(arg);
   else if (view === 'measures') page = Measures();
@@ -120,6 +122,7 @@ function drawSide(view) {
     { title: 'Rhizome · experimental', items: [
       { label: 'Home', sub: setupDone(doc) ? 'Signals worth a look' : 'Finish setting up', icon: 'home', href: '#home', on: view === 'home' },
       { label: 'Analyses', sub: `${n(ANALYSES.length, 'canned analysis', 'canned analyses')} · ${n(RULES.length, 'rule')}`, icon: 'spark', href: '#analyses', on: view === 'analyses' },
+      { label: 'The rack', sub: `${n(Object.keys(doc.patches ?? {}).length, 'patch', 'patches')} · twin racks`, icon: 'connect', href: '#rack', on: view === 'rack' },
       { label: 'Facts', sub: `${n(fc.entities, 'thing')} · ${n(fc.relations, 'tie')}`, icon: 'sec-rhizome', href: '#facts', on: view === 'facts' },
       { label: 'Tips', sub: `${n(TIPS.length + (tipsDoc?.approved.length ?? 0) + Object.keys(doc.ownTips ?? {}).length, 'tip')} · reading list`, icon: 'book', href: '#tips', on: view === 'tips' },
       { label: 'Measures', sub: 'Calibrated to this organisation', icon: 'chart', href: '#measures', on: view === 'measures' },
@@ -127,7 +130,6 @@ function drawSide(view) {
       { label: 'About', sub: 'Quick reference and tutorials', icon: 'help', href: '#about', on: view === 'about' },
     ] },
     { title: 'Coming next', items: [
-      { label: 'The rack', sub: 'Stage 3: modules, cables, Patchbay', icon: 'connect' },
       { label: 'Visualiser and Claude', sub: 'Stages 4 and 5: the engines', icon: 'eye' },
     ] },
   ] }));
@@ -137,6 +139,7 @@ const tabs = (current) => PluginHeader('rhizome', {
   tabs: [
     { id: 'home', label: 'Home', icon: 'home' },
     { id: 'analyses', label: 'Analyses', icon: 'spark' },
+    { id: 'rack', label: 'Rack', icon: 'connect' },
     { id: 'facts', label: 'Facts', icon: 'sec-rhizome' },
     { id: 'tips', label: 'Tips', icon: 'book' },
     { id: 'measures', label: 'Measures', icon: 'chart' },
@@ -207,7 +210,6 @@ const Row = (id) => {
 
 function Coming() {
   const stages = [
-    ['Stage 3', 'The rack', 'Modules, cables and gadgets, with the Patchbay at the top: build your own analyses like a modular synth.'],
     ['Stage 4', 'Critical AI visualiser', 'A tiny inference engine that slowly shows what happens when you ask a system a question.'],
     ['Stage 5', 'Claude engine', 'Real questions of your graphs and links, through the server, with your own key and cost caps.'],
   ];
@@ -296,7 +298,9 @@ function Setup() {
 
 /* ------------------------------------------------------------ analyses */
 
-const ctx = () => ({ facts, measures: m, calibration: doc.calibration ?? m.calibration, profile: doc.profile, plugins });
+// Your own rules (made in the rack) run as one more analysis, "Your rules".
+const ownAnalysis = () => (Object.keys(doc.ownRules ?? {}).length ? { own: { id: 'own', name: 'Your rules', blurb: 'Rules you built in the rack.', icon: 'connect', rules: Object.keys(doc.ownRules) } } : {});
+const ctx = () => ({ facts, measures: m, calibration: doc.calibration ?? m.calibration, profile: doc.profile, plugins, customRules: doc.ownRules ?? {}, custom: ownAnalysis() });
 const mySet = () => doc.analyses ?? ANALYSES.map((a) => a.id);
 const THEME_TONE = { network: '#3e8fa6', leverage: '#7b2fe8', water: '#2c4fa3', abcd: '#ef7f2d', soar: '#4da65c', toc: '#c77deb', impact: '#e35a2c', hygiene: '#56657f', equity: '#c8432f', ai: '#2c4fa3', curriculum: '#4da65c', evaluation: '#f4a93b', place: '#3f8f6b' };
 
@@ -316,8 +320,9 @@ function Welcome() {
 
 let openWhy = null;
 function Analyses(arg) {
-  const current = arg === 'set' || !arg ? 'set' : arg === 'dismissed' ? 'dismissed' : analysisById[arg] ? arg : 'set';
-  setCrumbs(current === 'set' ? [] : [{ label: current === 'dismissed' ? 'Dismissed' : analysisById[current].name }]);
+  const A = { ...analysisById, ...ownAnalysis() };
+  const current = arg === 'set' || !arg ? 'set' : arg === 'dismissed' ? 'dismissed' : A[arg] ? arg : 'set';
+  setCrumbs(current === 'set' ? [] : [{ label: current === 'dismissed' ? 'Dismissed' : A[current].name }]);
   const findings = current === 'dismissed' ? [] : runAnalysis(current === 'set' ? mySet() : current, ctx(), { dismissed: doc.dismissed ?? {} });
   const dismissedCount = Object.keys(doc.dismissed ?? {}).length;
   const card = (a) => {
@@ -336,7 +341,7 @@ function Analyses(arg) {
     : current === 'dismissed'
       ? h('div', { class: 'rz-ahead' }, h('div', {}, h('h3', {}, 'Dismissed'), h('p', { class: 'rz-note' }, 'Findings you put away. Each comes back by itself if what it rests on changes.')),
         canSet && dismissedCount ? h('button', { class: 'btn btn-sm btn-outline', onclick: () => { doc.dismissed = {}; save('All findings brought back'); render(); } }, 'Bring them all back') : null)
-      : h('div', { class: 'rz-ahead' }, h('div', {}, h('h3', {}, analysisById[current].name), h('p', { class: 'rz-note' }, analysisById[current].blurb)));
+      : h('div', { class: 'rz-ahead' }, h('div', {}, h('h3', {}, A[current].name), h('p', { class: 'rz-note' }, A[current].blurb)));
   const body = current === 'dismissed'
     ? (dismissedCount ? h('ul', { class: 'rz-rows rz-dismissed' }, Object.entries(doc.dismissed).map(([id, d]) => h('li', { class: 'rz-row' }, h('span', { class: 'rz-name' }, d.title ?? id), h('small', {}, `put away ${String(d.at).slice(0, 10)}`),
       canSet ? h('button', { class: 'btn btn-xs btn-ghost', onclick: () => { delete doc.dismissed[id]; save('Brought back'); render(); } }, 'Bring back') : null))) : h('p', { class: 'rz-none' }, 'Nothing dismissed.'))
@@ -346,14 +351,14 @@ function Analyses(arg) {
       h('aside', { class: 'rz-panel rz-alist' },
         h('ul', {}, h('li', { class: `rz-analysis${current === 'set' ? ' on' : ''}` }, h('a', { href: '#analyses/set' }, icon('star', 16), h('span', {}, h('b', {}, 'My set'), h('small', {}, `${n(mySet().length, 'analysis', 'analyses')}`))))),
         h('h4', {}, 'Canned analyses'),
-        h('ul', {}, ANALYSES.map(card)),
+        h('ul', {}, [...ANALYSES, ...Object.values(ownAnalysis())].map(card)),
         h('ul', {}, h('li', { class: `rz-analysis${current === 'dismissed' ? ' on' : ''}` }, h('a', { href: '#analyses/dismissed' }, icon('eyeOff', 16), h('span', {}, h('b', {}, 'Dismissed'), h('small', {}, n(dismissedCount, 'finding'))))))),
       h('div', { class: 'rz-stack' }, h('section', { class: 'rz-panel' }, head, body), RulesList())));
 }
 
 /** One finding: its score, the tip, what it's about, and Why?, Dismiss and Show on map. */
 function Finding(f, { compact = false } = {}) {
-  const rule = ruleById[f.ruleId];
+  const rule = ruleById[f.ruleId] ?? doc.ownRules?.[f.ruleId];
   const tone = THEME_TONE[rule?.theme] ?? '#56657f';
   const first = facts.entities[f.items[0]];
   const mapHref = f.show === 'map' && first?.attrs.mapId ? linkTo('mapper', `#${first.attrs.mapId}`) : null;
@@ -371,6 +376,7 @@ function Finding(f, { compact = false } = {}) {
       !compact && h('div', { class: 'rz-finding-actions' },
         h('button', { class: `btn btn-xs ${whyOpen ? 'btn-active' : 'btn-ghost'}`, onclick: () => { openWhy = whyOpen ? null : f.id; render(); } }, 'Why?'),
         mapHref && h('a', { class: 'btn btn-xs btn-ghost', href: mapHref }, icon('sec-mapper', 13), 'Show on map'),
+        rule?.own && rule.patchId && doc.patches?.[rule.patchId] ? h('a', { class: 'btn btn-xs btn-ghost', href: `#rack/${rule.patchId}` }, icon('connect', 13), 'Open in the rack') : null,
         placeHref && h('a', { class: 'btn btn-xs btn-ghost', href: placeHref }, icon('globe', 13), 'Show on Place'),
         canSet && h('button', { class: 'btn btn-xs btn-ghost', onclick: () => { (doc.dismissed ??= {})[f.id] = { sig: f.sig, at: new Date().toISOString(), title: f.title, text: f.text }; save('Dismissed'); render(); } }, 'Dismiss')),
       !compact && whyOpen ? Why(f) : null));
@@ -378,7 +384,7 @@ function Finding(f, { compact = false } = {}) {
 
 /** Why?: the rule behind a finding, laid bare. */
 function Why(f) {
-  const rule = ruleById[f.ruleId];
+  const rule = ruleById[f.ruleId] ?? doc.ownRules?.[f.ruleId];
   const w = f.why.weigh;
   const tip = tipById[f.why.tip];
   return h('div', { class: 'rz-why' },
@@ -394,7 +400,7 @@ function Why(f) {
 let rulesAsData = false;
 function RulesList() {
   return h('section', { class: 'rz-panel rz-rules' },
-    h('header', { class: 'rz-ahead' }, h('div', {}, h('h3', {}, 'Every rule'), h('p', { class: 'rz-note' }, `${n(RULES.length, 'rule')} and ${n(TIPS.length, 'tip')} (tip pack ${TIP_PACK_VERSION}). Rules are data: this is exactly what Rhizome runs. In the rack (stage 3) you'll build your own.`)),
+    h('header', { class: 'rz-ahead' }, h('div', {}, h('h3', {}, 'Every rule'), h('p', { class: 'rz-note' }, `${n(RULES.length, 'rule')} and ${n(TIPS.length, 'tip')} (tip pack ${TIP_PACK_VERSION}). Rules are data: this is exactly what Rhizome runs. Open any of them in the rack, or build your own there.`)),
       h('button', { class: 'btn btn-xs btn-outline', onclick: () => { rulesAsData = !rulesAsData; render(); } }, rulesAsData ? 'View as a table' : 'View as data')),
     rulesAsData ? h('pre', { class: 'rz-json' }, JSON.stringify(RULES, null, 2))
       : h('table', { class: 'rz-table' }, h('thead', {}, h('tr', {}, ['Rule', 'Theme', 'Looks at', 'When', 'Says'].map((x) => h('th', {}, x)))),
@@ -402,6 +408,15 @@ function RulesList() {
           h('td', {}, r.from.list ? r.from.list : `every ${typeLabel(r.from.type)}`, r.group ? h('small', {}, ' (grouped)') : null),
           h('td', {}, r.when.length ? r.when.map((c) => `${c.field} ${OPS[c.op]?.label} ${c.pct ? `your ${c.pct}` : c.value ?? ''}`.trim()).join('; ') : '·'),
           h('td', {}, h('code', {}, r.say)))))));
+}
+
+/* ---------------------------------------------------------------- rack */
+
+function RackPage(arg) {
+  const p = doc.patches?.[arg];
+  setCrumbs(p ? [{ label: p.name }] : []);
+  return h('div', { class: 'rz-page rz-page-wide' }, tabs('rack'),
+    Rack({ doc, save, render, ctx, canSet, toast, confirm: uiConfirm }, arg));
 }
 
 /* ---------------------------------------------------------------- tips */

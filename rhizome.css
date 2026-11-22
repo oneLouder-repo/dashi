@@ -205,3 +205,183 @@ a.rz-chip { display: inline-flex; align-items: center; text-decoration: none; }
 .rz-kind.excerpt { background: #fdf0e3; color: #8a4a12; }
 .rz-warn { color: #8a4a12; font-size: 12px; }
 .rz-cand .rz-actions { justify-content: flex-start; align-items: center; }
+
+/* ===================================================================
+   The rack (PR 21, stage 3): twin 1950s racks. Wood cheeks, brushed
+   rails, ivory faceplates, bakelite knobs, CRT screens, VU needles,
+   patch cables. The engines are modern glass, on purpose.
+   =================================================================== */
+.rz-page-wide { max-width: none; }
+.rk-wrap { display: grid; gap: 12px; min-width: 0; }
+.rk-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: #fff; border: 1px solid #d5d8de; border-radius: 4px; padding: 8px 10px; }
+.rk-pick { max-width: 220px; }
+.rk-name { width: 220px; font-weight: 600; }
+.rk-vis { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+.rk-grow { flex: 1; }
+.rk-work { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 12px; align-items: start; }
+.rk-drawer { background: #fff; border: 1px solid #d5d8de; border-radius: 4px; padding: 10px; display: grid; gap: 10px; position: sticky; top: 8px; }
+.rk-drawer h4 { margin: 0; }
+.rk-cat { display: grid; gap: 4px; }
+.rk-cat > small { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #5c6370; box-shadow: inset 3px 0 0 var(--c); padding-left: 7px; }
+.rk-add { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; text-align: left; border: 1px solid #d5d8de; border-radius: 3px; background: #fbfaf6; padding: 5px 8px; font-size: 12.5px; cursor: pointer; }
+.rk-add span { font-size: 10.5px; color: #8a8f99; }
+.rk-add:hover:not(:disabled) { border-color: #9aa0aa; }
+.rk-add:disabled { opacity: .45; cursor: default; }
+.rk-add.digital { background: linear-gradient(135deg, #f7f9ff, #eaf0fb); }
+.rk-hint { margin: 0; font-size: 11.5px; color: #6b717c; line-height: 1.4; }
+
+.rk-stage { position: relative; min-width: 0; padding-bottom: 48px; }
+.rk-twins { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.rk-cables { position: absolute; inset: 0; pointer-events: none; overflow: visible; z-index: 5; }
+.rk-cable-line { fill: none; stroke-width: 5; stroke-linecap: round; opacity: .93; }
+.rk-cable-shadow { fill: none; stroke: rgba(0, 0, 0, .28); stroke-width: 7; transform: translate(1.5px, 3px); }
+.rk-cable-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
+.rk-cable:hover .rk-cable-line { stroke-width: 6.5; opacity: 1; }
+.rk-plug { stroke: #1b1d21; stroke-width: 2; }
+.rk-cable-temp { fill: none; stroke: #f2c12e; stroke-width: 4; stroke-dasharray: 6 5; }
+
+/* A case: wood cheeks either side of a black body */
+.rk-case { display: grid; grid-template-columns: 18px minmax(0, 1fr) 18px; border-radius: 6px; overflow: hidden; box-shadow: 0 6px 18px rgba(30, 20, 10, .28), 0 1px 0 rgba(255, 255, 255, .4) inset; }
+.rk-cheek { background:
+  repeating-linear-gradient(92deg, rgba(0, 0, 0, .08) 0 2px, transparent 2px 7px),
+  repeating-linear-gradient(88deg, rgba(255, 220, 170, .10) 0 1px, transparent 1px 11px),
+  linear-gradient(90deg, #5a3218, #8b5a2b 40%, #a46e3a 55%, #6d4020); }
+.rk-body { background: #17181b; padding: 8px 6px 10px; display: grid; gap: 8px; min-width: 0; }
+.rk-plate { display: flex; justify-content: space-between; align-items: center; padding: 3px 10px; border-radius: 3px; background: linear-gradient(180deg, #d9c58f, #b89a55); color: #2b2210; font: 700 10.5px/1.4 'Futura', 'Century Gothic', 'Trebuchet MS', sans-serif; letter-spacing: .14em; text-transform: uppercase; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 1px 2px rgba(0, 0, 0, .5); }
+.rk-plate em { font-style: italic; letter-spacing: .3em; }
+.rk-row { display: grid; gap: 0; }
+.rk-rail { height: 10px; border-radius: 2px; background:
+  radial-gradient(circle at 10px 5px, #2a2b2e 2px, transparent 2.5px) 0 0 / 28px 10px repeat-x,
+  linear-gradient(180deg, #e3e5e8, #9ea2a8 45%, #c9ccd1 55%, #8d9197); }
+.rk-mods { display: flex; align-items: stretch; gap: 2px; min-height: 280px; padding: 2px 0; }
+.rk-blank { background: repeating-linear-gradient(90deg, #232428 0 1px, #1c1d20 1px 6px); border-radius: 2px; display: grid; place-items: center; min-width: 0; }
+.rk-blank span { color: #6d7078; font-size: 11.5px; text-align: center; padding: 0 8px; font-family: 'Futura', 'Century Gothic', 'Trebuchet MS', sans-serif; letter-spacing: .06em; }
+
+/* A module: an ivory faceplate with a colour band and screws */
+.rk-mod { position: relative; min-width: 0; display: flex; flex-direction: column; border-radius: 3px; padding: 6px 6px 8px; gap: 6px; }
+.rk-mod.analog { background:
+  radial-gradient(ellipse at 30% 0%, rgba(255, 255, 255, .55), transparent 60%),
+  linear-gradient(180deg, #f3ead6, #e6dabf); color: #2a241a; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .25), inset 0 3px 0 var(--c); }
+.rk-mod header { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.rk-screw { width: 7px; height: 7px; flex: none; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fafafa, #8f949b 70%); box-shadow: inset 0 0 0 .5px #555; position: relative; }
+.rk-screw::after { content: ''; position: absolute; left: 1px; right: 1px; top: 3px; height: 1px; background: #5a5d63; transform: rotate(35deg); }
+.rk-title { font: 800 10.5px/1.1 'Futura', 'Century Gothic', 'Trebuchet MS', sans-serif; letter-spacing: .12em; text-transform: uppercase; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rk-face { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+.rk-knobs { display: flex; gap: 2px; justify-content: center; flex-wrap: wrap; }
+
+/* Knobs: bakelite caps on a chrome skirt */
+.rk-knob { display: grid; justify-items: center; gap: 0; cursor: ns-resize; user-select: none; touch-action: none; outline: none; width: 64px; }
+.rk-knob.small { width: 58px; }
+.rk-knob[aria-disabled="true"] { cursor: default; }
+.rk-knob:focus-visible .rk-skirt { stroke: #2f6fd6; stroke-width: 2.5; }
+.rk-dial { width: 48px; height: 48px; overflow: visible; }
+.rk-knob.small .rk-dial { width: 40px; height: 40px; }
+.rk-tick { stroke: #2a241a; stroke-width: 1.4; }
+.rk-skirt { fill: #c9ccd1; stroke: #6d7178; stroke-width: 1; }
+.rk-cap { fill: #1e1c1a; stroke: #000; }
+.rk-pointer { stroke: #f3ead6; stroke-width: 3; stroke-linecap: round; }
+.rk-knob small { font: 700 9px/1.2 'Futura', 'Century Gothic', 'Trebuchet MS', sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+.rk-knob-val { font: 600 10.5px/1.25 ui-monospace, 'Courier New', monospace; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #4d4535; }
+
+/* CRT screens: curved glass, phosphor glow, scanlines */
+.rk-crt { position: relative; width: 100%; border-radius: 12px / 16px; padding: 7px 9px; overflow: hidden; border: 3px solid #2a2622; box-shadow: inset 0 0 18px rgba(0, 0, 0, .8), 0 1px 0 rgba(255, 255, 255, .6); font: 500 11px/1.35 ui-monospace, 'Courier New', monospace; }
+.rk-crt.green { background: radial-gradient(ellipse at center, #133a1d 0%, #07170b 75%); color: #8dffa1; text-shadow: 0 0 4px rgba(120, 255, 150, .7); }
+.rk-crt.amber { background: radial-gradient(ellipse at center, #3d2608 0%, #160d03 75%); color: #ffbf52; text-shadow: 0 0 4px rgba(255, 180, 60, .7); }
+.rk-crt::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(180deg, rgba(0, 0, 0, .28) 0 1px, transparent 1px 3px), radial-gradient(ellipse at 30% 20%, rgba(255, 255, 255, .08), transparent 55%); }
+.rk-crt.small { min-height: 66px; }
+.rk-crt.small p { margin: 0; font-size: 10.5px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.rk-crt.big { min-height: 190px; }
+.rk-crt-head { display: flex; justify-content: space-between; font-weight: 700; letter-spacing: .12em; margin-bottom: 4px; opacity: .85; }
+.rk-crt ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.rk-crt li { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rk-crt li b { margin-right: 6px; opacity: .8; }
+.rk-crt small { display: block; margin-top: 4px; opacity: .7; }
+.rk-nosig { margin: 30px 0; text-align: center; letter-spacing: .1em; animation: rk-blink 1.6s steps(2) infinite; }
+@keyframes rk-blink { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .rk-nosig { animation: none; } }
+
+/* Nixie tubes, LEDs, readouts, toggles, the Dymo label */
+.rk-nixie { display: flex; gap: 2px; padding: 4px; background: #1b1410; border-radius: 4px; box-shadow: inset 0 1px 4px #000; }
+.rk-nixie span { width: 15px; height: 24px; display: grid; place-items: center; border-radius: 6px 6px 3px 3px; background: radial-gradient(ellipse at center, rgba(255, 120, 40, .22), rgba(40, 20, 10, .9)); color: #ff9a3c; font: 600 16px/1 ui-monospace, 'Courier New', monospace; text-shadow: 0 0 5px #ff6a00, 0 0 10px rgba(255, 100, 0, .6); }
+.rk-leds { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.rk-led { display: inline-flex; align-items: center; gap: 4px; }
+.rk-led i { width: 9px; height: 9px; border-radius: 50%; background: #4a3d33; box-shadow: inset 0 1px 2px rgba(0, 0, 0, .6); }
+.rk-led.lit.green i { background: radial-gradient(circle at 35% 35%, #d8ffd0, #39d353 60%); box-shadow: 0 0 6px #39d353; }
+.rk-led.lit.red i { background: radial-gradient(circle at 35% 35%, #ffd9d0, #e5402a 60%); box-shadow: 0 0 6px #e5402a; }
+.rk-led.lit.amber i { background: radial-gradient(circle at 35% 35%, #fff1c9, #f2a516 60%); box-shadow: 0 0 6px #f2a516; }
+.rk-led small { font: 700 9.5px/1 ui-monospace, 'Courier New', monospace; text-transform: uppercase; }
+.rk-readout { font: 600 11px/1 ui-monospace, 'Courier New', monospace; background: #1f2a1f; color: #a7f3b2; padding: 4px 8px; border-radius: 3px; box-shadow: inset 0 1px 3px #000; }
+.rk-toggle { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; }
+.rk-toggle button { display: grid; justify-items: center; gap: 2px; background: none; border: 0; padding: 0 2px; font: 700 8.5px/1 'Futura', 'Century Gothic', 'Trebuchet MS', sans-serif; letter-spacing: .08em; color: #5a5040; cursor: pointer; }
+.rk-toggle button i { width: 12px; height: 18px; border-radius: 6px; background: linear-gradient(180deg, #d7d9dc, #7d8188); box-shadow: inset 0 0 0 1px #4d5056; position: relative; }
+.rk-toggle button i::after { content: ''; position: absolute; left: 2px; right: 2px; height: 8px; bottom: 2px; border-radius: 4px; background: #2a2b2e; transition: none; }
+.rk-toggle button.on i::after { bottom: auto; top: 2px; background: #c23b22; }
+.rk-toggle button.on { color: #1b1813; }
+.rk-toggle button:disabled { cursor: default; }
+.rk-switchrow { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.rk-dymo { width: 100%; background: #1c1c1c; color: #f2f2f2; border: 0; border-radius: 2px; font: 700 10px/1.6 ui-monospace, 'Courier New', monospace; letter-spacing: .06em; text-transform: uppercase; padding: 2px 4px; box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .15); }
+.rk-tape { width: 92%; border: 0; background: #f8f3df; border-bottom: 1px dashed #8a7f63; font: 600 11px/1.6 ui-monospace, 'Courier New', monospace; text-align: center; color: #2a241a; }
+
+/* VU meter */
+.rk-vu-wrap { display: grid; justify-items: center; gap: 2px; width: 100%; }
+.rk-vu { width: 100%; max-width: 120px; }
+.rk-vu-face { fill: #f6e8b9; stroke: #3a3020; stroke-width: 2; }
+.rk-vu-tick { stroke: #2a241a; stroke-width: 1.6; }
+.rk-vu-red { stroke: #c23b22; stroke-width: 2.4; }
+.rk-vu-needle { stroke: #1b1813; stroke-width: 1.8; stroke-linecap: round; }
+.rk-vu-hub { fill: #1b1813; }
+.rk-vu-text { font: 800 11px 'Futura', 'Century Gothic', 'Trebuchet MS', sans-serif; text-anchor: middle; fill: #3a3020; letter-spacing: .1em; }
+.rk-vu-wrap small { font: 600 9.5px/1.2 ui-monospace, 'Courier New', monospace; text-align: center; }
+
+/* Jacks: chrome nuts with a black hole; outputs ringed */
+.rk-jacks { display: flex; justify-content: space-between; gap: 4px; margin-top: auto; padding-top: 4px; border-top: 1px solid rgba(0, 0, 0, .12); }
+.rk-jacks > div { display: flex; gap: 3px; flex-wrap: wrap; }
+.rk-jack { display: grid; justify-items: center; gap: 1px; cursor: crosshair; touch-action: none; }
+.rk-jack i { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle, #050505 0 4px, #6e7278 4.5px, #e9ebee 6px, #9da1a8 8px); box-shadow: 0 1px 1px rgba(0, 0, 0, .4); }
+.rk-jack.out i { box-shadow: 0 0 0 2.5px #2a241a, 0 1px 1px rgba(0, 0, 0, .4); }
+.rk-jack.live i { background: radial-gradient(circle, #050505 0 4px, #6e7278 4.5px, #fff 6px, #b5b9bf 8px); }
+.rk-jack small { font: 800 8px/1 'Futura', 'Century Gothic', 'Trebuchet MS', sans-serif; letter-spacing: .06em; }
+.rk-jack:hover i { filter: brightness(1.15); }
+
+/* Module tools: show on hover/focus, on a small black strip */
+.rk-tools { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 1px; background: #1b1d21; border-radius: 3px; padding: 1px; opacity: 0; pointer-events: none; z-index: 6; }
+.rk-mod:hover .rk-tools, .rk-mod:focus-within .rk-tools { opacity: 1; pointer-events: auto; }
+.rk-tools button { width: 20px; height: 18px; border: 0; background: none; color: #f3ead6; font-size: 12px; line-height: 1; cursor: pointer; border-radius: 2px; }
+.rk-tools button:hover { background: #3a3d44; }
+
+/* The patchbay: a strip of normalled jack pairs */
+.t-patchbay .rk-bay { flex-direction: row; justify-content: space-around; align-items: center; background: linear-gradient(180deg, #2b2c30, #1d1e21); border-radius: 3px; padding: 6px; }
+.t-patchbay { min-height: 0; }
+.rk-bay-col { display: grid; justify-items: center; gap: 3px; color: #e9e2cf; }
+.rk-bay-col small { font: 600 9.5px/1.2 ui-monospace, 'Courier New', monospace; color: #cbbf9d; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rk-bay .rk-jack small { color: #e9e2cf; }
+.rk-normal { font-size: 12px; color: #8f876f; }
+.rk-row:has(.t-patchbay) .rk-mods { min-height: 0; }
+
+/* The engines: modern glass, the future plugged into the past */
+.rk-mod.digital { background: linear-gradient(160deg, #1b2236 0%, #0f1424 60%, #141b30 100%); color: #e8ecf8; box-shadow: inset 0 0 0 1px rgba(160, 190, 255, .28), inset 0 1px 0 rgba(255, 255, 255, .12); font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.rk-mod.digital .rk-screw { background: #2a3350; box-shadow: none; }
+.rk-mod.digital .rk-screw::after { display: none; }
+.rk-mod.digital .rk-title { font: 600 11px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; letter-spacing: .02em; text-transform: none; }
+.rk-glass { align-items: stretch; text-align: left; gap: 8px; }
+.rk-glass-top { display: flex; align-items: center; gap: 6px; font-size: 10.5px; color: #a9b6dc; }
+.rk-dot { width: 7px; height: 7px; border-radius: 50%; background: #6e8bff; box-shadow: 0 0 8px #6e8bff; }
+.t-claude .rk-dot { background: #e59a6d; box-shadow: 0 0 8px #e59a6d; }
+.t-slot .rk-dot { background: #6b7280; box-shadow: none; }
+.rk-glass p { margin: 0; font-size: 11.5px; line-height: 1.45; color: #cdd5ee; }
+.rk-glass-meter { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.rk-glass-meter span { display: block; height: 100%; background: linear-gradient(90deg, #6e8bff, #b48cff); }
+.t-claude .rk-glass-meter span { background: linear-gradient(90deg, #e59a6d, #f0c27a); }
+.rk-glass small { font-size: 10.5px; color: #8e9bc4; }
+.rk-mod.digital .rk-jacks { border-top-color: rgba(255, 255, 255, .1); }
+.rk-mod.digital .rk-jack i { background: radial-gradient(circle, #05070d 0 4px, #3b4668 4.5px, #8fa0d0 6px, #4b5679 8px); }
+.rk-mod.digital .rk-jack.out i { box-shadow: 0 0 0 2px #6e8bff; }
+.rk-mod.digital .rk-jack small { color: #a9b6dc; font-family: system-ui, sans-serif; }
+
+.rk-asrule summary { cursor: pointer; font-weight: 700; font-size: 13px; }
+
+@media (max-width: 1100px) {
+  .rk-twins { grid-template-columns: minmax(0, 1fr); }
+  .rk-work { grid-template-columns: minmax(0, 1fr); }
+  .rk-drawer { position: static; }
+}
