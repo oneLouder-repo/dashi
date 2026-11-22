@@ -19,7 +19,6 @@ Alpha 0.4 is the learning release (Teach, Learn and what follows), opened from t
 - **Controls.** Play, pause, step back and forward, jump to the start or the answer, and three speeds. Open it big in a tray. It sends its answer out as findings, so the Scope or the Claude engine can take it. It says on screen that it is a toy, not a real language model.
 - **Moving modules.** The pop-up toolbar is gone, so nothing covers the Say module's chooser any more. Each module has a grab handle (top left) to drag it anywhere in either rack, with a glowing marker where it will land. There is a × (top right) to take it out. On the handle, the arrow keys move a module, and up or down sends it to the other rack.
 - **A quieter badge.** The cursive script is now the small Dashi ripple mark, pressed into the faceplate in its own colour so it looks worn in.
-- **Cables step back** while you work the visualiser's screen.
 
 ### The rack, tightened, with set and graph modules
 
