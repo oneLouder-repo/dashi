@@ -2,6 +2,7 @@ import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { Shell, toast } from '../ui/Shell.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
+import { rhizomeTabs } from './tabs.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
 import { setCrumbs } from '../ui/crumbs.js';
 import { uiConfirm } from '../ui/dialog.js';
@@ -126,6 +127,7 @@ function drawSide(view) {
       { label: 'Home', sub: setupDone(doc) ? 'Signals worth a look' : 'Finish setting up', icon: 'home', href: '#home', on: view === 'home' },
       { label: 'Analyses', sub: `${n(ANALYSES.length, 'canned analysis', 'canned analyses')} · ${n(RULES.length, 'rule')}`, icon: 'spark', href: '#analyses', on: view === 'analyses' },
       { label: 'The rack', sub: `${n(Object.keys(doc.patches ?? {}).length, 'patch', 'patches')} · twin racks`, icon: 'connect', href: '#rack', on: view === 'rack' },
+      linkTo('graph') && { label: 'Graph', sub: 'Search, loops, hubs and bridges, linked data', icon: 'sec-graph', href: linkTo('graph', '#explore') },
       { label: 'Facts', sub: `${n(fc.entities, 'thing')} · ${n(fc.relations, 'tie')}`, icon: 'sec-rhizome', href: '#facts', on: view === 'facts' },
       { label: 'Report', sub: 'Everything Rhizome found, to print or save as PDF', icon: 'file', href: '#report', on: view === 'report' },
       { label: 'Tips', sub: `${n(TIPS.length + (tipsDoc?.approved.length ?? 0) + Object.keys(doc.ownTips ?? {}).length, 'tip')} · reading list`, icon: 'book', href: '#tips', on: view === 'tips' },
@@ -139,20 +141,7 @@ function drawSide(view) {
   ] }));
 }
 
-const tabs = (current) => PluginHeader('rhizome', {
-  tabs: [
-    { id: 'home', label: 'Home', icon: 'home' },
-    { id: 'analyses', label: 'Analyses', icon: 'spark' },
-    { id: 'rack', label: 'Rack', icon: 'connect' },
-    { id: 'report', label: 'Report', icon: 'file' },
-    { id: 'facts', label: 'Facts', icon: 'sec-rhizome' },
-    { id: 'tips', label: 'Tips', icon: 'book' },
-    { id: 'measures', label: 'Measures', icon: 'chart' },
-    { id: 'setup', label: 'Set-up', icon: 'settings' },
-    { id: 'about', label: 'About', icon: 'help' },
-  ],
-  current,
-});
+const tabs = (current) => PluginHeader('rhizome', { tabs: rhizomeTabs('rhizome'), current });
 
 /* ------------------------------------------------------------------ home */
 

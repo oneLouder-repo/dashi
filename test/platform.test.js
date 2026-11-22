@@ -22,7 +22,9 @@ test('orgs carry a profile, a theme from the offered list, and plugin switches',
   // Orgs saved when the plugin was Radio & Podcasts keep their switch.
   assert.equal(pluginOn(migrateOrg({ id: 'o', name: 'O', plugins: { radio: false } }), 'podcasts'), false);
   // Everything but the plugins that ship switched off (Rhizome), which an org switches on itself.
-  assert.equal(enabledPlugins(seedOrg()).length, PLUGINS.filter((p) => !p.defaultOff).length);
+  // Sub-plugins of those (Graph, inside Rhizome since alpha 0.4) go with their parent.
+  const offByDefault = (p) => p.defaultOff || PLUGINS.find((x) => x.id === p.parent)?.defaultOff;
+  assert.equal(enabledPlugins(seedOrg()).length, PLUGINS.filter((p) => !offByDefault(p)).length);
   assert.ok(!enabledPlugins(seedOrg()).some((p) => p.id === 'rhizome'));
 });
 

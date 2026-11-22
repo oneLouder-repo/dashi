@@ -111,12 +111,12 @@ const ACTIONS = {
   ],
   assets: () => [
     { label: 'Asset map', icon: 'mapTrifold', href: own('assets', '#view=map'), here: '#view=map' },
-    { label: 'Asset graph', icon: 'spark', href: linkTo('graph') },
+    { label: 'Graph', icon: 'sec-graph', href: linkTo('graph') },
     { label: 'Ecosystem map', icon: 'mapper', href: linkTo('mapper') },
   ],
   graph: () => [
     { label: 'Explore', icon: 'spark', href: own('graph', '#explore'), here: '#explore' },
-    { label: 'Insights', icon: 'chart', href: own('graph', '#insights'), here: '#insights' },
+    { label: 'Loops', icon: 'refresh', href: own('graph', '#loops'), here: '#loops' },
     { label: 'Export', icon: 'download', href: own('graph', '#export'), here: '#export' },
   ],
   rhizome: () => [

@@ -132,18 +132,18 @@ export const PLUGINS = [
   },
   {
     id: 'graph',
-    parent: 'assets',
+    // Alpha 0.4: out of experimental and out of Assets; a tab of Rhizome.
+    parent: 'rhizome',
     owns: ['graph'],
     // The same as Assets reads, so the graph never opens a door Assets keeps shut.
     reads: ['assets', 'maps', 'map/*', 'library', 'strategy', 'dashboards'],
     short: 'Graph',
     tone: '#e0705f',
-    name: 'Asset Graph',
+    name: 'Graph',
     href: 'graph.html',
     icon: 'sec-graph',
-    experimental: true,
-    blurb: 'Experimental: your assets, people, maps and strategy as one web of linked facts. Search it for fun, find who bridges groups, and export it as linked data.',
-    stats: ({ assets }) => `${Object.keys(assets?.items ?? {}).length} assets linked in · experimental`,
+    blurb: 'A tab of Rhizome: your assets, people, maps and strategy as one web of linked facts. Search it, find the feedback loops on your maps and who bridges groups, and export it as linked data.',
+    stats: ({ assets }) => `${Object.keys(assets?.items ?? {}).length} assets linked in`,
   },
   {
     id: 'rhizome',

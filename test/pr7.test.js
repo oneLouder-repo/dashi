@@ -7,11 +7,13 @@ import { PLUGINS, linkTo } from '../src/plugins.js';
 
 const g = buildGraph(actuaDocs());
 
-test('the asset graph is a sub-plugin of Assets that owns only its settings', () => {
+test('the graph is a sub-plugin of Rhizome (alpha 0.4, was Assets) that owns only its settings', () => {
   const p = PLUGINS.find((x) => x.id === 'graph');
-  assert.equal(p.parent, 'assets');
+  assert.equal(p.parent, 'rhizome');
+  assert.ok(!p.experimental, 'out of experimental');
   assert.deepEqual(p.owns, ['graph']);
-  assert.equal(linkTo('graph', '', { plugins: { assets: false } }), null, 'it goes with Assets');
+  assert.equal(linkTo('graph', '', { plugins: { rhizome: false } }), null, 'it goes with Rhizome');
+  assert.equal(linkTo('graph', '#loops', { plugins: { rhizome: true } }), 'graph.html#loops');
 });
 
 test('Actua becomes linked facts: people, assets, actors, tags and strategy', () => {

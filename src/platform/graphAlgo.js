@@ -254,3 +254,68 @@ export function around(g, iri, { adj = adjacency(g) } = {}) {
   if ((e.rings[1]?.length ?? 0) < 2) e = ego(g, iri, 2, { adj: adjacency(g, { weak: true }) });
   return { kind: 'ego', title: g.nodes[iri].label, nodes: [...e.nodes], rings: e.rings, focus: iri, note: `${e.rings[1]?.length ?? 0} linked directly, ${e.rings[2]?.length ?? 0} more one step further.` };
 }
+
+/**
+ * Loops (alpha 0.4): the feedback loops drawn into the change ecosystem.
+ * Map relationships have a direction (from one actor to another), so a
+ * loop is a way round that comes back to where it started: A → B → C → A.
+ * Dashi is about feedback and learning loops; this finds the ones already
+ * there, and the near misses one link short of closing.
+ *
+ *   findLoops(g, { max = 6, limit = 60 })
+ *     → { loops: [{ iris: [a, b, c], edges: [{s,o,label,p}], kind: 'feedback'|'learning'|'mixed'|'plain' }],
+ *         almost: [{ iris: [a, b, c], missing: { s: c, o: a } }] }
+ *
+ * Only actor-to-actor links count (the ties people drew on maps), each loop
+ * once (it starts at its smallest iri), shortest first.
+ */
+export function findLoops(g, { max = 6, limit = 60, almostLimit = 12 } = {}) {
+  const out = new Map();
+  const edgeOf = new Map();
+  for (const e of g.edges) {
+    if (e.weak || g.nodes[e.s]?.kind !== 'actor' || g.nodes[e.o]?.kind !== 'actor') continue;
+    if (!out.has(e.s)) out.set(e.s, []);
+    out.get(e.s).push(e.o);
+    edgeOf.set(`${e.s}\u0000${e.o}`, e);
+  }
+  const loops = [];
+  const seen = new Set();
+  const starts = [...out.keys()].sort();
+  for (const start of starts) {
+    if (loops.length >= limit * 4) break;
+    // Depth-first from each start, visiting only nodes "after" it, so each loop is found once.
+    const stack = [[start, [start]]];
+    while (stack.length) {
+      const [at, path] = stack.pop();
+      for (const next of out.get(at) ?? []) {
+        if (next === start && path.length >= 2) {
+          const key = path.join('>');
+          if (!seen.has(key)) { seen.add(key); loops.push(path); }
+        } else if (next > start && !path.includes(next) && path.length < max) stack.push([next, [...path, next]]);
+      }
+    }
+  }
+  const kindOfEdge = (e) => { const t = `${e.p} ${e.label ?? ''}`.toLowerCase(); return /learn/.test(t) ? 'learning' : /feedback/.test(t) ? 'feedback' : 'plain'; };
+  const shaped = loops
+    .sort((a, b) => a.length - b.length || a.join().localeCompare(b.join()))
+    .slice(0, limit)
+    .map((iris) => {
+      const edges = iris.map((s, i) => edgeOf.get(`${s}\u0000${iris[(i + 1) % iris.length]}`));
+      const kinds = new Set(edges.map(kindOfEdge).filter((k) => k !== 'plain'));
+      return { iris, edges, kind: kinds.size === 0 ? 'plain' : kinds.size > 1 ? 'mixed' : [...kinds][0] };
+    });
+  // Near misses: A → B → C with no way back from C to A (and no loop already through all three).
+  const inLoop = new Set(shaped.flatMap((l) => l.iris));
+  const almost = [];
+  for (const a of starts) {
+    for (const b of out.get(a) ?? []) {
+      for (const c of out.get(b) ?? []) {
+        if (c === a || edgeOf.has(`${c}\u0000${a}`) || edgeOf.has(`${b}\u0000${a}`)) continue;
+        almost.push({ iris: [a, b, c], missing: { s: c, o: a }, warm: inLoop.has(a) + inLoop.has(b) + inLoop.has(c) });
+      }
+    }
+  }
+  // The ones touching existing loops least first: they are where new feedback would help most.
+  almost.sort((x, y) => x.warm - y.warm || x.iris.join().localeCompare(y.iris.join()));
+  return { loops: shaped, almost: almost.slice(0, almostLimit).map(({ warm, ...rest }) => rest) };
+}

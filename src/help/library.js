@@ -74,14 +74,14 @@ export const HELP_SEED = {
     RHIZOME_HELP,
     {
       id: 'asset-graph',
-      title: 'The asset graph (experimental)',
+      title: 'The graph, in Rhizome',
       icon: 'sec-graph',
-      blurb: 'Your assets, people, maps and strategy as one web of linked facts: search it, find who bridges groups, and share it as linked data.',
+      blurb: 'Your assets, people, maps and plan as one web of linked facts: search it, find the feedback loops on your maps and who bridges groups, and share it as linked data.',
       pages: [
         {
           id: 'graph-search',
           title: 'Graph search',
-          body: `The asset graph lives inside **Assets** (left panel, **Asset graph**). It joins everything Dashi knows into one web: assets, people, the actors on your maps, tags, collections, and your strategy from the framework to workplans.
+          body: `The graph is a tab of **Rhizome** (it moved there from Assets in alpha 0.4; in Assets, **Rhizome tools** in the left panel opens a tray of its tools). It joins everything Dashi knows into one web: assets, people, the actors on your maps, tags, collections, and your strategy from the framework to workplans.
 
 # Unfold a network
 1. Open **Graph search** and type a name. Pick it from the suggestions, or press Enter.
@@ -97,6 +97,15 @@ Type **A to B**, for example "CIFAR to Apple". The shortest way is drawn as a li
 
 # Ask the graph
 The chips ask the bigger questions: **Most connected**, **Who bridges groups**, **Clusters** and **On their own**. You can also type "people", "tags", or an ABCD type such as "cultural".`,
+        },
+        {
+          id: 'graph-loops',
+          title: 'Feedback loops',
+          body: `**Graph → Loops** finds the loops drawn into your ecosystem maps: ways round that come back to where they started (A gives to B, B to C, C back to A). Loops are how feedback and learning travel, so they are worth knowing and looking after.
+
+- Each loop shows as a ring with its actors and the links between them, in the direction they were drawn. Feedback links are red, learning links green.
+- **One link short of a loop** lists chains that run two steps one way with no way back. Ask whether the last one feeds back to the first, and draw the link on the map if it's real. The ones furthest from any loop come first.
+- In Assets, **Rhizome tools** shows how many loops there are, a click away.`,
         },
         {
           id: 'graph-insights',
