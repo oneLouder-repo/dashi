@@ -146,6 +146,22 @@ export const PLUGINS = [
     stats: ({ assets }) => `${Object.keys(assets?.items ?? {}).length} assets linked in · experimental`,
   },
   {
+    id: 'rhizome',
+    owns: ['rhizome'],
+    // It reads across the org to find links between things; it never changes another plugin's documents.
+    reads: ['maps', 'map/*', 'assets', 'library', 'strategy', 'studio', 'podcasts', 'graph'],
+    short: 'Rhizome',
+    tone: '#5f8f3e',
+    name: 'Rhizome',
+    href: 'rhizome.html',
+    icon: 'sec-rhizome',
+    experimental: true,
+    // Off until an org switches it on, which starts its set-up run.
+    defaultOff: true,
+    blurb: 'Experimental: a systems analysis toolbox. Reads your maps, strategy, studio and assets as one set of facts, measures the links between them, and (soon) offers tips you can build on, like a modular synth.',
+    stats: ({ rhizome }) => (rhizome?.setup?.calibrate ? `Set up · baseline ${String(rhizome.baseline?.at ?? '').slice(0, 10)}` : 'Not set up yet · experimental'),
+  },
+  {
     id: 'pages',
     owns: ['pages'],
     reads: ['dashboards', 'data', 'plandocs', 'strategy', 'library'],
@@ -227,7 +243,8 @@ export function applyRegistry(view) {
       // Tones saved before the alpha 0.3 colour wheel give way to the built-in plugin's new one.
       tone: (m.builtIn || !p.installed) && LEGACY_TONES.has(String(m.tone).toLowerCase()) ? p.tone : m.tone ?? p.tone, icon: m.icon ?? p.icon, version: m.version, category: m.category,
       platformOff: !p.core && m.status !== 'installed',
-      defaultOff: !!m.defaultOff,
+      // A built-in plugin that ships switched off (Rhizome) stays that way whatever the registry says.
+      defaultOff: !!m.defaultOff || !!BUILT_IN_PLUGINS.find((b) => b.id === p.id && !p.installed)?.defaultOff,
       features: m.featureList ?? [],
       ...(p.installed ? { owns: (m.dataModel?.docs ?? []).map((d) => d.name).filter(Boolean), parent: m.parent ?? null } : {}),
     });

@@ -164,6 +164,19 @@ const BUILT_IN = {
       { id: 'vocabs', label: 'Vocabularies in use', fields: [f('prefix', 'Prefix'), f('on', 'On', 'boolean')] },
       { id: 'abcdClasses', label: 'ABCD classes', fields: [f('type', 'ABCD type'), f('class', 'Class')] }] }] },
   },
+  rhizome: {
+    category: 'Knowledge',
+    version: '0.1.0',
+    features: [
+      feat('facts', 'Fact layer', 'Maps, assets, strategy, the studio and people as one set of facts.'),
+      feat('measures', 'Measures', 'Hubs, single points of failure, isolates, one-way flows, zone gaps, hollow objectives and more, calibrated to the org.'),
+      feat('setup', 'Switch-on set-up', 'A context profile, a baseline and calibration, run once when the plugin is switched on.'),
+    ],
+    dataModel: { docs: [{ name: 'rhizome', label: 'Rhizome instance', collections: [
+      { id: 'profile', label: 'Context profile', fields: [f('sector', 'Sector'), f('focus', 'Focus', 'list'), f('serves', 'Who we serve', 'longtext'), f('themes', 'Themes', 'list')] },
+      { id: 'snapshots', label: 'Snapshots', fields: [f('at', 'When', 'date'), f('entities', 'Entities', 'number'), f('relations', 'Relations', 'number')] }] }] },
+    changelog: [{ version: '0.1.0', date: '2026-11-22', notes: 'Stage 1: the fact layer, measures with calibration, and the switch-on set-up run. Rules, the patcher and the engines come next.', by: 'Dashi' }],
+  },
   pages: {
     category: 'Publishing',
     features: [
@@ -430,6 +443,8 @@ export function mergeRegistry(stored = {}) {
     // A new Dashi release of a built-in plugin brings its version and changelog with it.
     if (mine && compareVersions(mine.version ?? '1.0.0', base.version) < 0) mine = { ...mine, version: base.version, changelog: [...base.changelog.filter((c) => compareVersions(c.version, mine.version ?? '1.0.0') > 0), ...(mine.changelog ?? [])] };
     plugins[p.id] = mine ? { ...base, ...mine, builtIn: true, core: !!p.core, id: p.id, href: p.href } : base;
+    // A built-in plugin that ships switched off keeps that, so an org's switching it on is a real choice.
+    if (p.defaultOff) plugins[p.id].defaultOff = true;
   }
   for (const [id, m] of Object.entries(stored.plugins ?? {})) if (!plugins[id]) plugins[id] = { ...m, builtIn: false, core: false };
   for (const sc of SCAFFOLDS) {

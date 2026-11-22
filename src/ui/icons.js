@@ -98,6 +98,7 @@ export const SECTION_ICONS = {
   'sec-help': `<path d="M8 8 A4 4 0 1 1 12 12 V14"/><rect x="10.5" y="17" width="3" height="3" ${ACF}/><path d="M3 3 H7 M3 3 V7 M21 3 H17 M21 3 V7 M3 21 H7 M3 21 V17 M21 21 H17 M21 21 V17"/>`,
   'sec-assets': `<path d="M4 8 H20 V20 H4 Z"/><path d="M6 5 H18 M8 2.5 H16"/><circle cx="12" cy="14" r="2.5" ${ACF}/>`,
   'sec-graph': `<path d="M6 6 L12 12 L18 7 M12 12 L7 18 M12 12 L18 17"/><circle cx="6" cy="6" r="2"/><circle cx="18" cy="7" r="2"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="17" r="2"/><circle cx="12" cy="12" r="2.6" ${ACF}/>`,
+  'sec-rhizome': `<path d="M2.5 13 C6 11 8 14.5 12 12.5 S18 10.5 21.5 12.5"/><path d="M7 12.2 L5.5 6.5 M7 12.2 L8.5 19 M12 12.5 L13.5 5.5 M16.5 11.6 L18.5 18.5 M16.5 11.6 L15.5 6.5"/><circle cx="12" cy="12.5" r="2.4" ${ACF}/>`,
   'sec-plugins': `<rect x="4" y="4" width="7" height="7"/><rect x="13" y="13" width="7" height="7"/><path d="M4 13 H11 V20 H4 Z" stroke-dasharray="2 2"/><circle cx="16.5" cy="7.5" r="3.5" ${AC}/>`,
 };
 // The section names the pages used before: they now draw the Grid icons.

@@ -21,7 +21,9 @@ test('orgs carry a profile, a theme from the offered list, and plugin switches',
   assert.ok(!enabledPlugins(seedRiverbend()).some((p) => p.id === 'podcasts'));
   // Orgs saved when the plugin was Radio & Podcasts keep their switch.
   assert.equal(pluginOn(migrateOrg({ id: 'o', name: 'O', plugins: { radio: false } }), 'podcasts'), false);
-  assert.equal(enabledPlugins(seedOrg()).length, PLUGINS.length);
+  // Everything but the plugins that ship switched off (Rhizome), which an org switches on itself.
+  assert.equal(enabledPlugins(seedOrg()).length, PLUGINS.filter((p) => !p.defaultOff).length);
+  assert.ok(!enabledPlugins(seedOrg()).some((p) => p.id === 'rhizome'));
 });
 
 test('migrateOrg fills in fields added since a document was saved', () => {

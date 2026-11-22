@@ -6,6 +6,16 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.3 is a round of UI work in about 15 to 20 pull requests; going live (the Actua and SJR checklist, Stripe billing) moves to 0.4. Newest first.
 
+### PR 18: Rhizome, stage 1 (experimental): the fact layer, measures and the switch-on set-up
+
+Rhizome is a new, experimental plugin: a systems analysis toolbox that will grow, stage by stage, into a modular-synth-style rack of rules, tips and engines (see the Rhizome plan). Stage 1 is its foundation. It ships switched off; an org switches it on in Organisation → Plugins.
+
+- **One instance per org, and a set-up run.** Switching Rhizome on starts a short set-up, shown as a checklist on its home page: switch on, a context profile (sector, focus, who you serve, your words, the themes that matter), read in your data (with a baseline to compare against later), and calibrate. Steps for stage 2 (tip packs, a context harvest, a first run) show as coming next. Any step can be run again, or the whole set-up from the top.
+- **The fact layer.** Ecosystem maps (actors with their lens zone, links, groups), Assets (with ABCD types and tags), Strategy & Work (the plan tree, people on workplans, assets behind them), the Planning Studio (SOAR cards, context, results, the assembler's wires, the theory of change) and people, all as one set of entities and ties. Only plugins the person can use add facts. The Facts page lists every thing, with everything it's tied to, both ways.
+- **Measures, calibrated to the org.** Links in and out, betweenness, single points of failure (actors whose loss splits their network), hubs, isolated actors, one-way flows (resources, information or power with nothing coming back), zone gaps, objectives with no work behind them, unstaffed and late work, assets nothing leans on, SOAR ideas never patched in, and untested theory of change links. Thresholds come from the org's own data (percentiles), so "few links" means few for that org.
+- **Home shows the signals worth a look,** each with a count, why it matters and the first few things in it, plus change since the baseline (a snapshot a day).
+- **Pilots.** Kestrel Bay is seeded with Rhizome switched on and set up, for design and building. Actua gets a ready-made profile (AI strategy, STEM and AI curriculum, speculative map links weighed at half) for when it's switched on.
+
 ### PR 17: roadmap Fit zoom, Ecosystem, a Podcasts home, and a slide track in the studio
 
 - **Roadmap opens at "Fit".** A new zoom (the default) is worked out for the screen. With plans side by side, the road opens on all plans end to end and takes in the newest plan under way today, from a stretch before it began (the end of the plan before) to over a year past its end. For Kestrel Bay that runs from mid-2025 to mid-2032, with both finish lines in view. One plan picked: the whole plan, with a little either side. Year, Quarter and Month still work as before, and the ruler's labels thin out at wide zooms.

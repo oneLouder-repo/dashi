@@ -25,6 +25,7 @@ import { migratePlanDocs, seedPlanDocs } from './plandocs.js';
 import { blankAssets, migrateAssets } from './assetHub.js';
 import { defaultGraphSettings } from './graph.js';
 import { blankSocial, migrateSocial } from './social.js';
+import { blankRhizome } from '../rhizome/setup.js';
 
 const seedFor = (doc) => SEEDS[activeOrg()]?.[doc];
 
@@ -62,6 +63,8 @@ export const loadAssets = () => migrateAssets(loadOrSeed('assets', blankAssets))
 export const loadGraphSettings = () => ({ ...defaultGraphSettings(), ...loadOrSeed('graph', defaultGraphSettings) });
 
 /** The Social Media Integrator's posts and channels (alpha 0.3). */
+/** Rhizome's instance for this org: its context profile, set-up and baseline (Rhizome stage 1). */
+export const loadRhizome = () => ({ ...blankRhizome(), ...loadOrSeed('rhizome', blankRhizome) });
 export const loadSocial = () => migrateSocial(loadOrSeed('social', blankSocial));
 
 /** Plan documents. Every org with a plan starts with a draft of one; example orgs publish it to their public site. */
