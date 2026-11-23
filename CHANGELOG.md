@@ -12,6 +12,9 @@ Alpha 0.4 is the learning release (Teach, Learn and what follows), opened from t
 - **Each report gets a six-week on-ramp**, counted back from its due date: heads up, check the data, gather the evidence, read up on the funder (optional), write the draft, review and sign off, send it. A twelve-month strip and the next four reports show where each one stands, with late steps flagged.
 - **A drawer for each report** holds the steps as a checklist with their dates, a data check (stale measures, missing months, no target), **Write the draft** (Dashi's funder report draft, for that grant's work and period), and **Mark as sent**.
 - Kestrel Bay has three example grants, with one report due at the end of November.
+- **Reports on the Plan Gantt.** Any objective, goal or workplan that a grant funds shows a *Reports to funders* group: each report's six-week on-ramp as a band and its due date as a diamond, coloured by where it stands. Click one to open the report track.
+- **My reports to funders** on My work: the reports you look after (admins and leads see every one when they look after none), with what to do now and the due date.
+- Each grant can name **who looks after it**.
 
 ### Small fixes
 

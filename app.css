@@ -3295,3 +3295,19 @@ body.site-page.tpl-field { background: color-mix(in oklab, var(--color-primary) 
   .rt-strip li:nth-child(n+7) { display: none; }
   .rt-form-row { grid-template-columns: 1fr; }
 }
+
+/* Reports to funders on the workplan Gantt: the on-ramp and the due date. */
+.gantt-band.reports { fill: color-mix(in srgb, #f4a93b 8%, var(--bg)); }
+.gantt-label.reports { font-weight: 650; background: color-mix(in srgb, #f4a93b 8%, var(--bg)); }
+.gantt-label.report { padding-left: 22px; text-decoration: none; }
+.gantt-label.report:hover { text-decoration: underline; }
+.gantt-label .dot.diamond { width: 9px; height: 9px; border-radius: 1px; transform: rotate(45deg); background: #9fb7d9; flex: none; }
+.gantt-label.rt-ramp .dot.diamond { background: #f4a93b; } .gantt-label.rt-overdue .dot.diamond { background: #c8432f; } .gantt-label.rt-sent .dot.diamond { background: #4da65c; }
+.gantt-bar.report { cursor: pointer; }
+.gantt-bar.report .ramp { fill: #9fb7d9; opacity: .45; }
+.gantt-bar.report .due { fill: #9fb7d9; stroke: #16181d; stroke-width: 1; }
+.gantt-bar.report.rt-ramp .ramp, .gantt-bar.report.rt-ramp .due { fill: #f4a93b; }
+.gantt-bar.report.rt-overdue .ramp, .gantt-bar.report.rt-overdue .due { fill: #c8432f; }
+.gantt-bar.report.rt-sent .ramp, .gantt-bar.report.rt-sent .due { fill: #4da65c; }
+.me-reports .me-diamond { width: 10px; height: 10px; border-radius: 1px; transform: rotate(45deg); background: #9fb7d9; flex: none; margin: 0 4px; }
+.me-reports .rt-ramp .me-diamond { background: #f4a93b; } .me-reports .rt-overdue .me-diamond { background: #c8432f; }

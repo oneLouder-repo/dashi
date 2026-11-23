@@ -172,3 +172,23 @@ export function seedGrants(strategy, today = new Date().toISOString().slice(0, 1
   if (soon) for (const s of RAMP) if (stepDate(soon, s) < today && !s.optional && s.id !== 'draft') soon.steps[s.id] = { done: true, at: stepDate(soon, s) };
   return Object.fromEntries(grants.map((g) => [g.id, g]));
 }
+
+/**
+ * The reports that touch a part of the plan: dues of grants that fund any
+ * of `nodeIds`, or anything above or below them. For the workplan Gantt.
+ */
+export function duesForNodes(doc, strategy, nodeIds, today, { reports = {} } = {}) {
+  const near = new Set();
+  const nodes = strategy?.nodes ?? {};
+  for (const id of nodeIds) {
+    for (let n = nodes[id]; n; n = nodes[n.parentId]) near.add(n.id);
+    const walk = (pid) => { for (const c of Object.values(nodes)) if (c.parentId === pid && !near.has(c.id)) { near.add(c.id); walk(c.id); } };
+    walk(id);
+  }
+  return upcomingDues(doc, today, { reports, all: true }).filter((x) => (x.grant.nodeIds ?? []).some((id) => near.has(id)));
+}
+
+/** The reports a person looks after: grants they own (or, for `all`, every grant). Sent ones left out. */
+export function duesFor(doc, staffId, today, { all = false, reports = {} } = {}) {
+  return upcomingDues(doc, today, { reports }).filter((x) => all || x.grant.ownerId === staffId);
+}

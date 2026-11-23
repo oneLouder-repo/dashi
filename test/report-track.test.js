@@ -77,3 +77,16 @@ test('Kestrel seeds three grants with one report in its on-ramp now', () => {
   assert.equal(live.length, 1);
   assert.equal(live[0].state.current.id, 'draft');
 });
+
+test('the Gantt finds reports for grants above or below a node, and My work finds an owner’s reports', async () => {
+  const { duesForNodes, duesFor } = await import('../src/platform/reportTrack.js');
+  const strategy = { nodes: { root: { id: 'root', parentId: null }, o1: { id: 'o1', parentId: 'root' }, g1: { id: 'g1', parentId: 'o1' }, w1: { id: 'w1', parentId: 'g1' }, o2: { id: 'o2', parentId: 'root' } } };
+  const a = withDues({ ...blankGrant({ id: 'a', funder: 'A', from: '2026-05-01', to: '2027-04-30', cadence: 'half', ownerId: 's1' }), nodeIds: ['o1'] });
+  const b = withDues({ ...blankGrant({ id: 'b', funder: 'B', from: '2026-05-01', to: '2027-04-30', cadence: 'final' }), nodeIds: ['o2'] });
+  const doc = { grants: { a, b } };
+  assert.deepEqual([...new Set(duesForNodes(doc, strategy, ['w1'], '2026-11-01').map((x) => x.grant.id))], ['a']);
+  assert.deepEqual([...new Set(duesForNodes(doc, strategy, ['root'], '2026-11-01').map((x) => x.grant.id))].sort(), ['a', 'b']);
+  assert.ok(duesFor(doc, 's1', '2026-11-01').every((x) => x.grant.id === 'a'));
+  assert.equal(duesFor(doc, 's2', '2026-11-01').length, 0);
+  assert.ok(duesFor(doc, 's2', '2026-11-01', { all: true }).length > 0);
+});

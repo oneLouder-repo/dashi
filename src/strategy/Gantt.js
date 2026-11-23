@@ -2,6 +2,8 @@ import { h } from '../ui/dom.js';
 import { svg, setAttrs } from '../core/svg.js';
 import { descendants, statusById, strategyOps } from '../platform/strategy.js';
 import { addDays, daysBetween, monthLabel, monthStarts, short, today } from './dates.js';
+import { duesForNodes, RAMP_DAYS } from '../platform/reportTrack.js';
+import { linkTo } from '../plugins.js';
 
 const HEAD = 40;
 const SCALES = { weeks: 14, months: 4, quarters: 1.6 };
@@ -27,8 +29,16 @@ export function Gantt(ctx, nodeId, { compact = false, fullHref = null } = {}) {
     for (const t of descendants(doc, wp.id).filter((n) => n.type === 'task')) rows.push({ node: t, kind: 'task' });
   }
 
-  const dated = rows.map((r) => r.node).filter((n) => n.start && n.end);
+  // Reports to funders that fund this part of the plan: their six-week on-ramp, ending on the due date.
   const now = today();
+  const dash = ctx.dashboards ?? null;
+  const dues = dash ? duesForNodes(dash, doc, [nodeId], now, { reports: dash.reports ?? {} }).filter((x) => x.due.due >= addDays(now, -45) && x.due.due <= addDays(now, 400)) : [];
+  if (dues.length) {
+    rows.push({ node: { id: 'reports', title: 'Reports to funders' }, kind: 'reports' });
+    for (const x of dues) rows.push({ node: { id: `${x.grant.id}/${x.due.id}`, title: `${x.grant.funder}: ${x.due.kind === 'final' ? 'final' : 'interim'} report`, start: addDays(x.due.due, -RAMP_DAYS), end: x.due.due }, kind: 'report', x });
+  }
+
+  const dated = rows.map((r) => r.node).filter((n) => n.start && n.end);
   const from = addDays([...dated.map((n) => n.start), now].sort()[0], -10);
   const to = addDays([...dated.map((n) => n.end), now].sort().at(-1), 20);
   const dayW = compact ? Math.min(SCALES[scale], 3) : SCALES[scale];
@@ -46,7 +56,7 @@ export function Gantt(ctx, nodeId, { compact = false, fullHref = null } = {}) {
     }
   }
   rows.forEach((r, i) => {
-    if (r.kind === 'workplan') svg('rect', { class: 'gantt-band', x: 0, y: HEAD + i * ROW, width, height: ROW }, chart);
+    if (r.kind === 'workplan' || r.kind === 'reports') svg('rect', { class: `gantt-band${r.kind === 'reports' ? ' reports' : ''}`, x: 0, y: HEAD + i * ROW, width, height: ROW }, chart);
   });
 
   rows.forEach((r, i) => {
@@ -58,6 +68,17 @@ export function Gantt(ctx, nodeId, { compact = false, fullHref = null } = {}) {
     const w = Math.max(dayW, xOf(addDays(n.end, 1)) - x);
     if (r.kind === 'workplan') {
       svg('rect', { class: 'bar wp', x, y: y + ROW / 2 - 4, width: w, height: 8 }, g);
+      return;
+    }
+    if (r.kind === 'report') {
+      // The on-ramp as a thin band, the due date as a diamond, coloured by where the report stands.
+      g.classList.add(`rt-${r.x.state.phase}`);
+      svg('rect', { class: 'bar ramp', x, y: y + ROW / 2 - 3, width: w, height: 6, rx: 3 }, g);
+      const dx = xOf(r.x.due.due) + dayW / 2, dy = y + ROW / 2, k = compact ? 6 : 8;
+      svg('polygon', { class: 'due', points: `${dx},${dy - k} ${dx + k},${dy} ${dx},${dy + k} ${dx - k},${dy}` }, g);
+      const title = svg('title', {}, g);
+      title.textContent = `${r.node.title}, due ${short(r.x.due.due)}${r.x.state.current ? ` · next: ${r.x.state.current.label}` : ''}`;
+      g.addEventListener('click', () => { location.href = linkTo('palette', '#reports'); });
       return;
     }
     const bar = svg('rect', { class: 'bar', x, y: y + (compact ? 4 : 6), width: w, height: ROW - (compact ? 8 : 12), fill: statusById[n.status]?.color }, g);
@@ -73,7 +94,9 @@ export function Gantt(ctx, nodeId, { compact = false, fullHref = null } = {}) {
 
   const labels = h('div', { class: 'gantt-labels', style: `padding-top:${HEAD}px` },
     rows.map((r) =>
-      h('button', {
+      r.kind === 'reports' ? h('div', { class: 'gantt-label reports' }, r.node.title)
+      : r.kind === 'report' ? h('a', { class: `gantt-label report rt-${r.x.state.phase}`, href: linkTo('palette', '#reports'), title: `${r.node.title}, due ${short(r.x.due.due)}` }, h('span', { class: 'dot diamond', 'aria-hidden': 'true' }), r.node.title)
+      : h('button', {
         class: `gantt-label ${r.kind}${r.node.id === ctx.selectedId ? ' selected' : ''}`,
         title: `${r.node.title} · ${short(r.node.start)} – ${short(r.node.end)}`,
         onclick: () => select(r.node.id),

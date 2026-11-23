@@ -13,6 +13,7 @@ import { mapsFor } from '../platform/maps.js';
 import { short, today, addDays } from '../strategy/dates.js';
 import { uiAlert, uiForm, uiPanel } from '../ui/dialog.js';
 import { linkTo } from '../plugins.js';
+import { duesFor, RAMP_DAYS } from '../platform/reportTrack.js';
 
 /**
  * My profile: the signed-in person's picture and details, the strategic
@@ -41,6 +42,10 @@ function render() {
   const myDashboards = Object.values(docs.dashboards.dashboards).filter((d) => d.createdBy === me.id);
   const myMaps = mapsFor(docs.maps, me.id);
   const myShows = Object.values(docs.podcasts.podcasts).filter((p) => (p.hostIds ?? []).includes(me.id));
+  // Reports to funders: the ones I look after, or every one for admins and leads when I look after none.
+  const mineDues = duesFor(docs.dashboards, me.id, now, { reports: docs.dashboards.reports ?? {} });
+  const leadsAll = !mineDues.length && ['admin', 'lead'].includes(me.roleId);
+  const myDues = (leadsAll ? duesFor(docs.dashboards, me.id, now, { all: true, reports: docs.dashboards.reports ?? {} }) : mineDues).filter((x) => x.state.phase !== 'later' || x.state.daysLeft <= RAMP_DAYS + 30).slice(0, 5);
   const open = myTasks.filter((t) => t.status !== 'done');
   const soon = addDays(now, 14);
   const groups = [
@@ -101,6 +106,14 @@ function render() {
                   h('span', { class: `me-when ${g.id}` }, t.end ? short(t.end) : 'No date')))))))
           : empty('No tasks assigned to you. When someone assigns you one in Plan, it shows here.'),
           { icon: 'features', cls: 'tasks' }),
+        myDues.length > 0 && card(leadsAll ? 'Reports to funders' : 'My reports to funders', myDues.length,
+          h('ul', { class: 'me-tasks me-reports' }, myDues.map(({ grant, due, state }) => h('li', { class: `rt-${state.phase}` },
+            h('span', { class: 'me-diamond', 'aria-hidden': 'true' }),
+            h('div', { class: 'me-task-text' },
+              h('a', { href: linkTo('palette', '#reports') }, `${grant.funder}: ${due.kind === 'final' ? 'final' : 'interim'} report`),
+              h('small', {}, state.phase === 'later' ? `On-ramp starts ${short(addDays(due.due, -RAMP_DAYS))}` : state.current ? `${state.late.length ? 'Late' : 'Now'}: ${state.current.label}` : 'Ready to send')),
+            h('span', { class: `me-when ${state.phase === 'overdue' || state.late.length ? 'overdue' : 'soon'}` }, short(due.due))))),
+          { icon: 'handshake', cls: 'reports' }),
         card('My workplans', myWorkplans.length, myWorkplans.length
           ? h('ul', { class: 'me-workplans' }, myWorkplans.map((w) => {
               const s = taskSummary(docs.strategy, w.id);

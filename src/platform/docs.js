@@ -43,7 +43,7 @@ export const loadData = () => loadOrSeed('data', () => seedData(Object.keys(meas
 export function loadDashboards() {
   const doc = loadOrSeed('dashboards', () => seedDashboards(loadStrategy()));
   const refolded = refoldDashboards(doc, loadStrategy());
-  if (doc.calculators && doc.stories && doc.forms && doc.reports && (activeOrg() !== 'org-example' || (doc.dashboards['dash-board'] && doc.forms['form-numbers']?.siteId !== 'site-main'))) {
+  if (doc.calculators && doc.stories && doc.forms && doc.reports && doc.grants && (activeOrg() !== 'org-example' || (doc.dashboards['dash-board'] && doc.forms['form-numbers']?.siteId !== 'site-main'))) {
     if (refolded) saveDoc('dashboards', doc, undefined, { quiet: true });
     return doc;
   }
