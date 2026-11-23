@@ -1,5 +1,6 @@
 import { h, options } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
+import { svg } from '../core/svg.js';
 import { Shell, toast } from '../ui/Shell.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
@@ -73,6 +74,7 @@ function render() {
   show = null;
   applySettings();
   const [view, a, b] = route();
+  document.body.classList.toggle('ln-focus', (view === 'play' || view === 'preview') && !!teach.cartridges?.[a] && focusOn());
   drawSide(view, a);
   let page;
   if ((view === 'play' || view === 'preview') && teach.cartridges?.[a]) page = Player(teach.cartridges[a], b, view === 'preview');
@@ -192,29 +194,67 @@ function Player(c, blockId, preview) {
   const day = todayDay(c, e, today);
   const base = preview ? 'preview' : 'play';
   const path = h('nav', { class: 'ln-path', 'aria-label': 'Course path' }, weeks.map((w) => [
-    h('h4', {}, h('span', {}, w.label), h('span', {}, w.week === 0 ? '' : shortDate(dateOf(start, w.from)))),
+    h('h4', {}, h('span', {}, w.label), h('span', {}, w.week === 0 ? '' : shortDate(dateOf(start, w.from))),
+      h('small', {}, `${w.blocks.filter((x) => e?.done?.[x.id]).length}/${w.blocks.length}`)),
     h('ol', {}, w.blocks.map((x) => {
       const done = !!e?.done?.[x.id];
       const op = preview ? { open: true } : isOpen(c, e, x, today);
       return h('li', {}, h('a', { href: `#${base}/${c.id}/${x.id}`, class: `${x.id === b.id ? 'on' : ''}${op.open ? '' : ' locked'}`, 'aria-current': x.id === b.id ? 'step' : null },
         h('span', { class: `ln-state${done ? ' done' : op.open ? '' : ' locked'}`, 'aria-label': done ? 'Done' : op.open ? 'Not done yet' : 'Opens later' }, done ? icon('check', 12) : null),
-        h('span', {}, x.title), h('small', {}, `${blockType(x.type).label}${x.required ? '' : ' · optional'}${op.open ? '' : ` · ${op.why}`}`)));
+        h('span', { class: 'ln-path-title' }, x.title), h('small', {}, `${blockType(x.type).label}${x.required ? '' : ' · optional'}${op.open ? '' : ` · ${op.why}`}`)));
     })),
   ]));
   const i = all.indexOf(b);
   const prev = all[i - 1];
   const next = all[i + 1];
-  return h('div', { class: 'lx-wrap' }, tabs('home'),
+  // Keep the block you're on in view inside the rail, without moving the page.
+  requestAnimationFrame(() => {
+    const on = path.querySelector('a.on');
+    if (on && path.scrollHeight > path.clientHeight) path.scrollTop = Math.max(0, on.getBoundingClientRect().top - path.getBoundingClientRect().top + path.scrollTop - path.clientHeight / 3);
+  });
+  const focus = focusOn();
+  const R = 20, C = 2 * Math.PI * R;
+  const ringSvg = svg('svg', { viewBox: '0 0 48 48', width: '44', height: '44', 'aria-hidden': 'true' });
+  svg('circle', { cx: '24', cy: '24', r: String(R), class: 'ln-ring-bg' }, ringSvg);
+  svg('circle', { cx: '24', cy: '24', r: String(R), class: 'ln-ring-fg', 'stroke-dasharray': `${(C * p.pct) / 100} ${C}`, transform: 'rotate(-90 24 24)' }, ringSvg);
+  const ring = h('span', { class: 'ln-ring', role: 'img', 'aria-label': `${p.pct}% done` }, ringSvg, h('b', {}, `${p.pct}%`));
+  return h('div', { class: `lx-wrap ln-playwrap${focus ? ' focus' : ''}` }, focus ? null : tabs('home'),
     preview && h('p', { class: 'ln-preview' }, icon('eye', 14), ` Preview: you’re seeing “${c.title}”${c.status === 'published' ? '' : ' (a draft)'} as a learner would. Nothing you do here is saved.`),
     h('div', { class: 'ln-courseline' },
-      h('h2', {}, c.title),
-      h('span', { class: 'lx-note' }, c.pacing === 'self' ? 'Self-paced' : day < 0 ? `Starts ${shortDate(c.run.start)}` : `Day ${day + 1} of ${c.span.length}`),
-      !preview && h('div', { class: 'ln-progress', role: 'progressbar', 'aria-valuenow': String(p.pct), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-label': 'Your progress', style: `--p:${p.pct}%` }, h('i')),
-      !preview && h('span', { class: 'ln-progress-label' }, `${p.pct}% · ${p.done} of ${p.of} required`)),
-    h('div', { class: 'ln-player' }, path, BlockView(c, e, b, { preview, start, prev, next, base })));
+      h('div', { class: 'ln-course-id' },
+        h('span', { class: 'ln-eyebrow' }, c.pacing === 'self' ? 'Self-paced' : day < 0 ? `Starts ${shortDate(c.run.start)}` : `Day ${day + 1} of ${c.span.length}`),
+        h('h2', {}, c.title)),
+      h('span', { class: 'tc-grow' }),
+      !preview && h('span', { class: 'ln-progress-label' }, `${p.done} of ${p.of} required done`),
+      !preview && ring,
+      h('button', { type: 'button', class: `btn btn-sm${focus ? ' on' : ''}`, 'aria-pressed': String(focus), title: 'Hide the menus and the path, for reading (F)', onclick: () => toggleFocus() },
+        icon(focus ? 'eyeOff' : 'eye', 14), focus ? 'Leave focus' : 'Focus')),
+    h('div', { class: 'ln-player' }, path, BlockView(c, e, b, { preview, start, prev, next, base, pos: `${i + 1} of ${all.length}` })));
 }
 
-function BlockView(c, e, b, { preview, start, prev, next, base }) {
+/* Focus mode hides the side nav and the path; remembered per browser. */
+function focusOn() {
+  try { return localStorage.getItem('dashi.learn.focus') === '1'; } catch { return false; }
+}
+function toggleFocus() {
+  const v = !focusOn();
+  try { localStorage.setItem('dashi.learn.focus', v ? '1' : '0'); } catch { /* the class still applies for this page */ }
+  render();
+}
+
+/* Keys in a course: ← and → move, D marks done, F toggles focus. */
+addEventListener('keydown', (ev) => {
+  if (!/^#(play|preview)\//.test(location.hash) || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  if (ev.target.closest?.('input, textarea, select, [contenteditable="true"], button, .ln-show-host')) return;
+  const k = ev.key.toLowerCase();
+  const click = (sel) => { const el = main.querySelector(sel); if (el) { ev.preventDefault(); el.click(); } };
+  if (ev.key === 'ArrowLeft') click('.ln-foot [data-go="prev"]');
+  else if (ev.key === 'ArrowRight') click('.ln-foot [data-go="next"]');
+  else if (k === 'd') click('.ln-foot [data-go="done"]');
+  else if (k === 'f') { ev.preventDefault(); toggleFocus(); }
+});
+
+function BlockView(c, e, b, { preview, start, prev, next, base, pos }) {
   const t = blockType(b.type);
   const tone = toneOf(c, b);
   const done = !!e?.done?.[b.id];
@@ -227,18 +267,21 @@ function BlockView(c, e, b, { preview, start, prev, next, base }) {
   const content = op.open ? Content(c, e, b, { preview, mark }) : h('p', { class: 'ln-locked' }, icon('lock', 14), ` ${op.why}. It’ll be here when it’s ready.`);
   return h('article', { class: 'ln-block', style: `--tone:${tone}` },
     h('header', { class: 'ln-block-head' },
-      h('span', { class: 'ln-kind' }, h('i', { 'aria-hidden': 'true' }), t.label, b.required ? '' : ' · optional'),
+      h('div', { class: 'ln-block-meta' },
+        h('span', { class: 'ln-kind' }, icon(t.icon, 13), t.label, b.required ? '' : ' · optional'),
+        pos && h('span', { class: 'ln-pos' }, pos)),
       h('h2', {}, b.title),
       h('p', { class: 'ln-when' }, `${when}${b.minutes ? ` · about ${b.minutes} minutes` : ''}`)),
-    content,
+    h('div', { class: 'ln-content' }, content),
     h('footer', { class: 'ln-foot' },
-      prev && h('a', { class: 'btn btn-sm btn-ghost', href: `#${base}/${c.id}/${prev.id}` }, icon('chevronLeft', 14), 'Back'),
+      prev ? h('a', { class: 'btn btn-sm btn-ghost', 'data-go': 'prev', href: `#${base}/${c.id}/${prev.id}`, title: `Back: ${prev.title} (←)` }, icon('chevronLeft', 14), 'Back') : h('span', { class: 'ln-foot-gap' }),
       op.open && !['quiz', 'slideshow'].includes(b.type) && (done
         ? [h('span', { class: 'ln-done-note' }, icon('check', 15), 'Done'), h('button', { type: 'button', class: 'btn btn-xs btn-ghost', onclick: () => mark(false) }, 'Not done yet')]
-        : h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => mark(true) }, icon('check', 14), 'Mark done')),
+        : h('button', { type: 'button', class: 'btn btn-sm btn-primary', 'data-go': 'done', title: 'Mark done (D)', onclick: () => mark(true) }, icon('check', 14), 'Mark done')),
       op.open && ['quiz', 'slideshow'].includes(b.type) && done && h('span', { class: 'ln-done-note' }, icon('check', 15), 'Done'),
       h('span', { class: 'tc-grow' }),
-      next && h('a', { class: 'btn btn-sm', href: `#${base}/${c.id}/${next.id}` }, 'Next', icon('chevronRight', 14))));
+      next ? h('a', { class: 'btn btn-sm ln-next-btn', 'data-go': 'next', href: `#${base}/${c.id}/${next.id}`, title: `Next: ${next.title} (→)` }, h('span', {}, h('small', {}, 'Next'), h('b', {}, next.title)), icon('chevronRight', 14))
+        : h('span', { class: 'ln-done-note' }, icon('check', 15), 'End of the course')));
 }
 
 function Content(c, e, b, { preview, mark }) {
