@@ -6,6 +6,13 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.4 is the learning release (Teach, Learn and what follows), opened from the `v0.3.0-alpha` tag and tested on a fresh `data-clients` seed. Rhizome's later stages and Place stage 2 onwards stay paused. Going live moves to 0.5. Newest first.
 
+### Funding report tracks
+
+- **Reports coming up**, above Funder reports in the Data Workbench. Add a grant with its dates and how often it reports, and Dashi works out every report due: one a month after each period closes, and a final report two months after the grant ends.
+- **Each report gets a six-week on-ramp**, counted back from its due date: heads up, check the data, gather the evidence, read up on the funder (optional), write the draft, review and sign off, send it. A twelve-month strip and the next four reports show where each one stands, with late steps flagged.
+- **A drawer for each report** holds the steps as a checklist with their dates, a data check (stale measures, missing months, no target), **Write the draft** (Dashi's funder report draft, for that grant's work and period), and **Mark as sent**.
+- Kestrel Bay has three example grants, with one report due at the end of November.
+
 ### Small fixes
 
 - **The version reads 0.4.0-alpha** on the alpha badge and at `/version`.

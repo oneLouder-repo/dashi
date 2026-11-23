@@ -12,6 +12,7 @@ import { Markdown } from '../ui/markdown.js';
 import { uiConfirm, uiAlert } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
 import { short, today } from '../strategy/dates.js';
+import { ReportTrack } from './ReportTrack.js';
 
 /**
  * Funder reports mini-tool: pick a funder, a period and what the money
@@ -29,10 +30,10 @@ export function FunderReportsTool(ctx) {
     h('div', {}, h('h1', {}, 'Funder reports'),
       h('p', { class: 'lede' }, 'Pick a funder, a period and the work they fund. Dashi writes a first draft from your measures, workplans, milestones and data stories, ready for you to edit, print as a PDF or keep in the Library.')),
     reports.length > 0 && ctx.reportId !== 'new' && h('button', { class: 'btn btn-sm btn-primary', onclick: () => { ctx.reportId = 'new'; ctx.render(); } }, icon('plus', 14), 'New report'));
-  if (!reports.length || ctx.reportId === 'new') return h('div', { class: 'fr-tool' }, head, NewReport(ctx, reports));
+  if (!reports.length || ctx.reportId === 'new') return h('div', { class: 'fr-tool' }, head, ReportTrack(ctx), NewReport(ctx, reports));
   const r = reports.find((x) => x.id === ctx.reportId) ?? reports[0];
   ctx.reportId = r.id;
-  return h('div', { class: 'fr-tool' }, head,
+  return h('div', { class: 'fr-tool' }, head, ReportTrack(ctx),
     h('div', { class: 'fb-forms' }, reports.map((x) => h('button', { class: `fb-form-card${x.id === r.id ? ' on' : ''}`, onclick: () => { ctx.reportId = x.id; ctx.render(); } },
       h('strong', {}, x.title), h('small', {}, `${x.funder || 'No funder'} · ${periodLabel(x.from, x.to)}`), h('span', { class: `badge badge-sm ${x.status === 'sent' ? 'badge-success' : 'badge-ghost'}` }, x.status === 'sent' ? 'Sent' : 'Draft')))),
     Report(ctx, r));

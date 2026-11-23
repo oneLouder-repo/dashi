@@ -1,6 +1,7 @@
 import { uid } from '../core/ops.js';
 import { measuresUnder, rootOf, childrenOf, descendants, liveNodeId } from './strategy.js';
 import { dataMonths, measureFacts } from './data.js';
+import { seedGrants } from './reportTrack.js';
 
 /**
  * Dashboards, made in the Workbench and published to sites.
@@ -274,6 +275,12 @@ export function migrateDashboards(doc, strategy = null, org = null) {
   // Feedback forms and funder reports arrived in alpha.6; the examples get starter forms and a board scorecard.
   if (!doc.forms) doc.forms = org?.id === 'org-example' ? seedForms(org) : {};
   doc.reports ??= {};
+  // Funding report tracks arrived in 0.4.1; the Kestrel Bay test org gets three example grants.
+  doc.grants ??= {};
+  if (strategy && org?.id === 'org-kestrel' && !doc.grantsSeeded && !Object.keys(doc.grants).length) {
+    doc.grants = seedGrants(strategy, undefined, Object.keys(org.staff ?? {})[0] ?? null);
+    doc.grantsSeeded = true;
+  }
   // An early alpha.6 copy put the example's numbers form on the main site, which has no dashboards.
   if (org?.id === 'org-example' && doc.forms['form-numbers']?.siteId === 'site-main' && org.sites?.['site-impact']) doc.forms['form-numbers'].siteId = 'site-impact';
   if (strategy && org?.id === 'org-example' && !doc.dashboards['dash-board']) Object.assign(doc.dashboards, boardDashboards(strategy));
