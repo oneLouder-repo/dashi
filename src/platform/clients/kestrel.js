@@ -20,6 +20,7 @@
  * from the shared test-org generator (mockOrgs.js, sector "foundation");
  * this file then shapes it into the org described above.
  */
+import { seedGrants } from '../reportTrack.js';
 import { mockDocs } from '../mockOrgs.js';
 import { addKestrelStories, kestrelCommunityDoc } from './kestrelStories.js';
 import { seedPlanDocs } from '../plandocs.js';
@@ -346,6 +347,9 @@ export function kestrelBundle() {
   const latest = Object.values(docs.podcasts.episodes).filter((e) => e.status === 'published').sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))[0];
   // Public dashboards: one on the main site, the rest on Vital Signs; one for the board.
   Object.values(docs.dashboards.dashboards).forEach((d, i) => Object.assign(d, i === 0 ? { visibility: 'public', siteId: 'site-main' } : i < 3 ? { visibility: 'public', siteId: 'site-data' } : { visibility: 'private', siteId: 'site-board' }));
+  // Three example grants with reporting schedules, so the report track has something on its way.
+  docs.dashboards.grants = seedGrants(docs.strategy, undefined, Object.keys(org.staff)[0] ?? null);
+  docs.dashboards.grantsSeeded = true;
   docs.pages = shapePages(docs, latest);
   // The board's papers and the government documents, in the library.
   const lib = docs.library;
