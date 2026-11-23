@@ -126,7 +126,7 @@ function drawSide(view) {
     { title: 'Rhizome · experimental', items: [
       { label: 'Home', sub: setupDone(doc) ? 'Signals worth a look' : 'Finish setting up', icon: 'home', href: '#home', on: view === 'home' },
       { label: 'Analyses', sub: `${n(ANALYSES.length, 'canned analysis', 'canned analyses')} · ${n(RULES.length, 'rule')}`, icon: 'spark', href: '#analyses', on: view === 'analyses' },
-      { label: 'The rack', sub: `${n(Object.keys(doc.patches ?? {}).length, 'patch', 'patches')} · twin racks`, icon: 'connect', href: '#rack', on: view === 'rack' },
+      { label: 'The rack', sub: `${n(Math.max(1, Object.keys(doc.patches ?? {}).length), 'patch', 'patches')} · twin racks`, icon: 'connect', href: '#rack', on: view === 'rack' },
       linkTo('graph') && { label: 'Graph', sub: 'Search, loops, hubs and bridges, linked data', icon: 'sec-graph', href: linkTo('graph', '#explore') },
       { label: 'Facts', sub: `${n(fc.entities, 'thing')} · ${n(fc.relations, 'tie')}`, icon: 'sec-rhizome', href: '#facts', on: view === 'facts' },
       { label: 'Report', sub: 'Everything Rhizome found, to print or save as PDF', icon: 'file', href: '#report', on: view === 'report' },

@@ -203,7 +203,9 @@ function Player(c, blockId, preview) {
   }
   const weeks = pathByWeek(c);
   const all = weeks.flatMap((w) => w.blocks);
-  const fallback = preview ? all[0] : nextBlock(c, e, today) ?? (e.last && c.blocks[e.last]) ?? all[0];
+  // Opening a course goes back to where you were, unless you finished that block; then on to what's next.
+  const last = !preview && e.last && c.blocks[e.last] && all.includes(c.blocks[e.last]) && !e.done?.[e.last] ? c.blocks[e.last] : null;
+  const fallback = preview ? all[0] : last ?? nextBlock(c, e, today) ?? (e.last && c.blocks[e.last]) ?? all[0];
   const b = c.blocks[blockId] && all.includes(c.blocks[blockId]) ? c.blocks[blockId] : fallback;
   if (!b) return h('div', { class: 'lx-wrap' }, tabs('home'), h('p', { class: 'lx-note' }, 'This course has nothing in it yet.'));
   if (!preview && e.last !== b.id && canSave) { doc = setLast(doc, meId, c.id, b.id); saveDoc('learn', doc); }
