@@ -16,6 +16,8 @@ import { bestInk } from '../learning/checks.js';
 import { getBoard, templateLabel } from '../learning/collab.js';
 import { playShow } from '../learning/show.js';
 import { About } from '../learning/About.js';
+import { uiConfirm } from '../ui/dialog.js';
+import { shelfFor, suggestedFor, setShelf, sortShelf, SHELF_FILTERS, SHELF_SORTS, STATUS_LABEL } from '../learning/distribution.js';
 
 /**
  * Learn (eLearning stage 2, experimental): the learner's own space. It
@@ -24,6 +26,7 @@ import { About } from '../learning/About.js';
  * everything it keeps. No leaderboards, no tracking beyond what's shown.
  *
  *   #home                      My learning: up next, this week, your courses
+ *   #courses                   my courses: filter, sort, pin, hide, leave
  *   #catalogue                 published cartridges to join
  *   #play/<cartridge>[/<block>] the player
  *   #preview/<cartridge>[/<block>] a teacher's preview, nothing saved
@@ -54,6 +57,14 @@ const published = () => Object.values(teach.cartridges ?? {}).filter((c) => c.st
 const mine = () => personOf(doc, meId);
 const enrolment = (cid) => mine().enrolments?.[cid] ?? null;
 const myCourses = () => Object.keys(mine().enrolments ?? {}).map((id) => teach.cartridges?.[id]).filter(Boolean);
+/** My list, as Learn shows it: joined courses and assigned ones, with how I've arranged them. */
+const shelf = () => shelfFor(teach, doc, org, meId, today);
+const shelfItem = (cid) => shelf().find((x) => x.c.id === cid) ?? null;
+/** Courses I'm in and haven't hidden, for what's next and this week. */
+const activeCourses = () => myCourses().filter((c) => !mine().shelf?.[c.id]?.hidden);
+const SHELF_KEY = 'dashi.learn.shelf';
+let shelfView = (() => { try { return { filter: 'all', sort: 'due', q: '', ...JSON.parse(localStorage.getItem(SHELF_KEY) ?? '{}') }; } catch { return { filter: 'all', sort: 'due', q: '' }; } })();
+const keepShelfView = () => { try { localStorage.setItem(SHELF_KEY, JSON.stringify({ filter: shelfView.filter, sort: shelfView.sort })); } catch { /* fine for this page */ } };
 function save(next, note) {
   doc = next;
   if (canSave) saveDoc('learn', doc);
@@ -80,6 +91,7 @@ function render() {
   let page;
   if ((view === 'play' || view === 'preview') && teach.cartridges?.[a]) page = Player(teach.cartridges[a], b, view === 'preview');
   else if (view === 'catalogue') page = Catalogue();
+  else if (view === 'courses') page = Courses();
   else if (view === 'record') page = Record();
   else if (view === 'settings') page = Settings();
   else if (view === 'about') page = h('div', { class: 'lx-wrap' }, tabs('about'), About({ arg: a, title: 'What Learn does', rerender: render,
@@ -99,38 +111,51 @@ function drawSide(view, a) {
   side = swapSide(side, SideNav({ label: 'Learn', sections: [
     { title: 'Learn · experimental', items: [
       { label: 'My learning', sub: `${n(courses.length, 'course')} · what’s next`, icon: 'graduation', href: '#home', on: view === 'home' },
+      { label: 'My courses', sub: shelfSub(), icon: 'checklist', href: '#courses', on: view === 'courses' },
       { label: 'Catalogue', sub: `${n(published().filter((c) => !enrolment(c.id)).length, 'course')} to join`, icon: 'books', href: '#catalogue', on: view === 'catalogue' },
       { label: 'My record', sub: 'Everything Learn keeps about you', icon: 'history', href: '#record', on: view === 'record' },
       { label: 'Settings', sub: 'Text, font, motion, captions', icon: 'textAa', href: '#settings', on: view === 'settings' },
       { label: 'About', sub: 'Quick reference and tutorials', icon: 'help', href: '#about', on: view === 'about' },
     ] },
-    courses.length && { title: 'Your courses', items: courses.map((c) => ({ label: c.title, sub: `${progress(c, enrolment(c.id)).pct}% · ${kindLabel(c.kind).toLowerCase()}`, icon: 'sec-learn', href: `#play/${c.id}`, on: view === 'play' && a === c.id })) },
+    courses.length && { title: 'Your courses', items: courses.filter((c) => !mine().shelf?.[c.id]?.hidden).sort((a, b) => !!mine().shelf?.[b.id]?.pinned - !!mine().shelf?.[a.id]?.pinned).map((c) => ({ label: c.title, sub: `${progress(c, enrolment(c.id)).pct}% · ${kindLabel(c.kind).toLowerCase()}`, icon: 'sec-learn', href: `#play/${c.id}`, on: view === 'play' && a === c.id })) },
     { title: 'Elsewhere in Dashi', items: [{ label: 'Teach', sub: 'Make a course', icon: 'sec-teach', href: linkTo('teach', '#home') }] },
     { title: 'Coming next', items: [{ label: 'Credentials', sub: 'Microcredentials you earn', icon: 'seal' }, { label: 'Lyceum', sub: 'Open learning across Dashi', icon: 'globe' }] },
   ].filter(Boolean) }));
 }
 
 const tabs = (current) => PluginHeader('learn', {
-  tabs: [{ id: 'home', label: 'My learning', icon: 'graduation' }, { id: 'catalogue', label: 'Catalogue', icon: 'books' }, { id: 'record', label: 'My record', icon: 'history' }, { id: 'settings', label: 'Settings', icon: 'textAa' }, { id: 'about', label: 'About', icon: 'help' }],
+  tabs: [{ id: 'home', label: 'My learning', icon: 'graduation' }, { id: 'courses', label: 'My courses', icon: 'checklist' }, { id: 'catalogue', label: 'Catalogue', icon: 'books' }, { id: 'record', label: 'My record', icon: 'history' }, { id: 'settings', label: 'Settings', icon: 'textAa' }, { id: 'about', label: 'About', icon: 'help' }],
   current,
 });
 
 /* ------------------------------------------------------------------ home */
 
+function shelfSub() {
+  const list = shelf();
+  const due = list.filter((x) => x.assigned && x.status !== 'finished').length;
+  return due ? `${n(due, 'course')} assigned to you` : 'Filter, sort, pin and hide';
+}
+
 function Home() {
   setCrumbs([]);
-  const courses = myCourses();
+  const courses = activeCourses();
+  const list = shelf().filter((x) => !x.hidden);
+  const ordered = list.filter((x) => x.e).sort((a, b) => (b.pinned - a.pinned) || (b.last ?? '').localeCompare(a.last ?? ''));
+  const waiting = list.filter((x) => !x.e).sort((a, b) => (a.due ?? '9999').localeCompare(b.due ?? '9999'));
   const first = (me?.name ?? '').split(' ')[0];
   const next = courses.map((c) => ({ c, b: nextBlock(c, enrolment(c.id), today) })).filter((x) => x.b);
   const due = courses.flatMap((c) => dueSoon(c, enrolment(c.id), today, 7).map((d) => ({ ...d, c }))).sort((x, y) => x.date.localeCompare(y.date));
   return h('div', { class: 'lx-wrap' }, tabs('home'),
-    h('div', { class: 'ln-hello' }, h('h2', {}, first ? `Hello, ${first}` : 'Hello'), h('p', { class: 'lx-note' }, courses.length ? 'Here’s where you are. Go at a pace that works for you.' : 'You’re not in a course yet. Have a look in the catalogue.')),
-    courses.length ? h('div', { class: 'ln-grid' },
+    h('div', { class: 'ln-hello' }, h('h2', {}, first ? `Hello, ${first}` : 'Hello'), h('p', { class: 'lx-note' }, list.length ? 'Here’s where you are. Go at a pace that works for you.' : 'You’re not in a course yet. Have a look in the catalogue.')),
+    list.length ? h('div', { class: 'ln-grid' },
       h('section', { class: 'lx-stack' },
         next.length ? Hero(next[0].c, next[0].b) : h('section', { class: 'lx-panel' }, h('h3', {}, icon('play', 15), 'Up next'), h('p', { class: 'lx-note' }, 'You’re all caught up. Well done.')),
         next.length > 1 && h('section', { class: 'lx-panel' }, h('h3', {}, icon('play', 15), 'Also up next'), h('div', { class: 'ln-next' }, next.slice(1).map(({ c, b }) => NextCard(c, b)))),
-        h('section', { class: 'lx-panel' }, h('h3', {}, icon('graduation', 15), 'Your courses'),
-          h('div', { class: 'ln-courses' }, courses.map((c) => CourseCard(c))))),
+        waiting.length > 0 && h('section', { class: 'lx-panel ln-assigned' }, h('h3', {}, icon('flag', 15), 'Assigned to you'),
+          h('p', { class: 'lx-note' }, 'Your organisation asked you to take these. Start whenever suits you before the date.'),
+          h('ul', { class: 'ln-shelf' }, waiting.map(ShelfRow))),
+        h('section', { class: 'lx-panel' }, h('div', { class: 'lx-ahead' }, h('h3', {}, icon('graduation', 15), 'Your courses'), h('a', { class: 'lx-more', href: '#courses' }, 'Manage your courses →')),
+          h('div', { class: 'ln-courses' }, ordered.map((x) => CourseCard(x.c))))),
       h('section', { class: 'lx-panel' }, h('h3', {}, icon('calendar', 15), 'This week'),
         due.length ? h('ul', { class: 'ln-due' }, due.map(({ block, date, c }) => h('li', {}, h('time', { datetime: date }, date === today ? 'Today' : shortDate(date)),
           h('span', {}, h('a', { href: `#play/${c.id}/${block.id}` }, block.title), h('small', {}, `${blockType(block.type).label}${block.at ? ` at ${block.at}` : ''} · ${c.title}`))))) : h('p', { class: 'lx-note' }, 'Nothing due in the next seven days.'),
@@ -163,31 +188,102 @@ function NextCard(c, b) {
     h('a', { class: 'btn btn-sm btn-primary', href: `#play/${c.id}/${b.id}` }, 'Open'));
 }
 
-function CourseCard(c, { join = false } = {}) {
+function CourseCard(c, { join = false, note = '' } = {}) {
   const e = enrolment(c.id);
   const p = progress(c, e);
   const day = todayDay(c, e, today);
   const where = c.pacing === 'self' ? 'Self-paced' : day < 0 ? `Starts ${shortDate(c.run.start)}` : phaseOf(c, day) === 'session' ? `${weekLabel(weekOf(day))} of ${Math.ceil(c.span.length / 7)}` : phaseOf(c, day) === 'post' ? 'Wrapping up' : 'Finished';
   const cover = coverOf(c);
   return h(join ? 'div' : 'a', { class: 'ln-course', style: `--cover:${cover};--cover-ink:${inkOn(cover)}`, ...(join ? {} : { href: `#play/${c.id}` }) },
-    h('div', { class: 'ln-cover', 'aria-hidden': 'true' }, h('span', {}, kindLabel(c.kind)), e && Ring(p.pct, 48)),
+    h('div', { class: 'ln-cover', 'aria-hidden': 'true' }, h('span', {}, c.series ? `${c.series} · ${kindLabel(c.kind)}` : kindLabel(c.kind)), e && Ring(p.pct, 48)),
     h('div', { class: 'ln-course-text' },
       h('h3', {}, c.title),
       c.subtitle && h('p', {}, c.subtitle),
       h('p', { class: 'ln-course-meta' }, `${where} · about ${c.hoursPerWeek} h a week`),
+      !join && Badges(shelfItem(c.id)),
       e ? h('span', { class: 'ln-progress-label' }, `${p.done} of ${p.of} required blocks done`)
         : join && h('div', { class: 'lx-row' },
           c.summary && h('p', {}, c.summary),
+          note && h('p', { class: 'ln-offer-note' }, icon('quotes', 13), note),
           h('button', { type: 'button', class: 'btn btn-sm btn-primary', disabled: !canSave, onclick: () => { save(enrol(doc, meId, c), `You joined ${c.title}`); location.hash = `#play/${c.id}`; } }, icon('plus', 14), 'Join'))));
+}
+
+/* ------------------------------------------------------------ my courses */
+
+/** Little tags on a course: assigned and when by, pinned. */
+function Badges(x) {
+  if (!x || (!x.assigned && !x.pinned)) return null;
+  return h('div', { class: 'ln-badges' },
+    x.pinned && h('span', { class: 'ln-badge pin' }, icon('pin', 11), 'Pinned'),
+    x.assigned && h('span', { class: `ln-badge${x.overdue ? ' late' : ''}` }, icon('flag', 11), x.due ? `${x.overdue ? 'Was due' : 'Assigned · by'} ${shortDate(x.due)}` : 'Assigned'));
+}
+
+function arrange(x, patch, note) {
+  if (!canSave) return;
+  save(setShelf(doc, meId, x.c.id, patch), note);
+  render();
+}
+
+/** One row on My courses: the course, where you are, and what you can do with it. */
+function ShelfRow(x) {
+  const { c, e } = x;
+  const cover = coverOf(c);
+  const go = e
+    ? h('a', { class: 'btn btn-sm btn-primary', href: `#play/${c.id}` }, x.status === 'finished' ? 'Revisit' : x.status === 'not-started' ? 'Start' : 'Continue')
+    : h('button', { type: 'button', class: 'btn btn-sm btn-primary', disabled: !canSave, onclick: () => { save(enrol(doc, meId, c), `You started ${c.title}`); location.hash = `#play/${c.id}`; } }, 'Start');
+  return h('li', { class: `ln-row s-${x.status}${x.hidden ? ' hidden' : ''}`, style: `--cover:${cover}` },
+    h('span', { class: 'ln-row-swatch', 'aria-hidden': 'true' }),
+    h('div', { class: 'ln-row-main' },
+      h('a', { class: 'ln-row-title', href: `#play/${c.id}` }, c.title),
+      h('small', {}, [c.series, kindLabel(c.kind), c.pacing === 'self' ? (c.kind === 'self' ? '' : 'self-paced') : `starts ${shortDate(c.run.start)}`, `about ${c.hoursPerWeek} h a week`].filter(Boolean).join(' · ')),
+      Badges(x)),
+    h('div', { class: 'ln-row-prog' },
+      h('span', { class: `ln-status s-${x.status}` }, STATUS_LABEL[x.status]),
+      h('span', { class: 'ln-bar', role: 'img', 'aria-label': `${x.pct}% done` }, h('i', { style: `width:${x.pct}%` })),
+      h('small', {}, e ? `${x.p.done} of ${x.p.of} required${x.last ? ` · last ${shortDate(x.last.slice(0, 10))}` : ''}` : 'Not started yet')),
+    h('div', { class: 'ln-row-act' }, go,
+      h('button', { type: 'button', class: `btn btn-sm btn-icon${x.pinned ? ' on' : ''}`, 'aria-pressed': String(x.pinned), title: x.pinned ? 'Unpin' : 'Pin to the top of your lists', 'aria-label': x.pinned ? `Unpin ${c.title}` : `Pin ${c.title}`, disabled: !canSave, onclick: () => arrange(x, { pinned: !x.pinned }, x.pinned ? 'Unpinned' : 'Pinned to the top') }, icon('pin', 14)),
+      h('button', { type: 'button', class: 'btn btn-sm btn-icon', title: x.hidden ? 'Show it again' : 'Hide it from My learning (it stays in your record)', 'aria-label': x.hidden ? `Show ${c.title}` : `Hide ${c.title}`, disabled: !canSave, onclick: () => arrange(x, { hidden: !x.hidden, pinned: false }, x.hidden ? 'Back on your list' : 'Hidden. Find it under Hidden') }, icon(x.hidden ? 'eye' : 'eyeOff', 14)),
+      e && !x.assigned && h('button', { type: 'button', class: 'btn btn-sm btn-icon', title: 'Leave this course', 'aria-label': `Leave ${c.title}`, disabled: !canSave, onclick: async () => { if (await uiConfirm(`Leave “${c.title}”? Your progress and notes in it will be cleared.`, { ok: 'Leave', danger: true })) { save(leave(doc, meId, c.id), `You left ${c.title}`); render(); } } }, icon('close', 14))));
+}
+
+function Courses() {
+  setCrumbs([]);
+  const all = shelf();
+  const f = SHELF_FILTERS.find((x) => x.id === shelfView.filter) ?? SHELF_FILTERS[0];
+  const q = shelfView.q.trim().toLowerCase();
+  const list = sortShelf(all.filter(f.test).filter((x) => !q || `${x.c.title} ${x.c.subtitle ?? ''} ${x.c.series ?? ''}`.toLowerCase().includes(q)), shelfView.sort);
+  const set = (patch) => { shelfView = { ...shelfView, ...patch }; keepShelfView(); render(); };
+  const late = all.filter((x) => x.overdue && !x.hidden);
+  const search = h('input', { type: 'search', class: 'input input-sm', placeholder: 'Find a course', value: shelfView.q, 'aria-label': 'Find a course',
+    oninput: (ev) => { shelfView.q = ev.target.value; const pos = ev.target.selectionStart; render(); const el = main.querySelector('.ln-shelf-bar input[type=search]'); el?.focus(); el?.setSelectionRange(pos, pos); } });
+  return h('div', { class: 'lx-wrap' }, tabs('courses'),
+    h('p', { class: 'lx-note' }, 'Every course you’re in, and the ones assigned to you. Pin the ones you’re working on, hide the ones you’re done with. Hiding never deletes anything.'),
+    late.length > 0 && h('p', { class: 'ln-late' }, icon('clock', 14), ` ${late.map((x) => x.c.title).join(', ')} ${late.length === 1 ? 'was' : 'were'} due. No stress: start when you can, or have a word with whoever assigned it.`),
+    h('div', { class: 'ln-shelf-bar' },
+      h('div', { class: 'tc-seg ln-filters', role: 'group', 'aria-label': 'Show' }, SHELF_FILTERS.map((x) => {
+        const k = all.filter(x.test).length;
+        return h('button', { type: 'button', class: f.id === x.id ? 'on' : '', 'aria-pressed': String(f.id === x.id), onclick: () => set({ filter: x.id }) }, x.label, h('small', {}, String(k)));
+      })),
+      h('span', { class: 'tc-grow' }),
+      search,
+      h('label', { class: 'ln-sort' }, h('span', {}, 'Sort'), h('select', { class: 'input input-sm', onchange: (ev) => set({ sort: ev.target.value }) }, options(SHELF_SORTS, shelfView.sort)))),
+    list.length ? h('ul', { class: 'ln-shelf' }, list.map(ShelfRow))
+      : h('section', { class: 'lx-panel' }, h('p', { class: 'lx-note' }, q ? 'No course matches that.' : f.id === 'hidden' ? 'Nothing hidden.' : f.id === 'done' ? 'Nothing finished yet. You’ll get there.' : 'Nothing here.'), h('a', { class: 'btn btn-sm', href: '#catalogue' }, icon('books', 14), 'Browse the catalogue')));
 }
 
 function Catalogue() {
   setCrumbs([]);
   const list = published();
   const joined = list.filter((c) => enrolment(c.id));
-  const open = list.filter((c) => !enrolment(c.id));
+  const suggested = suggestedFor(teach, doc, org, meId).filter((s) => s.c);
+  const sids = new Set(suggested.map((s) => s.cid));
+  const open = list.filter((c) => !enrolment(c.id) && !sids.has(c.id));
   return h('div', { class: 'lx-wrap' }, tabs('catalogue'),
     h('p', { class: 'lx-note' }, 'Courses, workshops and modules your organisation has published in Teach.'),
+    suggested.length > 0 && h('section', { class: 'lx-panel ln-suggested' }, h('h3', {}, icon('sparkle', 15), 'Suggested for you'),
+      h('p', { class: 'lx-note' }, 'Offered to you, or to a team or role you’re in. Join if it’s useful; no one is counting.'),
+      h('div', { class: 'ln-courses' }, suggested.map((s) => CourseCard(s.c, { join: true, note: s.note })))),
     open.length ? h('div', { class: 'ln-courses' }, open.map((c) => CourseCard(c, { join: true }))) : h('p', { class: 'lx-note' }, 'You’ve joined everything on offer.'),
     joined.length > 0 && h('section', { class: 'lx-panel' }, h('h3', {}, 'Already joined'), h('div', { class: 'ln-courses' }, joined.map((c) => CourseCard(c)))));
 }

@@ -27,6 +27,7 @@ import { defaultGraphSettings } from './graph.js';
 import { blankSocial, migrateSocial } from './social.js';
 import { blankRhizome } from '../rhizome/setup.js';
 import { blankTeach } from '../learning/cartridge.js';
+import { withTriageTeach, withTriageLearn } from '../learning/triage.js';
 import { blankLearn } from '../learning/records.js';
 import { blankPlace, migratePlace } from '../place/model.js';
 
@@ -69,8 +70,10 @@ export const loadGraphSettings = () => ({ ...defaultGraphSettings(), ...loadOrSe
 /** Rhizome's instance for this org: its context profile, set-up and baseline (Rhizome stage 1). */
 export const loadRhizome = () => ({ ...blankRhizome(), ...loadOrSeed('rhizome', blankRhizome) });
 /** Teach's cartridges and Learn's learner records (eLearning stages 1 and 2). */
-export const loadTeach = () => ({ ...blankTeach(), ...loadOrSeed('teach', blankTeach) });
-export const loadLearn = () => ({ ...blankLearn(), ...loadOrSeed('learn', blankLearn) });
+/** Teach and Learn. Kestrel Bay gets the NPO Triage pack once, also on a saved document from before it existed. */
+const triageFor = (org) => org?.id === 'org-kestrel';
+export const loadTeach = () => { const d = { ...blankTeach(), ...loadOrSeed('teach', blankTeach) }; const org = loadOrg(); return triageFor(org) ? withTriageTeach(d, org) : d; };
+export const loadLearn = () => { const d = { ...blankLearn(), ...loadOrSeed('learn', blankLearn) }; const org = loadOrg(); return triageFor(org) ? withTriageLearn(d, loadTeach(), org) : d; };
 /** Place's places and pins for this org (Place stage 1). */
 export const loadPlace = () => migratePlace(loadOrSeed('place', blankPlace));
 export const loadSocial = () => migrateSocial(loadOrSeed('social', blankSocial));

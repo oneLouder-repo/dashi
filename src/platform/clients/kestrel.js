@@ -32,6 +32,7 @@ import { gatherAssets, blankAssets, migrateAssets } from '../assetHub.js';
 import { migrateSocial, mockPush } from '../social.js';
 import { seedRhizome } from '../../rhizome/setup.js';
 import { seedTeach, seedLearn } from '../../learning/seed.js';
+import { withTriageTeach, withTriageLearn } from '../../learning/triage.js';
 import { seedKestrelPlace } from '../../place/kestrel.js';
 
 export const KESTREL_SPEC = {
@@ -374,7 +375,7 @@ export function kestrelBundle() {
   // Rhizome's pilot instance (Rhizome stage 1): switched on, with the set-up already run, so design can start straight away.
   docs.rhizome = seedRhizome(docs);
   // Teach and Learn (eLearning stages 1 and 2): three cartridges, and a learner part-way through Community Grantmaking 101.
-  docs.teach = seedTeach(org);
-  docs.learn = seedLearn(org, docs.teach);
+  docs.teach = withTriageTeach(seedTeach(org), org);
+  docs.learn = withTriageLearn(seedLearn(org, docs.teach), docs.teach, org);
   return { docs, files };
 }
