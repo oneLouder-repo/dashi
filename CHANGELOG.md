@@ -6,6 +6,27 @@ Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and s
 
 Alpha 0.4 is the learning release (Teach, Learn and what follows), opened from the `v0.3.0-alpha` tag and tested on a fresh `data-clients` seed. Rhizome's later stages and Place stage 2 onwards stay paused. Going live moves to 0.5. Newest first.
 
+### Small fixes
+
+- **The version reads 0.4.0-alpha** on the alpha badge and at `/version`.
+- **Learn takes you back to where you were.** Opening a course returns to the block you last had open, unless you'd finished it. Then it goes on to what's next.
+- **Rhizome's side nav** no longer says "0 patches" before the starter patch is saved.
+
+### Learn home and Teach: a warmer look
+
+- **Up next is one hero card**: the block's icon in its track colour, the course, how long it takes, your progress ring, and Continue. Anything else up next sits below it.
+- **Course cards have a cover** in a steady wheel colour, with the kind of course and a progress ring in place of the thin bar.
+- **Teach's tracks are tinted** in their own colour, and blocks are softer: a light tint of the track colour, a solid edge, rounded corners, and a lift on hover.
+
+### Learn: a nicer player
+
+- **The path is a slim rail.** Weeks are chapters with a done count (3/7), blocks are stops on one line, and the block you're on is lit and scrolled into view.
+- **The block is a calm stage.** A colour strip in its track's tone, a type pill with an icon, "11 of 31", a bigger title, and a readable line length.
+- **A steady bar at the bottom** holds Back, Mark done and Next, and stays in reach as you scroll. Next shows the title of what comes next.
+- **The course banner** shows the day, the title, and a progress ring.
+- **Focus** hides the side nav, the tabs and the path, for reading. Learn remembers it in this browser.
+- **Keys:** ← and → move, D marks done, F toggles focus.
+
 ### Rhizome stage 4: the critical AI visualiser
 
 - **The AI visualiser works.** It is a full rack wide in rack B. Ask it a question about your facts and watch a tiny, see-through engine answer it in six steps, with six lane lights blinking in order:
