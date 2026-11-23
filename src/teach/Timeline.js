@@ -76,7 +76,7 @@ export function Timeline({ cartridge: c, issues = [], ppd = 20, today = new Date
     const blocks = Object.values(c.blocks).filter((b) => b.trackId === t.id);
     const { rowOf, rows } = stack(blocks);
     const height = rows * ROW + PAD * 2;
-    const lane = h('div', { class: `tl-lane${t.muted ? ' muted' : ''}`, 'data-track': t.id, style: `width:${width}px;height:${height}px` });
+    const lane = h('div', { class: `tl-lane${t.muted ? ' muted' : ''}`, 'data-track': t.id, style: `width:${width}px;height:${height}px;--tone:${t.tone}` });
     for (const b of blocks) lane.append(Clip(b, t, rowOf[b.id]));
     if (canEdit) {
       lane.addEventListener('dragover', (e) => { if (e.dataTransfer.types.includes('text/x-dashi-block')) { e.preventDefault(); lane.classList.add('drop'); } });

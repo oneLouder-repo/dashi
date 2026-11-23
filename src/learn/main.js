@@ -1,6 +1,7 @@
 import { h, options } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { svg } from '../core/svg.js';
+import { wheel, tint, inkOn } from '../ui/wheel.js';
 import { Shell, toast } from '../ui/Shell.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
@@ -126,8 +127,8 @@ function Home() {
     h('div', { class: 'ln-hello' }, h('h2', {}, first ? `Hello, ${first}` : 'Hello'), h('p', { class: 'lx-note' }, courses.length ? 'Here’s where you are. Go at a pace that works for you.' : 'You’re not in a course yet. Have a look in the catalogue.')),
     courses.length ? h('div', { class: 'ln-grid' },
       h('section', { class: 'lx-stack' },
-        h('section', { class: 'lx-panel' }, h('h3', {}, icon('play', 15), 'Up next'),
-          next.length ? h('div', { class: 'ln-next' }, next.map(({ c, b }) => NextCard(c, b))) : h('p', { class: 'lx-note' }, 'You’re all caught up. Well done.')),
+        next.length ? Hero(next[0].c, next[0].b) : h('section', { class: 'lx-panel' }, h('h3', {}, icon('play', 15), 'Up next'), h('p', { class: 'lx-note' }, 'You’re all caught up. Well done.')),
+        next.length > 1 && h('section', { class: 'lx-panel' }, h('h3', {}, icon('play', 15), 'Also up next'), h('div', { class: 'ln-next' }, next.slice(1).map(({ c, b }) => NextCard(c, b)))),
         h('section', { class: 'lx-panel' }, h('h3', {}, icon('graduation', 15), 'Your courses'),
           h('div', { class: 'ln-courses' }, courses.map((c) => CourseCard(c))))),
       h('section', { class: 'lx-panel' }, h('h3', {}, icon('calendar', 15), 'This week'),
@@ -135,6 +136,22 @@ function Home() {
           h('span', {}, h('a', { href: `#play/${c.id}/${block.id}` }, block.title), h('small', {}, `${blockType(block.type).label}${block.at ? ` at ${block.at}` : ''} · ${c.title}`))))) : h('p', { class: 'lx-note' }, 'Nothing due in the next seven days.'),
         h('p', { class: 'lx-note' }, 'Dates are reminders, not deadlines carved in stone. If life gets in the way, tell your teacher: that’s what office hours are for.')))
       : h('a', { class: 'btn btn-primary btn-sm', href: '#catalogue' }, icon('books', 14), 'Browse the catalogue'));
+}
+
+function Hero(c, b) {
+  const t = blockType(b.type);
+  const tone = toneOf(c, b);
+  const e = enrolment(c.id);
+  const p = progress(c, e);
+  return h('section', { class: 'ln-hero', style: `--tone:${tone};--wash:${tint(tone, 0.86)};--cover:${coverOf(c)}` },
+    h('span', { class: 'ln-hero-ic', style: `color:${inkOn(tone)}`, 'aria-hidden': 'true' }, icon(t.icon, 28)),
+    h('div', { class: 'ln-hero-text' },
+      h('span', { class: 'ln-eyebrow' }, `Up next · ${c.title}`),
+      h('h3', {}, b.title),
+      h('p', {}, `${t.label}${b.minutes ? ` · about ${b.minutes} minutes` : ''}${b.required ? '' : ' · optional'}`)),
+    h('div', { class: 'ln-hero-go' },
+      Ring(p.pct, 48),
+      h('a', { class: 'btn btn-primary', href: `#play/${c.id}/${b.id}` }, e?.done && Object.keys(e.done).length ? 'Continue' : 'Start', icon('chevronRight', 14))));
 }
 
 function NextCard(c, b) {
@@ -151,15 +168,17 @@ function CourseCard(c, { join = false } = {}) {
   const p = progress(c, e);
   const day = todayDay(c, e, today);
   const where = c.pacing === 'self' ? 'Self-paced' : day < 0 ? `Starts ${shortDate(c.run.start)}` : phaseOf(c, day) === 'session' ? `${weekLabel(weekOf(day))} of ${Math.ceil(c.span.length / 7)}` : phaseOf(c, day) === 'post' ? 'Wrapping up' : 'Finished';
-  return h(join ? 'div' : 'a', { class: 'ln-course', ...(join ? {} : { href: `#play/${c.id}` }) },
-    h('h3', {}, c.title),
-    c.subtitle && h('p', {}, c.subtitle),
-    h('p', {}, `${kindLabel(c.kind)} · ${where} · about ${c.hoursPerWeek} h a week`),
-    e ? [h('div', { class: 'ln-progress', role: 'progressbar', 'aria-valuenow': String(p.pct), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-label': `${c.title} progress`, style: `--p:${p.pct}%` }, h('i')),
-      h('span', { class: 'ln-progress-label' }, `${p.done} of ${p.of} required blocks done`)]
-      : join && h('div', { class: 'lx-row' },
-        c.summary && h('p', {}, c.summary),
-        h('button', { type: 'button', class: 'btn btn-sm btn-primary', disabled: !canSave, onclick: () => { save(enrol(doc, meId, c), `You joined ${c.title}`); location.hash = `#play/${c.id}`; } }, icon('plus', 14), 'Join')));
+  const cover = coverOf(c);
+  return h(join ? 'div' : 'a', { class: 'ln-course', style: `--cover:${cover};--cover-ink:${inkOn(cover)}`, ...(join ? {} : { href: `#play/${c.id}` }) },
+    h('div', { class: 'ln-cover', 'aria-hidden': 'true' }, h('span', {}, kindLabel(c.kind)), e && Ring(p.pct, 48)),
+    h('div', { class: 'ln-course-text' },
+      h('h3', {}, c.title),
+      c.subtitle && h('p', {}, c.subtitle),
+      h('p', { class: 'ln-course-meta' }, `${where} · about ${c.hoursPerWeek} h a week`),
+      e ? h('span', { class: 'ln-progress-label' }, `${p.done} of ${p.of} required blocks done`)
+        : join && h('div', { class: 'lx-row' },
+          c.summary && h('p', {}, c.summary),
+          h('button', { type: 'button', class: 'btn btn-sm btn-primary', disabled: !canSave, onclick: () => { save(enrol(doc, meId, c), `You joined ${c.title}`); location.hash = `#play/${c.id}`; } }, icon('plus', 14), 'Join'))));
 }
 
 function Catalogue() {
@@ -213,11 +232,7 @@ function Player(c, blockId, preview) {
     if (on && path.scrollHeight > path.clientHeight) path.scrollTop = Math.max(0, on.getBoundingClientRect().top - path.getBoundingClientRect().top + path.scrollTop - path.clientHeight / 3);
   });
   const focus = focusOn();
-  const R = 20, C = 2 * Math.PI * R;
-  const ringSvg = svg('svg', { viewBox: '0 0 48 48', width: '44', height: '44', 'aria-hidden': 'true' });
-  svg('circle', { cx: '24', cy: '24', r: String(R), class: 'ln-ring-bg' }, ringSvg);
-  svg('circle', { cx: '24', cy: '24', r: String(R), class: 'ln-ring-fg', 'stroke-dasharray': `${(C * p.pct) / 100} ${C}`, transform: 'rotate(-90 24 24)' }, ringSvg);
-  const ring = h('span', { class: 'ln-ring', role: 'img', 'aria-label': `${p.pct}% done` }, ringSvg, h('b', {}, `${p.pct}%`));
+  const ring = Ring(p.pct);
   return h('div', { class: `lx-wrap ln-playwrap${focus ? ' focus' : ''}` }, focus ? null : tabs('home'),
     preview && h('p', { class: 'ln-preview' }, icon('eye', 14), ` Preview: you’re seeing “${c.title}”${c.status === 'published' ? '' : ' (a draft)'} as a learner would. Nothing you do here is saved.`),
     h('div', { class: 'ln-courseline' },
@@ -230,6 +245,24 @@ function Player(c, blockId, preview) {
       h('button', { type: 'button', class: `btn btn-sm${focus ? ' on' : ''}`, 'aria-pressed': String(focus), title: 'Hide the menus and the path, for reading (F)', onclick: () => toggleFocus() },
         icon(focus ? 'eyeOff' : 'eye', 14), focus ? 'Leave focus' : 'Focus')),
     h('div', { class: 'ln-player' }, path, BlockView(c, e, b, { preview, start, prev, next, base, pos: `${i + 1} of ${all.length}` })));
+}
+
+/* A progress ring: the share of required blocks done. */
+function Ring(pct, size = 44) {
+  const R = 20, C = 2 * Math.PI * R;
+  const el = svg('svg', { viewBox: '0 0 48 48', width: String(size), height: String(size), 'aria-hidden': 'true' });
+  svg('circle', { cx: '24', cy: '24', r: String(R), class: 'ln-ring-bg' }, el);
+  svg('circle', { cx: '24', cy: '24', r: String(R), class: 'ln-ring-fg', 'stroke-dasharray': `${(C * pct) / 100} ${C}`, transform: 'rotate(-90 24 24)' }, el);
+  return h('span', { class: 'ln-ring', role: 'img', 'aria-label': `${pct}% done`, style: `width:${size}px;height:${size}px` }, el, h('b', {}, `${pct}%`));
+}
+
+/* Each course gets a steady colour from the wheel: its cover tone, or one picked from its id. */
+const COVER = ['teal', 'green', 'blue', 'orange', 'violet', 'coral', 'amber', 'red'];
+function coverOf(c) {
+  if (c.cover?.tone) return c.cover.tone;
+  let k = 0;
+  for (const ch of c.id) k = (k * 31 + ch.charCodeAt(0)) >>> 0;
+  return wheel(COVER[k % COVER.length]);
 }
 
 /* Focus mode hides the side nav and the path; remembered per browser. */
