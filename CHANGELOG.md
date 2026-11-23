@@ -15,6 +15,7 @@ Alpha 0.4 is the learning release (Teach, Learn and what follows), opened from t
 - **Reports on the Plan Gantt.** Any objective, goal or workplan that a grant funds shows a *Reports to funders* group: each report's six-week on-ramp as a band and its due date as a diamond, coloured by where it stands. Click one to open the report track.
 - **My reports to funders** on My work: the reports you look after (admins and leads see every one when they look after none), with what to do now and the due date.
 - Each grant can name **who looks after it**.
+- **Pick the evidence** for each report in its drawer: stories, assets, Listen episodes and courses tied to the funded work. What you tick goes into the draft as an *Evidence* section, with course enrolment and completion counts.
 
 ### Small fixes
 

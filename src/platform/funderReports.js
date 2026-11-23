@@ -65,7 +65,7 @@ export function workDuring(strategy, nodeIds, from, to, today = to) {
 }
 
 /** The whole draft, as Markdown. */
-export function draftReport({ strategy, data, dashboards, org }, { funder, from, to, nodeIds = [], measureIds = [], storyIds = [], today = to }) {
+export function draftReport({ strategy, data, dashboards, org }, { funder, from, to, nodeIds = [], measureIds = [], storyIds = [], today = to, extra = '' }) {
   const period = periodLabel(from, to);
   const moves = measureMovements(strategy, data, measureIds, from, to);
   const work = workDuring(strategy, nodeIds, from, to, today);
@@ -105,6 +105,7 @@ export function draftReport({ strategy, data, dashboards, org }, { funder, from,
       for (const st of s.steps ?? []) lines.push(`**${st.heading}** ${st.text}`, '');
     }
   }
+  if (extra) lines.push(extra, '');
   lines.push('## What is next', '', `The next period's workplans are on our roadmap. ${behind.length ? `We are watching ${behind.map((w) => w.node.title.toLowerCase()).join(' and ')}.` : ''}`, '');
   lines.push('## Thank you', '', `Your support made this work possible. Questions to ${org?.contact?.email || 'our team'}.`, '');
   return lines.join('\n').replace(/\n{3,}/g, '\n\n');
