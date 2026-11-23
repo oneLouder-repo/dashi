@@ -84,8 +84,8 @@ export function scheduleFor(grant) {
 export function withDues(grant) {
   const old = grant.dues ?? {};
   const dues = {};
-  for (const d of scheduleFor(grant)) dues[d.id] = { ...d, steps: old[d.id]?.steps ?? {}, reportId: old[d.id]?.reportId ?? null };
-  for (const [id, d] of Object.entries(old)) if (!dues[id] && (d.reportId || Object.values(d.steps ?? {}).some((s) => s.done))) dues[id] = d;
+  for (const d of scheduleFor(grant)) dues[d.id] = { ...(old[d.id] ?? {}), ...d, steps: old[d.id]?.steps ?? {}, reportId: old[d.id]?.reportId ?? null };
+  for (const [id, d] of Object.entries(old)) if (!dues[id] && (d.reportId || d.evidence?.length || Object.values(d.steps ?? {}).some((s) => s.done))) dues[id] = d;
   return { ...grant, dues };
 }
 
@@ -171,4 +171,75 @@ export function seedGrants(strategy, today = new Date().toISOString().slice(0, 1
   const soon = Object.values(grants[0].dues).filter((d) => d.due >= today).sort((a, b) => a.due.localeCompare(b.due))[0];
   if (soon) for (const s of RAMP) if (stepDate(soon, s) < today && !s.optional && s.id !== 'draft') soon.steps[s.id] = { done: true, at: stepDate(soon, s) };
   return Object.fromEntries(grants.map((g) => [g.id, g]));
+}
+
+/**
+ * The reports that touch a part of the plan: dues of grants that fund any
+ * of `nodeIds`, or anything above or below them. For the workplan Gantt.
+ */
+export function duesForNodes(doc, strategy, nodeIds, today, { reports = {} } = {}) {
+  const near = new Set();
+  const nodes = strategy?.nodes ?? {};
+  for (const id of nodeIds) {
+    for (let n = nodes[id]; n; n = nodes[n.parentId]) near.add(n.id);
+    const walk = (pid) => { for (const c of Object.values(nodes)) if (c.parentId === pid && !near.has(c.id)) { near.add(c.id); walk(c.id); } };
+    walk(id);
+  }
+  return upcomingDues(doc, today, { reports, all: true }).filter((x) => (x.grant.nodeIds ?? []).some((id) => near.has(id)));
+}
+
+/** The reports a person looks after: grants they own (or, for `all`, every grant). Sent ones left out. */
+export function duesFor(doc, staffId, today, { all = false, reports = {} } = {}) {
+  return upcomingDues(doc, today, { reports }).filter((x) => all || x.grant.ownerId === staffId);
+}
+
+/**
+ * What could go in a report as evidence, for one due:
+ *   stories   data stories (all of them; the ones sharing a measure with the grant come first)
+ *   assets    documents, links and media attached to the grant's work in Plan
+ *   episodes  Listen episodes published during the period
+ *   courses   published courses in Learn, with how many joined and finished during the period
+ * Each item is { key, kind, title, sub }. `key` is `<kind>:<id>`, what a due keeps in `evidence`.
+ */
+export function evidenceFor({ grant, due, strategy, dashboards = {}, podcasts = null, teach = null, learn = null }) {
+  const nodes = strategy?.nodes ?? {};
+  const under = new Set();
+  const walk = (id) => { if (under.has(id) || !nodes[id]) return; under.add(id); for (const c of Object.values(nodes)) if (c.parentId === id) walk(c.id); };
+  for (const id of grant.nodeIds ?? []) walk(id);
+  const measures = new Set([...under].flatMap((id) => (nodes[id].measures ?? []).map((m) => m.id)));
+  const inPeriod = (d) => !!d && d.slice(0, 10) >= due.from && d.slice(0, 10) <= due.to;
+
+  const stories = Object.values(dashboards.stories ?? {}).map((s) => ({ s, hit: (s.steps ?? []).some((st) => measures.has(st.measureId)) }))
+    .sort((a, b) => b.hit - a.hit || a.s.title.localeCompare(b.s.title))
+    .map(({ s, hit }) => ({ key: `story:${s.id}`, kind: 'story', title: s.title, sub: hit ? 'Uses this grant’s measures' : (s.summary ?? '').slice(0, 80) }));
+  const assets = [...under].flatMap((id) => (nodes[id].assets ?? []).filter((a) => ['media', 'document', 'link', 'literature'].includes(a.kind)).map((a) => ({ key: `asset:${id}/${a.id}`, kind: 'asset', title: a.label, sub: `${a.kind === 'media' ? 'Photo or media' : a.kind === 'document' ? 'Document' : a.kind === 'link' ? 'Link' : 'Reading'} · ${nodes[id].title}`, url: a.url ?? null })));
+  const episodes = Object.values(podcasts?.episodes ?? {}).filter((e) => e.status === 'published' && inPeriod(e.publishedAt))
+    .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
+    .map((e) => ({ key: `episode:${e.id}`, kind: 'episode', title: e.title, sub: `${podcasts.podcasts?.[e.podcastId]?.title ?? 'Listen'} · ${e.publishedAt.slice(0, 10)}` }));
+  const courses = Object.values(teach?.cartridges ?? {}).filter((c) => c.status === 'published').map((c) => {
+    let joined = 0, finished = 0;
+    for (const p of Object.values(learn?.people ?? {})) {
+      const e = p.enrolments?.[c.id];
+      if (!e) continue;
+      if (inPeriod(e.at)) joined++;
+      const req = Object.values(c.blocks ?? {}).filter((b) => b.required);
+      const last = req.map((b) => e.done?.[b.id]).filter(Boolean).sort().at(-1);
+      if (req.length && req.every((b) => e.done?.[b.id]) && inPeriod(last)) finished++;
+    }
+    return { key: `course:${c.id}`, kind: 'course', title: c.title, sub: `${joined} joined and ${finished} finished in the period`, joined, finished };
+  });
+  return { stories, assets, episodes, courses };
+}
+
+/** The picked evidence as a report section, in Markdown ('' when nothing is picked). */
+export function evidenceMarkdown(evidence, picked = []) {
+  const all = Object.fromEntries(Object.values(evidence).flat().map((x) => [x.key, x]));
+  const items = picked.map((k) => all[k]).filter(Boolean).filter((x) => x.kind !== 'story');
+  if (!items.length) return '';
+  const lines = ['## Evidence', ''];
+  const group = (kind, heading, line) => { const xs = items.filter((x) => x.kind === kind); if (xs.length) lines.push(`**${heading}**`, '', ...xs.map(line), ''); };
+  group('course', 'Learning', (x) => `- ${x.title}: ${x.joined} ${x.joined === 1 ? 'person' : 'people'} joined and ${x.finished} finished in the period.`);
+  group('episode', 'Episodes', (x) => `- _${x.title}_ (${x.sub})`);
+  group('asset', 'Photos, documents and links', (x) => `- ${x.url ? `[${x.title}](${x.url})` : x.title} (${x.sub.split(' · ')[0].toLowerCase()})`);
+  return lines.join('\n');
 }

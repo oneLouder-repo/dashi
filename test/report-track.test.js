@@ -22,9 +22,12 @@ test('rescheduling keeps ticked steps and drafts, and drops untouched dues', () 
   const g = withDues(grant('quarterly'));
   const first = Object.keys(g.dues)[0];
   g.dues[first].steps.heads = { done: true, at: '2026-07-01' };
+  g.dues[first].evidence = ['story:s1'];
   const again = withDues({ ...g, cadence: 'final' });
   assert.ok(again.dues[first], 'the due with work on it is kept');
   assert.equal(again.dues[first].steps.heads.done, true);
+  assert.deepEqual(again.dues[first].evidence, ['story:s1']);
+  assert.deepEqual(withDues(g).dues[first].evidence, ['story:s1'], 'picked evidence survives a plain reschedule');
   assert.equal(Object.keys(again.dues).length, 2);
 });
 
@@ -76,4 +79,43 @@ test('Kestrel seeds three grants with one report in its on-ramp now', () => {
   const live = upcomingDues({ grants }, '2026-11-23').filter((x) => x.state.phase === 'ramp');
   assert.equal(live.length, 1);
   assert.equal(live[0].state.current.id, 'draft');
+});
+
+test('the Gantt finds reports for grants above or below a node, and My work finds an owner’s reports', async () => {
+  const { duesForNodes, duesFor } = await import('../src/platform/reportTrack.js');
+  const strategy = { nodes: { root: { id: 'root', parentId: null }, o1: { id: 'o1', parentId: 'root' }, g1: { id: 'g1', parentId: 'o1' }, w1: { id: 'w1', parentId: 'g1' }, o2: { id: 'o2', parentId: 'root' } } };
+  const a = withDues({ ...blankGrant({ id: 'a', funder: 'A', from: '2026-05-01', to: '2027-04-30', cadence: 'half', ownerId: 's1' }), nodeIds: ['o1'] });
+  const b = withDues({ ...blankGrant({ id: 'b', funder: 'B', from: '2026-05-01', to: '2027-04-30', cadence: 'final' }), nodeIds: ['o2'] });
+  const doc = { grants: { a, b } };
+  assert.deepEqual([...new Set(duesForNodes(doc, strategy, ['w1'], '2026-11-01').map((x) => x.grant.id))], ['a']);
+  assert.deepEqual([...new Set(duesForNodes(doc, strategy, ['root'], '2026-11-01').map((x) => x.grant.id))].sort(), ['a', 'b']);
+  assert.ok(duesFor(doc, 's1', '2026-11-01').every((x) => x.grant.id === 'a'));
+  assert.equal(duesFor(doc, 's2', '2026-11-01').length, 0);
+  assert.ok(duesFor(doc, 's2', '2026-11-01', { all: true }).length > 0);
+});
+
+test('evidence: stories sharing a measure come first, assets come from the funded work, episodes and course finishes from the period', async () => {
+  const { evidenceFor, evidenceMarkdown } = await import('../src/platform/reportTrack.js');
+  const strategy = { nodes: {
+    o1: { id: 'o1', parentId: null, title: 'Youth', measures: [{ id: 'm1', name: 'Youth reached' }] },
+    w1: { id: 'w1', parentId: 'o1', title: 'Panel', assets: [{ id: 'a1', kind: 'media', label: 'Panel photo' }, { id: 'a2', kind: 'staff', label: 'Sam' }] },
+    o2: { id: 'o2', parentId: null, title: 'Other', assets: [{ id: 'a3', kind: 'document', label: 'Elsewhere' }] },
+  } };
+  const g = withDues({ ...blankGrant({ id: 'g', funder: 'F', from: '2026-05-01', to: '2027-04-30', cadence: 'half' }), nodeIds: ['o1'] });
+  const due = Object.values(g.dues)[0]; // May to October 2026
+  const dashboards = { stories: { s1: { id: 's1', title: 'B story', steps: [{ measureId: 'zz' }] }, s2: { id: 's2', title: 'A story', steps: [{ measureId: 'm1' }] } } };
+  const podcasts = { podcasts: { p: { title: 'Show' } }, episodes: { e1: { id: 'e1', podcastId: 'p', title: 'In', status: 'published', publishedAt: '2026-07-01' }, e2: { id: 'e2', podcastId: 'p', title: 'Out', status: 'published', publishedAt: '2026-12-01' } } };
+  const teach = { cartridges: { c1: { id: 'c1', title: 'Course', status: 'published', blocks: { b1: { id: 'b1', required: true } } } } };
+  const learn = { people: { s1: { enrolments: { c1: { at: '2026-06-01T10:00:00Z', done: { b1: '2026-06-10T10:00:00Z' } } } }, s2: { enrolments: { c1: { at: '2025-01-01T10:00:00Z', done: {} } } } } };
+  const ev = evidenceFor({ grant: g, due, strategy, dashboards, podcasts, teach, learn });
+  assert.deepEqual(ev.stories.map((x) => x.key), ['story:s2', 'story:s1']);
+  assert.deepEqual(ev.assets.map((x) => x.title), ['Panel photo']);
+  assert.deepEqual(ev.episodes.map((x) => x.title), ['In']);
+  assert.equal(ev.courses[0].joined, 1);
+  assert.equal(ev.courses[0].finished, 1);
+  const md = evidenceMarkdown(ev, ['course:c1', 'episode:e1', 'story:s2']);
+  assert.match(md, /## Evidence/);
+  assert.match(md, /Course: 1 person joined and 1 finished/);
+  assert.doesNotMatch(md, /A story/);
+  assert.equal(evidenceMarkdown(ev, []), '');
 });

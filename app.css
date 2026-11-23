@@ -3295,3 +3295,30 @@ body.site-page.tpl-field { background: color-mix(in oklab, var(--color-primary) 
   .rt-strip li:nth-child(n+7) { display: none; }
   .rt-form-row { grid-template-columns: 1fr; }
 }
+
+/* Reports to funders on the workplan Gantt: the on-ramp and the due date. */
+.gantt-band.reports { fill: color-mix(in srgb, #f4a93b 8%, var(--bg)); }
+.gantt-label.reports { font-weight: 650; background: color-mix(in srgb, #f4a93b 8%, var(--bg)); }
+.gantt-label.report { padding-left: 22px; text-decoration: none; }
+.gantt-label.report:hover { text-decoration: underline; }
+.gantt-label .dot.diamond { width: 9px; height: 9px; border-radius: 1px; transform: rotate(45deg); background: #9fb7d9; flex: none; }
+.gantt-label.rt-ramp .dot.diamond { background: #f4a93b; } .gantt-label.rt-overdue .dot.diamond { background: #c8432f; } .gantt-label.rt-sent .dot.diamond { background: #4da65c; }
+.gantt-bar.report { cursor: pointer; }
+.gantt-bar.report .ramp { fill: #9fb7d9; opacity: .45; }
+.gantt-bar.report .due { fill: #9fb7d9; stroke: #16181d; stroke-width: 1; }
+.gantt-bar.report.rt-ramp .ramp, .gantt-bar.report.rt-ramp .due { fill: #f4a93b; }
+.gantt-bar.report.rt-overdue .ramp, .gantt-bar.report.rt-overdue .due { fill: #c8432f; }
+.gantt-bar.report.rt-sent .ramp, .gantt-bar.report.rt-sent .due { fill: #4da65c; }
+.me-reports .me-diamond { width: 10px; height: 10px; border-radius: 1px; transform: rotate(45deg); background: #9fb7d9; flex: none; margin: 0 4px; }
+.me-reports .rt-ramp .me-diamond { background: #f4a93b; } .me-reports .rt-overdue .me-diamond { background: #c8432f; }
+.rt-evidence { border-top: 1px solid var(--rule); padding-top: 12px; display: grid; gap: 10px; }
+.rt-evidence h3 { margin: 0; font-size: 13px; display: flex; gap: 6px; align-items: center; text-transform: none; letter-spacing: 0; }
+.rt-evidence > p { margin: -4px 0 0; }
+.rt-ev-group h4 { margin: 0 0 4px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); display: flex; gap: 6px; align-items: center; }
+.rt-ev-group h4 small { font-weight: 600; color: var(--ink-3); }
+.rt-ev-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.rt-ev-group label { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; align-items: start; padding: 5px 6px; border-radius: 6px; cursor: pointer; }
+.rt-ev-group label:hover { background: var(--well, #f8f6f2); }
+.rt-ev-group label input { margin-top: 2px; }
+.rt-ev-group b { display: block; font-size: 13px; font-weight: 600; }
+.rt-ev-group small { display: block; font-size: 12px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

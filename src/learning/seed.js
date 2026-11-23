@@ -15,7 +15,7 @@ import { blankLearn, enrol, markDone, saveNote } from './records.js';
 
 const show = (slug) => ({ plugin: 'podcasts', type: 'episode', id: `ep_trial_${slug}` });
 
-function build(base, tracks, blocks, pace = []) {
+export function build(base, tracks, blocks, pace = []) {
   let c = { ...blankCartridge(base), ...base, tracks: tracks.map(([kind, name]) => ({ ...makeTrack(kind, name), id: `trk_${base.id}_${kind}` })) };
   for (const [kind, type, start, title, patch = {}] of blocks) {
     c = addBlock(c, { type, start, title, trackId: `trk_${base.id}_${kind}`, ...patch }).cartridge;

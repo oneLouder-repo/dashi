@@ -3,7 +3,7 @@ import { Shell } from '../ui/Shell.js';
 import { Store } from '../core/Store.js';
 import { applyCollectionOp } from '../core/collections.js';
 import { autosaveDoc, saveDoc, onDocChange, loadDoc } from '../platform/storage.js';
-import { loadOrg, loadStrategy, loadMaps, loadData, loadLibrary } from '../platform/docs.js';
+import { loadOrg, loadStrategy, loadMaps, loadData, loadLibrary, loadDashboards } from '../platform/docs.js';
 import { loadAllMaps } from '../platform/maps.js';
 import { seedStrategy } from '../platform/strategySeed.js';
 import { childrenOf, rootOf, migrateStrategy, strategyOps } from '../platform/strategy.js';
@@ -49,6 +49,8 @@ const ctx = {
   store,
   org,
   data: loadData(),
+  /** The dashboards document, for the reports to funders on the Gantt (read only here). */
+  get dashboards() { return (this._dash ??= loadDashboards()); },
   /** Which tab: a tab id, or 'framework' when the hash names an item. */
   get tab() {
     const hash = decodeURIComponent(location.hash.slice(1)).split('/')[0];

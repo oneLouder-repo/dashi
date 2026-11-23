@@ -6,7 +6,9 @@ import { toast } from '../ui/toast.js';
 import { uiConfirm } from '../ui/dialog.js';
 import { reportableNodes, blankReport, draftReport, periodLabel } from '../platform/funderReports.js';
 import { NODE_TYPES } from '../platform/strategy.js';
-import { CADENCES, RAMP, RAMP_DAYS, blankGrant, withDues, stepDate, dueState, upcomingDues, dataCheck, dollars, addDays } from '../platform/reportTrack.js';
+import { CADENCES, RAMP, RAMP_DAYS, blankGrant, withDues, stepDate, dueState, upcomingDues, dataCheck, dollars, addDays, evidenceFor, evidenceMarkdown } from '../platform/reportTrack.js';
+import { loadPodcasts, loadTeach, loadLearn } from '../platform/docs.js';
+import { enabledPlugins } from '../plugins.js';
 import { short, today } from '../strategy/dates.js';
 
 /**
@@ -80,10 +82,18 @@ function DueBody(ctx, grantId, dueId, close, redraw) {
   const saveDue = (patch) => { store.apply(col.update('grants', g.id, { dues: { ...g.dues, [d.id]: { ...d, ...patch } } })); redraw(); };
   const tick = (s, done) => saveDue({ steps: { ...d.steps, [s.id]: { done, at: now } } });
 
+  // Evidence from other plugins, only from the ones this person can use.
+  const on = new Set(enabledPlugins(ctx.org).map((p) => p.id));
+  const evidence = evidenceFor({ grant: g, due: d, strategy: ctx.strategy, dashboards: store.doc,
+    podcasts: on.has('podcasts') ? loadPodcasts() : null, teach: on.has('learn') ? loadTeach() : null, learn: on.has('learn') ? loadLearn() : null });
+  const picked = d.evidence ?? [];
+  const pick = (key, yes) => saveDue({ evidence: yes ? [...new Set([...picked, key])] : picked.filter((k) => k !== key) });
+
   const writeDraft = () => {
-    const base = blankReport({ funder: g.funder, from: d.from, to: d.to, nodeIds: g.nodeIds, measureIds: g.measureIds ?? [], storyIds: [] });
+    const storyIds = picked.filter((k) => k.startsWith('story:')).map((k) => k.slice(6));
+    const base = blankReport({ funder: g.funder, from: d.from, to: d.to, nodeIds: g.nodeIds, measureIds: g.measureIds ?? [], storyIds });
     base.title = `${g.funder}: ${kindLabel(d).toLowerCase()}, ${periodLabel(d.from, d.to)}`;
-    base.body = draftReport({ strategy: ctx.strategy, data: ctx.data.doc, dashboards: store.doc, org: ctx.org }, { ...base, today: now });
+    base.body = draftReport({ strategy: ctx.strategy, data: ctx.data.doc, dashboards: store.doc, org: ctx.org }, { ...base, today: now, extra: evidenceMarkdown(evidence, picked) });
     const op = store.apply(col.add('reports', base));
     store.apply(col.update('grants', g.id, { dues: { ...g.dues, [d.id]: { ...d, reportId: op.id, steps: { ...d.steps, draft: { done: true, at: now } } } } }));
     toast('Draft written');
@@ -102,7 +112,8 @@ function DueBody(ctx, grantId, dueId, close, redraw) {
   const steps = h('ol', { class: 'rt-steps' }, RAMP.map((s) => {
     const done = !!d.steps?.[s.id]?.done;
     const late = state.late.includes(s);
-    const extra = s.id === 'data' ? h('span', { class: `rt-tag ${bad.length ? 'warn' : 'ok'}` }, bad.length ? `${bad.length} of ${checks.length} measures need a look` : checks.length ? 'All measures up to date' : 'No measures picked')
+    const extra = s.id === 'evidence' ? h('span', { class: `rt-tag ${picked.length ? 'ok' : 'warn'}` }, picked.length ? `${picked.length} picked for the draft` : 'Nothing picked yet: see Evidence below')
+      : s.id === 'data' ? h('span', { class: `rt-tag ${bad.length ? 'warn' : 'ok'}` }, bad.length ? `${bad.length} of ${checks.length} measures need a look` : checks.length ? 'All measures up to date' : 'No measures picked')
       : s.id === 'draft' ? (report ? h('button', { type: 'button', class: 'btn btn-xs', onclick: openDraft }, icon('fileText', 13), 'Open the draft') : h('button', { type: 'button', class: 'btn btn-xs btn-primary', onclick: writeDraft }, icon('sparkle', 13), 'Write the draft'))
       : s.id === 'send' && !done ? h('button', { type: 'button', class: 'btn btn-xs', onclick: send }, icon('check', 13), 'Mark as sent')
       : null;
@@ -121,11 +132,22 @@ function DueBody(ctx, grantId, dueId, close, redraw) {
       h('span', {}, h('b', {}, c.name), h('small', {}, [c.last ? `last value ${short(c.last)}` : 'no data yet', c.stale ? 'stale' : null, c.missing ? `${c.missing} month${c.missing === 1 ? '' : 's'} missing in the period` : null, c.noTarget ? 'no target' : null].filter(Boolean).join(' · ')))))),
     h('a', { class: 'btn btn-xs btn-ghost', href: '#data' }, icon('table', 13), 'Open the data'));
 
+  const groups = [['stories', 'Data stories', 'story'], ['assets', 'Photos, documents and links from the work', 'image'], ['episodes', 'Episodes from the period', 'mic'], ['courses', 'Courses in Learn', 'graduation']];
+  const evidenceCard = h('section', { class: 'rt-evidence' },
+    h('h3', {}, icon('sparkle', 14), 'Evidence for the draft'),
+    h('p', { class: 'muted small' }, 'Tick what should go in. Stories become their own section; the rest are listed under Evidence.'),
+    groups.map(([k, label, ic]) => evidence[k].length > 0 && h('div', { class: 'rt-ev-group' },
+      h('h4', {}, icon(ic, 13), label, h('small', {}, String(evidence[k].length))),
+      h('ul', {}, evidence[k].slice(0, 8).map((x) => h('li', {}, h('label', {},
+        h('input', { type: 'checkbox', class: 'checkbox checkbox-xs', checked: picked.includes(x.key), onchange: (e) => pick(x.key, e.target.checked) }),
+        h('span', {}, h('b', {}, x.title), h('small', {}, x.sub)))))))),
+    !groups.some(([k]) => evidence[k].length) && h('p', { class: 'muted small' }, 'Nothing to pick yet. Attach photos and documents to the grant’s workplans in Plan, or make a data story.'));
+
   return h('div', { class: 'rt-due' },
     h('div', { class: `rt-banner ${PHASE[state.phase].cls}` },
       h('b', {}, PHASE[state.phase].label), ' · ', state.phase === 'sent' ? 'nothing left to do' : inDays(state.daysLeft),
       state.late.length > 0 && h('span', {}, ` · ${state.late.length} step${state.late.length === 1 ? '' : 's'} behind`)),
-    steps, dataCard);
+    steps, evidenceCard, dataCard);
 }
 
 /* ---------------------------------------------------------------- grants */
@@ -158,6 +180,9 @@ function openGrant(ctx, grantId) {
       field('Amount ($)', h('input', { class: 'input input-sm', type: 'number', min: '0', step: '500', name: 'rt-amount', value: String(g.amount || ''), oninput: (e) => { g.amount = Number(e.target.value) || 0; } })),
       field('Starts', h('input', { class: 'input input-sm', type: 'date', name: 'rt-from', value: g.from, onchange: (e) => { g.from = e.target.value; showPreview(); } })),
       field('Ends', h('input', { class: 'input input-sm', type: 'date', name: 'rt-to', value: g.to, onchange: (e) => { g.to = e.target.value; showPreview(); } }))),
+    field('Who looks after it', h('select', { class: 'select select-sm', name: 'rt-owner', onchange: (e) => { g.ownerId = e.target.value || null; } },
+      h('option', { value: '' }, 'No one yet'),
+      Object.values(ctx.org.staff ?? {}).sort((a, b) => a.name.localeCompare(b.name)).map((p) => h('option', { value: p.id, selected: g.ownerId === p.id }, p.name)))),
     field('Reports', h('select', { class: 'select select-sm', name: 'rt-cadence', onchange: (e) => { g.cadence = e.target.value; showPreview(); } }, CADENCES.map((c) => h('option', { value: c.id, selected: g.cadence === c.id }, c.label)))),
     preview,
     h('div', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'The work it funds'),

@@ -12,6 +12,18 @@ Alpha 0.4 is the learning release (Teach, Learn and what follows), opened from t
 - **Each report gets a six-week on-ramp**, counted back from its due date: heads up, check the data, gather the evidence, read up on the funder (optional), write the draft, review and sign off, send it. A twelve-month strip and the next four reports show where each one stands, with late steps flagged.
 - **A drawer for each report** holds the steps as a checklist with their dates, a data check (stale measures, missing months, no target), **Write the draft** (Dashi's funder report draft, for that grant's work and period), and **Mark as sent**.
 - Kestrel Bay has three example grants, with one report due at the end of November.
+- **Reports on the Plan Gantt.** Any objective, goal or workplan that a grant funds shows a *Reports to funders* group: each report's six-week on-ramp as a band and its due date as a diamond, coloured by where it stands. Click one to open the report track.
+- **My reports to funders** on My work: the reports you look after (admins and leads see every one when they look after none), with what to do now and the due date.
+- Each grant can name **who looks after it**.
+- **Pick the evidence** for each report in its drawer: stories, assets, Listen episodes and courses tied to the funded work. What you tick goes into the draft as an *Evidence* section, with course enrolment and completion counts.
+
+### Managing and sharing courses
+
+- **Six new NPO Triage courses for Kestrel Bay**, short and self-paced: Strategic Planning 1 (a SOAR and a situational analysis), Strategic Planning 2 (a draft), Board Spin-up, Fundraising Foundations, Closing a Project Well and Adult Education for Community Work. Some are assigned to teams, the board, the leads and one person, some are offered, and staff are at different points in them.
+- **My courses in Learn.** Every course you're in and every one assigned to you, with filters (assigned to me, in progress, not started, finished, hidden), a search, and four ways to sort. Pin a course to the top of your lists, hide one you're done with, or leave one you chose. Courses that were due show a gentle note.
+- **Assigned to you** on My learning, and **Suggested for you** at the top of the catalogue for courses offered to you, with the note that came with them.
+- **Learners in Teach.** A new tab shows every published course, who it's shared with, how many it reaches, joined, progress and overdue. Each cartridge gets a *Learners* view: who it's shared with, and a list of learners you can filter, with where each one is and their date to finish by. Teach sees progress only, never notes or answers.
+- **Share a course** from a drawer: assign it (with a date to finish by) or offer it, to everyone on staff, a team, a role or one person, with a note. It shows how many people that reaches before you share.
 
 ### Small fixes
 

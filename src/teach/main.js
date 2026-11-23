@@ -7,7 +7,10 @@ import { setCrumbs } from '../ui/crumbs.js';
 import { Drawer } from '../ui/drawer.js';
 import { uiConfirm } from '../ui/dialog.js';
 import { saveDoc, canWriteDoc } from '../platform/storage.js';
-import { loadOrg, loadTeach, loadPodcasts, loadAssets } from '../platform/docs.js';
+import { loadOrg, loadTeach, loadLearn, loadPodcasts, loadAssets } from '../platform/docs.js';
+import { blankLearn } from '../learning/records.js';
+import { AUDIENCES, MODES, audienceOf, audienceLabel, addOffer, removeOffer, offersOf, rosterFor, courseSummary, STATUS_LABEL } from '../learning/distribution.js';
+import { ROLES, teamList } from '../platform/org.js';
 import { enabledPlugins, linkTo, currentWho } from '../plugins.js';
 import {
   BLOCK_TYPES, BLOCK_GROUPS, TRACK_KINDS, KINDS, blockType, trackKind, kindLabel, blankCartridge, addBlock, updateBlock, removeBlock, duplicateBlock,
@@ -29,6 +32,8 @@ import { WHEEL } from '../ui/wheel.js';
  *   #c/<id>                the timeline, with the checks beside it
  *   #c/<id>/path           the learner's-eye outline, week by week
  *   #c/<id>/checks         every check, with why it matters
+ *   #c/<id>/people         who it's shared with, and where each learner is
+ *   #people                every course shared out: reached, joined, finished, overdue
  *   #blocks                the block types, what each is for
  *   #about                 quick reference and tutorials
  */
@@ -45,6 +50,8 @@ const canEdit = canWriteDoc('teach');
 let doc = loadTeach();
 const podcasts = plugins.has('podcasts') ? loadPodcasts() : null;
 const assets = plugins.has('assets') ? loadAssets() : null;
+/** Learn's records, read-only here, for who has joined and how far they are. */
+const learn = plugins.has('learn') ? loadLearn() : blankLearn();
 const me = currentWho(org).staffId;
 const today = new Date().toISOString().slice(0, 10);
 const ZOOM_KEY = 'dashi.teach-zoom';
@@ -70,7 +77,8 @@ function render() {
   drawSide(view, id);
   if (view === 'new') return newCartridge();
   let page;
-  if (view === 'c' && doc.cartridges[id]) page = sub === 'path' ? PathPage(doc.cartridges[id]) : sub === 'checks' ? ChecksPage(doc.cartridges[id]) : TimelinePage(doc.cartridges[id]);
+  if (view === 'c' && doc.cartridges[id]) page = sub === 'path' ? PathPage(doc.cartridges[id]) : sub === 'checks' ? ChecksPage(doc.cartridges[id]) : sub === 'people' ? LearnersPage(doc.cartridges[id]) : TimelinePage(doc.cartridges[id]);
+  else if (view === 'people') page = PeoplePage();
   else if (view === 'blocks') page = BlocksPage();
   else if (view === 'about') page = h('div', { class: 'lx-wrap' }, tabs('about'), About({ arg: id, title: 'What Teach does', rerender: render,
     intro: 'Teach is where you make learning: courses, workshops, professional development and open offerings, each as a cartridge. A cartridge lays out tracks of blocks on a timeline of course days, like a song in a music editor, and checks itself for accessibility and good design as you work. Learners take it in Learn.',
@@ -88,6 +96,7 @@ function drawSide(view, id) {
   side = swapSide(side, SideNav({ label: 'Teach', sections: [
     { title: 'Teach · experimental', items: [
       { label: 'Cartridges', sub: `${n(list.length, 'cartridge')} · ${list.filter((c) => c.status === 'published').length} published`, icon: 'tiles', href: '#home', on: view === 'home' },
+      { label: 'Learners', sub: `${n(Object.keys(doc.offers ?? {}).length, 'share')} · who’s taking what`, icon: 'users', href: '#people', on: view === 'people' },
       { label: 'Block types', sub: `${BLOCK_TYPES.length} kinds of block`, icon: 'listBullets', href: '#blocks', on: view === 'blocks' },
       { label: 'About', sub: 'Quick reference and tutorials', icon: 'help', href: '#about', on: view === 'about' },
     ] },
@@ -104,7 +113,7 @@ function drawSide(view, id) {
 }
 
 const tabs = (current) => PluginHeader('teach', {
-  tabs: [{ id: 'home', label: 'Cartridges', icon: 'tiles' }, { id: 'blocks', label: 'Block types', icon: 'listBullets' }, { id: 'about', label: 'About', icon: 'help' }],
+  tabs: [{ id: 'home', label: 'Cartridges', icon: 'tiles' }, { id: 'people', label: 'Learners', icon: 'users' }, { id: 'blocks', label: 'Block types', icon: 'listBullets' }, { id: 'about', label: 'About', icon: 'help' }],
   current,
 });
 
@@ -144,6 +153,7 @@ function Card(c) {
       h('h3', {}, c.title),
       c.subtitle && h('p', { class: 'tc-sub' }, c.subtitle),
       h('p', { class: 'tc-meta' }, `${kindLabel(c.kind)} · ${c.pacing === 'self' ? 'self-paced' : `starts ${shortDate(c.run.start)} ${c.run.start.slice(0, 4)}`} · ${st.weeks} weeks · ${n(st.blocks, 'block')}`),
+      c.status === 'published' && CardReach(c),
       h('p', { class: `tc-checks${mustFix ? ' bad' : ''}` }, icon(mustFix ? 'warn' : 'check', 13), mustFix ? `${n(mustFix, 'thing')} to fix before publishing` : issues.length ? `${n(issues.length, 'idea')} from the checks` : 'All checks pass')));
 }
 
@@ -167,7 +177,7 @@ function CartridgeBar(c, current) {
       h('h2', {}, c.title),
       h('small', {}, `${kindLabel(c.kind)} · ${c.pacing === 'self' ? 'self-paced, from each learner’s start' : `day 0 is ${c.run.start}`} · ${c.status === 'published' ? `published v${c.version}` : 'draft'}`)),
     h('nav', { class: 'tc-seg', 'aria-label': 'Cartridge views' },
-      [['', 'Timeline', 'timeline'], ['path', 'Path', 'listNumbers'], ['checks', `Checks${issues.length ? ` (${issues.length})` : ''}`, 'checklist']].map(([s, label, ic]) =>
+      [['', 'Timeline', 'timeline'], ['path', 'Path', 'listNumbers'], ['checks', `Checks${issues.length ? ` (${issues.length})` : ''}`, 'checklist'], ['people', 'Learners', 'users']].map(([s, label, ic]) =>
         h('a', { href: `#c/${c.id}${s ? `/${s}` : ''}`, class: current === s ? 'on' : '', 'aria-current': current === s ? 'page' : null }, icon(ic, 14), label))),
     h('span', { class: 'tc-grow' }),
     current === '' && h('div', { class: 'tc-seg tc-zoom', role: 'group', 'aria-label': 'Zoom' }, ZOOMS.map((z) => h('button', { type: 'button', class: zoom === z.id ? 'on' : '', 'aria-pressed': String(zoom === z.id), onclick: () => { zoom = z.id; try { localStorage.setItem(ZOOM_KEY, zoom); } catch { /* fine */ } render(); } }, z.label))),
@@ -306,6 +316,150 @@ function ChecksPage(c) {
       const list = issues.filter((i) => i.rule === r);
       return h('section', { class: 'lx-panel' }, h('h3', {}, ruleLabel(r), h('small', {}, ` ${list.length}`)), h('p', { class: 'lx-note' }, list[0].why), h('ul', { class: 'tc-issues' }, list.map(Issue(c))));
     })) : h('section', { class: 'lx-panel' }, h('p', {}, icon('check', 15), ' Everything checks out.')));
+}
+
+/* -------------------------------------------------------------- learners */
+
+const fmtDue = (d) => (d ? `${shortDate(d)}${d.slice(0, 4) !== today.slice(0, 4) ? ` ${d.slice(0, 4)}` : ''}` : '');
+function CardReach(c) {
+  const k = courseSummary(doc, learn, org, c.id, today);
+  if (!k.reached) return h('p', { class: 'tc-meta' }, icon('users', 13), ' Not shared with anyone yet');
+  return h('p', { class: 'tc-meta tc-reach' }, icon('users', 13), ` ${k.joined} of ${k.reached} joined · ${k.finished} finished`, k.overdue ? h('b', { class: 'tc-late' }, ` · ${k.overdue} overdue`) : null);
+}
+
+/** Every course and who it's shared with: Teach's distribution overview. */
+function PeoplePage() {
+  setCrumbs([]);
+  const pub = cartridges().filter((c) => c.status === 'published');
+  const rows = pub.map((c) => ({ c, k: courseSummary(doc, learn, org, c.id, today), offers: offersOf(doc, c.id) }));
+  const onStaff = (id) => org.staff?.[id] && !['guest', 'viewer'].includes(org.staff[id].roleId);
+  const learners = new Set(Object.entries(learn.people ?? {}).filter(([id]) => onStaff(id)).filter(([, p]) => Object.keys(p.enrolments ?? {}).some((cid) => doc.cartridges[cid])).map(([id]) => id));
+  const sum = (f) => rows.reduce((t, r) => t + f(r.k), 0);
+  const tile = (label, value, sub, cls = '') => h('div', { class: `tc-tile ${cls}` }, h('b', {}, String(value)), h('span', {}, label), sub && h('small', {}, sub));
+  return h('div', { class: 'lx-wrap' }, tabs('people'),
+    h('p', { class: 'lx-note' }, 'Share a published course with everyone, a team, a role or one person. Assign it with a date to finish by, or offer it so it’s suggested in their catalogue. Learn keeps each learner’s record; Teach only counts.'),
+    h('div', { class: 'tc-tiles' },
+      tile('people learning', learners.size, `of ${Object.values(org.staff ?? {}).filter((s) => !['guest', 'viewer'].includes(s.roleId)).length} on staff`),
+      tile('courses shared', rows.filter((r) => r.offers.length).length, `of ${pub.length} published`),
+      tile('finished', sum((k) => k.finished), `of ${sum((k) => k.joined)} enrolments`),
+      tile('overdue', sum((k) => k.overdue), 'assigned, past the date, not finished', sum((k) => k.overdue) ? 'late' : '')),
+    h('section', { class: 'lx-panel' },
+      h('div', { class: 'lx-ahead' }, h('h3', {}, icon('users', 15), 'Courses and who they reach')),
+      pub.length ? h('div', { class: 'tc-table-wrap' }, h('table', { class: 'tc-table' },
+        h('thead', {}, h('tr', {}, ['Course', 'Shared with', 'Reached', 'Joined', 'Progress', 'Overdue', 'Next date', ''].map((x) => h('th', { scope: 'col' }, x)))),
+        h('tbody', {}, rows.map(({ c, k, offers }) => h('tr', {},
+          h('th', { scope: 'row' }, h('a', { href: `#c/${c.id}/people` }, c.title), h('small', {}, [c.series, kindLabel(c.kind), `v${c.version}`].filter(Boolean).join(' · '))),
+          h('td', {}, offers.length ? h('div', { class: 'tc-aud' }, offers.map((o) => h('span', { class: `tc-aud-chip m-${o.mode}` }, o.mode === 'assigned' ? icon('flag', 11) : icon('sparkle', 11), audienceLabel(org, o.to)))) : h('span', { class: 'tc-muted' }, 'Anyone can join from the catalogue')),
+          h('td', { class: 'num' }, String(k.reached)),
+          h('td', { class: 'num' }, String(k.joined)),
+          h('td', {}, Stack(k)),
+          h('td', { class: `num${k.overdue ? ' tc-late' : ''}` }, k.overdue ? String(k.overdue) : '–'),
+          h('td', { class: 'tc-nowrap' }, k.nextDue ? fmtDue(k.nextDue) : '–'),
+          h('td', {}, canEdit && h('button', { type: 'button', class: 'btn btn-xs', onclick: () => openShare(c.id) }, icon('share', 12), 'Share')))))))
+        : h('p', { class: 'lx-note' }, 'Publish a cartridge to share it.')),
+    cartridges().some((c) => c.status !== 'published') && h('p', { class: 'lx-note' }, `${n(cartridges().filter((c) => c.status !== 'published').length, 'draft')} not shown: publish a cartridge to share it.`));
+}
+
+/** Finished, in progress, not started and not joined, as one bar. */
+function Stack(k) {
+  const notStarted = k.joined - k.progress - k.finished;
+  const parts = [['finished', k.finished], ['progress', k.progress], ['todo', notStarted], ['none', k.notJoined]];
+  const total = parts.reduce((t, [, v]) => t + v, 0) || 1;
+  return h('span', { class: 'tc-stack', role: 'img', 'aria-label': `${k.finished} finished, ${k.progress} in progress, ${notStarted} not started, ${k.notJoined} not joined` },
+    parts.map(([cls, v]) => v ? h('i', { class: `p-${cls}`, style: `width:${(v / total) * 100}%`, title: `${v} ${{ finished: 'finished', progress: 'in progress', todo: 'not started', none: 'not joined' }[cls]}` }) : null));
+}
+
+let rosterFilter = 'all';
+const ROSTER_FILTERS = [
+  { id: 'all', label: 'Everyone', test: () => true },
+  { id: 'none', label: 'Not joined', test: (r) => r.status === 'not-joined' },
+  { id: 'todo', label: 'Not started', test: (r) => r.status === 'not-started' },
+  { id: 'progress', label: 'In progress', test: (r) => r.status === 'in-progress' },
+  { id: 'done', label: 'Finished', test: (r) => r.status === 'finished' },
+  { id: 'late', label: 'Overdue', test: (r) => r.overdue },
+];
+
+/** One course: who it's shared with, and where each learner is. */
+function LearnersPage(c) {
+  setCrumbs([{ label: 'Learners' }]);
+  const offers = offersOf(doc, c.id);
+  const roster = rosterFor(doc, learn, org, c.id, today);
+  const k = courseSummary(doc, learn, org, c.id, today);
+  const f = ROSTER_FILTERS.find((x) => x.id === rosterFilter) ?? ROSTER_FILTERS[0];
+  const shown = roster.filter(f.test);
+  const nudgeable = shown.filter((r) => r.status !== 'finished');
+  const how = (r) => (r.assigned ? 'Assigned' : r.offered ? 'Offered' : 'Chose it');
+  return h('div', { class: 'lx-wrap' }, tabs('home'), CartridgeBar(c, 'people'),
+    c.status !== 'published' ? h('section', { class: 'lx-panel' }, h('p', {}, icon('info', 15), ' This cartridge is a draft. Publish it first, then share it with people here.'))
+      : h('div', { class: 'tc-learners' },
+        h('section', { class: 'lx-panel' },
+          h('div', { class: 'lx-ahead' }, h('h3', {}, icon('share', 15), 'Shared with'), canEdit && h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => openShare(c.id) }, icon('plus', 14), 'Share')),
+          offers.length ? h('ul', { class: 'tc-offers' }, offers.map((o) => {
+            const reach = audienceOf(org, o.to).length;
+            return h('li', { class: `m-${o.mode}` },
+              h('span', { class: 'tc-offer-ic', 'aria-hidden': 'true' }, icon(o.mode === 'assigned' ? 'flag' : 'sparkle', 14)),
+              h('div', {}, h('b', {}, audienceLabel(org, o.to)),
+                h('small', {}, `${o.mode === 'assigned' ? `Assigned${o.due ? `, finish by ${fmtDue(o.due)}` : ''}` : 'Offered in their catalogue'} · ${n(reach, 'person', 'people')}${o.by && org.staff?.[o.by] ? ` · by ${org.staff[o.by].name}` : ''}`),
+                o.note && h('small', { class: 'tc-offer-note' }, `“${o.note}”`)),
+              canEdit && h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', 'aria-label': `Stop sharing with ${audienceLabel(org, o.to)}`, title: 'Stop sharing (people who joined keep their place)', onclick: async () => { if (await uiConfirm(`Stop sharing “${c.title}” with ${audienceLabel(org, o.to)}? Anyone who joined keeps their place and progress.`, { ok: 'Stop sharing' })) { doc = removeOffer(doc, o.id); save('No longer shared'); render(); } } }, icon('close', 13)));
+          })) : h('p', { class: 'lx-note' }, 'Not shared with anyone yet. People can still find it in Learn’s catalogue.'),
+          h('div', { class: 'tc-tiles small' },
+            h('div', { class: 'tc-tile' }, h('b', {}, String(k.joined)), h('span', {}, `of ${k.reached} joined`)),
+            h('div', { class: 'tc-tile' }, h('b', {}, String(k.finished)), h('span', {}, 'finished')),
+            h('div', { class: `tc-tile${k.overdue ? ' late' : ''}` }, h('b', {}, String(k.overdue)), h('span', {}, 'overdue'))),
+          Stack(k)),
+        h('section', { class: 'lx-panel' },
+          h('div', { class: 'lx-ahead' }, h('h3', {}, icon('users', 15), 'Learners'),
+            canEdit && nudgeable.length > 0 && h('button', { type: 'button', class: 'btn btn-sm', title: 'A friendly reminder, sent with the course’s pace emails once Convene is in', onclick: () => toast(`A kind nudge is queued for ${n(nudgeable.length, 'person', 'people')}. It goes out with the pace emails once Convene is in.`) }, icon('mail', 14), `Nudge ${nudgeable.length}`)),
+          h('div', { class: 'tc-seg', role: 'group', 'aria-label': 'Show' }, ROSTER_FILTERS.map((x) => h('button', { type: 'button', class: f.id === x.id ? 'on' : '', 'aria-pressed': String(f.id === x.id), onclick: () => { rosterFilter = x.id; render(); } }, x.label, h('small', { class: 'tc-count' }, String(roster.filter(x.test).length))))),
+          shown.length ? h('div', { class: 'tc-table-wrap' }, h('table', { class: 'tc-table' },
+            h('thead', {}, h('tr', {}, ['Person', 'How', 'Where they are', 'Finish by', 'Last active'].map((x) => h('th', { scope: 'col' }, x)))),
+            h('tbody', {}, shown.map((r) => h('tr', { class: r.overdue ? 'late' : '' },
+              h('th', { scope: 'row' }, h('span', {}, r.staff.name), h('small', {}, r.staff.title ?? '')),
+              h('td', {}, how(r)),
+              h('td', {}, h('div', { class: 'tc-where' }, h('span', { class: `tc-st s-${r.status}` }, STATUS_LABEL[r.status]), r.e && h('span', { class: 'tc-mbar' }, h('i', { style: `width:${r.pct}%` })), r.e && h('small', {}, `${r.pct}%`))),
+              h('td', { class: r.overdue ? 'tc-late' : '' }, r.due ? `${fmtDue(r.due)}${r.overdue ? ' · overdue' : ''}` : '–'),
+              h('td', {}, r.last ? shortDate(r.last.slice(0, 10)) : '–'))))))
+            : h('p', { class: 'lx-note' }, 'No one here.'),
+          h('p', { class: 'lx-note' }, 'Teach sees where people are in the course, never their notes, answers or reflections. Those stay with the learner in Learn.'))));
+}
+
+/** Share a course: assign it or offer it, to everyone, a team, a role or one person. */
+function openShare(cid) {
+  const c = doc.cartridges[cid];
+  if (!canEdit || !c) return;
+  const st = { mode: 'assigned', kind: 'team', id: teamList(org)[0]?.id ?? '', due: dateOf(today, 28), note: '' };
+  const staffList = Object.values(org.staff ?? {}).sort((a, b) => a.name.localeCompare(b.name));
+  const targets = () => (st.kind === 'team' ? teamList(org).map((t) => ({ id: t.id, label: t.name }))
+    : st.kind === 'role' ? ROLES.filter((r) => !['guest', 'viewer'].includes(r.id)).map((r) => ({ id: r.id, label: r.label }))
+      : st.kind === 'person' ? staffList.map((s) => ({ id: s.id, label: `${s.name}${s.title ? ` · ${s.title}` : ''}` })) : []);
+  const draw = () => {
+    const to = { kind: st.kind, id: st.kind === 'everyone' ? null : st.id };
+    const reach = audienceOf(org, to);
+    const already = reach.filter((id) => learn.people?.[id]?.enrolments?.[cid]).length;
+    return h('div', { class: 'lx-form' },
+      h('div', { class: 'tc-modes', role: 'radiogroup', 'aria-label': 'How' }, MODES.map((m) => h('label', { class: `tc-mode${st.mode === m.id ? ' on' : ''}` },
+        h('input', { type: 'radio', name: 'share-mode', value: m.id, checked: st.mode === m.id, onchange: () => { st.mode = m.id; d.setBody(draw()); } }),
+        icon(m.id === 'assigned' ? 'flag' : 'sparkle', 16), h('b', {}, m.label), h('small', {}, m.blurb)))),
+      h('div', { class: 'lx-row' },
+        field('With', h('select', { class: 'select select-sm', onchange: (e) => { st.kind = e.target.value; st.id = targets()[0]?.id ?? ''; d.setBody(draw()); } }, options(AUDIENCES, st.kind))),
+        st.kind !== 'everyone' && field(st.kind === 'team' ? 'Team' : st.kind === 'role' ? 'Role' : 'Person', h('select', { class: 'select select-sm', onchange: (e) => { st.id = e.target.value; d.setBody(draw()); } }, options(targets(), st.id)))),
+      st.mode === 'assigned' && field('Finish by', h('input', { type: 'date', class: 'input input-sm', value: st.due, min: today, onchange: (e) => { st.due = e.target.value; } }), 'A kind date, not a hard deadline. Learn shows it to them; Teach flags it once it passes.'),
+      field('A note for them (optional)', h('input', { class: 'input input-sm', value: st.note, placeholder: 'e.g. Before the strategy retreat', oninput: (e) => { st.note = e.target.value; } })),
+      h('p', { class: 'tc-reach-preview' }, icon('users', 14), ` Reaches ${n(reach.length, 'person', 'people')}${already ? `, ${already} already in it` : ''}.`));
+  };
+  const d = openDrawer({ title: `Share “${c.title}”`, sub: 'Assign it or offer it', actions: [
+    h('button', { type: 'button', class: 'btn btn-sm', onclick: () => d.close() }, 'Cancel'),
+    h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => {
+      const to = { kind: st.kind, id: st.kind === 'everyone' ? null : st.id };
+      if (st.kind !== 'everyone' && !st.id) { toast('Pick who to share it with', 'error'); return; }
+      doc = addOffer(doc, { cid, to, mode: st.mode, due: st.mode === 'assigned' ? st.due || null : null, note: st.note.trim(), by: me });
+      save(`${st.mode === 'assigned' ? 'Assigned' : 'Offered'} to ${audienceLabel(org, to)}`);
+      d.close();
+      render();
+    } }, icon('share', 14), 'Share'),
+  ] });
+  d.setBody(draw());
 }
 
 /* ---------------------------------------------------------------- blocks */

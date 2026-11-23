@@ -127,7 +127,7 @@ export function blankCartridge({ title = 'New cartridge', start = null, kind = '
     status: 'draft', version: 0, publishedAt: null, updatedAt: new Date().toISOString(), by,
   };
 }
-export const blankTeach = () => ({ cartridges: {}, version: 1 });
+export const blankTeach = () => ({ cartridges: {}, offers: {}, version: 1 });
 
 /* ---------------------------------------------------------------- tracks */
 
