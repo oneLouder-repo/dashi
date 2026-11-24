@@ -2450,6 +2450,8 @@ a.cc-tile:hover { border-color: var(--accent); }
 dialog.drawer-panel { position: fixed; inset: 0 0 0 auto; margin: 0; height: 100dvh; max-height: none; max-width: 100vw; width: min(460px, 100vw); border: none; padding: 0; background: var(--color-base-100); color: var(--ink); box-shadow: -18px 0 50px rgb(20 22 30 / 0.16); display: flex; flex-direction: column; animation: drawer-in 200ms ease-out; }
 dialog.drawer-panel:not([open]) { display: none; }
 dialog.drawer-panel.wide { width: min(620px, 100vw); }
+dialog.drawer-panel.xl { width: min(1040px, 100vw); }
+dialog.drawer-panel.xl.full { width: 100vw; }
 dialog.drawer-panel::backdrop { background: rgb(28 30 38 / 0.28); animation: dui-fade 160ms ease-out; }
 dialog.drawer-panel.leaving { transform: translateX(24px); opacity: 0; transition: transform 160ms ease-in, opacity 160ms ease-in; }
 @keyframes drawer-in { from { transform: translateX(40px); opacity: 0; } }

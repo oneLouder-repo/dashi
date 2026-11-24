@@ -10,7 +10,7 @@ import { Markdown } from '../ui/markdown.js';
 import { saveDoc, canWriteDoc } from '../platform/storage.js';
 import { loadOrg, loadTeach, loadLearn, loadPodcasts } from '../platform/docs.js';
 import { enabledPlugins, linkTo, currentWho } from '../plugins.js';
-import { blockType, pathByWeek, dateOf, shortDate, kindLabel, weekOf, weekLabel, phaseOf } from '../learning/cartridge.js';
+import { lessonSections, blockType, pathByWeek, dateOf, shortDate, kindLabel, weekOf, weekLabel, phaseOf } from '../learning/cartridge.js';
 import { personOf, settingsOf, enrol, leave, markDone, saveNote, saveAnswer, setLast, saveSettings, progress, isOpen, nextBlock, dueSoon, todayDay, startFor, recordLines, toStatement } from '../learning/records.js';
 import { bestInk } from '../learning/checks.js';
 import { getBoard, templateLabel } from '../learning/collab.js';
@@ -423,6 +423,14 @@ function Content(c, e, b, { preview, mark }) {
     return h('div', { class: 'lx-field' }, h('span', {}, prompt), box,
       h('div', { class: 'lx-row' }, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { if (preview) return toast('Preview: nothing is saved'); save(saveNote(doc, meId, c.id, b.id, box.value), 'Saved to your record'); } }, icon('check', 14), 'Save')));
   };
+  if (b.type === 'lesson' && b.settings?.sections?.length) {
+    return h('div', { class: 'lx-stack ln-lesson' }, lessonSections(b).map((x) => x.kind === 'image' ? (x.src ? h('img', { src: x.src, alt: x.decorative ? '' : x.alt ?? '', loading: 'lazy' }) : null)
+      : x.kind === 'video' ? (x.src ? h('a', { class: 'btn btn-sm', href: x.src, target: '_blank', rel: 'noopener' }, icon('video', 14), x.text || 'Watch (opens in a new tab)') : null)
+        : x.kind === 'callout' ? h('div', { class: 'ln-callout' }, icon('lightbulb', 16), h('div', {}, Markdown(x.text ?? '')))
+          : x.kind === 'question' ? h('div', { class: 'ln-think' }, h('b', {}, 'Think about'), h('p', {}, x.text ?? ''))
+            : h('div', { class: 'ln-body' }, Markdown(x.text ?? ''))));
+  }
+  if (blockType(b.type).preview) return h('div', { class: 'lx-stack' }, text, h('p', { class: 'ln-soon' }, icon('sparkle', 14), ` ${blockType(b.type).label} is new in Dashi. The full version is on its way; for now, read the words above and mark it done when you’re ready.`));
   switch (b.type) {
     case 'slideshow': case 'podcast': {
       const stage = h('div', { class: 'ln-show-host' }, h('p', { class: 'lx-note' }, 'Loading the show…'));

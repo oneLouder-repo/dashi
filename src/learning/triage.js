@@ -9,7 +9,7 @@
  * to one person) and some offered, and a spread of progress across staff, so
  * Learn's course list and Teach's Learners view have something to show.
  */
-import { publish } from './cartridge.js';
+import { publish, linkStream, updateBlock } from './cartridge.js';
 import { build } from './seed.js';
 import { enrol, markDone, saveNote } from './records.js';
 import { addOffer, setShelf } from './distribution.js';
@@ -191,4 +191,25 @@ export function withTriageTeach(teach, org) {
 export function withTriageLearn(learn, teach, org) {
   if ((learn.packs ?? []).includes(TRIAGE_PACK)) return learn;
   return { ...triageLearners(learn, teach, org), packs: [...(learn.packs ?? []), TRIAGE_PACK] };
+}
+
+/**
+ * A worked example of streams and the lesson builder (alpha 0.4.1), added once:
+ * Strategic Planning 1's first week is linked as a stream, and its opening
+ * lesson is built from sections.
+ */
+export const STREAM_DEMO = 'stream-demo-1';
+export function withStreamDemo(teach) {
+  const c = teach.cartridges?.crt_sp1;
+  if ((teach.packs ?? []).includes(STREAM_DEMO) || !c) return teach;
+  let x = updateBlock(c, 'blk_sp1_why', { settings: { ...(c.blocks.blk_sp1_why?.settings ?? {}), sections: [
+    { id: 'sec_1', kind: 'text', text: 'A strategic plan is a shared promise about **where you’re going and what you’ll stop doing** to get there.' },
+    { id: 'sec_2', kind: 'callout', text: 'It is not a list of everything you do. Good plans are short.' },
+    { id: 'sec_3', kind: 'text', text: 'Good plans are owned by the people who carry them out, and revisited often: at least once a quarter.' },
+    { id: 'sec_4', kind: 'question', text: 'If your organisation could only do three things next year, which three would they be?' },
+  ] } });
+  const ids = ['blk_sp1_why', 'blk_sp1_minute', 'blk_sp1_quiz'].filter((id) => x.blocks[id]);
+  if (ids.length >= 2) x = linkStream(x, ids, 'Week 1: what a plan is for').cartridge;
+  x = { ...x, updatedAt: c.updatedAt };
+  return { ...teach, cartridges: { ...teach.cartridges, crt_sp1: x }, packs: [...(teach.packs ?? []), STREAM_DEMO] };
 }

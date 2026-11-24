@@ -15,7 +15,7 @@ test('Kestrel gets the NPO Triage pack: five published, one draft, all passing t
   assert.equal(pack.length, 6);
   assert.equal(pack.filter((c) => c.status === 'published').length, 5);
   for (const c of pack.filter((x) => x.status === 'published')) assert.ok(canPublish(runChecks(c)), `${c.title} has red checks`);
-  assert.deepEqual(teach.packs, [TRIAGE_PACK]);
+  assert.ok(teach.packs.includes(TRIAGE_PACK));
   assert.ok(Object.keys(teach.offers).length >= 6);
 });
 

@@ -6,11 +6,15 @@
  * track, drag its right edge to stretch it, click it to edit it. Block
  * types dropped from the palette land where they're dropped.
  *
- *   Timeline({ cartridge, issues, ppd, today, selected, onChange, onOpen, onAdd, onPace, onTrack })
+ *   Timeline({ cartridge, issues, ppd, today, selected, picked, onChange, onOpen, onAdd, onPace, onTrack, onPick, onStream, onAddStream })
+ *
+ * There's always ROOM days of space before the pre-start and after the
+ * post-end. Linked blocks (a stream) move together; Alt-drag moves one on its
+ * own. Shift-click picks blocks to link into a new stream.
  */
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
-import { phases, dateOf, dayOf, shortDate, weekLoad, blockType, trackKind, moveBlock, resizeBlock, blockEnd } from '../learning/cartridge.js';
+import { phases, dateOf, dayOf, shortDate, weekLoad, blockType, trackKind, moveBlock, resizeBlock, blockEnd, ROOM, streamSpan, streamBlocks, moveStream } from '../learning/cartridge.js';
 import { bestInk, issuesFor } from '../learning/checks.js';
 
 export const HEAD_WIDTH = 224;
@@ -32,10 +36,10 @@ function stack(blocks) {
   return { rowOf, rows: Math.max(1, ends.length) };
 }
 
-export function Timeline({ cartridge: c, issues = [], ppd = 20, today = new Date().toISOString().slice(0, 10), selected = null, canEdit = true, onChange, onOpen, onAdd, onPace, onTrack }) {
+export function Timeline({ cartridge: c, issues = [], ppd = 20, today = new Date().toISOString().slice(0, 10), selected = null, picked = new Set(), canEdit = true, onChange, onOpen, onAdd, onPace, onTrack, onPick, onStream, onAddStream }) {
   const ph = phases(c);
-  const from = ph[0].from;
-  const to = ph.at(-1).to;
+  const from = ph[0].from - ROOM;
+  const to = ph.at(-1).to + ROOM;
   const days = to - from;
   const width = days * ppd;
   const x = (day) => (day - from) * ppd;
@@ -46,7 +50,7 @@ export function Timeline({ cartridge: c, issues = [], ppd = 20, today = new Date
   const ticks = [];
   for (let d = Math.ceil(from / 7) * 7; d < to; d += 7) ticks.push(d);
   const ruler = h('div', { class: 'tl-ruler', style: `width:${width}px` },
-    ph.map((p) => h('div', { class: `tl-phase-label p-${p.id}`, style: `left:${x(p.from)}px;width:${(p.to - p.from) * ppd}px` }, p.label)),
+    [{ id: 'room', label: 'Room before', from, to: ph[0].from }, ...ph, { id: 'room', label: 'Room after', from: ph.at(-1).to, to }].map((p) => h('div', { class: `tl-phase-label p-${p.id}`, style: `left:${x(p.from)}px;width:${(p.to - p.from) * ppd}px` }, p.label)),
     ticks.map((d) => h('div', { class: 'tl-tick', style: `left:${x(d)}px` },
       h('b', {}, d < 0 ? `−${Math.abs(d / 7)}w` : d >= c.span.length ? `+${(d - c.span.length) / 7 + 1}w` : `Wk ${d / 7 + 1}`),
       h('span', {}, shortDate(dateOf(c.run.start, d))))),
@@ -71,6 +75,47 @@ export function Timeline({ cartridge: c, issues = [], ppd = 20, today = new Date
       icon(p.send === 'email' ? 'mail' : 'flag', 12), h('span', {}, p.text))));
   if (canEdit) pace.addEventListener('dblclick', (e) => { if (e.target === pace) onPace?.(null, Math.floor(e.offsetX / ppd) + from); });
 
+  // The streams lane: one bar per stream, from its first block to its last. Drag it to move them all.
+  const streams = Object.values(c.streams ?? {});
+  const streamLane = h('div', { class: 'tl-streams', style: `width:${width}px` },
+    streams.map((st) => {
+      const sp = streamSpan(c, st.id);
+      if (!sp) return null;
+      const n = streamBlocks(c, st.id).length;
+      const bar = h('div', { class: 'tl-stream', 'data-sid': st.id, style: `left:${x(sp.start) + 1}px;width:${(sp.end - sp.start) * ppd - 2}px;--tone:${st.tone}`, tabindex: '0', role: 'button',
+        title: `${st.name}: ${n} linked blocks. Drag to move them together; click to edit.`, 'aria-label': `Stream ${st.name}, ${n} blocks` },
+      icon('link', 12), h('span', {}, st.name), h('small', {}, String(n)));
+      bar.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onStream?.(st.id); }
+        if (canEdit && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { e.preventDefault(); onChange?.(moveStream(c, st.id, e.key === 'ArrowRight' ? 1 : -1), null); }
+      });
+      bar.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        const sx = e.clientX;
+        let moved = false;
+        bar.setPointerCapture(e.pointerId);
+        const members = () => [bar, ...document.querySelectorAll(`.tl-clip[data-stream="${st.id}"]`)];
+        const move = (ev) => {
+          const dx = ev.clientX - sx;
+          if (!moved && Math.abs(dx) < 4) return;
+          if (!canEdit) return;
+          moved = true;
+          for (const el of members()) { el.classList.add('dragging'); el.style.transform = `translateX(${Math.round(dx / ppd) * ppd}px)`; }
+        };
+        const up = (ev) => {
+          bar.removeEventListener('pointermove', move);
+          bar.removeEventListener('pointerup', up);
+          bar.removeEventListener('pointercancel', up);
+          if (!moved) { onStream?.(st.id); return; }
+          onChange?.(moveStream(c, st.id, Math.round((ev.clientX - sx) / ppd)), null);
+        };
+        bar.addEventListener('pointermove', move);
+        bar.addEventListener('pointerup', up);
+        bar.addEventListener('pointercancel', up);
+      });
+      return bar;
+    }));
+
   // The tracks.
   const lanes = c.tracks.map((t) => {
     const blocks = Object.values(c.blocks).filter((b) => b.trackId === t.id);
@@ -79,14 +124,16 @@ export function Timeline({ cartridge: c, issues = [], ppd = 20, today = new Date
     const lane = h('div', { class: `tl-lane${t.muted ? ' muted' : ''}`, 'data-track': t.id, style: `width:${width}px;height:${height}px;--tone:${t.tone}` });
     for (const b of blocks) lane.append(Clip(b, t, rowOf[b.id]));
     if (canEdit) {
-      lane.addEventListener('dragover', (e) => { if (e.dataTransfer.types.includes('text/x-dashi-block')) { e.preventDefault(); lane.classList.add('drop'); } });
+      lane.addEventListener('dragover', (e) => { if (e.dataTransfer.types.includes('text/x-dashi-block') || e.dataTransfer.types.includes('text/x-dashi-stream')) { e.preventDefault(); lane.classList.add('drop'); } });
       lane.addEventListener('dragleave', () => lane.classList.remove('drop'));
       lane.addEventListener('drop', (e) => {
         lane.classList.remove('drop');
+        const r = lane.getBoundingClientRect();
+        const tpl = e.dataTransfer.getData('text/x-dashi-stream');
+        if (tpl) { e.preventDefault(); onAddStream?.({ tplId: tpl, start: Math.floor((e.clientX - r.left) / ppd) + from }); return; }
         const type = e.dataTransfer.getData('text/x-dashi-block');
         if (!type) return;
         e.preventDefault();
-        const r = lane.getBoundingClientRect();
         onAdd?.({ type, trackId: t.id, start: Math.floor((e.clientX - r.left) / ppd) + from });
       });
     }
@@ -106,8 +153,9 @@ export function Timeline({ cartridge: c, issues = [], ppd = 20, today = new Date
     const worst = mine.find((i) => i.level === 'block') ?? mine.find((i) => i.level === 'warn') ?? mine[0];
     const ink = bestInk(t.tone);
     const el = h('div', {
-      class: `tl-clip${b.id === selected ? ' on' : ''}${b.required ? '' : ' optional'}`,
-      style: `left:${x(b.start) + 1}px;width:${Math.max(ppd - 2, b.length * ppd - 2)}px;top:${PAD + row * ROW}px;--tone:${t.tone};--ink:${ink}`,
+      class: `tl-clip${b.id === selected ? ' on' : ''}${b.required ? '' : ' optional'}${b.streamId ? ' linked' : ''}${picked.has(b.id) ? ' picked' : ''}`,
+      style: `left:${x(b.start) + 1}px;width:${Math.max(ppd - 2, b.length * ppd - 2)}px;top:${PAD + row * ROW}px;--tone:${t.tone};--ink:${ink}${b.streamId ? `;--stream:${c.streams?.[b.streamId]?.tone ?? '#16181d'}` : ''}`,
+      ...(b.streamId ? { 'data-stream': b.streamId } : {}),
       tabindex: '0', role: 'button',
       'aria-label': `${type.label}: ${b.title}, ${shortDate(dateOf(c.run.start, b.start))}${b.length > 1 ? ` to ${shortDate(dateOf(c.run.start, b.start + b.length - 1))}` : ''}${mine.length ? `, ${mine.length} to look at` : ''}`,
       title: `${type.label}: ${b.title}\n${shortDate(dateOf(c.run.start, b.start))}${b.length > 1 ? ` – ${shortDate(dateOf(c.run.start, b.start + b.length - 1))}` : ''}${b.at ? ` at ${b.at}` : ''} · ${b.minutes} min${worst ? `\n${worst.title}` : ''}`,
@@ -125,7 +173,10 @@ export function Timeline({ cartridge: c, issues = [], ppd = 20, today = new Date
     });
     el.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
+      if (e.shiftKey && canEdit) { e.preventDefault(); onPick?.(b.id); return; }
       const grip = e.target.closest('.tl-grip');
+      const together = !!b.streamId && !e.altKey && !grip;
+      const members = () => (together ? [...document.querySelectorAll(`.tl-clip[data-stream="${b.streamId}"]`), ...document.querySelectorAll(`.tl-stream[data-sid="${b.streamId}"]`)] : [el]);
       const sx = e.clientX;
       const sy = e.clientY;
       let moved = false;
@@ -138,6 +189,7 @@ export function Timeline({ cartridge: c, issues = [], ppd = 20, today = new Date
         moved = true;
         el.classList.add('dragging');
         if (grip) el.style.width = `${Math.max(ppd - 2, (b.length + Math.round(dx / ppd)) * ppd - 2)}px`;
+        else if (together) for (const m of members()) { m.classList.add('dragging'); m.style.transform = `translateX(${Math.round(dx / ppd) * ppd}px)`; }
         else el.style.transform = `translate(${Math.round(dx / ppd) * ppd}px, ${dy}px)`;
       };
       const up = (ev) => {
@@ -147,6 +199,7 @@ export function Timeline({ cartridge: c, issues = [], ppd = 20, today = new Date
         if (!moved) { onOpen?.(b.id); return; }
         const dd = Math.round((ev.clientX - sx) / ppd);
         if (grip) { onChange?.(resizeBlock(c, b.id, 'right', b.start + b.length - 1 + dd), b.id); return; }
+        if (together) { onChange?.(moveStream(c, b.streamId, dd), b.id); return; }
         el.style.visibility = 'hidden';
         const under = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-track]');
         onChange?.(moveBlock(c, b.id, { start: b.start + dd, trackId: under?.dataset.track ?? b.trackId }), b.id);
@@ -160,7 +213,7 @@ export function Timeline({ cartridge: c, issues = [], ppd = 20, today = new Date
 
   // Behind everything: the phase bands, week lines and today.
   const bg = h('div', { class: 'tl-bg', style: `width:${width}px` },
-    ph.map((p) => h('div', { class: `tl-band p-${p.id}`, style: `left:${x(p.from)}px;width:${(p.to - p.from) * ppd}px` })),
+    [{ id: 'room', from, to: ph[0].from }, ...ph, { id: 'room', from: ph.at(-1).to, to }].map((p) => h('div', { class: `tl-band p-${p.id}`, style: `left:${x(p.from)}px;width:${(p.to - p.from) * ppd}px` })),
     ticks.map((d) => h('div', { class: 'tl-week', style: `left:${x(d)}px` })),
     t0 >= from && t0 < to ? h('div', { class: 'tl-today', style: `left:${x(t0) + ppd / 2}px` }) : null);
 
@@ -171,6 +224,8 @@ export function Timeline({ cartridge: c, issues = [], ppd = 20, today = new Date
     meter,
     h('div', { class: 'tl-head tl-head-meta' }, icon('flag', 14), h('span', { class: 'tl-head-text' }, h('b', {}, 'Pace notes'), h('small', {}, canEdit ? 'Double-click the lane to add' : `${(c.pace ?? []).length} notes`))),
     pace,
+    streams.length > 0 && h('div', { class: 'tl-head tl-head-meta' }, icon('link', 14), h('span', { class: 'tl-head-text' }, h('b', {}, 'Streams'), h('small', {}, `${streams.length} · drag to move together`))),
+    streams.length > 0 && streamLane,
     lanes.flatMap(({ head, lane }) => [head, lane]));
   // The bands sit behind the lanes, outside the grid, so they never push a row out of place.
   bg.style.left = `${HEAD}px`;

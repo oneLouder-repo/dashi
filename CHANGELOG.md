@@ -25,6 +25,19 @@ Alpha 0.4 is the learning release (Teach, Learn and what follows), opened from t
 - **Learners in Teach.** A new tab shows every published course, who it's shared with, how many it reaches, joined, progress and overdue. Each cartridge gets a *Learners* view: who it's shared with, and a list of learners you can filter, with where each one is and their date to finish by. Teach sees progress only, never notes or answers.
 - **Share a course** from a drawer: assign it (with a date to finish by) or offer it, to everyone on staff, a team, a role or one person, with a note. It shows how many people that reaches before you share.
 
+### Teach: block tray, lesson builder and streams
+
+- **A bigger block tray.** Clicking a block opens a large tray with tabs: *Content*, *When and where*, *Access and links* and *Checks*. Content sits beside a live **What learners see** preview. *Full screen* gives it the whole window, and an *Open in…* button goes to the full editor where one exists: the Studio for slideshows, Listen for episodes, Web for pages, the Library for readings, and so on.
+- **Quick editors for each kind of block**: a light text editor with a formatting bar and word count; a slideshow editor with the show picker, its slides and a note per slide; questions for quizzes; cards for flashcards; choices for polls and scenarios.
+- **Lesson builder (lite).** A lesson is a short run of sections (text, picture, callout, *think about*, video) you can add, reorder and remove. Learn shows callouts and *think about* prompts in their own style.
+- **Streams.** Link blocks into a stream and they move together across tracks. Drag any one of them, or the stream's bar in the new *Streams* lane; hold Alt to move one on its own. To link blocks, Shift-click them on the timeline and choose *Link into a stream*. A stream's drawer renames it, recolours it, adds or unlinks blocks, and saves it as a template.
+- **Stream templates in the tool tray**: the basic slideshow stream (lesson intro, slideshow, check, discussion, wrap-up), a live session stream, an assignment stream and a week opener, plus any you save. Drag one onto the timeline, or click to add it.
+- **The tool tray** now has *Blocks*, *Streams* and *Tools* tabs. A *Tool tray* item in the side nav shows or hides it. *Tools* shows six tools to come (mocked): even out the weeks, an accessibility pass, a quiz drafted from a lesson, clone for a new cohort, import a Common Cartridge, and map to competencies.
+- **Nine new blocks, as previews**: Web page, Case study, Flashcards, Branching scenario, Ecosystem walk, Credential checkpoint, Quick poll, Voice note and Showcase. You can place, write and schedule them now. Learners see a simple version until each is built in full.
+- **More room on the timeline**: there's always a week of space before the pre-start and after the post-end. Dropping a block there grows the run to fit.
+- **Fixed:** the tool tray could end up under the plugin bar after you came back to Teach. It now always opens below the bar and sits above the page.
+- Kestrel's *Strategic Planning 1* has a worked example: week 1 is linked as a stream, and its first lesson is built from sections.
+
 ### Small fixes
 
 - **The version reads 0.4.0-alpha** on the alpha badge and at `/version`.
