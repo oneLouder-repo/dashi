@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  blankCartridge, addBlock, moveBlock, resizeBlock, removeBlock, duplicateBlock, addTrack, removeTrack, moveTrack, updateTrack,
+  ROOM, blankCartridge, addBlock, moveBlock, resizeBlock, removeBlock, duplicateBlock, addTrack, removeTrack, moveTrack, updateTrack,
   phases, phaseOf, dateOf, dayOf, weekOf, weekLoad, pathByWeek, publish, exportCartridge, importCartridge, BLOCK_TYPES, trackFor, addPace,
 } from '../src/learning/cartridge.js';
 import { runChecks, canPublish, readingGrade, contrast, bestInk, udlBalance } from '../src/learning/checks.js';
@@ -33,8 +33,10 @@ test('blocks go on their usual track, move, stretch, copy and go', () => {
   const live = c.tracks.find((t) => t.kind === 'live').id;
   c = moveBlock(c, r.id, { start: 10, trackId: live });
   assert.deepEqual([c.blocks[r.id].start, c.blocks[r.id].trackId], [10, live]);
+  const before = { ...c.span };
   c = moveBlock(c, r.id, { start: 999 });
-  assert.equal(c.blocks[r.id].start, c.span.length + c.span.post - 1, 'clamped to the run');
+  assert.equal(c.blocks[r.id].start, before.length + before.post + ROOM - 1, 'clamped to the run and its room');
+  assert.ok(c.span.length + c.span.post >= c.blocks[r.id].start + c.blocks[r.id].length, 'the post-end grows to fit it');
   c = moveBlock(c, r.id, { start: 10 });
   c = resizeBlock(c, r.id, 'right', 15);
   assert.equal(c.blocks[r.id].length, 6);

@@ -27,7 +27,7 @@ export function Drawer({ title, sub = null, lead = null, body, actions = [], onC
   const titleEl = h('h2', { class: 'drawer-title' }, title);
   const subEl = h('p', { class: 'drawer-sub' }, sub ?? '');
   subEl.hidden = !sub;
-  const dlg = h('dialog', { class: `drawer-panel${wide ? ' wide' : ''}`, 'aria-label': typeof title === 'string' ? title : 'Details' },
+  const dlg = h('dialog', { class: `drawer-panel${wide === 'xl' ? ' wide xl' : wide ? ' wide' : ''}`, 'aria-label': typeof title === 'string' ? title : 'Details' },
     h('header', { class: 'drawer-head' },
       lead && h('span', { class: 'drawer-lead' }, lead),
       h('div', { class: 'drawer-titles' }, titleEl, subEl),

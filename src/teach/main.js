@@ -16,12 +16,14 @@ import {
   BLOCK_TYPES, BLOCK_GROUPS, TRACK_KINDS, KINDS, blockType, trackKind, kindLabel, blankCartridge, addBlock, updateBlock, removeBlock, duplicateBlock,
   addTrack, updateTrack, removeTrack, moveTrack, addPace, updatePace, removePace, updateCartridge, publish, unpublish, phases, dateOf, dayOf, shortDate,
   pathByWeek, cartridgeStats, exportCartridge, importCartridge,
+  ROOM, lessonSections, STREAM_TEMPLATES, applyStream, linkStream, updateStream, unlinkBlock, dissolveStream, removeStream, streamBlocks, streamToTemplate, addToStream, STREAM_TONES,
 } from '../learning/cartridge.js';
 import { runChecks, canPublish, LEVELS, ruleLabel, udlBalance } from '../learning/checks.js';
 import { TEMPLATES, createBoard, templateLabel } from '../learning/collab.js';
 import { About } from '../learning/About.js';
 import { Timeline, ZOOMS, HEAD_WIDTH } from './Timeline.js';
 import { WHEEL } from '../ui/wheel.js';
+import { Markdown } from '../ui/markdown.js';
 
 /**
  * Teach (eLearning stage 1, experimental): the cartridge editor. A DAW
@@ -58,6 +60,12 @@ const ZOOM_KEY = 'dashi.teach-zoom';
 let zoom = (() => { try { return localStorage.getItem(ZOOM_KEY) || 'fit'; } catch { return 'fit'; } })();
 let selected = null;
 let drawer = null;
+/** Blocks picked with Shift-click, to link into a stream. */
+let picked = new Set();
+const TRAY_KEY = 'dashi.teach-tray';
+const trayOn = () => { try { return localStorage.getItem(TRAY_KEY) !== '0'; } catch { return true; } };
+function toggleTray() { try { localStorage.setItem(TRAY_KEY, trayOn() ? '0' : '1'); } catch { /* fine */ } render(); }
+const templates = () => [...STREAM_TEMPLATES, ...Object.values(doc.streamTemplates ?? {})];
 
 const route = () => {
   const raw = location.hash.slice(1) || 'home';
@@ -74,7 +82,7 @@ const n = (k, word, plural = `${word}s`) => `${k} ${k === 1 ? word : plural}`;
 
 function render() {
   const [view, id, sub] = route();
-  drawSide(view, id);
+  drawSide(view, id, sub);
   if (view === 'new') return newCartridge();
   let page;
   if (view === 'c' && doc.cartridges[id]) page = sub === 'path' ? PathPage(doc.cartridges[id]) : sub === 'checks' ? ChecksPage(doc.cartridges[id]) : sub === 'people' ? LearnersPage(doc.cartridges[id]) : TimelinePage(doc.cartridges[id]);
@@ -91,7 +99,7 @@ function render() {
   main.replaceChildren(page);
 }
 
-function drawSide(view, id) {
+function drawSide(view, id, id2) {
   const list = cartridges();
   side = swapSide(side, SideNav({ label: 'Teach', sections: [
     { title: 'Teach · experimental', items: [
@@ -99,6 +107,10 @@ function drawSide(view, id) {
       { label: 'Learners', sub: `${n(Object.keys(doc.offers ?? {}).length, 'share')} · who’s taking what`, icon: 'users', href: '#people', on: view === 'people' },
       { label: 'Block types', sub: `${BLOCK_TYPES.length} kinds of block`, icon: 'listBullets', href: '#blocks', on: view === 'blocks' },
       { label: 'About', sub: 'Quick reference and tutorials', icon: 'help', href: '#about', on: view === 'about' },
+    ] },
+    view === 'c' && doc.cartridges[id] && !id2 && { title: 'Tools', items: [
+      { label: 'Tool tray', sub: trayOn() ? 'Showing · click to hide' : 'Hidden · click to show', icon: 'tiles', onclick: toggleTray },
+      { label: 'Streams', sub: `${n(Object.keys(doc.cartridges[id].streams ?? {}).length, 'stream')} · Shift-click blocks to link`, icon: 'link', onclick: () => { if (!trayOn()) toggleTray(); paletteTab = 'streams'; render(); } },
     ] },
     list.length && { title: 'Your cartridges', items: list.map((c) => ({ label: c.title, sub: `${kindLabel(c.kind)} · ${c.status === 'published' ? `v${c.version}` : 'draft'}`, icon: 'sec-teach', href: `#c/${c.id}`, on: view === 'c' && id === c.id })) },
     { title: 'Elsewhere in Dashi', items: [
@@ -191,14 +203,17 @@ function CartridgeBar(c, current) {
 function TimelinePage(c) {
   setCrumbs([]);
   const issues = runChecks(c);
-  const days = c.span.pre + c.span.length + c.span.post;
+  const days = c.span.pre + c.span.length + c.span.post + 2 * ROOM;
   // Fit: the whole run in the window, from pre-start to post-end.
   const wide = main.clientWidth || 1100;
   const asideW = wide > 1500 ? 314 : 0;
   const fit = Math.max(8, Math.floor((wide - 60 - asideW - HEAD_WIDTH - 4) / days));
   const ppd = ZOOMS.find((z) => z.id === zoom)?.ppd ?? fit;
   const tl = Timeline({
-    cartridge: c, issues, ppd, today, selected, canEdit,
+    cartridge: c, issues, ppd, today, selected, canEdit, picked,
+    onPick: (id) => { if (picked.has(id)) picked.delete(id); else picked.add(id); render(); },
+    onStream: (sid) => openStream(c.id, sid),
+    onAddStream: ({ tplId, start }) => dropStream(c.id, tplId, start),
     onChange: (next, id) => { selected = id; setCartridge(next); render(); },
     onOpen: (id) => { selected = id; render(); openBlock(c.id, id); },
     onAdd: ({ type, trackId, start }) => add(c.id, { type, trackId, start }),
@@ -208,10 +223,23 @@ function TimelinePage(c) {
       else openTrack(c.id, tid);
     },
   });
+  for (const id of picked) if (!c.blocks[id]) picked.delete(id);
+  const pickBar = canEdit && picked.size > 0 && h('div', { class: 'tc-pickbar', role: 'status' },
+    icon('link', 14), h('span', {}, `${n(picked.size, 'block')} picked`),
+    h('button', { type: 'button', class: 'btn btn-sm btn-primary', disabled: picked.size < 2, title: picked.size < 2 ? 'Pick at least two' : 'They’ll move together', onclick: () => {
+      const r = linkStream(doc.cartridges[c.id], [...picked]);
+      picked = new Set();
+      setCartridge(r.cartridge, 'Linked into a stream: drag any of them to move them all');
+      render();
+      if (r.id) openStream(c.id, r.id);
+    } }, 'Link into a stream'),
+    h('button', { type: 'button', class: 'btn btn-sm btn-ghost', onclick: () => { picked = new Set(); render(); } }, 'Clear'),
+    h('small', {}, 'Shift-click blocks to pick more. Esc clears.'));
   return h('div', { class: 'lx-wrap tc-wide' }, tabs('home'),
     CartridgeBar(c, ''),
+    pickBar,
     h('div', { class: 'tc-work' },
-      h('div', { class: 'tc-stage' }, tl, canEdit && Palette(c)),
+      h('div', { class: 'tc-stage' }, tl, canEdit && trayOn() && Palette(c)),
       ChecksAside(c, issues)));
 }
 
@@ -232,41 +260,136 @@ function add(cid, block, paceDay) {
   openBlock(cid, id);
 }
 
-/** The block palette: a floating, draggable panel (the Plan designer's tool panel). */
+/** Drop a stream template into a cartridge at a day: its blocks, linked. */
+function dropStream(cid, tplId, start) {
+  const tpl = templates().find((t) => t.id === tplId);
+  if (!tpl) return;
+  const r = applyStream(doc.cartridges[cid], tpl, start);
+  setCartridge(r.cartridge, `${tpl.name} added: ${n(tpl.blocks.length, 'block')}, linked`);
+  render();
+}
+
+/** Tools for the tray. Mocked for now: each says what it will do. */
+const TRAY_TOOLS = [
+  { id: 'spread', label: 'Even out the weeks', icon: 'sliders', blurb: 'Nudge blocks so no week runs over the hours you promised.' },
+  { id: 'access', label: 'Accessibility pass', icon: 'eye', blurb: 'Walk through every block missing captions, alt text or a reading version.' },
+  { id: 'quizgen', label: 'Draft a quiz from a lesson', icon: 'sparkle', blurb: 'With the AI plugin: questions drafted from a lesson’s words, for you to edit.' },
+  { id: 'cohort', label: 'Clone for a new cohort', icon: 'copy', blurb: 'The same cartridge, a new start date, a fresh run in Convene.' },
+  { id: 'import', label: 'Import a Common Cartridge', icon: 'upload', blurb: 'Bring in a course from Moodle, Canvas or Brightspace.' },
+  { id: 'align', label: 'Map to competencies', icon: 'target', blurb: 'See which blocks build which skill, and where the gaps are.' },
+];
+
+/** The tool tray: a floating, draggable panel (the Plan designer's tool panel) with blocks, streams and tools. */
 const PAL_KEY = 'dashi.teach-palette';
+let paletteTab = 'blocks';
 function Palette(c) {
   let pos = { x: null, y: 430, folded: false };
   try { pos = { ...pos, ...JSON.parse(localStorage.getItem(PAL_KEY) ?? '{}') }; } catch { /* fine */ }
   const keep = () => { try { localStorage.setItem(PAL_KEY, JSON.stringify(pos)); } catch { /* fine */ } };
-  const panel = h('aside', { class: `tc-palette${pos.folded ? ' folded' : ''}`, 'aria-label': 'Block palette' });
-  if (pos.x != null) { panel.style.left = `${pos.x}px`; panel.style.right = 'auto'; }
-  panel.style.top = `${pos.y}px`;
-  const head = h('header', { class: 'tc-pal-head' }, icon('dragHandle', 14), h('b', {}, 'Blocks'),
-    h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', 'aria-label': pos.folded ? 'Open the palette' : 'Fold the palette', onclick: () => { pos.folded = !pos.folded; panel.classList.toggle('folded', pos.folded); keep(); } }, icon(pos.folded ? 'chevronDown' : 'chevronUp', 14)));
+  // Never under the plugin bar: the panel's top stays below the header, even if it was left over it.
+  const minTop = () => Math.ceil((document.querySelector('#shell')?.getBoundingClientRect().bottom ?? 60) + 8);
+  const panel = h('aside', { class: `tc-palette${pos.folded ? ' folded' : ''}`, 'aria-label': 'Tool tray' });
+  const place = () => {
+    pos.y = Math.max(minTop(), Math.min(innerHeight - 60, pos.y));
+    if (pos.x != null) { pos.x = Math.max(0, Math.min(innerWidth - 120, pos.x)); panel.style.left = `${pos.x}px`; panel.style.right = 'auto'; }
+    panel.style.top = `${pos.y}px`;
+  };
+  place();
+  requestAnimationFrame(place);
+  const head = h('header', { class: 'tc-pal-head' }, icon('dragHandle', 14), h('b', {}, 'Tool tray'),
+    h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', 'aria-label': pos.folded ? 'Open the tray' : 'Fold the tray', onclick: () => { pos.folded = !pos.folded; panel.classList.toggle('folded', pos.folded); keep(); } }, icon(pos.folded ? 'chevronDown' : 'chevronUp', 14)),
+    h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', 'aria-label': 'Hide the tray (Tools in the side nav brings it back)', title: 'Hide the tray', onclick: toggleTray }, icon('close', 13)));
   head.addEventListener('pointerdown', (e) => {
     if (e.target.closest('button')) return;
     const r = panel.getBoundingClientRect();
     const dx = e.clientX - r.left;
     const dy = e.clientY - r.top;
     head.setPointerCapture(e.pointerId);
-    const move = (ev) => { pos.x = Math.max(0, Math.min(innerWidth - 120, ev.clientX - dx)); pos.y = Math.max(60, Math.min(innerHeight - 60, ev.clientY - dy)); panel.style.left = `${pos.x}px`; panel.style.right = 'auto'; panel.style.top = `${pos.y}px`; };
+    const move = (ev) => { pos.x = ev.clientX - dx; pos.y = ev.clientY - dy; place(); };
     const up = () => { head.removeEventListener('pointermove', move); head.removeEventListener('pointerup', up); keep(); };
     head.addEventListener('pointermove', move);
     head.addEventListener('pointerup', up);
   });
-  panel.append(head, h('div', { class: 'tc-pal-body' },
-    h('p', { class: 'tc-pal-tip' }, 'Drag onto a track, or click to add.'),
-    BLOCK_GROUPS.map((g) => h('section', {}, h('h4', {}, g),
-      BLOCK_TYPES.filter((t) => t.group === g).map((t) => {
-        const tone = trackKind(t.track).tone;
-        const item = h('button', { type: 'button', class: 'tc-pal-item', draggable: 'true', style: `--tone:${tone}`, title: t.blurb,
-          onclick: () => add(c.id, { type: t.id, start: Math.max(0, Math.min(c.span.length - 1, dayOf(c.run.start, today))) }) },
-        icon(t.icon, 14), t.label);
-        item.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/x-dashi-block', t.id); e.dataTransfer.effectAllowed = 'copy'; });
-        return item;
-      })))));
+  const todayDay = Math.max(0, Math.min(c.span.length - 1, dayOf(c.run.start, today)));
+  const tabBar = h('div', { class: 'tc-pal-tabs', role: 'tablist' }, [['blocks', 'Blocks'], ['streams', 'Streams'], ['tools', 'Tools']].map(([id, label]) =>
+    h('button', { type: 'button', role: 'tab', 'aria-selected': String(paletteTab === id), class: paletteTab === id ? 'on' : '', onclick: () => { paletteTab = id; panel.replaceWith(Palette(c)); } }, label)));
+  let body;
+  if (paletteTab === 'streams') {
+    body = h('div', { class: 'tc-pal-body' },
+      h('p', { class: 'tc-pal-tip' }, 'A stream is blocks linked to move together. Drag one onto a track, or click to add it on today. Shift-click blocks on the timeline to make your own.'),
+      templates().map((tpl) => {
+        const card = h('button', { type: 'button', class: 'tc-pal-stream', draggable: 'true', title: tpl.blurb,
+          onclick: () => dropStream(c.id, tpl.id, todayDay) },
+        h('b', {}, tpl.name, !tpl.builtIn && h('span', { class: 'tc-new' }, 'Yours')),
+        h('span', { class: 'tc-pal-seq', 'aria-hidden': 'true' }, tpl.blocks.map((b) => { const t = blockType(b.type); return h('i', { style: `--tone:${trackKind(t.track).tone}`, title: t.label }, icon(t.icon, 11)); })),
+        h('small', {}, tpl.blurb || `${n(tpl.blocks.length, 'block')}`));
+        card.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/x-dashi-stream', tpl.id); e.dataTransfer.effectAllowed = 'copy'; });
+        return card;
+      }));
+  } else if (paletteTab === 'tools') {
+    body = h('div', { class: 'tc-pal-body' },
+      h('p', { class: 'tc-pal-tip' }, 'Coming tools, shown so you can see where Teach is going.'),
+      h('ul', { class: 'tc-pal-tools' }, TRAY_TOOLS.map((t) => h('li', {}, h('button', { type: 'button', onclick: () => toast(`${t.label} is coming: ${t.blurb}`) },
+        icon(t.icon, 14), h('span', {}, h('b', {}, t.label), h('small', {}, t.blurb)), h('span', { class: 'tc-soon' }, 'Soon'))))));
+  } else {
+    body = h('div', { class: 'tc-pal-body' },
+      h('p', { class: 'tc-pal-tip' }, 'Drag onto a track, or click to add.'),
+      BLOCK_GROUPS.map((g) => h('section', {}, h('h4', {}, g),
+        BLOCK_TYPES.filter((t) => t.group === g).map((t) => {
+          const tone = trackKind(t.track).tone;
+          const item = h('button', { type: 'button', class: `tc-pal-item${t.preview ? ' new' : ''}`, draggable: 'true', style: `--tone:${tone}`, title: `${t.blurb}${t.preview ? ' (new: a preview for now)' : ''}`,
+            onclick: () => add(c.id, { type: t.id, start: todayDay }) },
+          icon(t.icon, 14), h('span', {}, t.label), t.preview && h('i', { class: 'tc-new-dot', 'aria-label': 'new' }));
+          item.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/x-dashi-block', t.id); e.dataTransfer.effectAllowed = 'copy'; });
+          return item;
+        }))));
+  }
+  panel.append(head, tabBar, body);
   return panel;
 }
+
+/** A stream's drawer: name and colour, its blocks, save as a template, unlink. */
+function openStream(cid, sid) {
+  const draw = () => {
+    const c = doc.cartridges[cid];
+    const st = c?.streams?.[sid];
+    if (!st) { drawer?.close(); return h('div'); }
+    const bs = streamBlocks(c, sid);
+    const set = (patch, note) => { setCartridge(updateStream(doc.cartridges[cid], sid, patch), note); render(); drawer?.setBody(draw()); };
+    const nearby = Object.values(c.blocks).filter((b) => !b.streamId).sort((a, b) => a.start - b.start);
+    return h('div', { class: 'lx-form' },
+      field('Name', text(st.name, (v) => set({ name: v || 'Stream' }))),
+      field('Colour', h('div', { class: 'tc-swatches' }, STREAM_TONES.map((tone) => h('button', { type: 'button', class: `tc-swatch${tone === st.tone ? ' on' : ''}`, style: `background:${tone}`, 'aria-label': 'Use this colour', 'aria-pressed': String(tone === st.tone), disabled: !canEdit, onclick: () => set({ tone }) })))),
+      h('section', { class: 'lx-field' }, h('span', {}, `Blocks in it (${bs.length})`),
+        h('ol', { class: 'tc-stream-list' }, bs.map((b) => {
+          const t = blockType(b.type);
+          const tr = c.tracks.find((x) => x.id === b.trackId);
+          return h('li', { style: `--tone:${tr?.tone ?? '#999'}` },
+            h('span', { class: 'tc-stream-ic' }, icon(t.icon, 13)),
+            h('button', { type: 'button', class: 'tc-linkish', onclick: () => openBlock(cid, b.id) }, h('b', {}, b.title), h('small', {}, `${t.label} · ${shortDate(dateOf(c.run.start, b.start))} · ${tr?.name ?? ''}`)),
+            canEdit && h('button', { type: 'button', class: 'btn btn-ghost btn-xs', title: 'Take it out of the stream', onclick: () => { setCartridge(unlinkBlock(doc.cartridges[cid], b.id), 'Unlinked'); render(); drawer?.setBody(draw()); } }, icon('close', 12), 'Unlink'));
+        })),
+        canEdit && nearby.length > 0 && h('div', { class: 'lx-row' }, field('Add a block', h('select', { class: 'select select-sm', onchange: (e) => { if (e.target.value) { setCartridge(addToStream(doc.cartridges[cid], sid, e.target.value), 'Added to the stream'); render(); drawer?.setBody(draw()); } } },
+          h('option', { value: '' }, '— pick a block —'), nearby.map((b) => h('option', { value: b.id }, `${b.title} (${shortDate(dateOf(c.run.start, b.start))})`)))))),
+      h('p', { class: 'lx-note' }, 'Drag any block in a stream and the rest come with it. Hold Alt (Option) to move one on its own.'),
+      canEdit && h('div', { class: 'lx-row' },
+        h('button', { type: 'button', class: 'btn btn-sm', onclick: () => {
+          const tpl = streamToTemplate(doc.cartridges[cid], sid);
+          doc = { ...doc, streamTemplates: { ...(doc.streamTemplates ?? {}), [tpl.id]: tpl } };
+          save(`“${tpl.name}” saved: find it under Streams in the tool tray`);
+          render();
+        } }, icon('download', 14), 'Save as a template'),
+        h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { setCartridge(dissolveStream(doc.cartridges[cid], sid), 'Unlinked: the blocks stay'); drawer?.close(); render(); } }, icon('link', 14), 'Unlink all'),
+        h('button', { type: 'button', class: 'btn btn-sm btn-ghost text-error', onclick: async () => { if (await uiConfirm(`Remove “${st.name}” and its ${bs.length} blocks?`, { ok: 'Remove', danger: true })) { setCartridge(removeStream(doc.cartridges[cid], sid), 'Stream removed'); drawer?.close(); render(); } } }, icon('trash', 14), 'Remove with its blocks')));
+  };
+  const st = doc.cartridges[cid]?.streams?.[sid];
+  if (!st) return;
+  openDrawer({ title: st.name, sub: 'A stream of linked blocks', lead: h('span', { class: 'tc-lead', style: `background:${st.tone}` }, icon('link', 18)), actions: [h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => drawer?.close() }, 'Done')] });
+  drawer.setBody(draw());
+}
+
+/* Esc clears picked blocks. */
+addEventListener('keydown', (e) => { if (e.key === 'Escape' && picked.size && !document.querySelector('dialog[open]')) { picked = new Set(); render(); } });
 
 function ChecksAside(c, issues) {
   const counts = Object.fromEntries(LEVELS.map((l) => [l.id, issues.filter((i) => i.level === l.id).length]));
@@ -484,71 +607,281 @@ function openDrawer(opts) {
 const field = (label, input, help = null) => h('label', { class: 'lx-field' }, h('span', {}, label), input, help && h('small', {}, help));
 const text = (value, onchange, attrs = {}) => h('input', { class: 'input input-sm', value: value ?? '', disabled: !canEdit, onchange: (e) => onchange(e.target.value), ...attrs });
 
+/* ------------------------------------------------------- the block tray */
+
+let blockTab = 'content';
+let trayFull = false;
+const TEXT_TYPES = ['reading', 'case', 'page', 'announce', 'discussion', 'reflection', 'feedback', 'assignment', 'peer', 'email', 'milestone', 'checkin', 'release', 'voice', 'showcase', 'checkpoint', 'resource', 'video', 'live', 'office', 'meetup', 'whiteboard', 'mapwalk'];
+/** Where each kind of block is made in full, in another plugin. Hidden if that plugin is off for you. */
+function fullEditor(b) {
+  const go = (plugin, hash, label) => { const href = linkTo(plugin, hash); return href ? { href, label } : null; };
+  if (b.type === 'slideshow') return go('podcasts', '#studio', 'Open in the Studio');
+  if (b.type === 'podcast') return go('podcasts', b.ref?.id ? `#episodes/${b.ref.id}` : '#episodes', 'Open in Listen');
+  if (b.type === 'page') return go('pages', '#pages', 'Open in Web');
+  if (['reading', 'case'].includes(b.type)) return go('library', '#', 'Open the Library');
+  if (b.type === 'resource') return go('assets', '#', 'Open the Asset manager');
+  if (b.type === 'mapwalk') return go('mapper', '#', 'Open Ecosystem');
+  return null;
+}
+
+/** The block tray: a large drawer with a quick editor and a learner's-eye preview side by side. */
 function openBlock(cid, bid) {
   drawer?.close();
+  const sub = () => { const c = doc.cartridges[cid]; const x = c.blocks[bid]; return `${blockType(x.type).label} · ${shortDate(dateOf(c.run.start, x.start))}${x.length > 1 ? ` – ${shortDate(dateOf(c.run.start, x.start + x.length - 1))}` : ''}${x.streamId ? ` · in ${c.streams?.[x.streamId]?.name ?? 'a stream'}` : ''}`; };
   const draw = () => {
     const c = doc.cartridges[cid];
     const b = c?.blocks[bid];
-    if (!b) { drawer?.close(); return null; }
+    if (!b) { drawer?.close(); return h('div'); }
     const t = blockType(b.type);
     const set = (patch, note) => { setCartridge(updateBlock(doc.cartridges[cid], bid, patch), note); render(); drawer?.setBody(draw()); drawer?.setTitle(doc.cartridges[cid].blocks[bid].title, sub()); };
-    const sub = () => { const x = doc.cartridges[cid].blocks[bid]; return `${blockType(x.type).label} · ${shortDate(dateOf(c.run.start, x.start))}${x.length > 1 ? ` – ${shortDate(dateOf(c.run.start, x.start + x.length - 1))}` : ''}`; };
     const issues = runChecks(c).filter((i) => i.blockId === bid);
-    const others = Object.values(c.blocks).filter((x) => x.id !== bid && x.start <= b.start).sort((x, y) => x.start - y.start);
-    const episodes = Object.values(podcasts?.episodes ?? {}).sort((x, y) => (y.publishedAt ?? '').localeCompare(x.publishedAt ?? ''));
-    const refPicker = ['slideshow', 'podcast'].includes(b.type) && field(b.type === 'slideshow' ? 'Slideshow podcast' : 'Episode',
-      h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ ref: e.target.value ? { plugin: 'podcasts', type: 'episode', id: e.target.value } : null }) },
-        h('option', { value: '' }, '— choose a show —'),
-        b.ref && !podcasts?.episodes?.[b.ref.id] && h('option', { value: b.ref.id, selected: true }, `${b.ref.id} (not in the station yet: a sample deck plays)`),
-        episodes.map((e) => h('option', { value: e.id, selected: b.ref?.id === e.id }, e.title))),
-      b.type === 'slideshow' ? 'Shows are made in the Studio; the cartridge links to them and never copies them.' : null);
-    const assetItems = Object.values(assets?.items ?? {}).filter((a) => a.kind !== 'ref').slice(0, 200);
-    const body = h('div', { class: 'lx-form' },
-      issues.length > 0 && h('ul', { class: 'tc-issues tc-drawer-issues' }, issues.map((i) => h('li', { class: `l-${i.level}` }, h('i', { class: `tc-lvl l-${i.level}` }), h('span', {}, i.title, h('small', {}, i.why))))),
-      field('Title', text(b.title, (v) => set({ title: v || t.label }))),
-      h('div', { class: 'lx-row' },
-        field('Track', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ trackId: e.target.value }) }, options(c.tracks.map((x) => ({ id: x.id, label: x.name })), b.trackId))),
-        field('Kind', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ type: e.target.value }) }, BLOCK_GROUPS.map((g) => h('optgroup', { label: g }, options(BLOCK_TYPES.filter((x) => x.group === g).map((x) => ({ id: x.id, label: x.label })), b.type)))))),
-      h('div', { class: 'lx-row' },
-        field('Opens', h('input', { type: 'date', class: 'input input-sm', disabled: !canEdit, value: dateOf(c.run.start, b.start), onchange: (e) => e.target.value && set({ start: dayOf(c.run.start, e.target.value) }) }), `Day ${b.start}${c.pacing === 'self' ? ', from each learner’s start' : ''}`),
-        field('Days open', h('input', { type: 'number', min: '1', max: '120', class: 'input input-sm', disabled: !canEdit, value: String(b.length), onchange: (e) => set({ length: Math.max(1, Number(e.target.value) || 1) }) })),
-        field('Time', h('input', { type: 'time', class: 'input input-sm', disabled: !canEdit, value: b.at ?? '', onchange: (e) => set({ at: e.target.value || null }) }), c.run.tz)),
-      h('div', { class: 'lx-row' },
-        field('Learner effort (minutes)', h('input', { type: 'number', min: '0', max: '600', step: '5', class: 'input input-sm', disabled: !canEdit, value: String(b.minutes ?? 0), onchange: (e) => set({ minutes: Math.max(0, Number(e.target.value) || 0) }) })),
-        h('label', { class: 'lx-check' }, h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', disabled: !canEdit, checked: !!b.required, onchange: (e) => set({ required: e.target.checked }) }), 'Required to finish')),
-      refPicker,
-      b.type === 'resource' && field('Asset', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ ref: e.target.value ? { plugin: 'assets', type: 'item', id: e.target.value } : null }) },
-        h('option', { value: '' }, '— a link instead —'), assetItems.map((a) => h('option', { value: a.id, selected: b.ref?.id === a.id }, a.title ?? a.id)))),
-      ['live', 'office', 'meetup', 'resource', 'video'].includes(b.type) && field(b.type === 'video' ? 'Video link' : b.type === 'resource' ? 'Link' : 'Meeting link (Zoom, Meet, Teams)', text(b.settings?.url, (v) => set({ settings: { ...b.settings, url: v } }), { type: 'url', placeholder: 'https://' })),
-      b.type === 'office' && field('Repeats', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ settings: { ...b.settings, repeat: e.target.value } }) }, options([{ id: 'none', label: 'Just this once' }, { id: 'weekly', label: 'Every week of the run' }], b.settings?.repeat ?? 'none'))),
-      b.type === 'whiteboard' && WhiteboardField(c, b, set),
-      ['quiz', 'exam'].includes(b.type) && h('div', { class: 'lx-row' },
-        field('Time limit (minutes, 0 for none)', h('input', { type: 'number', min: '0', class: 'input input-sm', disabled: !canEdit, value: String(b.settings?.timeLimit ?? 0), onchange: (e) => set({ settings: { ...b.settings, timeLimit: Math.max(0, Number(e.target.value) || 0) } }) })),
-        h('label', { class: 'lx-check' }, h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', disabled: !canEdit, checked: !!b.settings?.extensions, onchange: (e) => set({ settings: { ...b.settings, extensions: e.target.checked } }) }), 'Teachers can grant extensions')),
-      ['quiz', 'exam'].includes(b.type) && QuestionsField(b, set),
-      b.type === 'assignment' && field('Learners hand in', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ settings: { ...b.settings, handIn: e.target.value } }) }, options([{ id: 'doc', label: 'A Dashi doc' }, { id: 'file', label: 'A file' }, { id: 'any', label: 'Their choice: a doc, a file, audio or video' }], b.settings?.handIn ?? 'doc')), 'Offering a choice of format is the UDL way.'),
-      field(['lesson', 'reading'].includes(b.type) ? 'Words' : 'Instructions or prompt', h('textarea', { class: 'textarea textarea-sm', rows: ['lesson', 'reading'].includes(b.type) ? 7 : 4, disabled: !canEdit, value: b.body ?? '', onchange: (e) => set({ body: e.target.value }) }), 'Short and plain: a few hundred words at most. **Bold** and *italic* work.'),
-      ['lesson'].includes(b.type) && ImageField(b, set),
-      field('Other ways in', h('div', { class: 'lx-chips' }, [['transcript', 'Transcript'], ['captions', 'Captions'], ['reading', 'Reading version'], ['audio', 'Audio version']].map(([k, label]) =>
-        h('label', { class: 'lx-chip' }, h('input', { type: 'checkbox', disabled: !canEdit, checked: (b.alts ?? []).includes(k), onchange: (e) => set({ alts: e.target.checked ? [...(b.alts ?? []), k] : (b.alts ?? []).filter((a) => a !== k) }) }), label))),
-        t.media ? 'Audio and video need a transcript or captions before publishing.' : 'Alternatives let learners choose how they take it in.'),
-      others.length > 0 && field('Waits for', h('select', { class: 'select select-sm', multiple: true, size: Math.min(5, others.length), disabled: !canEdit, onchange: (e) => set({ after: [...e.target.selectedOptions].map((o) => o.value) }) },
-        others.map((x) => h('option', { value: x.id, selected: (b.after ?? []).includes(x.id) }, `${x.title} (${shortDate(dateOf(c.run.start, x.start))})`))), 'Learners can open this once those are done. Leave empty for a free choice.'),
-      c.competencies?.length > 0 && field('Builds towards', h('div', { class: 'lx-chips' }, c.competencies.map((k) => h('label', { class: 'lx-chip' }, h('input', { type: 'checkbox', disabled: !canEdit, checked: (b.competencies ?? []).includes(k.id), onchange: (e) => set({ competencies: e.target.checked ? [...(b.competencies ?? []), k.id] : (b.competencies ?? []).filter((x) => x !== k.id) }) }), k.name)))),
-      h('label', { class: 'lx-check' }, h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', disabled: !canEdit, checked: b.settings?.visibility === 'teachers', onchange: (e) => set({ settings: { ...b.settings, visibility: e.target.checked ? 'teachers' : 'learners' } }) }), 'Teachers only (a note to yourself)'));
+    const full = fullEditor(b);
+    const tabsEl = h('div', { class: 'tc-tray-tabs', role: 'tablist' },
+      [['content', 'Content', t.icon], ['when', 'When and where', 'calendar'], ['access', 'Access and links', 'eye'], ['checks', `Checks${issues.length ? ` (${issues.length})` : ''}`, 'checklist']].map(([id, label, ic]) =>
+        h('button', { type: 'button', role: 'tab', 'aria-selected': String(blockTab === id), class: blockTab === id ? 'on' : '', onclick: () => { blockTab = id; drawer?.setBody(draw()); } }, icon(ic, 14), label)),
+      h('span', { class: 'tc-grow' }),
+      full && h('a', { class: 'btn btn-sm', href: full.href }, icon('export', 14), full.label),
+      h('button', { type: 'button', class: `btn btn-sm${trayFull ? ' on' : ''}`, 'aria-pressed': String(trayFull), title: trayFull ? 'Back to a tray' : 'Use the whole screen', onclick: () => { trayFull = !trayFull; drawer?.el.classList.toggle('full', trayFull); drawer?.setBody(draw()); } }, icon(trayFull ? 'arrowsIn' : 'fit', 14), trayFull ? 'Tray' : 'Full screen'));
+    let pane;
+    if (blockTab === 'when') pane = WhenPane(c, b, set);
+    else if (blockTab === 'access') pane = AccessPane(c, b, set);
+    else if (blockTab === 'checks') pane = issues.length ? h('ul', { class: 'tc-issues tc-drawer-issues' }, issues.map((i) => h('li', { class: `l-${i.level}` }, h('i', { class: `tc-lvl l-${i.level}` }), h('span', {}, i.title, h('small', {}, i.why))))) : h('p', { class: 'lx-note' }, icon('check', 14), ' Nothing to look at for this block.');
+    else pane = h('div', { class: 'tc-tray-split' },
+      h('div', { class: 'tc-tray-edit lx-form' },
+        t.preview && h('p', { class: 'tc-preview-note' }, icon('sparkle', 14), ` ${t.label} is new: you can place it, write it and schedule it. Learners see a simple version until it’s built in full.`),
+        field('Title', text(b.title, (v) => set({ title: v || t.label }))),
+        ContentEditor(c, b, set)),
+      h('aside', { class: 'tc-tray-preview', 'aria-label': 'What learners see' }, h('h4', {}, icon('eye', 13), 'What learners see'), LearnerPreview(c, b)));
     drawer?.setActions?.(canEdit ? [
       h('button', { type: 'button', class: 'btn btn-sm btn-ghost text-error', onclick: async () => { if (await uiConfirm(`Remove “${b.title}”?`, { ok: 'Remove', danger: true })) { setCartridge(removeBlock(doc.cartridges[cid], bid), 'Block removed'); selected = null; drawer.close(); render(); } } }, icon('trash', 14), 'Remove'),
       h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { const r = duplicateBlock(doc.cartridges[cid], bid); setCartridge(r.cartridge, 'Copied a week later'); selected = r.id; render(); openBlock(cid, r.id); } }, icon('copy', 14), 'Copy to next week'),
+      b.streamId && h('button', { type: 'button', class: 'btn btn-sm', onclick: () => openStream(cid, b.streamId) }, icon('link', 14), 'Its stream'),
+      h('span', { class: 'spacer' }),
       h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => drawer.close() }, 'Done'),
-    ] : []);
-    return body;
+    ].filter(Boolean) : []);
+    return h('div', { class: 'tc-tray' }, tabsEl, pane);
   };
   const c = doc.cartridges[cid];
   const b = c.blocks[bid];
   const t = blockType(b.type);
   const tone = c.tracks.find((x) => x.id === b.trackId)?.tone ?? '#888';
-  openDrawer({ title: b.title, sub: `${t.label} · ${shortDate(dateOf(c.run.start, b.start))}`, lead: h('span', { class: 'tc-lead', style: `background:${tone}` }, icon(t.icon, 18)),  });
+  openDrawer({ title: b.title, sub: sub(), wide: 'xl', lead: h('span', { class: 'tc-lead', style: `background:${tone}` }, icon(t.icon, 18)) });
+  drawer.el.classList.toggle('full', trayFull);
   drawer.setBody(draw());
+}
+
+function WhenPane(c, b, set) {
+  const others = Object.values(c.blocks).filter((x) => x.id !== b.id && x.start <= b.start).sort((x, y) => x.start - y.start);
+  return h('div', { class: 'lx-form tc-tray-narrow' },
+    h('div', { class: 'lx-row' },
+      field('Track', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ trackId: e.target.value }) }, options(c.tracks.map((x) => ({ id: x.id, label: x.name })), b.trackId))),
+      field('Kind', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ type: e.target.value }) }, BLOCK_GROUPS.map((g) => h('optgroup', { label: g }, options(BLOCK_TYPES.filter((x) => x.group === g).map((x) => ({ id: x.id, label: x.label })), b.type)))))),
+    h('div', { class: 'lx-row' },
+      field('Opens', h('input', { type: 'date', class: 'input input-sm', disabled: !canEdit, value: dateOf(c.run.start, b.start), onchange: (e) => e.target.value && set({ start: dayOf(c.run.start, e.target.value) }) }), `Day ${b.start}${c.pacing === 'self' ? ', from each learner’s start' : ''}`),
+      field('Days open', h('input', { type: 'number', min: '1', max: '120', class: 'input input-sm', disabled: !canEdit, value: String(b.length), onchange: (e) => set({ length: Math.max(1, Number(e.target.value) || 1) }) })),
+      field('Time', h('input', { type: 'time', class: 'input input-sm', disabled: !canEdit, value: b.at ?? '', onchange: (e) => set({ at: e.target.value || null }) }), c.run.tz)),
+    h('div', { class: 'lx-row' },
+      field('Learner effort (minutes)', h('input', { type: 'number', min: '0', max: '600', step: '5', class: 'input input-sm', disabled: !canEdit, value: String(b.minutes ?? 0), onchange: (e) => set({ minutes: Math.max(0, Number(e.target.value) || 0) }) })),
+      h('label', { class: 'lx-check' }, h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', disabled: !canEdit, checked: !!b.required, onchange: (e) => set({ required: e.target.checked }) }), 'Required to finish')),
+    others.length > 0 && field('Waits for', h('select', { class: 'select select-sm', multiple: true, size: Math.min(6, others.length), disabled: !canEdit, onchange: (e) => set({ after: [...e.target.selectedOptions].map((o) => o.value) }) },
+      others.map((x) => h('option', { value: x.id, selected: (b.after ?? []).includes(x.id) }, `${x.title} (${shortDate(dateOf(c.run.start, x.start))})`))), 'Learners can open this once those are done. Leave empty for a free choice.'),
+    h('label', { class: 'lx-check' }, h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', disabled: !canEdit, checked: b.settings?.visibility === 'teachers', onchange: (e) => set({ settings: { ...b.settings, visibility: e.target.checked ? 'teachers' : 'learners' } }) }), 'Teachers only (a note to yourself)'));
+}
+
+function AccessPane(c, b, set) {
+  const t = blockType(b.type);
+  return h('div', { class: 'lx-form tc-tray-narrow' },
+    field('Other ways in', h('div', { class: 'lx-chips' }, [['transcript', 'Transcript'], ['captions', 'Captions'], ['reading', 'Reading version'], ['audio', 'Audio version']].map(([k, label]) =>
+      h('label', { class: 'lx-chip' }, h('input', { type: 'checkbox', disabled: !canEdit, checked: (b.alts ?? []).includes(k), onchange: (e) => set({ alts: e.target.checked ? [...(b.alts ?? []), k] : (b.alts ?? []).filter((a) => a !== k) }) }), label))),
+      t.media ? 'Audio and video need a transcript or captions before publishing.' : 'Alternatives let learners choose how they take it in.'),
+    c.competencies?.length > 0 && field('Builds towards', h('div', { class: 'lx-chips' }, c.competencies.map((k) => h('label', { class: 'lx-chip' }, h('input', { type: 'checkbox', disabled: !canEdit, checked: (b.competencies ?? []).includes(k.id), onchange: (e) => set({ competencies: e.target.checked ? [...(b.competencies ?? []), k.id] : (b.competencies ?? []).filter((x) => x !== k.id) }) }), k.name)))),
+    field('Stream', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => { const v = e.target.value; setCartridge(v ? addToStream(doc.cartridges[c.id], v, b.id) : unlinkBlock(doc.cartridges[c.id], b.id), v ? 'Added to the stream' : 'Unlinked'); render(); openBlock(c.id, b.id); } },
+      h('option', { value: '' }, '— not linked —'), Object.values(c.streams ?? {}).map((st) => h('option', { value: st.id, selected: b.streamId === st.id }, st.name))), 'Blocks in a stream move together. Shift-click blocks on the timeline to link new ones.'));
+}
+
+/** The quick editor for the block's content, by kind. */
+function ContentEditor(c, b, set) {
+  const parts = [];
+  if (b.type === 'lesson') parts.push(LessonBuilder(b, set));
+  else if (['slideshow', 'podcast'].includes(b.type)) parts.push(ShowEditor(b, set));
+  else if (['quiz', 'exam'].includes(b.type)) parts.push(
+    h('div', { class: 'lx-row' },
+      field('Time limit (minutes, 0 for none)', h('input', { type: 'number', min: '0', class: 'input input-sm', disabled: !canEdit, value: String(b.settings?.timeLimit ?? 0), onchange: (e) => set({ settings: { ...b.settings, timeLimit: Math.max(0, Number(e.target.value) || 0) } }) })),
+      h('label', { class: 'lx-check' }, h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', disabled: !canEdit, checked: !!b.settings?.extensions, onchange: (e) => set({ settings: { ...b.settings, extensions: e.target.checked } }) }), 'Teachers can grant extensions')),
+    QuestionsField(b, set),
+    DocEditor(b, set, { label: 'Before they start (optional)', rows: 3 }));
+  else if (b.type === 'flashcards') parts.push(CardsField(b, set), DocEditor(b, set, { label: 'A note for learners', rows: 3 }));
+  else if (b.type === 'poll') parts.push(PollField(b, set));
+  else if (b.type === 'scenario') parts.push(DocEditor(b, set, { label: 'The situation', rows: 4 }), ScenarioField(b, set));
+  else {
+    const label = { page: 'The page', reading: 'The reading', case: 'The case', assignment: 'The brief', discussion: 'The question for the group', reflection: 'The prompt', voice: 'What to talk about', showcase: 'What to share', mapwalk: 'Prompts along the walk' }[b.type] ?? 'Words';
+    parts.push(DocEditor(b, set, { label, rows: ['page', 'reading', 'case'].includes(b.type) ? 12 : 6 }));
+  }
+  // Type-specific settings.
+  if (b.type === 'resource') {
+    const assetItems = Object.values(assets?.items ?? {}).filter((a) => a.kind !== 'ref').slice(0, 200);
+    parts.push(field('Asset', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ ref: e.target.value ? { plugin: 'assets', type: 'item', id: e.target.value } : null }) },
+      h('option', { value: '' }, '— a link instead —'), assetItems.map((a) => h('option', { value: a.id, selected: b.ref?.id === a.id }, a.title ?? a.id)))));
+  }
+  if (['live', 'office', 'meetup', 'resource', 'video'].includes(b.type)) parts.push(field(b.type === 'video' ? 'Video link' : b.type === 'resource' ? 'Link' : 'Meeting link (Zoom, Meet, Teams)', text(b.settings?.url, (v) => set({ settings: { ...b.settings, url: v } }), { type: 'url', placeholder: 'https://' })));
+  if (b.type === 'office') parts.push(field('Repeats', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ settings: { ...b.settings, repeat: e.target.value } }) }, options([{ id: 'none', label: 'Just this once' }, { id: 'weekly', label: 'Every week of the run' }], b.settings?.repeat ?? 'none'))));
+  if (b.type === 'whiteboard') parts.push(WhiteboardField(c, b, set));
+  if (b.type === 'assignment') parts.push(field('Learners hand in', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ settings: { ...b.settings, handIn: e.target.value } }) }, options([{ id: 'doc', label: 'A Dashi doc' }, { id: 'file', label: 'A file' }, { id: 'any', label: 'Their choice: a doc, a file, audio or video' }], b.settings?.handIn ?? 'doc')), 'Offering a choice of format is the UDL way.'));
+  if (b.type === 'page') parts.push(field('Web page', text(b.settings?.slug, (v) => set({ settings: { ...b.settings, slug: v } }), { placeholder: 'e.g. grants/how-to-apply' }), 'Link this block to a page in Web, or write a short one here.'));
+  return h('div', { class: 'lx-form' }, parts);
+}
+
+/** A light markdown editor: a few buttons, the words, and the preview beside it in the tray. */
+function DocEditor(b, set, { label = 'Words', rows = 6, key = 'body' } = {}) {
+  const area = h('textarea', { class: 'textarea textarea-sm tc-doc-area', rows, disabled: !canEdit, value: b[key] ?? '', onchange: (e) => set({ [key]: e.target.value }) });
+  const wrap = (before, after = before, placeholder = 'text') => {
+    const { selectionStart: s0, selectionEnd: s1, value } = area;
+    const mid = value.slice(s0, s1) || placeholder;
+    area.value = value.slice(0, s0) + before + mid + after + value.slice(s1);
+    area.focus();
+    area.setSelectionRange(s0 + before.length, s0 + before.length + mid.length);
+    set({ [key]: area.value });
+  };
+  const line = (prefix) => {
+    const { selectionStart: s0, value } = area;
+    const at = value.lastIndexOf('\n', s0 - 1) + 1;
+    area.value = value.slice(0, at) + prefix + value.slice(at);
+    set({ [key]: area.value });
+  };
+  const words = String(b[key] ?? '').trim().split(/\s+/).filter(Boolean).length;
+  return h('div', { class: 'lx-field' }, h('span', {}, label),
+    canEdit && h('div', { class: 'tc-doc-bar', role: 'toolbar', 'aria-label': 'Formatting' },
+      h('button', { type: 'button', title: 'Bold', 'aria-label': 'Bold', onclick: () => wrap('**') }, h('b', {}, 'B')),
+      h('button', { type: 'button', title: 'Italic', 'aria-label': 'Italic', onclick: () => wrap('*') }, h('i', {}, 'I')),
+      h('button', { type: 'button', title: 'Heading', 'aria-label': 'Heading', onclick: () => line('## ') }, 'H'),
+      h('button', { type: 'button', title: 'Bullet list', 'aria-label': 'Bullet list', onclick: () => line('- ') }, icon('listBullets', 13)),
+      h('button', { type: 'button', title: 'Numbered list', 'aria-label': 'Numbered list', onclick: () => line('1. ') }, icon('listNumbers', 13)),
+      h('button', { type: 'button', title: 'Quote', 'aria-label': 'Quote', onclick: () => line('> ') }, icon('quotes', 13)),
+      h('button', { type: 'button', title: 'Link', 'aria-label': 'Link', onclick: () => wrap('[', '](https://)', 'link text') }, icon('link', 13)),
+      h('span', { class: 'tc-grow' }),
+      h('small', {}, `${words} word${words === 1 ? '' : 's'}${words > 400 ? ' · long for one block' : ''}`)),
+    area);
+}
+
+/**
+ * The lesson builder (lite): a lesson as a short run of sections. Text,
+ * a picture, a callout, a question to think about, a video. The words are
+ * kept in the block's body too, so the checks and Learn read them as before.
+ */
+const SECTION_KINDS = [
+  { id: 'text', label: 'Text', icon: 'alignLeft' },
+  { id: 'image', label: 'Picture', icon: 'image' },
+  { id: 'callout', label: 'Callout', icon: 'lightbulb' },
+  { id: 'question', label: 'Think about', icon: 'question' },
+  { id: 'video', label: 'Video', icon: 'video' },
+];
+function LessonBuilder(b, set) {
+  const secs = lessonSections(b);
+  const put = (list, note) => set({
+    body: list.filter((x) => x.kind === 'text').map((x) => x.text ?? '').join('\n\n'),
+    settings: { ...b.settings, sections: list, images: list.filter((x) => x.kind === 'image' && x.src).map((x) => ({ src: x.src, alt: x.alt ?? '', decorative: !!x.decorative })) },
+  }, note);
+  const patch = (i, p) => put(secs.map((x, j) => (j === i ? { ...x, ...p } : x)));
+  const move = (i, d) => { const l = [...secs]; const [x] = l.splice(i, 1); l.splice(i + d, 0, x); put(l); };
+  const addSec = (kind) => put([...secs, { id: `sec_${Math.random().toString(36).slice(2, 8)}`, kind, text: '', src: '', alt: '' }], `${SECTION_KINDS.find((k) => k.id === kind).label} added`);
+  return h('div', { class: 'lx-field tc-lesson' }, h('span', {}, `Lesson builder · ${n(secs.length, 'section')}`),
+    secs.length ? h('ol', { class: 'tc-secs' }, secs.map((x, i) => {
+      const k = SECTION_KINDS.find((y) => y.id === x.kind) ?? SECTION_KINDS[0];
+      let bodyEl;
+      if (x.kind === 'image') bodyEl = h('div', { class: 'lx-row' }, field('Picture address', text(x.src, (v) => patch(i, { src: v }), { placeholder: '/media/photos/…' })), field('Alt text', text(x.alt, (v) => patch(i, { alt: v }), { placeholder: 'What it shows' })));
+      else if (x.kind === 'video') bodyEl = h('div', { class: 'lx-row' }, field('Video link', text(x.src, (v) => patch(i, { src: v }), { type: 'url', placeholder: 'https://' })), field('Caption', text(x.text, (v) => patch(i, { text: v }))));
+      else bodyEl = h('textarea', { class: 'textarea textarea-sm', rows: x.kind === 'text' ? 4 : 2, disabled: !canEdit, value: x.text ?? '', placeholder: x.kind === 'callout' ? 'Something to remember' : x.kind === 'question' ? 'A question to sit with (no answer needed)' : 'A short paragraph or two', onchange: (e) => patch(i, { text: e.target.value }) });
+      return h('li', { class: `tc-sec k-${x.kind}` },
+        h('header', {}, icon(k.icon, 13), h('b', {}, k.label), h('span', { class: 'tc-grow' }),
+          canEdit && h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', disabled: i === 0, 'aria-label': 'Move up', onclick: () => move(i, -1) }, icon('chevronUp', 12)),
+          canEdit && h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', disabled: i === secs.length - 1, 'aria-label': 'Move down', onclick: () => move(i, 1) }, icon('chevronDown', 12)),
+          canEdit && h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', 'aria-label': 'Remove section', onclick: () => put(secs.filter((_, j) => j !== i)) }, icon('trash', 12))),
+        bodyEl);
+    })) : h('p', { class: 'lx-note' }, 'Empty so far. Start with a little text.'),
+    canEdit && h('div', { class: 'tc-sec-add' }, h('small', {}, 'Add'), SECTION_KINDS.map((k) => h('button', { type: 'button', class: 'btn btn-xs', onclick: () => addSec(k.id) }, icon(k.icon, 12), k.label))));
+}
+
+/** The slideshow editor (lite): pick a show, see its slides, leave a note per slide. The show itself is made in the Studio. */
+function ShowEditor(b, set) {
+  const episodes = Object.values(podcasts?.episodes ?? {}).sort((x, y) => (y.publishedAt ?? '').localeCompare(x.publishedAt ?? ''));
+  const ep = b.ref?.id ? podcasts?.episodes?.[b.ref.id] : null;
+  const slides = (ep?.show?.slides ?? ep?.slides ?? []).length ? (ep.show?.slides ?? ep.slides).map((s, i) => ({ title: s.title ?? s.text ?? `Slide ${i + 1}` }))
+    : ['Title', 'The question', 'What we found', 'One story', 'What it means', 'Thanks'].map((title) => ({ title }));
+  const notes = b.settings?.slideNotes ?? {};
+  return h('div', { class: 'lx-form' },
+    field(b.type === 'slideshow' ? 'Slideshow podcast' : 'Episode',
+      h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ ref: e.target.value ? { plugin: 'podcasts', type: 'episode', id: e.target.value } : null }) },
+        h('option', { value: '' }, '— choose a show —'),
+        b.ref && !ep && h('option', { value: b.ref.id, selected: true }, `${b.ref.id} (not in the station yet: a sample deck plays)`),
+        episodes.map((e) => h('option', { value: e.id, selected: b.ref?.id === e.id }, e.title))),
+      'Shows are made in the Studio; the cartridge links to them and never copies them.'),
+    b.type === 'slideshow' && h('div', { class: 'lx-field' }, h('span', {}, `Slides${ep ? '' : ' (a sample deck until the show is in)'}`),
+      h('ol', { class: 'tc-slides' }, slides.map((sl, i) => h('li', {},
+        h('span', { class: 'tc-slide-thumb', 'aria-hidden': 'true' }, String(i + 1)),
+        h('div', {}, h('b', {}, sl.title),
+          h('input', { class: 'input input-xs', disabled: !canEdit, value: notes[i] ?? '', placeholder: 'A note or question for learners on this slide', onchange: (e) => set({ settings: { ...b.settings, slideNotes: { ...notes, [i]: e.target.value } } }) })))))),
+    DocEditor(b, set, { label: 'Introduce it', rows: 3 }));
+}
+
+function CardsField(b, set) {
+  const cards = b.settings?.cards ?? [];
+  const put = (list) => set({ settings: { ...b.settings, cards: list } });
+  return h('div', { class: 'lx-field' }, h('span', {}, `Cards (${cards.length})`),
+    h('ol', { class: 'tc-cardlist' }, cards.map((cd, i) => h('li', {},
+      text(cd.front, (v) => put(cards.map((x, j) => (j === i ? { ...x, front: v } : x))), { placeholder: 'Front: a word or question' }),
+      text(cd.back, (v) => put(cards.map((x, j) => (j === i ? { ...x, back: v } : x))), { placeholder: 'Back: the answer' }),
+      canEdit && h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', 'aria-label': 'Remove card', onclick: () => put(cards.filter((_, j) => j !== i)) }, icon('trash', 12))))),
+    canEdit && h('button', { type: 'button', class: 'btn btn-sm', onclick: () => put([...cards, { front: '', back: '' }]) }, icon('plus', 14), 'Add a card'));
+}
+
+function PollField(b, set) {
+  const opts = b.settings?.options ?? ['', ''];
+  const put = (list) => set({ settings: { ...b.settings, options: list } });
+  return h('div', { class: 'lx-form' },
+    field('The question', text(b.body, (v) => set({ body: v }), { placeholder: 'e.g. Which of these matters most where you live?' })),
+    h('div', { class: 'lx-field' }, h('span', {}, 'Choices'),
+      h('ol', { class: 'tc-cardlist' }, opts.map((o, i) => h('li', {}, text(o, (v) => put(opts.map((x, j) => (j === i ? v : x))), { placeholder: `Choice ${i + 1}` }),
+        canEdit && opts.length > 2 && h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', 'aria-label': 'Remove choice', onclick: () => put(opts.filter((_, j) => j !== i)) }, icon('trash', 12))))),
+      canEdit && opts.length < 8 && h('button', { type: 'button', class: 'btn btn-sm', onclick: () => put([...opts, '']) }, icon('plus', 14), 'Add a choice')),
+    h('label', { class: 'lx-check' }, h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', disabled: !canEdit, checked: b.settings?.showResults !== false, onchange: (e) => set({ settings: { ...b.settings, showResults: e.target.checked } }) }), 'Show everyone the results after they answer'));
+}
+
+function ScenarioField(b, set) {
+  const ch = b.settings?.choices ?? [{ text: '', outcome: '' }, { text: '', outcome: '' }];
+  const put = (list) => set({ settings: { ...b.settings, choices: list } });
+  return h('div', { class: 'lx-field' }, h('span', {}, 'What could they do? (one step for now; branches deeper come later)'),
+    h('ol', { class: 'tc-cardlist' }, ch.map((x, i) => h('li', {},
+      text(x.text, (v) => put(ch.map((y, j) => (j === i ? { ...y, text: v } : y))), { placeholder: `Choice ${i + 1}` }),
+      text(x.outcome, (v) => put(ch.map((y, j) => (j === i ? { ...y, outcome: v } : y))), { placeholder: 'What happens' }),
+      canEdit && ch.length > 2 && h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', 'aria-label': 'Remove choice', onclick: () => put(ch.filter((_, j) => j !== i)) }, icon('trash', 12))))),
+    canEdit && h('button', { type: 'button', class: 'btn btn-sm', onclick: () => put([...ch, { text: '', outcome: '' }]) }, icon('plus', 14), 'Add a choice'));
+}
+
+/** A learner's-eye view of the block, updated as you type. */
+function LearnerPreview(c, b) {
+  const t = blockType(b.type);
+  const tone = c.tracks.find((x) => x.id === b.trackId)?.tone ?? '#888';
+  const head = h('div', { class: 'tc-pv-head', style: `--tone:${tone}` }, h('span', {}, icon(t.icon, 14)), h('small', {}, `${t.label}${b.minutes ? ` · about ${b.minutes} min` : ''}${b.required ? '' : ' · optional'}`));
+  let bodyEl;
+  if (b.type === 'lesson') {
+    bodyEl = lessonSections(b).map((x) => x.kind === 'image' ? (x.src ? h('img', { src: x.src, alt: x.decorative ? '' : x.alt ?? '' }) : h('div', { class: 'tc-pv-ph' }, icon('image', 18), 'A picture'))
+      : x.kind === 'video' ? h('div', { class: 'tc-pv-ph' }, icon('video', 18), x.text || 'A video')
+        : x.kind === 'callout' ? h('div', { class: 'tc-pv-callout' }, icon('lightbulb', 14), h('div', {}, Markdown(x.text || '…')))
+          : x.kind === 'question' ? h('div', { class: 'tc-pv-question' }, h('b', {}, 'Think about'), h('p', {}, x.text || '…'))
+            : h('div', { class: 'tc-pv-text' }, Markdown(x.text || '')));
+  } else if (b.type === 'slideshow') {
+    bodyEl = [h('div', { class: 'tc-pv-show' }, icon('play', 22), h('span', {}, b.ref ? 'The slideshow plays here' : 'Choose a show')), b.body && Markdown(b.body)];
+  } else if (['quiz', 'exam'].includes(b.type)) {
+    bodyEl = (b.settings?.questions ?? []).slice(0, 3).map((q, i) => h('div', { class: 'tc-pv-q' }, h('b', {}, `${i + 1}. ${q.q || 'A question'}`), h('ul', {}, q.options.map((o) => h('li', {}, o || '…')))));
+  } else if (b.type === 'poll') {
+    bodyEl = [h('b', {}, b.body || 'A question'), h('ul', { class: 'tc-pv-poll' }, (b.settings?.options ?? []).map((o) => h('li', {}, o || '…')))];
+  } else if (b.type === 'flashcards') {
+    const cd = b.settings?.cards?.[0];
+    bodyEl = h('div', { class: 'tc-pv-card' }, h('b', {}, cd?.front || 'Front of a card'), h('small', {}, `Tap to turn over · ${n(b.settings?.cards?.length ?? 0, 'card')}`));
+  } else {
+    bodyEl = b.body ? h('div', { class: 'tc-pv-text' }, Markdown(b.body)) : h('p', { class: 'lx-note' }, 'Nothing written yet.');
+  }
+  return h('div', { class: 'tc-pv' }, head, h('h3', {}, b.title), bodyEl);
 }
 
 function WhiteboardField(c, b, set) {

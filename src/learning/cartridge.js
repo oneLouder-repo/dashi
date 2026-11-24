@@ -27,7 +27,30 @@ export const FORMAT_VERSION = 1;
 const hex = (id) => WHEEL.find((w) => w.id === id)?.hex ?? '#888888';
 const rid = (p) => `${p}_${Math.random().toString(36).slice(2, 9)}`;
 const clone = (x) => (typeof structuredClone === 'function' ? structuredClone(x) : JSON.parse(JSON.stringify(x)));
-const edit = (c, fn) => { const x = clone(c); fn(x); x.updatedAt = new Date().toISOString(); return x; };
+const edit = (c, fn) => { const x = clone(c); fn(x); tidy(x); x.updatedAt = new Date().toISOString(); return x; };
+/**
+ * Days of room shown before the pre-start and after the post-end, so a block
+ * can always be dropped a little earlier or later. Dropping one there grows
+ * the pre-start or post-end to fit it.
+ */
+export const ROOM = 7;
+function tidy(x) {
+  if (x.span && x.blocks) {
+    let lo = 0, hi = x.span.length;
+    for (const b of Object.values(x.blocks)) { lo = Math.min(lo, b.start); hi = Math.max(hi, b.start + b.length); }
+    for (const p of x.pace ?? []) { lo = Math.min(lo, p.day); hi = Math.max(hi, p.day + 1); }
+    x.span.pre = Math.max(x.span.pre ?? 0, -lo);
+    x.span.post = Math.max(x.span.post ?? 0, hi - x.span.length);
+  }
+  // A stream with fewer than two blocks left is no longer a stream.
+  if (x.streams) {
+    for (const sid of Object.keys(x.streams)) {
+      const members = Object.values(x.blocks ?? {}).filter((b) => b.streamId === sid);
+      if (members.length < 2) { for (const b of members) delete b.streamId; delete x.streams[sid]; }
+    }
+  }
+  for (const b of Object.values(x.blocks ?? {})) if (b.streamId && !x.streams?.[b.streamId]) delete b.streamId;
+}
 const clampInt = (n, lo, hi) => Math.max(lo, Math.min(hi, Math.round(Number(n) || 0)));
 
 /** The kinds of track, each with its colour from the wheel. */
@@ -70,6 +93,16 @@ export const BLOCK_TYPES = [
   { id: 'feedback', label: 'Feedback', group: 'Dialogue and care', icon: 'quotes', track: 'support', minutes: 10, length: 5, modes: ['text'], presence: ['teaching'], feedback: true, blurb: 'Teacher to learner, and learner to teacher.' },
   { id: 'announce', label: 'Announcement', group: 'Comms', icon: 'news', track: 'comms', minutes: 2, length: 1, modes: ['text'], presence: ['teaching'], blurb: 'A note to everyone.' },
   { id: 'email', label: 'Pace email', group: 'Comms', icon: 'mail', track: 'comms', minutes: 0, length: 1, modes: ['text'], presence: ['teaching'], blurb: 'Sent automatically on its day.' },
+  // New in alpha 0.4, mocked: they sit on the timeline and take words and settings; learners see a placeholder for now.
+  { id: 'page', label: 'Web page', group: 'Content', icon: 'globe', track: 'content', minutes: 10, length: 3, modes: ['text', 'visual'], presence: ['teaching'], preview: true, blurb: 'A page from Web, edited here in brief or in Web in full.' },
+  { id: 'case', label: 'Case study', group: 'Content', icon: 'fileText', track: 'content', minutes: 25, length: 5, modes: ['text'], presence: ['teaching', 'reflective'], preview: true, blurb: 'A real story to work through, with questions.' },
+  { id: 'flashcards', label: 'Flashcards', group: 'Practice and assessment', icon: 'collection', track: 'assess', minutes: 10, length: 7, modes: ['text', 'hands-on'], presence: ['reflective'], preview: true, blurb: 'Spaced practice: cards come back until they stick.' },
+  { id: 'scenario', label: 'Branching scenario', group: 'Practice and assessment', icon: 'branch', track: 'assess', minutes: 20, length: 5, modes: ['text', 'hands-on'], presence: ['reflective'], preview: true, blurb: 'Choose what to do next and see what happens.' },
+  { id: 'mapwalk', label: 'Ecosystem walk', group: 'Practice and assessment', icon: 'mapTrifold', track: 'assess', minutes: 20, length: 5, modes: ['visual', 'hands-on'], presence: ['reflective'], preview: true, blurb: 'Explore an Ecosystem map with prompts along the way.' },
+  { id: 'checkpoint', label: 'Credential checkpoint', group: 'Practice and assessment', icon: 'seal', track: 'assess', minutes: 0, length: 1, modes: [], presence: [], preview: true, blurb: 'Where a microcredential is earned (with stage 5).' },
+  { id: 'poll', label: 'Quick poll', group: 'Dialogue and care', icon: 'chart', track: 'support', minutes: 2, length: 3, modes: ['hands-on'], presence: ['social'], preview: true, blurb: 'One question, everyone answers, everyone sees.' },
+  { id: 'voice', label: 'Voice note', group: 'Dialogue and care', icon: 'mic', track: 'support', minutes: 5, length: 4, modes: ['audio'], presence: ['social', 'reflective'], preview: true, blurb: 'Learners answer out loud instead of typing.' },
+  { id: 'showcase', label: 'Showcase', group: 'Dialogue and care', icon: 'image', track: 'support', minutes: 15, length: 7, modes: ['visual'], presence: ['social'], preview: true, blurb: 'A gallery where learners share what they made.' },
   { id: 'release', label: 'Release', group: 'Comms', icon: 'unlock', track: 'comms', minutes: 0, length: 1, modes: [], presence: [], blurb: 'New lessons open (“week 3 opens”).' },
 ];
 export const blockType = (id) => BLOCK_TYPES.find((t) => t.id === id) ?? BLOCK_TYPES[0];
@@ -168,7 +201,7 @@ export function addBlock(c, { type = 'lesson', trackId = null, start = 0, ...pat
   });
   return { cartridge, id };
 }
-const clampDay = (c, d) => clampInt(d, -(c.span?.pre ?? 7), (c.span?.length ?? 28) + (c.span?.post ?? 7) - 1);
+const clampDay = (c, d) => clampInt(d, -(c.span?.pre ?? 7) - ROOM, (c.span?.length ?? 28) + (c.span?.post ?? 7) + ROOM - 1);
 export const updateBlock = (c, id, patch) => edit(c, (x) => { if (x.blocks[id]) Object.assign(x.blocks[id], patch); });
 export const removeBlock = (c, id) => edit(c, (x) => {
   delete x.blocks[id];
@@ -194,10 +227,122 @@ export function resizeBlock(c, id, edge, day) {
 export function duplicateBlock(c, id) {
   const b = c.blocks[id];
   if (!b) return { cartridge: c, id: null };
-  return addBlock(c, { ...clone(b), id: undefined, start: b.start + 7, title: b.title });
+  const { streamId, ...copy } = clone(b);
+  return addBlock(c, { ...copy, id: undefined, start: b.start + 7, title: b.title });
 }
 export const blocksOn = (c, trackId) => Object.values(c.blocks).filter((b) => b.trackId === trackId).sort((a, b) => a.start - b.start || a.title.localeCompare(b.title));
 export const blockEnd = (b) => b.start + b.length;
+
+/** A lesson's sections (the lesson builder); older lessons are their words and pictures. */
+export function lessonSections(b) {
+  if (b.settings?.sections?.length) return b.settings.sections;
+  const out = [];
+  if (b.body) out.push({ id: 'sec_body', kind: 'text', text: b.body });
+  for (const im of b.settings?.images ?? []) if (im.src) out.push({ id: `sec_img_${out.length}`, kind: 'image', src: im.src, alt: im.alt ?? '', decorative: !!im.decorative });
+  return out;
+}
+
+/* --------------------------------------------------------------- streams */
+
+/**
+ * A stream: blocks linked into one composite that moves together, like a
+ * group of clips in a music editor ("lesson intro, slideshow, check, discussion,
+ * wrap-up"). Blocks can sit on different tracks. A stream can be saved as a
+ * template and dropped into any cartridge.
+ *
+ *   c.streams { [id]: { id, name, tone } }      Block.streamId
+ *   Template { id, name, blurb, blocks: [{ type, offset, length, title, body, settings, minutes, required }] }
+ */
+export const STREAM_TONES = ['teal', 'violet', 'orange', 'green', 'blue', 'coral', 'amber', 'orchid'].map(hex);
+export const streamBlocks = (c, sid) => Object.values(c.blocks).filter((b) => b.streamId === sid).sort((a, b) => a.start - b.start || a.title.localeCompare(b.title));
+export const streamSpan = (c, sid) => { const bs = streamBlocks(c, sid); return bs.length ? { start: Math.min(...bs.map((b) => b.start)), end: Math.max(...bs.map(blockEnd)) } : null; };
+
+/** Link blocks into a new stream; a block leaves any stream it was in. Returns { cartridge, id }. */
+export function linkStream(c, blockIds, name = null) {
+  const id = rid('str');
+  const ids = blockIds.filter((b) => c.blocks[b]);
+  const n = Object.keys(c.streams ?? {}).length;
+  const cartridge = edit(c, (x) => {
+    x.streams ??= {};
+    x.streams[id] = { id, name: name ?? `Stream ${n + 1}`, tone: STREAM_TONES[n % STREAM_TONES.length] };
+    for (const b of ids) x.blocks[b].streamId = id;
+  });
+  return { cartridge, id: cartridge.streams?.[id] ? id : null };
+}
+export const updateStream = (c, sid, patch) => edit(c, (x) => { if (x.streams?.[sid]) Object.assign(x.streams[sid], patch); });
+export const unlinkBlock = (c, bid) => edit(c, (x) => { if (x.blocks[bid]) delete x.blocks[bid].streamId; });
+export const addToStream = (c, sid, bid) => edit(c, (x) => { if (x.streams?.[sid] && x.blocks[bid]) x.blocks[bid].streamId = sid; });
+/** Unlink every block in a stream (the blocks stay). */
+export const dissolveStream = (c, sid) => edit(c, (x) => { for (const b of Object.values(x.blocks)) if (b.streamId === sid) delete b.streamId; delete x.streams?.[sid]; });
+/** Remove a stream and its blocks. */
+export const removeStream = (c, sid) => edit(c, (x) => {
+  const gone = new Set(Object.values(x.blocks).filter((b) => b.streamId === sid).map((b) => b.id));
+  for (const id of gone) delete x.blocks[id];
+  for (const b of Object.values(x.blocks)) b.after = (b.after ?? []).filter((a) => !gone.has(a));
+  delete x.streams?.[sid];
+});
+/** Move every block in a stream by some days, together, keeping their spacing. */
+export function moveStream(c, sid, delta) {
+  const sp = streamSpan(c, sid);
+  if (!sp || !delta) return c;
+  const lo = -(c.span?.pre ?? 7) - ROOM;
+  const hi = (c.span?.length ?? 28) + (c.span?.post ?? 7) + ROOM;
+  const d = Math.max(lo - sp.start, Math.min(hi - sp.end, Math.round(delta)));
+  return edit(c, (x) => { for (const b of Object.values(x.blocks)) if (b.streamId === sid) b.start += d; });
+}
+
+/** A stream as a reusable template: types, spacing and words, without dates or links. */
+export function streamToTemplate(c, sid, { name = null, blurb = '' } = {}) {
+  const bs = streamBlocks(c, sid);
+  const start = Math.min(...bs.map((b) => b.start));
+  return {
+    id: rid('tpl'), name: name ?? c.streams?.[sid]?.name ?? 'My stream', blurb, saved: new Date().toISOString(),
+    blocks: bs.map((b) => ({ type: b.type, offset: b.start - start, length: b.length, title: b.title, body: b.body ?? '', settings: clone(b.settings ?? {}), minutes: b.minutes, required: b.required, ...(b.at ? { at: b.at } : {}) })),
+  };
+}
+/** Drop a template into a cartridge at a day: each block goes on a track of its kind, all linked. Returns { cartridge, id }. */
+export function applyStream(c, tpl, start = 0) {
+  let x = c;
+  const ids = [];
+  for (const t of tpl.blocks) {
+    const kind = blockType(t.type).track;
+    if (!x.tracks.some((tr) => tr.kind === kind)) x = addTrack(x, kind);
+    const r = addBlock(x, { type: t.type, start: start + (t.offset ?? 0), ...(t.length ? { length: t.length } : {}), ...(t.title ? { title: t.title } : {}), ...(t.body ? { body: t.body } : {}), ...(t.settings ? { settings: clone(t.settings) } : {}), ...(t.minutes != null ? { minutes: t.minutes } : {}), ...(t.at ? { at: t.at } : {}), ...(t.required != null ? { required: t.required } : {}) });
+    x = r.cartridge;
+    ids.push(r.id);
+  }
+  const r = linkStream(x, ids, tpl.name);
+  return { cartridge: r.cartridge, id: r.id, blockIds: ids };
+}
+
+/** Streams that come with Teach. */
+export const STREAM_TEMPLATES = [
+  { id: 'tpl_slideshow', name: 'Basic slideshow stream', blurb: 'Lesson intro, a slideshow, a quick check, a discussion and a wrap-up lesson.', builtIn: true, blocks: [
+    { type: 'lesson', offset: 0, length: 2, title: 'Intro: what this week is about' },
+    { type: 'slideshow', offset: 1, length: 3, title: 'Slideshow' },
+    { type: 'quiz', offset: 2, length: 3, title: 'Check yourself', settings: { questions: [{ q: 'What was the main idea?', options: ['', '', ''], answer: 0 }] } },
+    { type: 'discussion', offset: 3, length: 4, title: 'Talk it through', body: 'What surprised you in the slideshow?' },
+    { type: 'lesson', offset: 5, length: 2, title: 'Wrap-up: what we learned' },
+  ] },
+  { id: 'tpl_live', name: 'Live session stream', blurb: 'A reading to prepare, an announcement, the session, and a reflection after.', builtIn: true, blocks: [
+    { type: 'reading', offset: 0, length: 3, title: 'Read before the session' },
+    { type: 'announce', offset: 1, length: 1, title: 'See you on the call' },
+    { type: 'live', offset: 3, length: 1, title: 'Live session', at: '19:00' },
+    { type: 'reflection', offset: 4, length: 3, title: 'What stayed with you?' },
+  ] },
+  { id: 'tpl_assign', name: 'Assignment stream', blurb: 'A brief, the assignment, peer review and feedback.', builtIn: true, blocks: [
+    { type: 'lesson', offset: 0, length: 2, title: 'The brief' },
+    { type: 'assignment', offset: 1, length: 7, title: 'Assignment' },
+    { type: 'peer', offset: 8, length: 5, title: 'Swap with a partner' },
+    { type: 'feedback', offset: 10, length: 5, title: 'Feedback on your work' },
+  ] },
+  { id: 'tpl_week', name: 'Week opener', blurb: 'The week opens, a note to everyone, a short lesson and a check-in.', builtIn: true, blocks: [
+    { type: 'release', offset: 0, length: 1, title: 'The week opens' },
+    { type: 'announce', offset: 0, length: 1, title: 'This week' },
+    { type: 'lesson', offset: 0, length: 3, title: 'This week’s lesson' },
+    { type: 'checkin', offset: 3, length: 2, title: 'How’s the week going?' },
+  ] },
+];
 
 /* ----------------------------------------------------------------- pace */
 
