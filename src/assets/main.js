@@ -5,7 +5,6 @@ import { PluginHeader } from '../ui/PluginHeader.js';
 import { Menu } from '../ui/Menu.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
 import { MiniMap } from '../ui/MiniMap.js';
-import { Sunburst } from '../ui/Sunburst.js';
 import { pdfFirstPage } from '../ui/pdfPage.js';
 import { standIn } from '../ui/standIn.js';
 import { photoOrNull, photoThumb, photoUrl, photoCredit, photoById } from '../platform/photos.js';
@@ -22,8 +21,9 @@ import { enabledPlugins, linkTo } from '../plugins.js';
 import { putMedia, deleteMedia, mediaUrl, maxUploadMb } from '../platform/media.js';
 import {
   ABCD, abcdById, SENSITIVITY, SOURCES, sourceById, FILE_GROUPS, gatherAssets, ensureItem, newItem, touch, logActivity,
-  collectionTree, tagCounts, searchCards, prettySize, migrateAssets, keyOf,
+  collectionTree, tagCounts, searchCards, prettySize, migrateAssets, keyOf, homeOf,
 } from '../platform/assetHub.js';
+import { AssetMapView } from './AssetMap.js';
 
 /**
  * The Asset manager: everything the organisation has to work with, in one
@@ -414,23 +414,27 @@ function ListView(list) {
  * and linking by hand.
  */
 function MapView(list, cards) {
-  const mode = prefs.mapMode === 'arrange' ? 'arrange' : 'sunburst';
+  // Alpha 0.4: the wheel and list (the old sunburst's place) or the icicle; Arrange as before.
+  const mode = prefs.mapMode === 'arrange' ? 'arrange' : prefs.mapMode === 'icicle' ? 'icicle' : 'wheel';
+  const groupBy = prefs.mapGroup === 'filed' ? 'filed' : 'home';
   const by = prefs.mapSize === 'links' ? 'links' : 'count';
   const seg = (items, cur, set) => h('div', { class: 'device-toggle xs', role: 'radiogroup' }, items.map(([id, label]) =>
     h('button', { type: 'button', role: 'radio', 'aria-checked': String(cur === id), class: cur === id ? 'on' : '', onclick: () => { set(id); savePrefs(); drawMain(allCards()); } }, label)));
   const bar = h('div', { class: 'ah-map-bar' },
-    seg([['sunburst', 'Sunburst'], ['arrange', 'Arrange']], mode, (v) => { prefs.mapMode = v; }),
-    mode === 'sunburst' && h('span', { class: 'ah-map-size' }, h('span', { class: 'muted small' }, 'Size by'), seg([['count', 'Count'], ['links', 'Links']], by, (v) => { prefs.mapSize = v; })),
-    h('span', { class: 'muted small ah-map-hint' }, mode === 'sunburst' ? 'Click a ring to zoom in, the centre to step out, an asset to open it.' : 'Drag to sort, or grab the ring on an asset to link it.'));
+    seg([['wheel', 'Wheel'], ['icicle', 'Icicle'], ['arrange', 'Arrange']], mode, (v) => { prefs.mapMode = v; }),
+    mode !== 'arrange' && h('span', { class: 'ah-map-size' }, h('span', { class: 'muted small' }, 'Group by'), seg([['home', 'Where it lives'], ['filed', 'Collection or tag']], groupBy, (v) => { prefs.mapGroup = v; sunFocus = sunFocus.slice(0, 1); })),
+    mode !== 'arrange' && h('span', { class: 'ah-map-size' }, h('span', { class: 'muted small' }, 'Size by'), seg([['count', 'Count'], ['links', 'Links']], by, (v) => { prefs.mapSize = v; })),
+    h('span', { class: 'muted small ah-map-hint' }, mode === 'wheel' ? 'Click a wedge to open it, the centre to step back. ↑ ↓ step through the list.' : mode === 'icicle' ? 'Click a bar to open it, the left column to step back. ↑ ↓ step through the list.' : 'Drag to sort, or grab the ring on an asset to link it.'));
   if (mode === 'arrange') return h('div', { class: 'ah-mapview' }, bar, AssetMap(list, cards));
   const linksOf = (c) => (c.item?.related ?? []).length + list.filter((x) => x.item?.related?.includes(c.key)).length;
-  const groupOf = (c) => (c.collectionIds[0] && hub.collections[c.collectionIds[0]] ? hub.collections[c.collectionIds[0]].name : c.tags[0] ? `#${c.tags[0]}` : 'Not filed');
+  const filedIn = (c) => (c.collectionIds[0] && hub.collections[c.collectionIds[0]] ? hub.collections[c.collectionIds[0]].name : c.tags[0] ? `#${c.tags[0]}` : 'Not filed');
+  const groupOf = groupBy === 'home' ? homeOf : filedIn;
   const kinds = [...ABCD, { id: 'none', label: 'Not yet sorted', color: '#8a93a8' }];
   const data = { name: 'All assets', children: kinds.map((k) => {
     const mine = list.filter((c) => (c.abcd ?? 'none') === k.id);
     const groups = new Map();
     for (const c of mine) { const g = groupOf(c); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(c); }
-    const leaf = (c) => ({ name: c.title, key: c.key, kind: k.id, value: by === 'links' ? 1 + linksOf(c) : 1 });
+    const leaf = (c) => ({ name: c.title, key: c.key, kind: k.id, what: c.kindLabel, home: homeOf(c), value: by === 'links' ? 1 + linksOf(c) : 1 });
     // Nothing filed in this type? Its assets sit straight under it, without a "Not filed" ring.
     const only = groups.size === 1 && groups.has('Not filed');
     return { name: k.label, kind: k.id, color: k.color, children: only ? mine.map(leaf) : [...groups].map(([name, cs]) => ({ name, kind: k.id, children: cs.map(leaf) })) };
@@ -448,15 +452,12 @@ function MapView(list, cards) {
   };
   showArrange(sunFocus);
   bar.append(arrangeBtn);
-  return h('div', { class: 'ah-mapview' }, bar, Sunburst({
-    data, size: 520, caption: 'All assets', label: 'Asset map: a sunburst of every asset by ABCD type',
-    focus: sunFocus,
-    onZoom: (path) => { sunFocus = path; showArrange(path); },
-    tip: (d) => d.children ? `${d.value} asset${d.value === 1 ? '' : 's'} · click to open` : `${kinds.find((k) => k.id === d.data.kind)?.label ?? ''}${d.parent?.depth === 2 ? ` · ${d.parent.data.name}` : ''}\nClick to see it`,
-    // Bold at every depth: each ring a step lighter, but never washed out.
-    color: (d) => { const c = kindColor[d.data.kind] ?? '#8a93a8'; return d.depth === 1 ? c : d.children ? mix(c, 0.12) : mix(c, d.depth === 2 ? 0.12 : 0.24); },
-    // Opening an asset shows it beside the map, and the sunburst stays where it is.
-    onLeaf: (leaf, e) => {
+  return h('div', { class: 'ah-mapview' }, bar, AssetMapView({
+    data, mode, focus: sunFocus, picked: focusKey,
+    color: (kind) => kindColor[kind] ?? '#8a93a8',
+    onFocus: (path) => { sunFocus = path; showArrange(path); },
+    // Opening an asset shows it beside the map, and the map stays where it is.
+    onPick: (leaf) => {
       const c = list.find((x) => x.key === leaf.key);
       if (!c) return;
       selection = new Set([c.key]);
@@ -467,8 +468,6 @@ function MapView(list, cards) {
   }));
 }
 let sunFocus = [];   // the names from the centre to the ring the asset sunburst is zoomed into
-/** A colour lifted towards white by t (0–1). */
-const mix = (hex, t) => { const n = parseInt(hex.slice(1), 16); const ch = (s) => Math.round(((n >> s) & 255) + (255 - ((n >> s) & 255)) * t); return `rgb(${ch(16)},${ch(8)},${ch(0)})`; };
 
 /**
  * The asset map (alpha 0.2): six ABCD wedges around the organisation.
@@ -958,9 +957,10 @@ function Preview(c) {
   let host = '';
   if (c.url) try { host = new URL(c.url, location.href).hostname.replace(/^www\./, ''); } catch { /* not a URL */ }
   box.classList.add('art');
-  box.replaceChildren(tile,
+  // (replaceChildren would print a bare false, so leave the missing parts out.)
+  box.replaceChildren(...[tile,
     host && h('a', { class: 'ah-preview-host', href: c.url, target: '_blank', rel: 'noopener' }, icon('link', 13), host),
-    photo && h('small', { class: 'ah-photo-credit' }, photoCredit(photo)));
+    photo && h('small', { class: 'ah-photo-credit' }, photoCredit(photo))].filter(Boolean));
   return box;
 }
 
