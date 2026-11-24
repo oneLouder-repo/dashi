@@ -15,10 +15,10 @@ import { enabledPlugins, linkTo, currentWho } from '../plugins.js';
 import {
   BLOCK_TYPES, BLOCK_GROUPS, TRACK_KINDS, KINDS, blockType, trackKind, kindLabel, blankCartridge, addBlock, updateBlock, removeBlock, duplicateBlock,
   addTrack, updateTrack, removeTrack, moveTrack, addPace, updatePace, removePace, updateCartridge, publish, unpublish, phases, dateOf, dayOf, shortDate,
-  pathByWeek, cartridgeStats, exportCartridge, importCartridge,
+  pathByWeek, weekLoad, cartridgeStats, exportCartridge, importCartridge, weekOf, weekLabel,
   ROOM, lessonSections, STREAM_TEMPLATES, applyStream, linkStream, updateStream, unlinkBlock, dissolveStream, removeStream, streamBlocks, streamToTemplate, addToStream, STREAM_TONES,
 } from '../learning/cartridge.js';
-import { runChecks, canPublish, LEVELS, ruleLabel, udlBalance } from '../learning/checks.js';
+import { runChecks, canPublish, LEVELS, RULES, ruleLabel, udlBalance, issuesFor } from '../learning/checks.js';
 import { TEMPLATES, createBoard, templateLabel } from '../learning/collab.js';
 import { About } from '../learning/About.js';
 import { Timeline, ZOOMS, HEAD_WIDTH } from './Timeline.js';
@@ -413,32 +413,176 @@ const Issue = (c) => (i) => h('li', { class: `l-${i.level}` },
 
 /* ------------------------------------------------------------ path, checks */
 
+/* The path as a mixing desk: each week is a channel strip, with a master strip at the end. */
+const WAYS = [['text', 'Read'], ['audio', 'Listen'], ['visual', 'Watch'], ['live', 'Live'], ['hands-on', 'Do']];
+const PRES = [['teaching', 'T', 'Teaching'], ['social', 'S', 'Social'], ['reflective', 'R', 'Reflective']];
+const ALT_WAY = { transcript: 'text', captions: 'text', reading: 'text', audio: 'audio' };
+const hrs = (min) => `${Math.round(min / 6) / 10} h`;
+
+function weekProfile(c, blocks, issues) {
+  const muted = new Set(c.tracks.filter((t) => t.muted).map((t) => t.id));
+  const live = blocks.filter((b) => !muted.has(b.trackId));
+  const ways = new Set(live.flatMap((b) => [...blockType(b.type).modes, ...(b.alts ?? []).map((a) => ALT_WAY[a])]).filter(Boolean));
+  const pres = new Set(live.flatMap((b) => blockType(b.type).presence));
+  const ids = new Set(blocks.map((b) => b.id));
+  return {
+    minutes: live.reduce((k, b) => k + (Number(b.minutes) || 0), 0),
+    ways, pres,
+    required: live.filter((b) => b.required !== false).length,
+    optional: live.filter((b) => b.required === false).length,
+    assessed: live.filter((b) => blockType(b.type).assessed).length,
+    issues: issues.filter((i) => ids.has(i.blockId)),
+  };
+}
+
+function Meter(minutes, promise, tall = false) {
+  const r = promise ? minutes / promise : 0;
+  const state = r > 1.5 ? 'over' : r > 1.15 ? 'high' : r === 0 ? 'none' : 'ok';
+  const segs = 12;
+  const lit = Math.min(segs, Math.round((r / 1.5) * segs));
+  return h('div', { class: `tc-meter ${state}${tall ? ' tall' : ''}`, title: `${hrs(minutes)} of ${hrs(promise)} promised` },
+    h('div', { class: 'tc-meter-col' }, Array.from({ length: segs }, (_, i) => h('i', { class: i < lit ? (i >= segs * (1.15 / 1.5) ? 'on hot' : 'on') : '' })).reverse(),
+      h('span', { class: 'tc-meter-line', style: `bottom:${(1 / 1.5) * 100}%` })),
+    h('b', {}, hrs(minutes)), h('small', {}, `of ${hrs(promise)}`));
+}
+
+const Leds = (title, list, on, short = false) => h('div', { class: 'tc-leds' }, h('small', {}, title),
+  h('div', {}, list.map(([id, a, b]) => h('span', { class: on.has(id) ? 'on' : '', title: b ?? a }, short ? a : a))));
+
 function PathPage(c) {
   setCrumbs([{ label: 'Path' }]);
+  const issues = runChecks(c);
   const weeks = pathByWeek(c, { teacher: true });
+  const promise = (Number(c.hoursPerWeek) || 3) * 60;
   const muted = new Set(c.tracks.filter((t) => t.muted).map((t) => t.id));
-  return h('div', { class: 'lx-wrap' }, tabs('home'), CartridgeBar(c, 'path'),
-    h('p', { class: 'lx-note' }, 'The cartridge as a learner moves through it, week by week. Greyed blocks are on hidden tracks.'),
-    h('div', { class: 'tc-path' }, weeks.map((w) => h('section', { class: 'lx-panel' },
-      h('h3', {}, w.label, h('small', {}, ` ${shortDate(dateOf(c.run.start, w.from))} – ${shortDate(dateOf(c.run.start, w.to - 1))} · about ${Math.round(w.blocks.reduce((k, b) => k + (Number(b.minutes) || 0), 0) / 6) / 10} h`)),
-      h('ol', { class: 'tc-path-list' }, w.blocks.map((b) => {
+  const all = weekProfile(c, Object.values(c.blocks), issues);
+  const inSession = weeks.filter((w) => w.week >= 1);
+  const strip = (w) => {
+    const p = weekProfile(c, w.blocks, issues);
+    const weekIssues = issues.filter((i) => i.week === w.week).concat(p.issues);
+    const worst = weekIssues.some((i) => i.level === 'block') ? 'block' : weekIssues.some((i) => i.level === 'warn') ? 'warn' : weekIssues.length ? 'hint' : 'ok';
+    return h('section', { class: `tc-strip${w.week === 0 ? ' pre' : ''}` },
+      h('header', {}, h('b', {}, w.label), h('small', {}, `${shortDate(dateOf(c.run.start, w.from))} – ${shortDate(dateOf(c.run.start, w.to - 1))}`)),
+      h('div', { class: 'tc-strip-body' },
+        Meter(p.minutes, w.week === 0 ? promise / 2 : promise),
+        h('div', { class: 'tc-strip-side' },
+          Leds('Ways in', WAYS, p.ways),
+          Leds('Presence', PRES, p.pres, true),
+          h('dl', { class: 'tc-strip-counts' },
+            h('div', {}, h('dt', {}, 'Blocks'), h('dd', {}, w.blocks.length)),
+            h('div', {}, h('dt', {}, 'Required'), h('dd', {}, p.required)),
+            h('div', {}, h('dt', {}, 'Assessed'), h('dd', {}, p.assessed))))),
+      h('a', { class: `tc-strip-check l-${worst}`, href: `#c/${c.id}/checks` }, worst === 'ok' ? icon('check', 13) : h('i', { class: `tc-lvl l-${worst}` }), worst === 'ok' ? 'All clear' : `${weekIssues.length} to look at`),
+      h('ol', { class: 'tc-strip-blocks' }, w.blocks.map((b) => {
         const t = c.tracks.find((x) => x.id === b.trackId);
+        const st = b.stream && c.streams?.[b.stream];
+        const bad = issuesFor(issues, b.id);
         return h('li', { class: muted.has(b.trackId) ? 'muted' : '', style: `--tone:${t?.tone ?? '#999'}` },
-          h('button', { type: 'button', onclick: () => openBlock(c.id, b.id) }, icon(blockType(b.type).icon, 14), h('b', {}, b.title),
-            h('small', {}, `${blockType(b.type).label} · ${shortDate(dateOf(c.run.start, b.start))}${b.at ? ` ${b.at}` : ''}${b.minutes ? ` · ${b.minutes} min` : ''}${b.required ? '' : ' · optional'}${b.after?.length ? ' · waits for another block' : ''}`)));
-      }))))));
+          h('button', { type: 'button', onclick: () => openBlock(c.id, b.id), title: `${blockType(b.type).label} · ${shortDate(dateOf(c.run.start, b.start))}${b.minutes ? ` · ${b.minutes} min` : ''}${b.required === false ? ' · optional' : ''}` },
+            icon(blockType(b.type).icon, 13), h('span', {}, b.title),
+            st && h('i', { class: 'tc-sdot', style: `background:${st.tone}`, title: st.name }),
+            bad.length ? h('i', { class: `tc-lvl l-${bad[0].level}` }) : null,
+            h('small', {}, `${shortDate(dateOf(c.run.start, b.start))}${b.minutes ? ` · ${b.minutes}m` : ''}${b.required === false ? ' · opt' : ''}`)));
+      })));
+  };
+  const avg = inSession.length ? inSession.reduce((k, w) => k + weekProfile(c, w.blocks, issues).minutes, 0) / inSession.length : 0;
+  const master = h('section', { class: 'tc-strip master' },
+    h('header', {}, h('b', {}, 'Whole course'), h('small', {}, `${inSession.length} weeks in session`)),
+    h('div', { class: 'tc-strip-body' },
+      Meter(avg, promise, true),
+      h('div', { class: 'tc-strip-side' },
+        Leds('Ways in', WAYS, all.ways),
+        Leds('Presence', PRES, all.pres, true),
+        h('dl', { class: 'tc-strip-counts' },
+          h('div', {}, h('dt', {}, 'Blocks'), h('dd', {}, Object.keys(c.blocks).length)),
+          h('div', {}, h('dt', {}, 'Total'), h('dd', {}, hrs(all.minutes))),
+          h('div', {}, h('dt', {}, 'Assessed'), h('dd', {}, all.assessed)),
+          h('div', {}, h('dt', {}, 'Streams'), h('dd', {}, Object.keys(c.streams ?? {}).length))))),
+    h('p', { class: 'tc-strip-note' }, 'The meter shows an average week in session against the hours promised. The line marks the promise.'));
+  return h('div', { class: 'lx-wrap' }, tabs('home'), CartridgeBar(c, 'path'),
+    h('p', { class: 'lx-note' }, 'The course as a learner moves through it, one strip per week. Meters show the week’s hours against what you promised; lights show the ways in and the kinds of presence. Greyed blocks are on hidden tracks.'),
+    h('div', { class: 'tc-mixer' }, h('div', { class: 'tc-mixer-strips' }, weeks.map(strip)), master));
 }
+
+/* Checks: a full report, rule by rule, whether or not anything is wrong. */
+const PASS = {
+  alt: (n) => `${n.images} picture${n.images === 1 ? '' : 's'} checked: each has alt text or is marked decorative.`,
+  transcript: (n) => `${n.media} audio or video block${n.media === 1 ? '' : 's'}, each with a transcript or captions.`,
+  contrast: (n) => `Text on all ${n.tracks} track colours reads at 4.5 to 1 or better.`,
+  reading: () => 'Every block with words reads at about grade 10 or below.',
+  timing: () => 'No timed quiz or exam is missing extensions.',
+  load: (n) => `Every week stays within the ${n.hours} hours promised (with a little give).`,
+  udl: () => 'Each week offers content more than one way: read, listen or watch.',
+  presence: () => 'Each week in session has teaching, social and reflective presence.',
+  feedback: (n) => `${n.assessed} assessed block${n.assessed === 1 ? '' : 's'}, each followed by feedback within two weeks.`,
+  dates: () => 'Nothing is due in the first 48 hours or on a public holiday.',
+  ref: () => 'Every content block has its content chosen or written.',
+};
 
 function ChecksPage(c) {
   setCrumbs([{ label: 'Checks' }]);
   const issues = runChecks(c);
-  const byRule = [...new Set(issues.map((i) => i.rule))];
+  const blocks = Object.values(c.blocks);
+  const n = {
+    images: blocks.reduce((k, b) => k + (b.settings?.images ?? []).filter((i) => i?.src).length, 0),
+    media: blocks.filter((b) => blockType(b.type).media).length,
+    tracks: c.tracks.length, hours: c.hoursPerWeek || 3,
+    assessed: blocks.filter((b) => blockType(b.type).assessed && b.type !== 'milestone').length,
+  };
+  const count = (lvl) => issues.filter((i) => i.level === lvl).length;
+  const passed = RULES.filter((r) => !issues.some((i) => i.rule === r.id)).length;
+  const state = count('block') ? 'bad' : count('warn') ? 'good' : 'great';
+  const sevOf = (r) => { const l = issues.filter((i) => i.rule === r.id); return l.some((i) => i.level === 'block') ? 0 : l.some((i) => i.level === 'warn') ? 1 : l.length ? 2 : 3; };
+  const rules = [...RULES].sort((a, b) => sevOf(a) - sevOf(b));
+  const weeks = weekLoad(c).filter((w) => w.minutes || w.week);
+  const promise = (Number(c.hoursPerWeek) || 3) * 60;
+  const maxMin = Math.max(promise * 1.5, ...weeks.map((w) => w.minutes));
+  const path = pathByWeek(c).filter((w) => w.week >= 1);
+  const udl = udlBalance(c);
+  const udlMax = Math.max(1, udl.engage, udl.represent, udl.express);
+  const head = h('section', { class: `tc-report-head ${state}` },
+    h('div', { class: 'tc-report-badge' }, icon(state === 'bad' ? 'warn' : 'check', 26)),
+    h('div', {},
+      h('h2', {}, state === 'great' ? 'Ready to publish, and nothing to tidy' : state === 'good' ? 'Ready to publish, with a few things worth a look' : `${count('block')} thing${count('block') === 1 ? '' : 's'} to fix before publishing`),
+      h('p', {}, `${RULES.length} checks ran over ${blocks.length} blocks, ${c.tracks.length} tracks and ${path.length} weeks in session. ${passed} of ${RULES.length} pass cleanly.`)),
+    h('dl', { class: 'tc-report-stats' },
+      h('div', { class: 'l-block' }, h('dt', {}, 'To fix'), h('dd', {}, count('block'))),
+      h('div', { class: 'l-warn' }, h('dt', {}, 'Worth fixing'), h('dd', {}, count('warn'))),
+      h('div', { class: 'l-hint' }, h('dt', {}, 'Ideas'), h('dd', {}, count('hint'))),
+      h('div', { class: 'l-ok' }, h('dt', {}, 'Passing'), h('dd', {}, passed))));
+  const list = h('ol', { class: 'tc-rulelist' }, rules.map((r) => {
+    const mine = issues.filter((i) => i.rule === r.id);
+    const lvl = mine[0]?.level;
+    return h('li', { class: mine.length ? `l-${lvl}` : 'pass' },
+      h('details', { open: !!mine.length && lvl !== 'hint' },
+        h('summary', {},
+          mine.length ? h('i', { class: `tc-lvl l-${lvl}` }) : h('span', { class: 'tc-pass' }, icon('check', 12)),
+          h('b', {}, r.label),
+          h('span', { class: 'tc-rule-sum' }, mine.length ? `${mine.length} ${lvl === 'block' ? 'to fix' : lvl === 'warn' ? 'worth fixing' : mine.length === 1 ? 'idea' : 'ideas'}` : 'Passes')),
+        h('div', { class: 'tc-rule-body' },
+          !mine.length && h('p', { class: 'tc-rule-pass' }, PASS[r.id]?.(n) ?? 'Passes.'),
+          h('p', { class: 'tc-rule-why' }, r.why),
+          mine.length ? h('ul', { class: 'tc-issues' }, mine.map(Issue(c))) : null)));
+  }));
+  const aside = h('aside', { class: 'tc-report-aside' },
+    h('section', { class: 'lx-panel' }, h('h3', {}, icon('gauge', 15), 'Load by week'),
+      h('div', { class: 'tc-loadbars', style: `--p:${promise / maxMin}` }, weeks.map((w) => {
+        const r = w.minutes / promise;
+        return h('div', { class: r > 1.5 ? 'over' : r > 1.15 ? 'high' : '', title: `${weekLabel(w.week)}: ${hrs(w.minutes)}` }, h('i', { style: `--h:${(w.minutes / maxMin) * 100}%` }), h('small', {}, w.week === 0 ? 'Pre' : `W${w.week}`));
+      })),
+      h('p', { class: 'lx-note' }, `The line is the ${c.hoursPerWeek || 3} hours a week you promised.`)),
+    h('section', { class: 'lx-panel' }, h('h3', {}, icon('users', 15), 'Presence by week'),
+      h('table', { class: 'tc-pres' }, h('thead', {}, h('tr', {}, h('th', {}, ''), PRES.map(([, s, l]) => h('th', { title: l }, s)))),
+        h('tbody', {}, path.map((w) => { const have = new Set(w.blocks.flatMap((b) => blockType(b.type).presence)); return h('tr', {}, h('th', {}, `W${w.week}`), PRES.map(([id]) => h('td', { class: have.has(id) ? 'on' : '' }, have.has(id) ? '●' : '○'))); }))),
+      h('p', { class: 'lx-note' }, 'Teaching, social and reflective presence, from the community of inquiry.')),
+    h('section', { class: 'lx-panel' }, h('h3', {}, icon('target', 15), 'UDL balance'),
+      h('div', { class: 'tc-udl' }, [['engage', 'Engagement'], ['represent', 'Representation'], ['express', 'Action and expression']].map(([k, label]) =>
+        h('div', {}, h('span', {}, h('b', {}, label)), h('i', { style: `--w:${(udl[k] / udlMax) * 100}%` }), h('em', {}, udl[k]))))));
   return h('div', { class: 'lx-wrap' }, tabs('home'), CartridgeBar(c, 'checks'),
-    h('p', { class: 'lx-note' }, 'Teach checks the design as you work, never the learners. Red ones stop publishing; the rest explain themselves.'),
-    issues.length ? h('div', { class: 'tc-rules' }, byRule.map((r) => {
-      const list = issues.filter((i) => i.rule === r);
-      return h('section', { class: 'lx-panel' }, h('h3', {}, ruleLabel(r), h('small', {}, ` ${list.length}`)), h('p', { class: 'lx-note' }, list[0].why), h('ul', { class: 'tc-issues' }, list.map(Issue(c))));
-    })) : h('section', { class: 'lx-panel' }, h('p', {}, icon('check', 15), ' Everything checks out.')));
+    head,
+    h('div', { class: 'tc-report' },
+      h('div', {}, h('p', { class: 'lx-note' }, 'Teach checks the design as you work, never the learners. Red stops publishing; the rest explain themselves. Open a row for why it matters.'), list),
+      aside));
 }
 
 /* -------------------------------------------------------------- learners */
@@ -643,14 +787,13 @@ function openBlock(cid, bid) {
       full && h('a', { class: 'btn btn-sm', href: full.href }, icon('export', 14), full.label),
       h('button', { type: 'button', class: `btn btn-sm${trayFull ? ' on' : ''}`, 'aria-pressed': String(trayFull), title: trayFull ? 'Back to a tray' : 'Use the whole screen', onclick: () => { trayFull = !trayFull; drawer?.el.classList.toggle('full', trayFull); drawer?.setBody(draw()); } }, icon(trayFull ? 'arrowsIn' : 'fit', 14), trayFull ? 'Tray' : 'Full screen'));
     let pane;
-    if (blockTab === 'when') pane = WhenPane(c, b, set);
-    else if (blockTab === 'access') pane = AccessPane(c, b, set);
+    if (blockTab === 'when') pane = h('div', { class: 'tc-tray-split' }, WhenPane(c, b, set), Glance(c, b, issues));
+    else if (blockTab === 'access') pane = h('div', { class: 'tc-tray-split' }, AccessPane(c, b, set), Glance(c, b, issues));
     else if (blockTab === 'checks') pane = issues.length ? h('ul', { class: 'tc-issues tc-drawer-issues' }, issues.map((i) => h('li', { class: `l-${i.level}` }, h('i', { class: `tc-lvl l-${i.level}` }), h('span', {}, i.title, h('small', {}, i.why))))) : h('p', { class: 'lx-note' }, icon('check', 14), ' Nothing to look at for this block.');
     else pane = h('div', { class: 'tc-tray-split' },
       h('div', { class: 'tc-tray-edit lx-form' },
         t.preview && h('p', { class: 'tc-preview-note' }, icon('sparkle', 14), ` ${t.label} is new: you can place it, write it and schedule it. Learners see a simple version until it’s built in full.`),
-        field('Title', text(b.title, (v) => set({ title: v || t.label }))),
-        ContentEditor(c, b, set)),
+        ContentEditor(c, b, set, field('Title', text(b.title, (v) => set({ title: v || t.label }))))),
       h('aside', { class: 'tc-tray-preview', 'aria-label': 'What learners see' }, h('h4', {}, icon('eye', 13), 'What learners see'), LearnerPreview(c, b)));
     drawer?.setActions?.(canEdit ? [
       h('button', { type: 'button', class: 'btn btn-sm btn-ghost text-error', onclick: async () => { if (await uiConfirm(`Remove “${b.title}”?`, { ok: 'Remove', danger: true })) { setCartridge(removeBlock(doc.cartridges[cid], bid), 'Block removed'); selected = null; drawer.close(); render(); } } }, icon('trash', 14), 'Remove'),
@@ -670,65 +813,155 @@ function openBlock(cid, bid) {
   drawer.setBody(draw());
 }
 
+const formSec = (title, ic, ...kids) => h('section', { class: 'tc-fsec' }, h('h4', {}, icon(ic, 14), title), ...kids);
+
 function WhenPane(c, b, set) {
-  const others = Object.values(c.blocks).filter((x) => x.id !== b.id && x.start <= b.start).sort((x, y) => x.start - y.start);
-  return h('div', { class: 'lx-form tc-tray-narrow' },
-    h('div', { class: 'lx-row' },
-      field('Track', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ trackId: e.target.value }) }, options(c.tracks.map((x) => ({ id: x.id, label: x.name })), b.trackId))),
-      field('Kind', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ type: e.target.value }) }, BLOCK_GROUPS.map((g) => h('optgroup', { label: g }, options(BLOCK_TYPES.filter((x) => x.group === g).map((x) => ({ id: x.id, label: x.label })), b.type)))))),
-    h('div', { class: 'lx-row' },
-      field('Opens', h('input', { type: 'date', class: 'input input-sm', disabled: !canEdit, value: dateOf(c.run.start, b.start), onchange: (e) => e.target.value && set({ start: dayOf(c.run.start, e.target.value) }) }), `Day ${b.start}${c.pacing === 'self' ? ', from each learner’s start' : ''}`),
-      field('Days open', h('input', { type: 'number', min: '1', max: '120', class: 'input input-sm', disabled: !canEdit, value: String(b.length), onchange: (e) => set({ length: Math.max(1, Number(e.target.value) || 1) }) })),
-      field('Time', h('input', { type: 'time', class: 'input input-sm', disabled: !canEdit, value: b.at ?? '', onchange: (e) => set({ at: e.target.value || null }) }), c.run.tz)),
-    h('div', { class: 'lx-row' },
-      field('Learner effort (minutes)', h('input', { type: 'number', min: '0', max: '600', step: '5', class: 'input input-sm', disabled: !canEdit, value: String(b.minutes ?? 0), onchange: (e) => set({ minutes: Math.max(0, Number(e.target.value) || 0) }) })),
-      h('label', { class: 'lx-check' }, h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', disabled: !canEdit, checked: !!b.required, onchange: (e) => set({ required: e.target.checked }) }), 'Required to finish')),
-    others.length > 0 && field('Waits for', h('select', { class: 'select select-sm', multiple: true, size: Math.min(6, others.length), disabled: !canEdit, onchange: (e) => set({ after: [...e.target.selectedOptions].map((o) => o.value) }) },
-      others.map((x) => h('option', { value: x.id, selected: (b.after ?? []).includes(x.id) }, `${x.title} (${shortDate(dateOf(c.run.start, x.start))})`))), 'Learners can open this once those are done. Leave empty for a free choice.'),
-    h('label', { class: 'lx-check' }, h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', disabled: !canEdit, checked: b.settings?.visibility === 'teachers', onchange: (e) => set({ settings: { ...b.settings, visibility: e.target.checked ? 'teachers' : 'learners' } }) }), 'Teachers only (a note to yourself)'));
+  const start = c.run.start;
+  const end = b.start + b.length - 1;
+  return h('div', { class: 'tc-tray-narrow tc-fsecs' },
+    formSec('Where it sits', 'rows',
+      h('div', { class: 'tc-grid-2' },
+        field('Track', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ trackId: e.target.value }) }, options(c.tracks.map((x) => ({ id: x.id, label: x.name })), b.trackId))),
+        field('Kind of block', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ type: e.target.value }) }, BLOCK_GROUPS.map((g) => h('optgroup', { label: g }, options(BLOCK_TYPES.filter((x) => x.group === g).map((x) => ({ id: x.id, label: x.label })), b.type)))))),
+      b.streamId && h('p', { class: 'tc-fnote' }, icon('link', 13), ` Part of “${c.streams?.[b.streamId]?.name ?? 'a stream'}”: moving it moves the whole stream.`)),
+    formSec('When', 'calendar',
+      h('div', { class: 'tc-grid-3' },
+        field('Opens', h('input', { type: 'date', class: 'input input-sm', disabled: !canEdit, value: dateOf(start, b.start), onchange: (e) => e.target.value && set({ start: dayOf(start, e.target.value) }) }), `Course day ${b.start}${c.pacing === 'self' ? ', from each learner’s start' : ''}`),
+        field('Days open', h('input', { type: 'number', min: '1', max: '120', class: 'input input-sm', disabled: !canEdit, value: String(b.length), onchange: (e) => set({ length: Math.max(1, Number(e.target.value) || 1) }) }), b.length > 1 ? `Until ${shortDate(dateOf(start, end))}` : 'Just that day'),
+        field('Time', h('input', { type: 'time', class: 'input input-sm', disabled: !canEdit, value: b.at ?? '', onchange: (e) => set({ at: e.target.value || null }) }), b.at ? c.run.tz : 'Any time that day')),
+      DayStrip(c, b)),
+    formSec('Effort', 'clock',
+      h('div', { class: 'tc-grid-3' },
+        field('Learner effort (minutes)', h('input', { type: 'number', min: '0', max: '600', step: '5', class: 'input input-sm', disabled: !canEdit, value: String(b.minutes ?? 0), onchange: (e) => set({ minutes: Math.max(0, Number(e.target.value) || 0) }) }), 'Counts towards the week’s load'),
+        h('div', { class: 'lx-field' }, h('span', {}, 'To finish the course'), h('label', { class: 'lx-check' }, h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', disabled: !canEdit, checked: !!b.required, onchange: (e) => set({ required: e.target.checked }) }), 'Required'), h('small', {}, b.required ? 'Learners need it to finish' : 'Nice to do, never needed')),
+        h('div', { class: 'lx-field' }, h('span', {}, 'Who sees it'), h('label', { class: 'lx-check' }, h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', disabled: !canEdit, checked: b.settings?.visibility === 'teachers', onchange: (e) => set({ settings: { ...b.settings, visibility: e.target.checked ? 'teachers' : 'learners' } }) }), 'Teachers only'), h('small', {}, 'A note to yourself, hidden from learners')))),
+    formSec('Order', 'flow', WaitsFor(c, b, set)));
+}
+
+/** A little strip of the run with this block on it, so the dates mean something. */
+function DayStrip(c, b) {
+  const from = -c.span.pre;
+  const to = c.span.length + c.span.post;
+  const pct = (d) => ((d - from) / (to - from)) * 100;
+  return h('div', { class: 'tc-daystrip', 'aria-hidden': 'true' },
+    h('i', { class: 'tc-ds-session', style: `left:${pct(0)}%;width:${pct(c.span.length) - pct(0)}%` }),
+    h('b', { class: 'tc-ds-block', style: `left:${pct(b.start)}%;width:${Math.max(0.8, pct(b.start + b.length) - pct(b.start))}%` }),
+    h('small', { style: 'left:0' }, shortDate(dateOf(c.run.start, from))),
+    h('small', { style: `left:${pct(0)}%` }, 'Day 0'),
+    h('small', { style: 'right:0' }, shortDate(dateOf(c.run.start, to - 1))));
+}
+
+/** Waits for: the earlier blocks as a list to tick, by week, instead of a multi-select. */
+function WaitsFor(c, b, set) {
+  const earlier = Object.values(c.blocks).filter((x) => x.id !== b.id && x.start <= b.start).sort((x, y) => x.start - y.start || x.title.localeCompare(y.title));
+  const after = new Set(b.after ?? []);
+  if (!earlier.length) return h('p', { class: 'tc-fnote' }, 'Nothing comes before this block yet, so it can’t wait for anything.');
+  const byWeek = new Map();
+  for (const x of earlier) { const w = weekLabel(weekOf(x.start)); if (!byWeek.has(w)) byWeek.set(w, []); byWeek.get(w).push(x); }
+  const toggle = (id, on) => set({ after: on ? [...after, id] : [...after].filter((x) => x !== id) });
+  const list = h('div', { class: 'tc-waits' }, [...byWeek].map(([w, xs]) => h('div', { class: 'tc-waits-week' }, h('h5', {}, w),
+    xs.map((x) => {
+      const t = blockType(x.type);
+      const tone = c.tracks.find((tr) => tr.id === x.trackId)?.tone ?? '#999';
+      return h('label', { class: `tc-wait${after.has(x.id) ? ' on' : ''}`, style: `--tone:${tone}` },
+        h('input', { type: 'checkbox', class: 'checkbox checkbox-xs', disabled: !canEdit, checked: after.has(x.id), onchange: (e) => toggle(x.id, e.target.checked) }),
+        h('span', { class: 'tc-wait-ic' }, icon(t.icon, 12)),
+        h('span', { class: 'tc-wait-t' }, x.title), h('small', {}, shortDate(dateOf(c.run.start, x.start))));
+    }))));
+  return h('div', { class: 'lx-field' },
+    h('span', {}, after.size ? `Waits for ${n(after.size, 'block')}` : 'Waits for nothing (learners choose freely)'),
+    after.size > 0 && h('div', { class: 'tc-wait-chips' }, [...after].filter((id) => c.blocks[id]).map((id) => h('button', { type: 'button', class: 'tc-wait-chip', disabled: !canEdit, title: 'Remove', onclick: () => toggle(id, false) }, c.blocks[id].title, icon('close', 11)))),
+    list,
+    h('small', {}, 'Learners can open this once the ticked blocks are done.'));
 }
 
 function AccessPane(c, b, set) {
   const t = blockType(b.type);
-  return h('div', { class: 'lx-form tc-tray-narrow' },
-    field('Other ways in', h('div', { class: 'lx-chips' }, [['transcript', 'Transcript'], ['captions', 'Captions'], ['reading', 'Reading version'], ['audio', 'Audio version']].map(([k, label]) =>
+  return h('div', { class: 'tc-fsecs tc-tray-narrow' },
+    formSec('Other ways in', 'eye', field('Alternatives', h('div', { class: 'lx-chips' }, [['transcript', 'Transcript'], ['captions', 'Captions'], ['reading', 'Reading version'], ['audio', 'Audio version']].map(([k, label]) =>
       h('label', { class: 'lx-chip' }, h('input', { type: 'checkbox', disabled: !canEdit, checked: (b.alts ?? []).includes(k), onchange: (e) => set({ alts: e.target.checked ? [...(b.alts ?? []), k] : (b.alts ?? []).filter((a) => a !== k) }) }), label))),
-      t.media ? 'Audio and video need a transcript or captions before publishing.' : 'Alternatives let learners choose how they take it in.'),
-    c.competencies?.length > 0 && field('Builds towards', h('div', { class: 'lx-chips' }, c.competencies.map((k) => h('label', { class: 'lx-chip' }, h('input', { type: 'checkbox', disabled: !canEdit, checked: (b.competencies ?? []).includes(k.id), onchange: (e) => set({ competencies: e.target.checked ? [...(b.competencies ?? []), k.id] : (b.competencies ?? []).filter((x) => x !== k.id) }) }), k.name)))),
-    field('Stream', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => { const v = e.target.value; setCartridge(v ? addToStream(doc.cartridges[c.id], v, b.id) : unlinkBlock(doc.cartridges[c.id], b.id), v ? 'Added to the stream' : 'Unlinked'); render(); openBlock(c.id, b.id); } },
-      h('option', { value: '' }, '— not linked —'), Object.values(c.streams ?? {}).map((st) => h('option', { value: st.id, selected: b.streamId === st.id }, st.name))), 'Blocks in a stream move together. Shift-click blocks on the timeline to link new ones.'));
+      t.media ? 'Audio and video need a transcript or captions before publishing.' : 'Alternatives let learners choose how they take it in.')),
+    c.competencies?.length > 0 && formSec('Builds towards', 'target', field('Competencies', h('div', { class: 'lx-chips' }, c.competencies.map((k) => h('label', { class: 'lx-chip' }, h('input', { type: 'checkbox', disabled: !canEdit, checked: (b.competencies ?? []).includes(k.id), onchange: (e) => set({ competencies: e.target.checked ? [...(b.competencies ?? []), k.id] : (b.competencies ?? []).filter((x) => x !== k.id) }) }), k.name))))),
+    formSec('Stream', 'link', field('Linked to', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => { const v = e.target.value; setCartridge(v ? addToStream(doc.cartridges[c.id], v, b.id) : unlinkBlock(doc.cartridges[c.id], b.id), v ? 'Added to the stream' : 'Unlinked'); render(); openBlock(c.id, b.id); } },
+      h('option', { value: '' }, '— not linked —'), Object.values(c.streams ?? {}).map((st) => h('option', { value: st.id, selected: b.streamId === st.id }, st.name))), 'Blocks in a stream move together. Shift-click blocks on the timeline to link new ones.')));
 }
 
 /** The quick editor for the block's content, by kind. */
-function ContentEditor(c, b, set) {
+function ContentEditor(c, b, set, titleEl = null) {
   const parts = [];
+  const extra = [];
+  const secs = [];
   if (b.type === 'lesson') parts.push(LessonBuilder(b, set));
   else if (['slideshow', 'podcast'].includes(b.type)) parts.push(ShowEditor(b, set));
-  else if (['quiz', 'exam'].includes(b.type)) parts.push(
-    h('div', { class: 'lx-row' },
-      field('Time limit (minutes, 0 for none)', h('input', { type: 'number', min: '0', class: 'input input-sm', disabled: !canEdit, value: String(b.settings?.timeLimit ?? 0), onchange: (e) => set({ settings: { ...b.settings, timeLimit: Math.max(0, Number(e.target.value) || 0) } }) })),
-      h('label', { class: 'lx-check' }, h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', disabled: !canEdit, checked: !!b.settings?.extensions, onchange: (e) => set({ settings: { ...b.settings, extensions: e.target.checked } }) }), 'Teachers can grant extensions')),
-    QuestionsField(b, set),
+  else if (['quiz', 'exam'].includes(b.type)) {
+    extra.push(
+      field('Time limit (minutes)', h('input', { type: 'number', min: '0', class: 'input input-sm', disabled: !canEdit, value: String(b.settings?.timeLimit ?? 0), onchange: (e) => set({ settings: { ...b.settings, timeLimit: Math.max(0, Number(e.target.value) || 0) } }) }), '0 means no limit'),
+      h('div', { class: 'lx-field' }, h('span', {}, 'More time'), h('label', { class: 'lx-check' }, h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', disabled: !canEdit, checked: !!b.settings?.extensions, onchange: (e) => set({ settings: { ...b.settings, extensions: e.target.checked } }) }), 'Teachers can grant extensions'), h('small', {}, 'Needed for any timed quiz (WCAG 2.2.1)')));
+    parts.push(QuestionsField(b, set),
     DocEditor(b, set, { label: 'Before they start (optional)', rows: 3 }));
-  else if (b.type === 'flashcards') parts.push(CardsField(b, set), DocEditor(b, set, { label: 'A note for learners', rows: 3 }));
+  } else if (b.type === 'flashcards') parts.push(CardsField(b, set), DocEditor(b, set, { label: 'A note for learners', rows: 3 }));
   else if (b.type === 'poll') parts.push(PollField(b, set));
   else if (b.type === 'scenario') parts.push(DocEditor(b, set, { label: 'The situation', rows: 4 }), ScenarioField(b, set));
   else {
-    const label = { page: 'The page', reading: 'The reading', case: 'The case', assignment: 'The brief', discussion: 'The question for the group', reflection: 'The prompt', voice: 'What to talk about', showcase: 'What to share', mapwalk: 'Prompts along the walk' }[b.type] ?? 'Words';
+    const label = { page: 'The page', reading: 'The reading', case: 'The case', assignment: 'The brief', discussion: 'The question for the group', reflection: 'The prompt', voice: 'What to talk about', showcase: 'What to share', mapwalk: 'Prompts along the walk', live: 'Agenda', office: 'What to bring', meetup: 'What it’s for', whiteboard: 'What you’ll do on the board' }[b.type] ?? 'Words';
     parts.push(DocEditor(b, set, { label, rows: ['page', 'reading', 'case'].includes(b.type) ? 12 : 6 }));
   }
   // Type-specific settings.
   if (b.type === 'resource') {
     const assetItems = Object.values(assets?.items ?? {}).filter((a) => a.kind !== 'ref').slice(0, 200);
-    parts.push(field('Asset', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ ref: e.target.value ? { plugin: 'assets', type: 'item', id: e.target.value } : null }) },
+    extra.push(field('Asset', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ ref: e.target.value ? { plugin: 'assets', type: 'item', id: e.target.value } : null }) },
       h('option', { value: '' }, '— a link instead —'), assetItems.map((a) => h('option', { value: a.id, selected: b.ref?.id === a.id }, a.title ?? a.id)))));
   }
-  if (['live', 'office', 'meetup', 'resource', 'video'].includes(b.type)) parts.push(field(b.type === 'video' ? 'Video link' : b.type === 'resource' ? 'Link' : 'Meeting link (Zoom, Meet, Teams)', text(b.settings?.url, (v) => set({ settings: { ...b.settings, url: v } }), { type: 'url', placeholder: 'https://' })));
-  if (b.type === 'office') parts.push(field('Repeats', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ settings: { ...b.settings, repeat: e.target.value } }) }, options([{ id: 'none', label: 'Just this once' }, { id: 'weekly', label: 'Every week of the run' }], b.settings?.repeat ?? 'none'))));
-  if (b.type === 'whiteboard') parts.push(WhiteboardField(c, b, set));
-  if (b.type === 'assignment') parts.push(field('Learners hand in', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ settings: { ...b.settings, handIn: e.target.value } }) }, options([{ id: 'doc', label: 'A Dashi doc' }, { id: 'file', label: 'A file' }, { id: 'any', label: 'Their choice: a doc, a file, audio or video' }], b.settings?.handIn ?? 'doc')), 'Offering a choice of format is the UDL way.'));
-  if (b.type === 'page') parts.push(field('Web page', text(b.settings?.slug, (v) => set({ settings: { ...b.settings, slug: v } }), { placeholder: 'e.g. grants/how-to-apply' }), 'Link this block to a page in Web, or write a short one here.'));
-  return h('div', { class: 'lx-form' }, parts);
+  if (['live', 'office', 'meetup', 'whiteboard'].includes(b.type)) secs.push(SessionFields(c, b, set));
+  if (['resource', 'video'].includes(b.type)) extra.push(field(b.type === 'video' ? 'Video link' : b.type === 'resource' ? 'Link' : 'Meeting link (Zoom, Meet, Teams)', text(b.settings?.url, (v) => set({ settings: { ...b.settings, url: v } }), { type: 'url', placeholder: 'https://' })));
+  if (false) extra.push(field('Repeats', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ settings: { ...b.settings, repeat: e.target.value } }) }, options([{ id: 'none', label: 'Just this once' }, { id: 'weekly', label: 'Every week of the run' }], b.settings?.repeat ?? 'none'))));
+  if (b.type === 'whiteboard') secs.push(formSec('The board', 'palette', WhiteboardField(c, b, set)));
+  if (b.type === 'assignment') extra.push(field('Learners hand in', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ settings: { ...b.settings, handIn: e.target.value } }) }, options([{ id: 'doc', label: 'A Dashi doc' }, { id: 'file', label: 'A file' }, { id: 'any', label: 'Their choice: a doc, a file, audio or video' }], b.settings?.handIn ?? 'doc')), 'Offering a choice of format is the UDL way.'));
+  if (b.type === 'page') extra.push(field('Web page', text(b.settings?.slug, (v) => set({ settings: { ...b.settings, slug: v } }), { placeholder: 'e.g. grants/how-to-apply' }), 'Link this block to a page in Web, or write a short one here.'));
+  const t = blockType(b.type);
+  return h('div', { class: 'tc-fsecs' },
+    formSec(t.label, t.icon, h('div', { class: 'lx-form' }, titleEl, parts)),
+    extra.length > 0 && formSec('Settings', 'settings', h('div', { class: 'tc-grid-2' }, extra)),
+    ...secs);
+}
+
+/** At a glance: the block's facts in one card, beside the When and Access forms. */
+function Glance(c, b, issues) {
+  const t = blockType(b.type);
+  const tr = c.tracks.find((x) => x.id === b.trackId);
+  const st = b.streamId && c.streams?.[b.streamId];
+  const row = (k, v) => h('div', {}, h('dt', {}, k), h('dd', {}, v));
+  return h('aside', { class: 'tc-tray-preview tc-glance', 'aria-label': 'At a glance' }, h('h4', {}, icon('eye', 13), 'At a glance'),
+    h('div', { class: 'tc-glance-card', style: `--tone:${tr?.tone ?? '#999'}` },
+      h('header', {}, h('span', { class: 'tc-wait-ic' }, icon(t.icon, 13)), h('b', {}, b.title)),
+      h('dl', {},
+        row('Kind', t.label),
+        row('Track', tr?.name ?? '—'),
+        row('Opens', `${shortDate(dateOf(c.run.start, b.start))}${b.at ? ` at ${b.at}` : ''}`),
+        row('Open for', n(b.length, 'day')),
+        row('Effort', b.minutes ? `${b.minutes} min` : 'None counted'),
+        row('Needed', b.required ? 'Required' : 'Optional'),
+        row('Seen by', b.settings?.visibility === 'teachers' ? 'Teachers only' : 'Learners'),
+        row('Waits for', b.after?.length ? n(b.after.length, 'block') : 'Nothing'),
+        row('Other ways in', (b.alts ?? []).length ? b.alts.join(', ') : 'None yet'),
+        st && row('Stream', st.name),
+        row('Checks', issues.length ? `${issues.length} to look at` : 'All clear'))));
+}
+
+/** A live session's details: when, how long, where, who hosts, and what happens after. */
+function SessionFields(c, b, set) {
+  const st = b.settings ?? {};
+  const put = (patch) => set({ settings: { ...st, ...patch } });
+  return formSec('The session', 'video',
+    h('p', { class: 'tc-fnote' }, icon('calendar', 13), ` ${shortDate(dateOf(c.run.start, b.start))}${b.at ? ` at ${b.at}` : ', no time set yet'} (${c.run.tz}). Change it under When and where.`),
+    h('div', { class: 'tc-grid-2' },
+      b.type !== 'whiteboard' && field('Meeting link', text(st.url, (v) => put({ url: v }), { type: 'url', placeholder: 'https://zoom.us/j/…' }), 'Zoom, Meet or Teams'),
+      field('Length (minutes)', h('input', { type: 'number', min: '0', max: '480', step: '5', class: 'input input-sm', disabled: !canEdit, value: String(b.minutes ?? 60), onchange: (e) => set({ minutes: Math.max(0, Number(e.target.value) || 0) }) })),
+      field('Host', text(st.host, (v) => put({ host: v }), { placeholder: 'e.g. Programme lead' })),
+      field('Repeats', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => put({ repeat: e.target.value }) }, options([{ id: 'none', label: 'Just this once' }, { id: 'weekly', label: 'Every week of the run' }], st.repeat ?? 'none')))),
+    h('div', { class: 'tc-grid-2' },
+      h('label', { class: 'lx-check' }, h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', disabled: !canEdit, checked: !!st.recording, onchange: (e) => put({ recording: e.target.checked }) }), 'Share a recording after, with captions'),
+      h('label', { class: 'lx-check' }, h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', disabled: !canEdit, checked: !!st.reminder, onchange: (e) => put({ reminder: e.target.checked }) }), 'Remind learners the day before')));
 }
 
 /** A light markdown editor: a few buttons, the words, and the preview beside it in the tray. */
