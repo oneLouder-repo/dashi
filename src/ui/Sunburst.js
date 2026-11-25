@@ -129,18 +129,34 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
     .innerRadius((d) => d.y0 * radius).outerRadius((d) => Math.max(d.y0 * radius, d.y1 * radius - 1));
   const visible = (d) => d.y1 <= 3 && d.y0 >= 1 && d.x1 - d.x0 > 1e-6;
   // A label shows only where the ring is wide enough around for a line of text.
-  const labelVisible = (d) => d.y1 <= 3 && d.y0 >= 1 && ((d.y0 + d.y1) / 2) * radius * (d.x1 - d.x0) > 13;
+  const labelVisible = (d) => d.y1 <= 3 && d.y0 >= 1 && (d.y0 * radius + 10) * (d.x1 - d.x0) > 13;
+  /*
+   * Alpha 0.4: labels sit level with the screen, whatever the angle, so they
+   * read without tilting your head. Each starts by the inner edge of its
+   * segment (the side nearest the centre) and runs outwards; near twelve and
+   * six o'clock, where outwards is up or down, it sits centred in the ring.
+   */
+  const SIDE = 0.3;
+  const sinOf = (d) => Math.sin((d.x0 + d.x1) / 2);
   const labelTransform = (d) => {
-    // Normalised, so a ring turned past a full circle still reads the right way up.
-    const x = (((((d.x0 + d.x1) / 2) * 180) / Math.PI) % 360 + 360) % 360;
-    const y = ((d.y0 + d.y1) / 2) * radius;
-    return `rotate(${x - 90}) translate(${y},0) rotate(${x < 180 ? 0 : 180})`;
+    const a = (d.x0 + d.x1) / 2;
+    const s = Math.sin(a);
+    const r = Math.abs(s) > SIDE ? d.y0 * radius + 7 : ((d.y0 + Math.min(3, d.y1)) / 2) * radius;
+    return `translate(${Math.sin(a) * r},${-Math.cos(a) * r})`;
   };
-  // Labels run across a ring, so they get the ring's depth (less a margin) and no more.
+  const anchorOf = (d) => { const s = sinOf(d); return s > SIDE ? 'start' : s < -SIDE ? 'end' : 'middle'; };
+  // A label tween that keeps the anchor in step with the angle as the rings turn.
+  const labelTween = function (d) { const el = this; return () => { el.setAttribute('text-anchor', anchorOf(d.current)); return labelTransform(d.current); }; };
+  // Room for a label: outwards across the ring at the sides, along the arc near the top and bottom.
   const maxChars = Math.max(6, Math.floor((radius - 14) / 6.1));
   const fit = (s, n = maxChars) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
-  // An item that fills two rings (nothing inside it) gets the room of both for its label.
-  const relabel = () => text.text((d) => fit(d.data.name, Math.max(maxChars, Math.floor(((Math.min(3, d.current.y1) - d.current.y0) * radius - 14) / 6.1))));
+  const roomFor = (d) => {
+    const depth = (Math.min(3, d.y1) - d.y0) * radius;
+    const s = Math.abs(sinOf(d));
+    const px = s > SIDE ? Math.min(depth / s, depth * 1.5) - 12 : Math.min(((d.y0 + Math.min(3, d.y1)) / 2) * radius * (d.x1 - d.x0), depth * 1.5) - 8;
+    return Math.max(4, Math.floor(px / 6.1));
+  };
+  const relabel = () => text.text((d) => fit(d.data.name, roomFor(d.current)));
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const PAD = 12; // room on the right for the pointer at three o'clock
@@ -276,7 +292,7 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
       root.each((x) => { x.current = x.target; });
       path.attr('d', (x) => arc(x.current));
       hatch?.attr('d', (x) => arc(x.current));
-      text.attr('transform', (x) => labelTransform(x.current));
+      text.attr('transform', (x) => labelTransform(x.current)).attr('text-anchor', (x) => anchorOf(x.current));
       showFocus();
       return;
     }
@@ -288,7 +304,7 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
       .tween('data', (x) => { const i = d3.interpolate(x.current, x.target); return (tt) => { x.current = i(tt); }; })
       .attrTween('d', (x) => () => arc(x.current));
     hatch?.transition(t).attrTween('d', (x) => () => arc(x.current));
-    text.transition(t).attrTween('transform', (x) => () => labelTransform(x.current));
+    text.transition(t).attrTween('transform', labelTween);
   }
 
   const text = g.append('g').attr('pointer-events', 'none').attr('text-anchor', 'middle').style('user-select', 'none')
@@ -297,7 +313,8 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
     .attr('fill', (d) => inkOn(d3, fills.get(d)))
     .attr('fill-opacity', (d) => +labelVisible(d.current))
     .attr('transform', (d) => labelTransform(d.current))
-    .text((d) => fit(d.data.name));
+    .attr('text-anchor', (d) => anchorOf(d.current))
+    .text((d) => fit(d.data.name, roomFor(d.current)));
 
   const focusTag = g.append('g').attr('class', 'sb-focus').attr('pointer-events', 'none');
   const pointer = svg.append('path').attr('class', 'sb-pointer').attr('opacity', 0)
@@ -342,12 +359,12 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
 
   let focus = root;
   function zoom(event, p, { instant = false } = {}) {
+    const outward = !!focus && p.depth < focus.depth;
     focus = p;
     hideTip();
     focusTag.selectAll('*').remove();
     pointer.attr('opacity', 0);
-    const keep = chosen && chosen.ancestors().includes(p) && chosen !== p ? chosen : null;
-    if (chosen && !keep) unpick();
+    let keep = chosen && chosen.ancestors().includes(p) && chosen !== p ? chosen : null;
     // An item with nothing inside is shown as the ring itself, around its parent in the centre.
     const leaf = !p.children && p !== root;
     const lift = leaf ? p.depth - 1 : p.depth;
@@ -361,13 +378,17 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
         y1: Math.max(0, d.y1 - lift),
       }, d);
     });
+    // Going back out can push the picked item past the outer ring: then let it go, so the
+    // dial's arrows don't stay behind on something you can no longer see.
+    if (keep && (outward || !visible(keep.target))) keep = null;
+    if (chosen && !keep) unpick();
     if (!instant) onZoom?.(p === root ? [] : trail(p), p.data);
     path.attr('pointer-events', (d) => (visible(d.target) ? 'auto' : 'none')).attr('tabindex', (d) => (visible(d.target) ? 0 : -1));
     if (instant) {
       root.each((d) => { d.current = d.target; });
       path.attr('fill-opacity', (d) => +visible(d.target)).attr('stroke-opacity', (d) => +visible(d.target)).attr('d', (d) => arc(d.current));
       hatch?.attr('fill-opacity', (d) => +visible(d.target)).attr('d', (d) => arc(d.current));
-      text.attr('fill-opacity', (d) => +labelVisible(d.target)).attr('transform', (d) => labelTransform(d.current));
+      text.attr('fill-opacity', (d) => +labelVisible(d.target)).attr('transform', (d) => labelTransform(d.current)).attr('text-anchor', (d) => anchorOf(d.current));
       relabel();
       if (keep) turnTo(keep, { instant: true });
       return;
@@ -384,7 +405,7 @@ function draw(d3, wrap, { data, color, edge, hatched, onLeaf, caption, size, lab
     if (hatch) hatch.transition(t).attr('fill-opacity', (d) => +visible(d.target)).attrTween('d', (d) => () => arc(d.current));
     text.filter(function (d) { return +this.getAttribute('fill-opacity') || labelVisible(d.target); }).transition(t)
       .attr('fill-opacity', (d) => +labelVisible(d.target))
-      .attrTween('transform', (d) => () => labelTransform(d.current));
+      .attrTween('transform', labelTween);
   }
   // Open where we were: follow the names down as far as they still match.
   if (focusPath?.length) {

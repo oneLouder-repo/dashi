@@ -99,6 +99,28 @@ export function migrateAssets(doc) {
   return doc;
 }
 
+/**
+ * Where an asset lives (alpha 0.4): its podcast series, the Library, Studio audio, its map,
+ * Staff, or the asset manager's own uploads, links and notes. Every asset has one, unlike
+ * collections and tags, so the asset map groups by it.
+ */
+export function homeOf(card) {
+  if (card.missing) return 'Removed elsewhere';
+  switch (card.source) {
+    case 'story': return 'Story cards';
+    case 'upload': return 'Uploaded files';
+    case 'link': return 'Links';
+    case 'note': return 'Notes';
+    case 'map': return 'Ecosystem maps';
+    case 'actor': return card.sub || 'Ecosystem maps';
+    case 'staff': return 'Staff';
+    case 'library': return 'Library';
+    case 'episode': return card.sub || 'Podcast episodes';
+    case 'audio': return 'Studio audio';
+    default: return card.kindLabel || 'Other';
+  }
+}
+
 /** The key an asset is known by: its own id, or `type:id` for something elsewhere in Dashi. */
 export const keyOf = (ref) => (ref.type === 'actor' ? `actor:${ref.mapId}/${ref.id}` : `${ref.type}:${ref.id}`);
 export function refOfKey(key) {
