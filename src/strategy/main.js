@@ -3,7 +3,8 @@ import { Shell } from '../ui/Shell.js';
 import { Store } from '../core/Store.js';
 import { applyCollectionOp } from '../core/collections.js';
 import { autosaveDoc, saveDoc, onDocChange, loadDoc } from '../platform/storage.js';
-import { loadOrg, loadStrategy, loadMaps, loadData, loadLibrary, loadDashboards } from '../platform/docs.js';
+import { loadOrg, loadStrategy, loadMaps, loadData, loadLibrary, loadDashboards, loadStudio } from '../platform/docs.js';
+import { savePlanFile, openPlanFile, addPlansOp, addStudioItems } from './planFileUi.js';
 import { loadAllMaps } from '../platform/maps.js';
 import { seedStrategy } from '../platform/strategySeed.js';
 import { childrenOf, rootOf, migrateStrategy, strategyOps } from '../platform/strategy.js';
@@ -97,6 +98,15 @@ const tools = h('div', { class: 'plugin-header-actions' },
       saveDoc('strategy', store.doc);
       ctx.select(rootOf(store.doc).id);
     } }, 'Example'));
+/** Plan files: save plans as a .dashi-plan.json file, or open one as new plans. Fresh buttons for each header. */
+const fileTools = () => [
+  h('button', { class: 'btn btn-sm', title: 'Save plans as a .dashi-plan.json file', onclick: () => savePlanFile({ strategy: store.doc, studio: loadStudio(), org, current: planOfNode(store.doc.nodes[ctx.selectedId]) }) }, icon('download', 14), 'Save plan file'),
+  h('button', { class: 'btn btn-sm', title: 'Add the plans in a .dashi-plan.json file', onclick: () => openPlanFile({ strategy: store.doc, org, apply: (result) => {
+    store.apply(addPlansOp(result));
+    saveDoc('studio', addStudioItems(loadStudio(), result));
+    ctx.select(result.planIds[0]);
+  } }) }, icon('upload', 14), 'Open plan file'),
+];
 const app = document.querySelector('#app');
 app.classList.add('strategy', 'frame');
 let side = h('nav');
@@ -150,7 +160,7 @@ function planOfNode(n) {
 function render() {
   const tab = ctx.tab;
   drawSide(tab);
-  head.replaceChildren(PluginHeader('strategy', { title: tab === 'overview' ? null : `${TABS.find((t) => t.id === tab).label}`, actions: tab === 'framework' ? tools : null }));
+  head.replaceChildren(PluginHeader('strategy', { title: tab === 'overview' ? null : `${TABS.find((t) => t.id === tab).label}`, actions: tab === 'framework' ? [...fileTools(), tools] : tab === 'overview' ? fileTools() : null }));
   framework.hidden = tab !== 'framework';
   report.hidden = tab === 'framework';
   if (tab !== 'framework') {

@@ -23,6 +23,8 @@ import { Results } from './Results.js';
 import { Assemble, assembleLayers } from './Assemble.js';
 import { Change } from './Change.js';
 import { uiPrompt } from '../ui/dialog.js';
+import { col } from '../core/collections.js';
+import { savePlanFile, openPlanFile, addPlansOp } from '../strategy/planFileUi.js';
 
 /** Where a plan sits in time: running now, still ahead, or finished. */
 const PHASE_LABEL = { now: 'Running now', ahead: 'Up next', done: 'Finished' };
@@ -203,6 +205,13 @@ function Framework() {
     // Not "Planning Studio" any more: it is part of Plan (0.2). Mission and vision live in the Framework.
     PluginHeader('studio', { title: 'Framework and plans', blurb: 'Every plan your organisation has, where its planning stands, and the tools to plan it together.', actions: [
       h('a', { class: 'btn btn-sm btn-ghost', href: 'plandoc.html', title: 'Opens the Plan designer' }, icon('share', 14), 'Plan designer'),
+      h('button', { class: 'btn btn-sm btn-ghost', title: 'Save plans as a .dashi-plan.json file', onclick: () => savePlanFile({ strategy: strategy.doc, studio: store.doc, org }) }, icon('download', 14), 'Save plan file'),
+      h('button', { class: 'btn btn-sm btn-ghost', title: 'Add the plans in a .dashi-plan.json file', onclick: () => openPlanFile({ strategy: strategy.doc, org, apply: (result) => {
+        strategy.apply(addPlansOp(result));
+        const ops = Object.entries(result.studio).flatMap(([k, items]) => Object.values(items).map((x) => col.add(k, x)));
+        if (ops.length) store.apply(col.batch(ops));
+        render();
+      } }) }, icon('upload', 14), 'Open plan file'),
       h('button', { class: 'btn btn-sm btn-primary', onclick: newPlan }, icon('plus', 14), 'New plan')] }),
     !root ? h('p', { class: 'empty' }, 'Start a framework in Plan first.') : [
       h('div', { class: 'sw-section-head' }, h('h2', {}, 'Plans'), h('span', { class: 'muted small' }, 'Plan together here; the plans become work in Plan.')),
