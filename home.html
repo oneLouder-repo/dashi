@@ -57,6 +57,27 @@
   .nav__logo img, .dashi-mark { width: 24px; height: 24px; flex: none; }
   h1 .dashi-mark { width: .8em; height: .8em; vertical-align: -.06em; margin-right: .12em; }
 
+  /* the nav's hover: soft, in Dashi's look (d, 2026-11-27). The words get a thin orange line, not a dark bar;
+     Product opens a floating white card under the word, not a full-width band with dark rules. */
+  .nav__link::before, .nav__link[aria-current="page"]::after { height: 2px; bottom: 2px; background: color-mix(in oklab, var(--p-accent) 70%, transparent); }
+  .nav__link:hover, .nav__item:hover > .nav__link { color: var(--p-ink); }
+  @media (min-width: 1024px) {
+    .nav__item:has(> .nav__menu) { position: relative; }
+    .nav__menu { left: -12px; right: auto; top: calc(100% - 6px); width: min(760px, 86vw); padding: 10px; border: 0; border-radius: 16px;
+      background: #fff; box-shadow: 0 0 0 1px rgb(31 36 48 / .06), 0 18px 44px -18px rgb(31 36 48 / .28); }
+    .nav__menu > .wrap.grid { display: grid; grid-template-columns: 1fr 1fr 230px; gap: 6px; padding: 0; width: auto; max-width: none; margin: 0; }
+    .nav__menu > .wrap.grid > * { grid-column: auto / span 1; }
+  }
+  .nav__menu .menu-col { gap: 0; padding: 8px 4px; }
+  .nav__menu .menu-col > .t-label { margin: 0 10px 6px; font-size: 12px; letter-spacing: .04em; }
+  .nav__menu .menu-col a { padding: 8px 10px; border-radius: 10px; gap: 2px; font-size: 15px; transition: background-color 150ms ease; }
+  .nav__menu .menu-col a span { font-size: 13px; }
+  .nav__menu .menu-col a:hover, .nav__menu .menu-col a:focus-visible { color: var(--p-ink); background: color-mix(in oklab, var(--p-accent) 8%, #fff); }
+  .nav__menu .menu-card { align-content: start; gap: 6px; padding: 8px; border-radius: 12px; background: #faf8f5; transition: background-color 150ms ease; }
+  .nav__menu .menu-card:hover { background: color-mix(in oklab, var(--p-accent) 7%, #faf8f5); }
+  .nav__menu .menu-card .panel { border-radius: 10px; box-shadow: none; }
+  .nav__menu .menu-card .t-card { font-size: 15px; }
+
   /* the hero window: Dashi's ecosystem mapper as live HTML (its own screen, light) */
   .dmap { background: #fff; color: #1f2430; border-radius: 14px; overflow: hidden; text-align: left;
           font: 400 13px/1.4 var(--font-text); box-shadow: 0 0 0 1px rgb(31 36 48 / .08), 0 24px 60px -28px rgb(31 36 48 / .45); }

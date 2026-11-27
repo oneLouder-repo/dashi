@@ -21,6 +21,8 @@ export const GROUPS = [
   { id: 'people', label: 'People', icon: 'person' },
   { id: 'podcasts', label: 'Listen', icon: 'sec-podcasts', plugin: 'podcasts' },
   { id: 'pages', label: 'Web pages', icon: 'sec-sites', plugin: 'pages' },
+  // Help is searched from its own index (buildHelpIndex), never mixed into the org's.
+  { id: 'help', label: 'Help', icon: 'help', separate: true },
 ];
 export const groupById = Object.fromEntries(GROUPS.map((g) => [g.id, g]));
 
@@ -81,6 +83,25 @@ export function buildIndex(docs = {}, { plugins = null } = {}) {
   }
   if (on('pages')) {
     for (const p of Object.values(docs.pages?.pages ?? {})) add({ id: `page:${p.id}`, kind: p.kind === 'article' ? 'News article' : 'Page', group: 'pages', title: p.title || 'Untitled', text: [p.summary, plain(p.body)].filter(Boolean).join(' · '), href: linkTo('pages', `#${p.id}`), icon: 'fileText' });
+  }
+  return out;
+}
+
+/**
+ * The help library as a search index of its own: one entry per section and
+ * per page. It is built from the platform's help, not from any org document,
+ * and kept apart from buildIndex so help never joins the org's data, maps or
+ * graph (and org data never shows up in help).
+ */
+export function buildHelpIndex(help) {
+  const out = [];
+  const clean = (md) => plain(String(md ?? '').replace(/\[\[[^\]]*\]\]/g, ' ').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/^- \[[ x]\] /gim, ''));
+  const add = (e) => out.push({ tags: [], sub: '', ...e, group: 'help', icon: e.icon || 'help', hay: words([e.title, e.text, e.sub].join(' ')) });
+  for (const s of help?.sections ?? []) {
+    add({ id: `help:${s.id}`, kind: 'Help section', title: s.title, text: clean(s.blurb), href: `help.html#${encodeURIComponent(s.id)}`, icon: s.icon, sub: `${s.pages?.length ?? 0} guides` });
+    for (const p of s.pages ?? []) {
+      add({ id: `help:${s.id}/${p.id}`, kind: 'Help', title: p.title, text: clean(p.body), href: `help.html#${encodeURIComponent(s.id)}/${encodeURIComponent(p.id)}`, sub: s.title });
+    }
   }
   return out;
 }

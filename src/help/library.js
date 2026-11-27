@@ -15,6 +15,7 @@
 import { RHIZOME_HELP } from '../rhizome/help.js';
 import { LEARNING_HELP } from '../learning/help.js';
 import { PLACE_HELP } from '../place/help.js';
+import { NEW_04_HELP } from './new04.js';
 
 /** The screenshots tutorials can show, by id, with their captions. Files are in media/help/. */
 export const HELP_SHOTS = {
@@ -57,18 +58,19 @@ export const HELP_SHOTS = {
   'rhizome-output': 'The Report tab: a report pack on paper, ready to save as a PDF.',
   'rhizome-rack': 'The twin racks: controls on the left, screens and engines on the right, cabled together.',
 };
-// Place took 7, Teach and Learn 8.
-export const HELP_VERSION = 8;
+// Place took 7, Teach and Learn 8, New in alpha 0.4 9.
+export const HELP_VERSION = 9;
 
 /**
  * Sections added since a version: a saved (edited) library that is older
  * gets them too, at the top, so new guides reach every server.
  */
-export const HELP_ADDED = { alpha: 2, 'new-in-0-2': 3, 'new-in-0-2-planning': 4, 'asset-graph': 5, rhizome: 6, place: 7, learning: 8 };
+export const HELP_ADDED = { alpha: 2, 'new-in-0-2': 3, 'new-in-0-2-planning': 4, 'asset-graph': 5, rhizome: 6, place: 7, learning: 8, 'new-in-0-4': 9 };
 
 export const HELP_SEED = {
   version: HELP_VERSION,
   sections: [
+    NEW_04_HELP,
     LEARNING_HELP,
     PLACE_HELP,
     RHIZOME_HELP,
@@ -408,22 +410,25 @@ Answers come back to the **Answers** tab, with stars, scales and choices added u
 
 # If you map ecosystems
 - [ ] Make a map, add ten actors, connect them, and try two different lenses.
-- [ ] Use **Panels** (top right of the Mapper) to dock, float and tidy the tool panels.
-- [ ] **To library** keeps the map as a file in the Library; open it again from there.
+- [ ] Drag a section of the map's side panel by its grip to reorder the panel.
+- [ ] Open an actor from **Assets** or search, and watch the map land on it.
 
 # If you plan
 - [ ] In **Plan**, add an objective, a goal, a workplan and a few tasks with dates and people.
 - [ ] Attach assets to a task: an actor, a whole map, a document.
 - [ ] Make the plan document in the **Plan designer** and look at its web view.
+- [ ] Press **Save plan file**, then **Open plan file** to add a copy of your plan.
 
 # If you read and write briefs
-- [ ] In **Library**, use **Add a reading** to add five sources with annotations and tags.
+- [ ] In **Assets → Library**, use **Add a reading** to add five sources with annotations and tags.
 - [ ] Open **Tags** and see your vocabulary; rename or merge one.
 - [ ] In a bibliography's **Weekly brief**, pick a layout (STEEPLE, Micro / Meso / Macro, or a lexicon facet) and draft the brief.
 
 # If you run the org
 - [ ] Add a person in **Organisation → People** and send them an invitation.
-- [ ] Publish a dashboard or page to your public site, and look at it signed out.`,
+- [ ] Publish a dashboard or page to your public site, and look at it signed out.
+- [ ] Connect a webhook or Bluesky in **Web → Social media** and push a post.
+- [ ] Change the plugin order in **Organisation → Plugins**.`,
         },
         {
           id: 'reporting',
