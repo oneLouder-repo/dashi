@@ -83,6 +83,28 @@ const header = (rows) => rows[0].map((c) => String(c).trim());
 const col = (head, ...names) => head.findIndex((h) => names.some((n) => h.toLowerCase() === n.toLowerCase()));
 const tag = (text, name) => text.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, 'i'))?.[1]?.trim() ?? '';
 
+/**
+ * The harbour channel, by depth: a warm, fresher top over a cold, salty
+ * bottom (a thermocline near 9 m), a chlorophyll peak, and the carbon that
+ * goes with it. The CTD cast, the bottle file and the lab's carbon all
+ * draw from this, so the mocks agree with each other.
+ */
+function channelAt(z, r = () => 0.5) {
+  const thermo = 1 / (1 + Math.exp((z - 9) / 1.6));
+  return {
+    T: 6 + 11 * thermo + (r() - 0.5) * 0.15,
+    S: 31.6 - 2.4 * thermo + (r() - 0.5) * 0.05,
+    O: 7.2 + 1.6 * thermo - (z > 22 ? (z - 22) * 0.12 : 0) + (r() - 0.5) * 0.1,
+    F: 0.4 + 5 * Math.exp(-((z - 8) ** 2) / 6) + r() * 0.2,
+    // DOC is high at the top (river water and the bloom), DIC climbs with depth (respiration, saltier water).
+    doc: 72 + 46 * thermo + 14 * Math.exp(-((z - 8) ** 2) / 6) + (r() - 0.5) * 4,
+    dic: 1890 + 190 * (1 - thermo) + (z > 22 ? (z - 22) * 6 : 0) + (r() - 0.5) * 8,
+  };
+}
+const BOTTLE_DEPTHS = [29.5, 27, 24, 21, 18, 15, 12, 10, 8, 5, 3, 1];
+const CAST_START = Date.UTC(2025, 7, 14, 13, 42, 10);
+const C_UMOL = 1000 / 12.011; // mg C/L → µmol C/L
+
 /* ------------------------------------------------------------ the formats */
 
 export const FORMATS = [
@@ -270,7 +292,7 @@ export const FORMATS = [
       const station = lines.find((l) => /^\*\* Station/i.test(l))?.split(':')[1]?.trim() || 'CTD station';
       const when = lines.find((l) => /^# start_time/.test(l))?.match(/= (.*?)( \[|$)/)?.[1];
       const t = when ? isoOf(new Date(Date.parse(`${when} UTC`))) : null;
-      const map = { prdm: 'depth', depsm: 'depth', t090c: 'temp', sal00: 'sal', sbeox0mg_l: 'do', 'sbeox0mg/l': 'do', flecof: 'chla', c0us_cm: 'cond' };
+      const map = { prdm: 'depth', depsm: 'depth', t090c: 'temp', sal00: 'sal', sbeox0mg_l: 'do', 'sbeox0mg/l': 'do', flecof: 'chla', 'fleco-afl': 'chla', c0us_cm: 'cond' };
       const cols = names.map((n, i) => ({ i, key: map[n.code.toLowerCase()] ?? paramOf(n.code), label: n.label }));
       const dIdx = cols.find((c) => c.key === 'depth')?.i ?? 0;
       const records = [];
@@ -286,11 +308,96 @@ export const FORMATS = [
       const head = ['* Sea-Bird SBE19plus Data File:', '* FileName = C:\\data\\kb_harbour_0814.hex', '* Software version 2.8.0.119', '** Station: Harbour channel', '** Operator: Kestrel Bay Monitoring', '# nquan = 5', '# nvalues = 60', '# name 0 = depSM: Depth [salt water, m]', '# name 1 = t090C: Temperature [ITS-90, deg C]', '# name 2 = sal00: Salinity, Practical [PSU]', '# name 3 = sbeox0Mg/L: Oxygen, SBE 43 [mg/l]', '# name 4 = flECO-AFL: Fluorescence, WET Labs ECO-AFL/FL [mg/m^3]', '# start_time = Aug 14 2025 13:42:10 [NMEA time, header]', '# bad_flag = -9.990e-29', '*END*'];
       const rows = [];
       for (let i = 0; i < 60; i++) {
-        const z = 0.5 + i * 0.5, thermo = 1 / (1 + Math.exp((z - 9) / 1.6));
-        const T = 6 + 11 * thermo + (r() - 0.5) * 0.15, S = 31.6 - 2.4 * thermo + (r() - 0.5) * 0.05, O = 7.2 + 1.6 * thermo - (z > 22 ? (z - 22) * 0.12 : 0) + (r() - 0.5) * 0.1, F = 0.4 + 5 * Math.exp(-((z - 8) ** 2) / 6) + r() * 0.2;
+        const z = 0.5 + i * 0.5, { T, S, O, F } = channelAt(z, r);
         rows.push(`  ${z.toFixed(3).padStart(8)} ${T.toFixed(4).padStart(9)} ${S.toFixed(4).padStart(9)} ${O.toFixed(4).padStart(9)} ${F.toFixed(4).padStart(9)}`);
       }
       return [...head, ...rows].join('\n');
+    },
+  },
+  {
+    id: 'btl', label: 'Sea-Bird bottle file (.btl)', family: 'Profiles', ext: ['.btl'],
+    spec: { name: 'Sea-Bird SBE Data Processing, Bottle Summary', url: 'https://www.seabird.com/software' },
+    about: 'Written when the rosette fires its bottles on the way up: for each bottle, its number, the time it closed and the CTD’s average readings there (an “(avg)” line and a “(sdev)” line). It is how a lab sample finds its depth.',
+    detect: (text, name) => (/\.btl$/i.test(name) || /^\s*Bottle\s+Date/m.test(text.slice(0, 3000)) ? 22 : 0),
+    parse(text) {
+      const lines = text.split(/\r?\n/);
+      const station = lines.find((l) => /^\*\* Station/i.test(l))?.split(':')[1]?.trim() || 'CTD station';
+      const cast = lines.find((l) => /^\*\* Cast/i.test(l))?.split(':')[1]?.trim() || '1';
+      const hi = lines.findIndex((l) => /^\s*Bottle\s+Date/.test(l));
+      if (hi < 0) return { records: [], error: 'No “Bottle Date …” header line was found.' };
+      const head = lines[hi].trim().split(/\s+/);
+      const map = { depsm: 'depth', prdm: 'pres', t090c: 'temp', sal00: 'sal', 'sbeox0mg/l': 'do', 'fleco-afl': 'chla' };
+      const keys = head.map((h) => map[h.toLowerCase()] ?? null);
+      const records = [], bottles = [];
+      for (let i = hi + 2; i < lines.length; i++) {
+        const l = lines[i];
+        if (!/\(avg\)\s*$/.test(l)) continue;
+        // "    1    Aug 14 2025   29.71  29.50 ...  (avg)" and the next line holds the time.
+        const parts = l.replace('(avg)', '').trim().split(/\s+/);
+        const bottle = +parts[0], date = parts.slice(1, 4).join(' ');
+        const timeStr = (lines[i + 1] ?? '').trim().split(/\s+/)[0];
+        const t = isoOf(new Date(Date.parse(`${date} ${timeStr} UTC`)));
+        const vals = parts.slice(4).map(Number);
+        const row = {}; head.slice(2).forEach((h, k) => { row[keys[k + 2] ?? h] = vals[k]; });
+        bottles.push({ bottle, t, depth: round(row.depth, 1) });
+        for (const k of ['temp', 'sal', 'do', 'chla']) if (Number.isFinite(row[k])) records.push({ site: station, param: k, unit: { temp: '°C', sal: 'PSU', do: 'mg/L', chla: 'µg/L' }[k], t, v: row[k], depth: round(row.depth, 1) });
+      }
+      return { records, shape: 'profile', meta: { station, cast, bottles } };
+    },
+    mock(seed = 29) {
+      const r = rng(seed);
+      const head = ['* Sea-Bird SBE 9 Data File:', '* FileName = C:\\data\\KB25-07\\hc_004.hex', '* Software Version Seasave V 7.26.7.107', '** Ship: RV Kestrel', '** Cruise: KB25-07', '** Station: Harbour channel', '** Cast: 4', '* NMEA Latitude = 43 17.40 N', '* NMEA Longitude = 061 10.80 W', '# start_time = Aug 14 2025 13:42:10 [NMEA time, header]',
+        '    Bottle        Date      PrDM     DepSM      T090C      Sal00 Sbeox0Mg/L  FlECO-AFL', '  Position        Time'];
+      const rows = [];
+      BOTTLE_DEPTHS.forEach((z, i) => {
+        const c = channelAt(z, r), when = new Date(CAST_START + (14 + i * 2.2) * 60e3);
+        const nums = [z * 1.007, z, c.T, c.S, c.O, c.F].map((v, k) => v.toFixed(k < 2 ? 2 : 4).padStart(k < 2 ? 9 : 10)).join(' ');
+        rows.push(`${String(i + 1).padStart(10)}    Aug 14 2025 ${nums} (avg)`);
+        rows.push(`${' '.repeat(14)}${clock(when)}  ${[0.02, 0.02, 0.0021, 0.0012, 0.0103, 0.0412].map((v) => v.toFixed(4).padStart(10)).join(' ')} (sdev)`);
+      });
+      return [...head, ...rows].join('\n');
+    },
+  },
+  {
+    id: 'toc', label: 'TOC analyser export (NPOC and IC)', family: 'Lab results', ext: ['.txt', '.csv'],
+    spec: { name: 'Shimadzu TOC-L sample report (tab-separated); method after EPA 415.3 / JGOFS DOC protocols', url: 'https://www.epa.gov/esam/method-4153-measurement-total-organic-carbon-dissolved-organic-carbon-and-specific-uv-absorbance' },
+    about: 'What a carbon analyser writes after a run: each sample’s NPOC (non-purgeable organic carbon, read as DOC) and IC (inorganic carbon, read as DIC) in mg/L, with check standards and blanks in between. Sample IDs carry the cast and bottle (KB25-07 C04 B07), which EoViz matches to the bottle file for depth.',
+    detect: (text) => (/\bAnal\.\t/.test(text.slice(0, 800)) || /Sample Name\tSample ID/.test(text.slice(0, 800)) ? 24 : 0),
+    parse(text) {
+      const rows = text.split(/\r?\n/).filter((l) => l.trim()).map((l) => l.split('\t'));
+      const hi = rows.findIndex((r) => r.includes('Sample ID'));
+      if (hi < 0) return { records: [], error: 'No header with “Sample ID” was found.' };
+      const head = rows[hi].map((s) => s.trim()), c = (n) => head.indexOf(n);
+      const records = [];
+      let skipped = 0;
+      for (const r of rows.slice(hi + 1)) {
+        if (r[c('Type')] !== 'Unknown' || /excluded/i.test(r[c('Excluded')] ?? '')) { skipped++; continue; }
+        const id = r[c('Sample ID')] ?? '', m = id.match(/C(\d+)\s*B(\d+)/i);
+        const anal = r[c('Anal.')], mg = num(r[c('Mean Conc.')]);
+        const param = anal === 'NPOC' ? 'doc' : anal === 'IC' ? 'dic' : null;
+        if (!param || !Number.isFinite(mg)) continue;
+        records.push({ site: r[c('Sample Name')]?.split(' C')[0] || 'Samples', param, unit: 'µmol/L', t: timeOf(r[c('Date / Time')]), v: round(mg * C_UMOL, 1), flag: num(r[c('CV')]) > 2 ? 'q' : null, ...(m && { cast: String(+m[1]), bottle: +m[2] }) });
+      }
+      return { records, meta: { instrument: 'TOC-L', skipped, note: 'NPOC read as DOC, IC as DIC; mg C/L converted to µmol/L.' } };
+    },
+    mock(seed = 31) {
+      const r = rng(seed);
+      const head = ['Type', 'Anal.', 'Sample Name', 'Sample ID', 'Date / Time', 'Mean Conc.', 'Unit', 'SD', 'CV', 'Excluded'];
+      const rows = [head.join('\t')];
+      const run = Date.UTC(2025, 7, 19, 9, 5);
+      let k = 0;
+      const at = () => { const d = new Date(run + (k++) * 11 * 60e3); return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()} ${clock(d).slice(0, 5)}`; };
+      const std = (anal, name, v) => rows.push(['Standard', anal, name, '', at(), v.toFixed(3), 'mg/L', '0.012', '0.9', ''].join('\t'));
+      std('NPOC', 'KHP check 1 ppm', 1.004); std('IC', 'NaHCO3 check 25 ppm', 24.92);
+      rows.push(['Blank', 'NPOC', 'MQ blank', '', at(), '0.041', 'mg/L', '0.006', '14.6', ''].join('\t'));
+      BOTTLE_DEPTHS.forEach((z, i) => {
+        const ch = channelAt(z, r), b = String(i + 1).padStart(2, '0');
+        const docMg = ch.doc / C_UMOL, dicMg = ch.dic / C_UMOL, cv = (r() * 1.6 + 0.3);
+        rows.push(['Unknown', 'NPOC', `Harbour channel C04 B${b}`, `KB25-07 C04 B${b}`, at(), docMg.toFixed(3), 'mg/L', (docMg * cv / 100).toFixed(3), (i === 6 ? 3.4 : cv).toFixed(1), ''].join('\t'));
+        rows.push(['Unknown', 'IC', `Harbour channel C04 B${b}`, `KB25-07 C04 B${b}`, at(), dicMg.toFixed(3), 'mg/L', (dicMg * 0.004).toFixed(3), '0.4', i === 9 ? 'Excluded (bubble)' : ''].join('\t'));
+        if (i === 5) std('NPOC', 'KHP check 1 ppm', 0.991);
+      });
+      return rows.join('\n');
     },
   },
   {

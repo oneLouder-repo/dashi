@@ -76,6 +76,12 @@ export const ICONS = {
   tag: 'M3 12 V4 H11 L20 13 L13 20 Z M7.5 8.5 A1 1 0 1 0 7.51 8.5 Z',
   deviceMobile: 'M7 2.5 H17 V21.5 H7 Z M11 18.5 H13',
   deviceDesktop: 'M3 4 H21 V16 H3 Z M8 20 H16 M12 16 V20',
+  // EoViz: water, air, soil, the lab.
+  drop: 'M12 3 C9 7.5 6 10.6 6 14 A6 6 0 0 0 18 14 C18 10.6 15 7.5 12 3 Z M9.2 14.5 A2.8 2.8 0 0 0 12 17.3',
+  wind: 'M3 9 H14.5 A2.5 2.5 0 1 0 12 6.5 M3 13 H18.5 A2.5 2.5 0 1 1 16 15.5 M3 17 H10',
+  leaf: 'M5 19 C5 10 10 5 20 4 C19 14 14 19 5 19 Z M5 19 L13 11',
+  flask: 'M9.5 3 H14.5 M10.5 3 V9 L5 19 A1.4 1.4 0 0 0 6.2 21 H17.8 A1.4 1.4 0 0 0 19 19 L13.5 9 V3 M7.5 15 H16.5',
+  waves: 'M3 8 C5.5 6 7 10 9.5 8 S13.5 6 16 8 S19 10 21 8 M3 13 C5.5 11 7 15 9.5 13 S13.5 11 16 13 S19 15 21 13 M3 18 C5.5 16 7 20 9.5 18 S13.5 16 16 18 S19 20 21 18',
   ticket: 'M3 7 H21 V10 A2 2 0 0 0 21 14 V17 H3 V14 A2 2 0 0 0 3 10 Z M14 7 V17',
 };
 
@@ -102,6 +108,8 @@ export const SECTION_ICONS = {
   'sec-rhizome': `<path d="M2.5 13 C6 11 8 14.5 12 12.5 S18 10.5 21.5 12.5"/><path d="M7 12.2 L5.5 6.5 M7 12.2 L8.5 19 M12 12.5 L13.5 5.5 M16.5 11.6 L18.5 18.5 M16.5 11.6 L15.5 6.5"/><circle cx="12" cy="12.5" r="2.4" ${ACF}/>`,
   'sec-teach': `<path d="M3 6 H21 M3 12 H21 M3 18 H21" stroke-opacity=".35"/><rect x="4" y="4" width="7" height="4" rx="1"/><rect x="9" y="10" width="9" height="4" rx="1" ${ACF}/><rect x="6" y="16" width="5" height="4" rx="1"/><path d="M15 2.5 V21.5"/>`,
   'sec-learn': `<path d="M12 5 L2.5 9.5 L12 14 L21.5 9.5 Z"/><path d="M6 11.5 V16 C8.5 18.5 15.5 18.5 18 16 V11.5"/><path d="M21.5 9.5 V15"/><circle cx="21.5" cy="16.5" r="1.6" ${ACF}/>`,
+  // EoViz, the eco data lens: a lens over a line of readings, with a leaf in its tone.
+  'sec-eoviz': `<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.2 15.2 L20.5 20.5"/><path d="M2.5 13 L6 11 L9 12.5 L12 8 L15 9.5" stroke-opacity=".45"/><path d="M8 13.5 C8 9.8 10 7.8 13.6 7.4 C13.3 11 11.4 13.2 8 13.5 Z" ${AC}/>`,
   'sec-place': `<path d="M3 19.5 C6 17.5 8.5 20.5 12 18.8 S18 17 21 19"/><path d="M12 15.5 C9 12 7.5 9.8 7.5 8 A4.5 4.5 0 0 1 16.5 8 C16.5 9.8 15 12 12 15.5 Z"/><circle cx="12" cy="8" r="1.9" ${ACF}/>`,
   'sec-plugins': `<rect x="4" y="4" width="7" height="7"/><rect x="13" y="13" width="7" height="7"/><path d="M4 13 H11 V20 H4 Z" stroke-dasharray="2 2"/><circle cx="16.5" cy="7.5" r="3.5" ${AC}/>`,
 };

@@ -9,7 +9,8 @@
  *     id: 'eco',
  *     sites:  { <id>: { id, name, kind: 'water'|'air'|'soil', geo: { lat, lng, precision }, note, tags } },
  *     series: { <id>: { id, siteId, param, unit, fileId, format, depth?, points: [[iso, value, flag?], …] } },
- *     files:  { <id>: { id, name, format, size, at, by, rows, seriesIds, meta } },
+ *     files:  { <id>: { id, name, format, size, at, by, rows, seriesIds, meta, partnerId? } },
+ *     partners: { <id>: { id, name, kind, about, share: 'open'|'network'|'own', colour } },
  *     settings: { guideline: 'canada' },
  *   }
  *
@@ -18,11 +19,32 @@
  */
 
 export const ECO_DOC = 'eco';
-export const blankEco = () => ({ id: 'eco', sites: {}, series: {}, files: {}, settings: { guideline: 'canada' } });
+export const blankEco = () => ({ id: 'eco', sites: {}, series: {}, files: {}, partners: {}, settings: { guideline: 'canada' } });
+
+/**
+ * Partner groups (d, 2026-11-27): each is separate, with its own sites,
+ * files and dashboard. A group chooses how far its data goes: 'own' (the
+ * default) keeps it to the group, 'open' lets anyone see it (a public
+ * board), 'network' shares with the other partners who also chose it (the
+ * shared bay network, next stage). Then an Indigenous guardians programme,
+ * whose data follows its own rules (OCAP): share per site, never by default. A site can be held back
+ * (its place hidden) whatever the partner shares: a harvesting spot, a nest.
+ */
+export const PARTNER_KINDS = [
+  { id: 'volunteer', label: 'Community monitors', icon: 'users' },
+  { id: 'guardians', label: 'Guardians', icon: 'shield' },
+  { id: 'lab', label: 'Research lab', icon: 'flask' },
+  { id: 'agency', label: 'Agency or open data', icon: 'globe' },
+];
+export const SHARES = {
+  open: { label: 'Open', about: 'Anyone, and the public dashboard' },
+  network: { label: 'Bay network', about: 'The partners in this network' },
+  own: { label: 'Own', about: 'This group only' },
+};
 
 export function migrateEco(d) {
   const doc = { ...blankEco(), ...(d ?? {}) };
-  for (const k of ['sites', 'series', 'files']) if (!doc[k] || typeof doc[k] !== 'object') doc[k] = {};
+  for (const k of ['sites', 'series', 'files', 'partners']) if (!doc[k] || typeof doc[k] !== 'object') doc[k] = {};
   doc.settings = { guideline: 'canada', ...(doc.settings ?? {}) };
   for (const s of Object.values(doc.series)) if (!Array.isArray(s.points)) s.points = [];
   return doc;
@@ -65,6 +87,9 @@ export const PARAMS = [
   { id: 'om', label: 'Organic matter', short: 'OM', unit: '%', kind: 'soil', aliases: ['organic matter', 'om', 'om %', 'soc'] },
   { id: 'pb', label: 'Lead', short: 'Pb', unit: 'mg/kg', kind: 'soil', guide: { max: 140, note: 'CCME soil, residential and parkland' }, aliases: ['lead', 'pb', 'pb mg/kg'] },
   { id: 'soilno3', label: 'Soil nitrate', short: 'Soil NO₃', unit: 'mg/kg', kind: 'soil', aliases: ['soil nitrate', 'no3 mg/kg'] },
+  // The vessel lab's carbon (d, 2026-11-27): a TOC analyser reads NPOC (= DOC) and IC (= DIC); EoViz keeps µmol/L.
+  { id: 'doc', label: 'Dissolved organic carbon', short: 'DOC', unit: 'µmol/L', kind: 'water', aliases: ['doc', 'dissolved organic carbon', 'npoc', 'doc µmol/l'] },
+  { id: 'dic', label: 'Dissolved inorganic carbon', short: 'DIC', unit: 'µmol/L', kind: 'water', aliases: ['dic', 'dissolved inorganic carbon', 'ic', 'tco2', 'dic µmol/l'] },
   { id: 'abs', label: 'Absorbance', short: 'Abs', unit: 'AU', kind: 'water', aliases: ['absorbance', 'abs'] },
 ];
 export const paramById = (id) => PARAMS.find((p) => p.id === id) ?? null;
@@ -127,13 +152,20 @@ export function stats(s) {
     first: s.points[0][0], last: s.points.at(-1)[0], exceed: vals.filter((v) => ['low', 'high'].includes(judge(s.param, v))).length };
 }
 
+/** Units as files write them ("deg C", "None", "MPN/100mL") → as EoViz shows them. */
+export function cleanUnit(u) {
+  const t = String(u ?? '').trim();
+  const map = { 'deg c': '°C', degc: '°C', c: '°C', 'deg f': '°F', none: '', 'ph units': 'pH', 'mpn/100ml': 'MPN/100 mL', 'cfu/100ml': 'CFU/100 mL', 'us/cm': 'µS/cm', 'ug/l': 'µg/L', 'mg/l': 'mg/L', 'ug/m3': 'µg/m³' };
+  return map[t.toLowerCase()] ?? t;
+}
+
 /** Readings (from a parsed file) grouped into series: one per site, parameter and depth. */
 export function groupRecords(records) {
   const out = new Map();
   for (const r of records) {
     if (!Number.isFinite(r.v)) continue;
     const key = `${r.site ?? ''}|${r.param}|${r.depth ?? ''}`;
-    if (!out.has(key)) out.set(key, { site: r.site ?? null, param: r.param, unit: r.unit, depth: r.depth ?? null, points: [] });
+    if (!out.has(key)) out.set(key, { site: r.site ?? null, param: r.param, unit: cleanUnit(r.unit), depth: r.depth ?? null, points: [] });
     out.get(key).points.push([r.t, r.v, r.flag ?? null].filter((x, i) => i < 2 || x));
   }
   for (const s of out.values()) s.points.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
@@ -141,7 +173,7 @@ export function groupRecords(records) {
 }
 
 /** Bring a parsed file into the document: sites by name (made when new), series, and the file record. */
-export function addParsed(doc, parsed, { name, size = 0, format, by = null, siteFor = null, at = new Date().toISOString() }) {
+export function addParsed(doc, parsed, { name, size = 0, format, by = null, siteFor = null, partnerId = null, at = new Date().toISOString() }) {
   const fileId = newId('f');
   const sitesByName = new Map(Object.values(doc.sites).map((s) => [s.name.toLowerCase(), s]));
   const seriesIds = [];
@@ -151,7 +183,7 @@ export function addParsed(doc, parsed, { name, size = 0, format, by = null, site
     let site = sitesByName.get(siteName.toLowerCase());
     if (!site) {
       const info = parsed.sites?.[siteName] ?? {};
-      site = { id: `s-${slug(siteName)}-${Math.random().toString(36).slice(2, 5)}`, name: siteName, kind: info.kind ?? paramById(g.param)?.kind ?? 'water', geo: info.geo ?? null, note: '', tags: [] };
+      site = { id: `s-${slug(siteName)}-${Math.random().toString(36).slice(2, 5)}`, name: siteName, kind: info.kind ?? paramById(g.param)?.kind ?? 'water', geo: info.geo ?? null, note: '', tags: [], ...(partnerId && { partnerId }) };
       doc.sites[site.id] = site;
       sitesByName.set(siteName.toLowerCase(), site);
     }
@@ -159,8 +191,29 @@ export function addParsed(doc, parsed, { name, size = 0, format, by = null, site
     doc.series[id] = { id, siteId: site.id, param: g.param, unit: g.unit, fileId, format, ...(g.depth != null && { depth: g.depth }), points: g.points };
     seriesIds.push(id);
   }
-  doc.files[fileId] = { id: fileId, name, format, size, at, by, rows: parsed.records?.length ?? 0, seriesIds, meta: parsed.meta ?? {} };
+  doc.files[fileId] = { id: fileId, name, format, size, at, by, rows: parsed.records?.length ?? 0, seriesIds, meta: parsed.meta ?? {}, ...(partnerId && { partnerId }) };
   return { fileId, seriesIds };
+}
+
+/**
+ * The vessel workflow: a lab file names samples by cast and bottle; the
+ * rosette's bottle file (.btl) says at what depth and time each bottle
+ * closed. Fill each lab reading's depth and time from the bottle it came
+ * from. Looks in the bottle files already brought in, and any given.
+ * Returns { matched, unmatched, cast } and changes the records in place.
+ */
+export function matchBottles(doc, parsed, more = []) {
+  const recs = (parsed.records ?? []).filter((r) => r.bottle != null);
+  if (!recs.length) return null;
+  const casts = [...Object.values(doc.files).map((f) => f.meta), ...more].filter((m) => m?.bottles?.length);
+  let matched = 0, cast = null;
+  for (const r of recs) {
+    const c = casts.find((m) => (!r.cast || String(m.cast) === String(r.cast)) && m.bottles.some((b) => +b.bottle === +r.bottle));
+    const b = c?.bottles.find((x) => +x.bottle === +r.bottle);
+    if (!b) continue;
+    r.depth = b.depth; r.t = b.t; r.site = c.station ?? r.site; matched++; cast = c;
+  }
+  return { matched, unmatched: recs.length - matched, cast: cast ? `${cast.station} · cast ${cast.cast}` : null };
 }
 
 /** Remove a file and the series it brought; sites with nothing left stay (they may have a note or a place). */

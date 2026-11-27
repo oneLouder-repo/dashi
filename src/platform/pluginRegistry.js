@@ -222,6 +222,22 @@ const BUILT_IN = {
       { id: 'pins', label: 'Pins', fields: [f('placeId', 'Place', 'reference'), f('lat', 'Latitude', 'number'), f('lng', 'Longitude', 'number'), f('serves', 'Serves', 'list'), f('note', 'Note', 'longtext')] }] }] },
     changelog: [{ version: '0.1.0', date: '2026-11-22', notes: 'Stage 1: places, pins, layers and base maps, with Kestrel Bay drawn as a made-up bay.', by: 'Dashi' }],
   },
+  eoviz: {
+    category: 'Knowledge',
+    version: '0.1.0',
+    features: [
+      feat('files', 'Files from instruments and labs', 'Fourteen file types read: CSV, DataStream, WQX, HOBO, Solinst, YSI EXO, Sea-Bird CNV, WaterML 2.0, netCDF CDL, JCAMP-DX, OpenAQ, PurpleAir, lab EDDs and GeoJSON.'),
+      feat('sites', 'Sites and readings', 'Water, air and soil sites; each reading keeps its unit, depth and flag.'),
+      feat('finder', 'Viz finder', 'Reads the shape of your data and ranks the charts that suit it, drawn live.'),
+      feat('dashboard', 'Dashboard', 'Latest readings against Canadian guide values, and a lab bench strip per site.'),
+      feat('sketchbook', 'Sketchbook', 'Generative drawings of the same data, for campaigns and walls.'),
+    ],
+    dataModel: { docs: [{ name: 'eco', label: 'Sites, readings and files', collections: [
+      { id: 'sites', label: 'Sites', fields: [f('name', 'Name', 'text', { required: true }), f('kind', 'Kind', 'select', { options: ['water', 'air', 'soil'] }), f('geo', 'Point', 'text'), f('note', 'Note', 'longtext'), f('tags', 'Tags', 'list')] },
+      { id: 'series', label: 'Series', fields: [f('siteId', 'Site', 'reference'), f('param', 'Parameter', 'text'), f('unit', 'Unit', 'text'), f('depth', 'Depth', 'number'), f('fileId', 'From file', 'reference')] },
+      { id: 'files', label: 'Files', fields: [f('name', 'Name', 'text'), f('format', 'Format', 'text'), f('rows', 'Rows', 'number')] }] }] },
+    changelog: [{ version: '0.1.0', date: '2026-11-27', notes: 'Stage 1: file types and mocks, sites and readings, the viz finder, the dashboard and the sketchbook, with Kestrel Bay’s watershed as the demo.', by: 'Dashi' }],
+  },
   pages: {
     category: 'Publishing',
     features: [

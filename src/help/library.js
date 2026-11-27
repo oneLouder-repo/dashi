@@ -15,6 +15,7 @@
 import { RHIZOME_HELP } from '../rhizome/help.js';
 import { LEARNING_HELP } from '../learning/help.js';
 import { PLACE_HELP } from '../place/help.js';
+import { EOVIZ_HELP } from '../eoviz/help.js';
 import { NEW_04_HELP } from './new04.js';
 
 /** The screenshots tutorials can show, by id, with their captions. Files are in media/help/. */
@@ -73,6 +74,7 @@ export const HELP_SEED = {
     NEW_04_HELP,
     LEARNING_HELP,
     PLACE_HELP,
+    EOVIZ_HELP,
     RHIZOME_HELP,
     {
       id: 'asset-graph',

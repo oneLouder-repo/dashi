@@ -30,6 +30,7 @@ import { blankTeach } from '../learning/cartridge.js';
 import { withTriageTeach, withTriageLearn, withStreamDemo } from '../learning/triage.js';
 import { blankLearn } from '../learning/records.js';
 import { blankPlace, migratePlace } from '../place/model.js';
+import { blankEco, migrateEco } from '../eoviz/model.js';
 
 const seedFor = (doc) => SEEDS[activeOrg()]?.[doc];
 
@@ -76,6 +77,8 @@ export const loadTeach = () => { const d = { ...blankTeach(), ...loadOrSeed('tea
 export const loadLearn = () => { const d = { ...blankLearn(), ...loadOrSeed('learn', blankLearn) }; const org = loadOrg(); return triageFor(org) ? withTriageLearn(d, loadTeach(), org) : d; };
 /** Place's places and pins for this org (Place stage 1). */
 export const loadPlace = () => migratePlace(loadOrSeed('place', blankPlace));
+/** EoViz's sites, readings and files (EoViz stage 1). */
+export const loadEco = () => migrateEco(loadOrSeed('eco', blankEco));
 export const loadSocial = () => migrateSocial(loadOrSeed('social', blankSocial));
 
 /** Plan documents. Every org with a plan starts with a draft of one; example orgs publish it to their public site. */

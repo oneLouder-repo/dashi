@@ -134,6 +134,12 @@ const ACTIONS = {
     { label: 'Catalogue', icon: 'books', href: own('learn', '#catalogue'), here: '#catalogue' },
     { label: 'About', icon: 'help', href: own('learn', '#about'), here: '#about' },
   ],
+  eoviz: () => [
+    { label: 'Overview', icon: 'gauge', href: own('eoviz', '#overview'), here: '#overview' },
+    { label: 'Files', icon: 'file', href: own('eoviz', '#files'), here: '#files' },
+    { label: 'Finder', icon: 'chart', href: own('eoviz', '#finder'), here: '#finder' },
+    { label: 'Formats', icon: 'fileText', href: own('eoviz', '#formats'), here: '#formats' },
+  ],
   place: () => [
     { label: 'Map', icon: 'mapTrifold', href: own('place', '#map'), here: '#map' },
     { label: 'Places', icon: 'pin', href: own('place', '#places'), here: '#places' },

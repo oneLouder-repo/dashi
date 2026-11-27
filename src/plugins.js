@@ -208,6 +208,21 @@ export const PLUGINS = [
     stats: ({ place }) => (place?.places ? `${count(place.places)} places · ${count(place.pins)} pins · experimental` : 'No places yet · experimental'),
   },
   {
+    id: 'eoviz',
+    owns: ['eco'],
+    // Reads nothing of anyone else's: its sites, readings and files are its own.
+    reads: [],
+    short: 'EoViz',
+    tone: '#2f8f5b',
+    name: 'EoViz',
+    href: 'eoviz.html',
+    icon: 'sec-eoviz',
+    experimental: true,
+    defaultOff: true,
+    blurb: 'Experimental: the eco data lens. Bring in water, air and soil data from loggers, sondes, labs and open data, keep it with its units and flags, and find the right way to draw it.',
+    stats: ({ eco }) => (eco?.sites ? `${count(eco.sites)} sites · ${count(eco.files)} files · experimental` : 'No data yet · experimental'),
+  },
+  {
     id: 'pages',
     owns: ['pages'],
     reads: ['dashboards', 'data', 'plandocs', 'strategy', 'library'],
