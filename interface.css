@@ -1107,3 +1107,11 @@ input[name='page-title']:focus { border-style: solid; border-color: var(--color-
 .af-tray-uses h4 { margin: 4px 0; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .af-tray-uses ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .af-tray-uses a { display: inline-flex; gap: 6px; align-items: center; }
+
+/* Suggested tags (ui/TagSuggest.js): one-click chips under a tag field. */
+.tag-suggest { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 6px; }
+.tag-suggest-label { display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; color: var(--muted, #6b7280); margin-right: 2px; }
+.tag-suggest-chip { font: inherit; font-size: 0.75rem; line-height: 1; padding: 4px 8px; border-radius: 999px; cursor: pointer; background: transparent; color: inherit;
+  border: 1px dashed color-mix(in oklab, var(--color-primary, #7b2fe8) 45%, transparent); }
+.tag-suggest-chip.why-similar, .tag-suggest-chip.why-lexicon { border-style: solid; }
+.tag-suggest-chip:hover, .tag-suggest-chip:focus-visible { background: color-mix(in oklab, var(--color-primary, #7b2fe8) 12%, transparent); }

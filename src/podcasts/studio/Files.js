@@ -10,6 +10,8 @@ import { prettySize } from '../../platform/assetHub.js';
 import { sessionFromFile } from './slides.js';
 import { PluginHeader } from '../../ui/PluginHeader.js';
 import { Drawer } from '../../ui/drawer.js';
+import { TagSuggest } from '../../ui/TagSuggest.js';
+import { tagVocab } from '../../platform/tagSuggest.js';
 import { showsInOrder } from '../../platform/podcasts.js';
 
 /**
@@ -157,6 +159,18 @@ function FileTray(ctx, id, redraw) {
   const put = (patch) => { ctx.store.apply(ctx.col.update('files', id, patch)); redraw(); };
   const fieldOf = (label, el, note) => h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, label), el, note && h('span', { class: 'label muted small' }, note));
   const text = (key, ph) => h('input', { class: 'input input-sm w-full', value: f0[key] ?? '', placeholder: ph, onchange: (e) => put({ [key]: e.target.value.trim() }) });
+  // Tags, with suggestions from the name and description and the tags on the other files.
+  const tagsHost = h('div');
+  const TagsField = () => { drawTags(); return tagsHost; };
+  const drawTags = () => {
+    const f = cur();
+    if (!f) return;
+    const others = Object.values(ctx.doc().files ?? {}).filter((x) => x.id !== id).map((x) => ({ text: [x.name, x.description].filter(Boolean).join('. '), tags: x.tags ?? [] }));
+    tagsHost.replaceChildren(
+      fieldOf('Tags', h('input', { class: 'input input-sm w-full', value: (f.tags ?? []).join(', '), placeholder: 'interview, intro, bed', onchange: (e) => { put({ tags: e.target.value.split(',').map((x) => x.trim().replace(/^#/, '')).filter(Boolean) }); drawTags(); } }), 'Separated by commas. Search finds them.'),
+      TagSuggest({ text: [f.name.replace(/\.[a-z0-9]+$/i, '').replace(/[-_]+/g, ' '), f.description, f.credit].filter(Boolean).join('. '), have: f.tags ?? [], vocab: tagVocab(others),
+        onAdd: (tag) => { put({ tags: [...new Set([...(cur().tags ?? []), tag])] }); drawTags(); } }));
+  };
   const body = () => {
     const f = cur();
     if (!f) return h('p', { class: 'empty' }, 'That file was deleted.');
@@ -166,11 +180,11 @@ function FileTray(ctx, id, redraw) {
     return h('div', { class: 'af-tray lx-form' },
       h('div', { class: 'af-tray-play' }, PlayButton(f), h('span', {}, clock(f.duration ?? 0, { tenths: false })), h('span', { class: 'muted small' }, [prettySize(f.size), ORIGINS[f.origin] ?? 'Imported', f.createdAt && new Date(f.createdAt).toLocaleDateString()].filter(Boolean).join(' · '))),
       fieldOf('Name', h('input', { class: 'input input-sm w-full', value: f.name, onchange: (e) => { if (e.target.value.trim()) { put({ name: e.target.value.trim() }); d.setTitle(e.target.value.trim(), 'Audio file'); } } })),
-      fieldOf('Description', h('textarea', { class: 'textarea textarea-sm w-full', rows: 3, placeholder: 'What it is, who is speaking, where it was recorded', onchange: (e) => put({ description: e.target.value.trim() }) }, f.description ?? '')),
+      fieldOf('Description', h('textarea', { class: 'textarea textarea-sm w-full', rows: 3, placeholder: 'What it is, who is speaking, where it was recorded', onchange: (e) => { put({ description: e.target.value.trim() }); drawTags(); } }, f.description ?? '')),
       h('div', { class: 'af-tray-two' },
         fieldOf('Credit', text('credit', 'Who made or recorded it')),
         fieldOf('Licence', text('licence', 'Yours, CC BY 4.0, used with permission…'))),
-      fieldOf('Tags', h('input', { class: 'input input-sm w-full', value: (f.tags ?? []).join(', '), placeholder: 'interview, intro, bed', onchange: (e) => put({ tags: e.target.value.split(',').map((x) => x.trim().replace(/^#/, '')).filter(Boolean) }) }), 'Separated by commas. Search finds them.'),
+      TagsField(),
       h('div', { class: 'af-tray-uses' }, h('h4', {}, 'Used in'),
         eps.length || uses.length
           ? h('ul', {}, [...eps.map((e) => h('li', {}, h('a', { href: `#episodes/${e.id}` }, icon('music', 13), e.title))), ...uses.map((p) => h('li', {}, h('a', { href: `#studio/${p.id}` }, icon('waveform', 13), p.title)))])

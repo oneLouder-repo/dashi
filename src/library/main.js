@@ -1,4 +1,6 @@
 import { h, options } from '../ui/dom.js';
+import { TagSuggest } from '../ui/TagSuggest.js';
+import { tagVocab } from '../platform/tagSuggest.js';
 import { icon } from '../ui/icons.js';
 import { Shell, Avatar, toast } from '../ui/Shell.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
@@ -1013,11 +1015,10 @@ const bibOf = (item) => Object.values(lib().bibs).find((b) => b.itemIds.includes
 
 /** Tags suggested from what a source says: the lexicon's terms first, then tags the library already uses. */
 function SuggestChips(bib, source, has, onAdd) {
-  const list = suggestTags(lib(), bib, { ...source, has }).slice(0, 8);
-  if (!list.length) return null;
-  return h('div', { class: 'suggest-row' },
-    h('span', { class: 'muted small' }, 'Suggested:'),
-    list.map((x) => h('button', { type: 'button', class: `tag suggest ${x.from}`, title: x.from === 'lexicon' ? `From the lexicon${x.facet ? ` (${x.facet})` : ''}` : 'A tag already used in your library', onclick: () => onAdd(x.tag) }, `+ ${x.tag}`)));
+  const extra = suggestTags(lib(), bib, { ...source, has }).slice(0, 8).map((x) => ({ tag: x.tag, why: x.from, title: x.from === 'lexicon' ? `From the lexicon${x.facet ? ` (${x.facet})` : ''}` : 'A tag already used in your library' }));
+  // Then the semantic suggester: tags on similar sources, and themes (platform/tagSuggest.js).
+  const vocab = tagVocab(Object.values(lib().items).map((it) => ({ text: [it.meta?.title, it.meta?.abstract, it.meta?.note].filter(Boolean).join('. '), tags: [...(it.tags ?? []), ...(it.meta?.keywords ?? [])] })));
+  return TagSuggest({ text: [source.title, source.abstract, source.text].filter(Boolean).join('. '), have: has, vocab, extra, limit: 6, onAdd });
 }
 
 /** A cloud of tags, sized by how many items carry each; each links to its items. */

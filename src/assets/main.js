@@ -1,4 +1,6 @@
 import { h } from '../ui/dom.js';
+import { TagSuggest } from '../ui/TagSuggest.js';
+import { tagVocab } from '../platform/tagSuggest.js';
 import { icon } from '../ui/icons.js';
 import { Shell, Avatar, toast } from '../ui/Shell.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
@@ -967,8 +969,11 @@ function Preview(c) {
   return box;
 }
 
+/** What an asset says, for the tag suggester. */
+const cardText = (c) => [c.title, c.description, c.sub, c.kindLabel].filter(Boolean).join('. ');
 function TagEditor(c, editable, change) {
-  const known = tagCounts(allCards()).map((t) => t.tag);
+  const cards = allCards();
+  const known = tagCounts(cards).map((t) => t.tag);
   const listId = `ah-tags-${Math.random().toString(36).slice(2, 7)}`;
   const input = h('input', { class: 'ah-tag-input', placeholder: 'Add a tag', list: listId, 'aria-label': 'Add a tag', disabled: !editable,
     onkeydown: (e) => {
@@ -978,11 +983,15 @@ function TagEditor(c, editable, change) {
         if (tags.length) change((x) => { x.tags = [...new Set([...x.tags, ...tags])]; }, `tagged “${c.title}” ${tags.map((t) => `#${t}`).join(' ')}`);
       }
     } });
-  return h('div', { class: 'ah-tagbox' },
+  const box = h('div', { class: 'ah-tagbox' },
     c.tags.map((t) => h('span', { class: 'ah-chip tag' }, `#${t}`, editable && h('button', { type: 'button', 'aria-label': `Remove ${t}`, onclick: () => change((x) => { x.tags = x.tags.filter((y) => y !== t); }) }, '×'))),
     (c.tagsFrom ?? []).filter((t) => !c.tags.includes(t)).map((t) => h('span', { class: 'ah-chip tag from', title: 'From the library' }, `#${t}`)),
     editable && input,
     h('datalist', { id: listId }, known.map((t) => h('option', { value: t }))));
+  if (!editable) return box;
+  const vocab = tagVocab(cards.filter((x) => x.key !== c.key).map((x) => ({ text: cardText(x), tags: [...x.tags, ...(x.tagsFrom ?? [])] })));
+  return h('div', {}, box, TagSuggest({ text: cardText(c), have: [...c.tags, ...(c.tagsFrom ?? [])], vocab,
+    onAdd: (tag) => change((x) => { x.tags = [...new Set([...x.tags, tag])]; }, `tagged “${c.title}” #${tag}`) }));
 }
 
 function Meta(c, editable, change) {

@@ -1,5 +1,7 @@
 import { h, options } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
+import { TagSuggest } from '../ui/TagSuggest.js';
+import { tagVocab } from '../platform/tagSuggest.js';
 import { PhotoRow } from '../ui/PhotoRow.js';
 import { photoMasthead } from '../platform/photos.js';
 import { Shell, Avatar } from '../ui/Shell.js';
@@ -924,6 +926,14 @@ function EpisodeForm(e, { seriesId, base, file: dropped = null }) {
   };
   const description = h('textarea', { class: 'textarea textarea-sm', name: 'ep-description', rows: 2, placeholder: 'One or two lines on what it is about. Podcast apps show this.' }, e?.description ?? '');
   const tags = h('input', { class: 'input input-sm', name: 'ep-tags', placeholder: 'north, youth voice, robotics', value: (e?.tags ?? []).join(', ') });
+  // Suggested tags from the title and summary, and the tags on other episodes (ui/TagSuggest.js).
+  const tagIdeas = h('div');
+  const tagList = () => tags.value.split(',').map((t) => t.trim().replace(/^#/, '').toLowerCase()).filter(Boolean);
+  const drawTagIdeas = () => tagIdeas.replaceChildren(TagSuggest({ text: `${title.value}. ${description.value}`, have: tagList(), limit: 5,
+    vocab: tagVocab(Object.values(doc().episodes ?? {}).filter((x) => x.id !== e?.id).map((x) => ({ text: `${x.title}. ${x.description ?? ''}`, tags: x.tags ?? [] }))),
+    onAdd: (t) => { tags.value = [...tagList(), t].join(', '); drawTagIdeas(); } }) ?? '');
+  for (const el of [title, description, tags]) el.addEventListener('change', drawTagIdeas);
+  drawTagIdeas();
 
   const artBox = h('div', { class: 'pc-art-pick' });
   const drawArt = () => {
@@ -1073,7 +1083,7 @@ function EpisodeForm(e, { seriesId, base, file: dropped = null }) {
       newSeriesField,
       field('Title', title),
       field('Summary', description),
-      h('div', { class: 'pc-pair' }, h('div', { class: 'pc-field' }, h('span', {}, 'Art'), artBox), field('Tags', tags, 'Separate them with commas'))),
+      h('div', { class: 'pc-pair' }, h('div', { class: 'pc-field' }, h('span', {}, 'Art'), artBox), field('Tags', h('div', {}, tags, tagIdeas), 'Separate them with commas'))),
     step(3, 'Who is in it', picker.el, h('small', { class: 'muted' }, 'Staff and guests are named on the episode’s public page.')),
     step(4, 'When it goes out', whenBox, dateField, whenNote),
     h('details', { class: 'pc-more', open: false },
