@@ -19,9 +19,8 @@
  */
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
-import { MODULES, CATEGORIES, FIELDS, HP, LIST_SOURCE, TYPE_SOURCE, order, isNumeric, blankPatch, addModule, removeModule, moveModule, swapRack, placeModule, inRack, rowsOf, connect, disconnect, runPatch, ruleToPatch, patchToRule, starterPatch, describeModule, unfoldTranslator } from './rack.js';
+import { MODULES, CATEGORIES, FIELDS, HP, LIST_SOURCE, TYPE_SOURCE, order, isNumeric, blankPatch, addModule, removeModule, moveModule, swapRack, placeModule, inRack, rowsOf, connect, disconnect, runPatch, ruleToPatch, patchToRule, starterPatch, describeModule, unfoldTranslator, museVariants } from './rack.js';
 import { MOCK_MODEL, usageOf } from './neuro.js';
-import { DockPanels } from '../ui/DockPanels.js';
 import { RULES, ruleById, OPS } from './rules.js';
 import { TIPS, tipById } from './tips.js';
 import { ENTITY_TYPES, typeLabel } from './facts.js';
@@ -49,6 +48,9 @@ let dragFrom = null; // { m, port, dir, x, y } while a cable is being patched
 let flipped = false; // looking at the back of the rack
 const visState = {}; // where each visualiser is up to (lane, playing, speed), kept across re-renders
 let selected = null; // the module the Rack 2.0 inspector shows
+const tutorState = {}; // which question each Tutor is on, and whether its answer shows
+let trayTab = 'modules'; // the Rack 2.0 tool tray's open tab
+const TRAY_KEY = 'dashi.rhizome.rack2-tray';
 
 /** Classic ('1') or Rack 2.0 ('2'), remembered per person in this browser. */
 const VKEY = 'dashi.rhizome.rack-view';
@@ -130,6 +132,7 @@ export function Rack(env, patchId) {
       Object.entries(MODULES).filter(([, d]) => d.cat === cat).map(([type, d]) => h('button', {
         class: `rk-add ${d.look}${d.neuro ? ' neuro' : ''}`, title: d.blurb, disabled: !canSet || (type === 'patchbay' && patch.modules.some((m) => m.type === 'patchbay')),
         onclick: () => { const made = addModule(patch, type); selected = made?.id ?? selected; commit(`${d.label} added`); },
+        draggable: v2 && canSet ? 'true' : null, ondragstart: v2 ? (e) => { e.dataTransfer.setData('text/x-rk-module', type); e.dataTransfer.effectAllowed = 'copy'; } : null,
       }, h('b', {}, d.label), h('span', {}, d.neuro ? 'mock' : d.stage ? `Stage ${d.stage}` : d.stage === null ? 'Open' : `${d.hp} HP`)))));
   const drawer = h('aside', { class: 'rk-drawer' },
     h('h4', {}, 'Modules'),
@@ -174,7 +177,7 @@ export function Rack(env, patchId) {
     const face = m.type === 'visualiser' ? VisFace(m, p, set) : def.neuro ? NeuroFace(m, def, ins, outs, p, set) : def.look === 'digital' ? Digital(m, def, ins) : Face(m, def, ins, outs, p, set);
     const movable = canSet && m.type !== 'patchbay';
     return h('div', { class: `rk-mod ${def.look}${def.neuro ? ' neuro' : ''} t-${m.type}${v2 ? ` fam-${FAMILY_OF[m.type] ?? FAMILY[def.cat] ?? 'sampler'}` : ''}${v2 && selected === m.id ? ' sel' : ''}`, style: `flex:${def.hp} 1 0;--c:${CAT_TONE[def.cat]}`, 'data-mod': m.id },
-      h('header', { onclick: v2 ? (e) => { if (e.target.closest('button')) return; selected = selected === m.id ? null : m.id; env.render(); } : null, title: v2 ? 'Click to inspect' : null },
+      h('header', { onclick: v2 ? (e) => { if (e.target.closest('button')) return; selected = selected === m.id ? null : m.id; if (selected) trayTab = 'inspect'; env.render(); } : null, title: v2 ? 'Click to inspect' : null },
         movable ? Grip(m, def) : h('i', { class: 'rk-screw' }),
         h('span', { class: 'rk-title', title: def.label }, h('span', { class: 'rk-title-long' }, def.label), def.short ? h('span', { class: 'rk-title-short' }, def.short) : null),
         movable ? h('button', { type: 'button', class: 'rk-x', title: `Take the ${def.label} out of the rack`, 'aria-label': `Take the ${def.label} out of the rack`, onclick: () => { removeModule(patch, m.id); commit(`${def.label} taken out`); } }, '×') : h('i', { class: 'rk-screw' })),
@@ -537,7 +540,8 @@ export function Rack(env, patchId) {
         h('div', { class: 'rk-lcd' },
           h('div', { class: 'rk-lcd-head' }, h('span', {}, 'PATCH'), h('span', {}, `CONF ${Math.round((tr.confidence ?? 0) * 100)}%`)),
           h('ol', {}, (tr.steps ?? []).map((st) => h('li', {}, st))),
-          tr.unknown?.length ? h('small', {}, `no word for: ${tr.unknown.slice(0, 4).join(', ')}`) : null),
+          tr.unknown?.length ? h('small', {}, `no word for: ${tr.unknown.slice(0, 4).join(', ')}`) : null,
+          tr.clarify ? h('small', { class: 'rk-ask-back' }, `? ${tr.clarify}`) : null),
         h('div', { class: 'rk-switchrow' },
           Pad('UNFOLD', () => { unfoldTranslator(patch, m.id, env.ctx()); commit('Unfolded into the rack: read it, turn a knob, run it'); }, { disabled: !canSet, title: 'Put the proposed modules in the rack, cabled up' }),
           promptPad(), Led('out', count(outs.out), 'green')),
@@ -582,6 +586,51 @@ export function Rack(env, patchId) {
           h('div', { class: 'rk-lcd-head' }, h('span', {}, 'REVIEW'), h('span', {}, `${notes.length} NOTE${notes.length === 1 ? '' : 'S'}`)),
           notes.length ? h('ol', {}, notes.slice(0, 4).map((x) => h('li', {}, x.text))) : h('p', {}, 'NOTHING TO ADD ✓')),
         h('div', { class: 'rk-switchrow' }, Pad('READ', () => openReadout(outs.out, 'Critic'), { disabled: !notes.length }), Led('notes', notes.length, 'amber')));
+    }
+    if (m.type === 'tutor') {
+      const qs = tr.questions ?? [];
+      const st = (tutorState[m.id] ??= { at: 0, show: false });
+      const q = qs[Math.min(st.at, Math.max(0, qs.length - 1))];
+      const redraw = () => env.render();
+      return h('div', { class: 'rk-face rk-neuro' },
+        h('div', { class: 'rk-lcd tall' },
+          h('div', { class: 'rk-lcd-head' }, h('span', {}, q ? String(q.kind).toUpperCase() : 'TUTOR'), h('span', {}, `${qs.length ? Math.min(st.at, qs.length - 1) + 1 : 0}/${qs.length}`)),
+          q ? h('p', {}, q.text) : null,
+          q && st.show && q.answer ? h('small', { class: 'rk-answer' }, `→ ${q.answer}`) : null),
+        h('div', { class: 'rk-switchrow' },
+          Pad(st.show ? 'HIDE' : 'REVEAL', () => { st.show = !st.show; redraw(); }, { disabled: !q?.answer }),
+          Pad('NEXT', () => { st.at = (st.at + 1) % Math.max(1, qs.length); st.show = false; redraw(); }, { alt: true, disabled: qs.length < 2 })));
+    }
+    if (m.type === 'muse') {
+      const vs = tr.variants ?? [];
+      return h('div', { class: 'rk-face rk-neuro' },
+        h('div', { class: 'rk-lcd tall' },
+          h('div', { class: 'rk-lcd-head' }, h('span', {}, 'WHAT IF'), h('span', {}, `${vs.length} IDEAS`)),
+          vs.length ? h('ol', { class: 'rk-muse' }, vs.map((v, k) => h('li', {}, h('span', {}, `${v.label}: `, h('b', {}, v.count), ` (now ${v.before})`),
+            canSet ? h('button', { type: 'button', class: 'rk-mini', title: v.why, onclick: () => { const fresh = museVariants({ ...patch, modules: patch.modules.filter((x) => !MODULES[x.type]?.reads) }, env.ctx())[k]; if (fresh) { fresh.apply(patch); commit(`Muse: ${v.label}`); } } }, 'TRY') : null)))
+            : h('p', {}, 'PATCH A FEW MODULES AND I’LL PLAY WHAT-IF')));
+    }
+    if (m.type === 'roundtable') {
+      const said = tr.said ?? [];
+      return h('div', { class: 'rk-face rk-neuro' },
+        h('div', { class: 'rk-lcd tall' },
+          h('div', { class: 'rk-lcd-head' }, h('span', {}, 'ROUND TABLE'), h('span', {}, `${(p.seats ?? []).length} SEATS`)),
+          !ins.in ? h('p', { class: 'rk-nosig' }, 'PATCH FINDINGS IN') : h('ol', {}, said.slice(0, 5).map((x) => h('li', {}, x.text)))),
+        h('div', { class: 'rk-switchrow' }, Pad('READ', () => openReadout(outs.out, 'Round table'), { disabled: !said.length }), promptPad()));
+    }
+    if (m.type === 'guardrail') {
+      const held = outs.hold?.findings ?? [];
+      return h('div', { class: 'rk-face rk-neuro' },
+        h('div', { class: 'rk-lcd tall' },
+          h('div', { class: 'rk-lcd-head' }, h('span', {}, 'GUARDRAIL'), h('span', {}, String(p.audience ?? 'team').toUpperCase())),
+          !ins.in ? h('p', { class: 'rk-nosig' }, 'PATCH WORDS IN') : held.length
+            ? h('ol', {}, held.slice(0, 3).map((f) => h('li', {}, h('span', {}, (f.held ?? [])[0] ?? 'Held'),
+              canSet ? h('button', { type: 'button', class: 'rk-mini', title: 'I’ve looked at it: let it through', onclick: () => set({ approved: [...(p.approved ?? []), f.id] }, 'Approved by a person') }, 'OK') : null)))
+            : h('p', {}, 'NOTHING HELD ✓')),
+        h('div', { class: 'rk-switchrow' },
+          Toggle(['team', 'board', 'public'], p.audience ?? 'team', (v) => set({ audience: v })),
+          h('div', { class: 'rk-leds col' }, Led('pass', count(outs.pass), 'green'), Led('hold', count(outs.hold), 'red'))),
+        (p.approved ?? []).length ? h('small', { class: 'rk-usage' }, `${p.approved.length} approved by a person`) : null);
     }
     return h('div', { class: 'rk-face rk-neuro' });
   }
@@ -854,16 +903,60 @@ export function Rack(env, patchId) {
 
   if (!v2) return h('div', { class: 'rk-wrap' }, strip, h('div', { class: 'rk-work' }, drawer, flipped ? Back() : stage), ruleBox);
 
-  /* ------------------------------------------------------ Rack 2.0: tool panels over a wide rack */
+  /* ------------------------------------------------------ Rack 2.0: one tool tray over a wide rack */
+  // One floating, draggable tray with tabs (like Teach's tool tray): Modules,
+  // Neuro-symbolic and Inspect. Drag a module from it onto the rack, or click to add.
   const work = h('div', { class: 'rk-work rk2-work' }, flipped ? Back() : stage);
-  const gutter = (st) => work.classList.toggle('rk2-gutter', ['modules', 'neuro', 'inspect'].some((id) => st[id] && !st[id].hidden && st[id].dock === 'left'));
-  const dock = DockPanels(work, [
-    { id: 'modules', title: 'Modules', body: h('div', { class: 'rk2-panel' }, addButtons(CATEGORIES.filter((c) => c !== 'Neuro-symbolic')), h('p', { class: 'rk-hint' }, 'Drag from a jack to a jack to patch. Click a module’s name to inspect it.')), dock: 'left', width: 214, closable: false },
-    { id: 'neuro', title: 'Neuro-symbolic', body: NeuroPanel(), dock: 'left', width: 214, closable: false },
-    { id: 'inspect', title: 'Inspector', body: Inspector(), dock: 'left', width: 214, closable: false },
-  ], { key: 'dashi.rhizome.rack2-panels', onchange: gutter });
-  gutter(dock.state);
-  return h('div', { class: 'rk-wrap rk2' }, strip, work, ruleBox);
+  stage.addEventListener('dragover', (e) => { if (e.dataTransfer?.types.includes('text/x-rk-module')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } });
+  stage.addEventListener('drop', (e) => {
+    const type = e.dataTransfer?.getData('text/x-rk-module');
+    if (!type || !MODULES[type] || !canSet) return;
+    e.preventDefault();
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    const ref = target?.closest('[data-mod]');
+    const caseEl = target?.closest('.rk-case');
+    const made = addModule(patch, type);
+    if (!made) return;
+    if (ref) { const r = ref.getBoundingClientRect(); const tm = patch.modules.find((x) => x.id === ref.dataset.mod); placeModule(patch, made.id, tm?.rack ?? made.rack, tm?.id, e.clientX > r.left + r.width / 2); }
+    else if (caseEl) placeModule(patch, made.id, caseEl.classList.contains('rk-b') ? 'b' : 'a');
+    selected = made.id;
+    commit(`${MODULES[type].label} added`);
+  });
+  return h('div', { class: 'rk-wrap rk2' }, strip, work, ruleBox, Tray());
+
+  function Tray() {
+    let pos = { x: null, y: 260, folded: false };
+    try { pos = { ...pos, ...JSON.parse(localStorage.getItem(TRAY_KEY) ?? '{}') }; } catch { /* fine */ }
+    const keep = () => { try { localStorage.setItem(TRAY_KEY, JSON.stringify(pos)); } catch { /* fine */ } };
+    const minTop = () => Math.ceil((document.querySelector('#shell')?.getBoundingClientRect().bottom ?? 60) + 8);
+    const tray = h('aside', { class: `rk2-tray${pos.folded ? ' folded' : ''}`, 'aria-label': 'Rack tools' });
+    const place = () => {
+      pos.y = Math.max(minTop(), Math.min(innerHeight - 50, pos.y));
+      if (pos.x != null) { pos.x = Math.max(0, Math.min(innerWidth - 140, pos.x)); tray.style.left = `${pos.x}px`; tray.style.right = 'auto'; }
+      tray.style.top = `${pos.y}px`;
+    };
+    place();
+    requestAnimationFrame(place);
+    const head = h('header', { class: 'rk2-tray-head' }, icon('dragHandle', 14), h('b', {}, 'Rack tools'),
+      h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', 'aria-label': pos.folded ? 'Open the tray' : 'Fold the tray', onclick: () => { pos.folded = !pos.folded; tray.classList.toggle('folded', pos.folded); keep(); } }, icon(pos.folded ? 'chevronDown' : 'chevronUp', 14)));
+    head.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      const r = tray.getBoundingClientRect();
+      const dx = e.clientX - r.left, dy = e.clientY - r.top;
+      head.setPointerCapture(e.pointerId);
+      const move = (ev) => { pos.x = ev.clientX - dx; pos.y = ev.clientY - dy; place(); };
+      const up = () => { head.removeEventListener('pointermove', move); head.removeEventListener('pointerup', up); keep(); };
+      head.addEventListener('pointermove', move);
+      head.addEventListener('pointerup', up);
+    });
+    const tabs = [['modules', 'Modules'], ['neuro', 'Neuro-symbolic'], ['inspect', 'Inspect']];
+    const tabBar = h('div', { class: 'rk2-tray-tabs', role: 'tablist' }, tabs.map(([id, label]) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(trayTab === id), class: trayTab === id ? 'on' : '',
+      onclick: () => { trayTab = id; tray.replaceWith(Tray()); } }, label, id === 'inspect' && selected ? h('i', { class: 'rk2-dot', 'aria-hidden': 'true' }) : null)));
+    const body = trayTab === 'neuro' ? NeuroPanel() : trayTab === 'inspect' ? Inspector()
+      : h('div', { class: 'rk2-panel' }, h('p', { class: 'rk-hint' }, 'Drag a module onto the rack, or click to add it. Click a module’s name to inspect it.'), h('div', { class: 'rk2-grid' }, addButtons(CATEGORIES.filter((c) => c !== 'Neuro-symbolic'))));
+    tray.append(head, tabBar, body);
+    return tray;
+  }
 
   /** The neuro-symbolic tools: ask in words, add a tool, or wire the loop. */
   function NeuroPanel() {
@@ -888,7 +981,12 @@ export function Rack(env, patchId) {
         commit('Wired the loop: Say → Narrator → Verifier');
       } }, 'Wire the loop after Say'),
       addButtons(['Neuro-symbolic']),
-      h('p', { class: 'rk-hint' }, 'Neural tools read words; the rack’s rules count and check. The Translator and Concept lens go from words to rules, the Narrator from rules to words, and the Verifier and Critic check one against the other.'));
+      h('dl', { class: 'rk2-kinds' },
+        h('dt', {}, 'Words → rules'), h('dd', {}, 'Translator, Concept lens'),
+        h('dt', {}, 'Rules → words'), h('dd', {}, 'Narrator'),
+        h('dt', {}, 'Checks'), h('dd', {}, 'Verifier, Critic, Guardrail'),
+        h('dt', {}, 'Learn and make'), h('dd', {}, 'Tutor, Muse, Round table')),
+      h('p', { class: 'rk-hint' }, 'Neural tools read and write words; the rack’s rules count and check. Every tool keeps a person in the loop: nothing it says goes anywhere until you patch it on.'));
   }
 
   /** The selected module: what it is, its settings, what flows through it, and for a tool, its prompt. */

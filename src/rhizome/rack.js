@@ -23,7 +23,7 @@ import { tipById, fillTip, SOURCES } from './tips.js';
 import { ENTITY_TYPES } from './facts.js';
 import { graphOf, neighbourhood, triadsOf, communities, entityRows } from './rackGraph.js';
 import { visualise, DEFAULT_QUESTION, DEFAULT_WEIGHTS } from './visualiser.js';
-import { translate, narrate, verify, critique, conceptLens } from './neuro.js';
+import { translate, narrate, verify, critique, conceptLens, tutor, roundtable, guard, SEATS } from './neuro.js';
 
 export const HP = 42; // a rack row is 42 HP wide (each of the twin racks is half an 84 HP case)
 
@@ -73,6 +73,10 @@ export const MODULES = {
   narrator: { label: 'Narrator', short: 'Narr.', cat: 'Neuro-symbolic', look: 'digital', hp: 12, neuro: true, ins: ['in'], outs: ['out'], params: { audience: 'board', imagination: 0.2 }, blurb: 'Findings in, a short summary out, every sentence citing the findings it rests on. Turn imagination up to see it make things up.' },
   verifier: { label: 'Verifier', short: 'Verify', cat: 'Neuro-symbolic', look: 'digital', hp: 9, neuro: true, ins: ['in'], outs: ['ok', 'flag'], params: {}, blurb: 'Checks words against your facts: sentences with names or ties the facts don’t have go out of flag.' },
   critic: { label: 'Critic', cat: 'Neuro-symbolic', look: 'digital', hp: 10, neuro: true, ins: [], outs: ['out'], params: {}, blurb: 'Reads the whole patch, like a reviewer, and says what might be missing or too strict.' },
+  tutor: { label: 'Tutor', cat: 'Neuro-symbolic', look: 'digital', hp: 10, neuro: true, reads: true, ins: [], outs: ['out'], params: { at: 0 }, blurb: 'Teaching: asks instead of answers. Predict what passes before you look, notice what the facts can’t know, and ask what if.' },
+  muse: { label: 'Muse', cat: 'Neuro-symbolic', look: 'digital', hp: 10, neuro: true, reads: true, ins: [], outs: ['out'], params: {}, blurb: 'Creative: plays what-if with your patch. It tries a few variations, runs each on your facts, and you keep the one you like.' },
+  roundtable: { label: 'Round table', short: 'Table', cat: 'Neuro-symbolic', look: 'digital', hp: 10, neuro: true, ins: ['in'], outs: ['out'], params: { seats: Object.keys(SEATS) }, blurb: 'Collaborative: the same findings through several people’s eyes (a community member, staff, a funder, the board) and who isn’t in the data.' },
+  guardrail: { label: 'Guardrail', short: 'Guard', cat: 'Neuro-symbolic', look: 'digital', hp: 10, neuro: true, ins: ['in'], outs: ['pass', 'hold'], params: { audience: 'team', approved: [] }, blurb: 'Safety: holds back findings that name people, rest on private data, use deficit words or claim too much, until a person approves them.' },
   slot: { label: 'Open engine slot', cat: 'Engines', look: 'digital', hp: 7, ins: ['in'], outs: ['out'], stage: null, blurb: 'Room for another engine later. Every engine plugs in the same way: facts and a question in, findings out.' },
 };
 export const CATEGORIES = ['Routing', 'Sources', 'Shapers', 'Logic', 'Sets & graphs', 'Voice', 'Displays', 'Engines', 'Neuro-symbolic'];
@@ -208,7 +212,7 @@ export function runPatch(patch, ctx) {
   const inputs = {};
   const traces = {};
   // The Critic reads the rest of the patch as it runs, so run that first, without any Critic.
-  const critics = new Set(patch.modules.filter((m) => m.type === 'critic').map((m) => m.id));
+  const critics = new Set(patch.modules.filter((m) => m.type === 'critic' || MODULES[m.type]?.reads).map((m) => m.id));
   const pre = critics.size ? runPatch({ ...patch, modules: patch.modules.filter((m) => !critics.has(m.id)), cables: patch.cables.filter((c) => !critics.has(c.from.m) && !critics.has(c.to.m)) }, ctx) : null;
   for (const id of order(patch)) {
     const m = byId[id];
@@ -312,8 +316,8 @@ export function runPatch(patch, ctx) {
       out.out = { kind: 'findings', findings: said.sentences.map((st, i) => {
         const cited = st.cites.map((k) => sorted[k]).filter(Boolean);
         return { id: `${id}:${i}`, score: cited.length ? Math.max(...cited.map((f) => f.score ?? 0)) : 0, text: st.text, cites: st.cites, invented: !!st.invented,
-          items: [...new Set(cited.flatMap((f) => f.items ?? []))], rows: cited.flatMap((f) => f.rows ?? []).slice(0, 12),
-          trail: cited.length ? cited.slice(0, 3).map((f) => ({ kind: 'cite', ok: true, text: `rests on: ${String(f.text).slice(0, 90)}${String(f.text).length > 90 ? '…' : ''}` })) : [{ kind: 'cite', ok: false, text: 'rests on no finding' }] };
+          limits: !!st.limits, items: [...new Set(cited.flatMap((f) => f.items ?? []))], rows: cited.flatMap((f) => f.rows ?? []).slice(0, 12),
+          trail: cited.length ? cited.slice(0, 3).map((f) => ({ kind: 'cite', ok: true, text: `rests on: ${String(f.text).slice(0, 90)}${String(f.text).length > 90 ? '…' : ''}` })) : st.limits ? [{ kind: 'cite', ok: true, text: 'a limit of the data, not a claim' }] : [{ kind: 'cite', ok: false, text: 'rests on no finding' }] };
       }) };
     } else if (m.type === 'verifier') {
       const fs = ins.in?.kind === 'findings' ? ins.in.findings : [];
@@ -330,6 +334,31 @@ export function runPatch(patch, ctx) {
       const notes = critique({ ...patch, modules: patch.modules.filter((x) => !critics.has(x.id)) }, pre, MODULES);
       traces[id] = { tool: 'critic', notes };
       out.out = { kind: 'findings', findings: notes.map((x, i) => ({ id: `${id}:${i}`, score: x.score, text: x.text, items: [], rows: [], trail: x.module ? [{ kind: 'cite', ok: true, text: `about the ${MODULES[patch.modules.find((y) => y.id === x.module)?.type]?.label ?? 'module'}` }] : [] })) };
+    } else if (m.type === 'tutor') {
+      const base = { ...patch, modules: patch.modules.filter((x) => !critics.has(x.id)) };
+      const qs = tutor(base, pre, MODULES);
+      traces[id] = { tool: 'tutor', questions: qs, prompt: promptForTool('tutor', 'Ask the learner questions about this patch instead of giving answers: predict, notice, why, what if. Keep the answers for when they ask.', qs.map((x) => x.text)) };
+      out.out = { kind: 'findings', findings: qs.map((x, i) => ({ id: `${id}:${i}`, score: 0.5, text: x.text, items: [], rows: [], trail: x.answer ? [{ kind: 'cite', ok: true, text: `answer: ${x.answer}` }] : [] })) };
+    } else if (m.type === 'muse') {
+      const vs = museVariants({ ...patch, modules: patch.modules.filter((x) => !critics.has(x.id)) }, ctx);
+      traces[id] = { tool: 'muse', variants: vs.map(({ label, why, count, before }) => ({ label, why, count, before })), prompt: promptForTool('muse', 'Suggest a few what-if variations of this patch that might show something new. The rack will run each one.', vs.map((v) => v.label)) };
+      out.out = { kind: 'findings', findings: vs.map((v, i) => ({ id: `${id}:${i}`, score: 0.5, text: `What if ${v.label}? ${v.count} instead of ${v.before}.`, items: [], rows: [], trail: [{ kind: 'cite', ok: true, text: v.why }] })) };
+    } else if (m.type === 'roundtable') {
+      const fs = ins.in?.kind === 'findings' ? ins.in.findings : [];
+      const said = roundtable(fs, p.seats);
+      traces[id] = { tool: 'roundtable', said, prompt: promptForTool('round table', 'For each finding, ask the question each of these people would ask. Include someone who is not in the data at all.', fs.slice(0, 3).map((f) => f.text)) };
+      out.out = { kind: 'findings', findings: said.map((x, i) => ({ id: `${id}:${i}`, score: fs[x.cites[0]]?.score ?? 0.5, text: x.text, items: fs[x.cites[0]]?.items ?? [], rows: fs[x.cites[0]]?.rows ?? [], seat: x.seat, trail: [{ kind: 'cite', ok: true, text: `about: ${String(fs[x.cites[0]]?.text ?? '').slice(0, 80)}…` }] })) };
+    } else if (m.type === 'guardrail') {
+      const fs = ins.in?.kind === 'findings' ? ins.in.findings : [];
+      const res = guard(fs, ctx, { audience: p.audience ?? 'team', approved: p.approved ?? [] });
+      const pass = [], hold = [];
+      fs.forEach((f, i) => {
+        const r = res[i];
+        const trail = [...(f.trail ?? []), ...r.reasons.map((t) => ({ kind: 'filter', ok: r.approved, text: r.approved ? `${t} (a person approved it)` : t })), ...(r.hold ? r.suggest.map((t) => ({ kind: 'cite', ok: true, text: `try: ${t}` })) : [])];
+        (r.hold ? hold : pass).push({ ...f, trail, held: r.hold ? r.reasons : null });
+      });
+      traces[id] = { tool: 'guardrail', held: hold.length, passed: pass.length };
+      out = { pass: { kind: 'findings', findings: pass }, hold: { kind: 'findings', findings: hold } };
     } else if (m.type === 'claude' || m.type === 'slot') out.out = empty(); // engines arrive in later stages
     signals[id] = out;
   }
@@ -347,6 +376,52 @@ export function trailOf(r) {
   return steps;
 }
 const fmt = (v) => (typeof v === 'number' ? (Number.isInteger(v) ? String(v) : v.toFixed(2)) : Array.isArray(v) ? v.join(', ') : v == null ? 'nothing' : String(v));
+
+const promptForTool = (tool, task, items) => `# Rhizome · ${tool}\nYou are working inside Rhizome, a rules-based systems analysis tool for a nonprofit. Never invent names, ties or numbers.\n\n## task\n${task}\n\n## material\n${items.map((x, i) => `${i + 1}. ${x}`).join('\n')}`;
+
+/**
+ * The Muse's what-ifs: a few variations of a patch, each run on the facts.
+ * Returns [{ label, why, count, before, apply(patch) }], at most four.
+ */
+export function museVariants(patch, ctx) {
+  const plain = { ...patch, modules: patch.modules.filter((m) => !MODULES[m.type]?.neuro), cables: patch.cables.filter((c) => [c.from.m, c.to.m].every((x) => patch.modules.some((m) => m.id === x && !MODULES[m.type]?.neuro))) };
+  const finalCount = (p) => {
+    const run = runPatch(p, ctx);
+    const says = p.modules.filter((m) => m.type === 'say');
+    if (says.length) return says.reduce((n, m) => n + (run.signals[m.id]?.out?.findings?.length ?? 0), 0);
+    return Object.values(run.signals).reduce((n, s) => Math.max(n, ...Object.values(s).map((x) => (x?.kind === 'rows' ? x.rows.length : 0))), 0);
+  };
+  const before = finalCount(plain);
+  const unit = plain.modules.some((m) => m.type === 'say') ? 'finding' : 'row';
+  const say = (k) => `${k} ${unit}${k === 1 ? '' : 's'}`;
+  const ideas = [];
+  const filters = plain.modules.filter((m) => m.type === 'filter');
+  const flip = { lte: 'gte', gte: 'lte', lt: 'gt', gt: 'lt', eq: 'ne', ne: 'eq', yes: 'no', no: 'yes' };
+  if (filters[0]) ideas.push({ label: 'you looked at the other end', why: `Flip the first Filter (${FIELDS[filters[0].params.field] ?? filters[0].params.field}) to see who is on the opposite side.`, change: (p) => { const f = p.modules.find((m) => m.id === filters[0].id); f.params.op = flip[f.params.op] ?? f.params.op; } });
+  const pf = filters.find((m) => m.params.pct && m.params.pct !== 'p50');
+  if (pf) ideas.push({ label: 'you loosened it to the median', why: 'A gentler cut-off: see who sits just past the edge.', change: (p) => { p.modules.find((m) => m.id === pf.id).params.pct = 'p50'; } });
+  const gate = plain.modules.find((m) => m.type === 'gate');
+  if (gate) ideas.push({ label: `the Gate said ${gate.params.mode === 'or' ? 'AND' : 'OR'}`, why: 'Change how the two streams meet.', change: (p) => { const g = p.modules.find((m) => m.id === gate.id); g.params.mode = g.params.mode === 'or' ? 'and' : 'or'; } });
+  const src = plain.modules.find((m) => m.type === 'facts' || m.type === 'measure');
+  const firstCable = src && plain.cables.find((c) => c.from.m === src.id);
+  if (firstCable) ideas.push({ label: 'you looked one step out', why: 'Put Neighbours (ring) after the source: the things next to these, instead of these.', change: (p) => {
+    const c = p.cables.find((x) => x.id === firstCable.id);
+    const nb = addModule(p, 'neighbours', { hops: 1 });
+    const to = { ...c.to };
+    p.cables = p.cables.filter((x) => x.id !== c.id);
+    connect(p, { m: src.id, port: 'out' }, { m: nb.id, port: 'in' });
+    connect(p, { m: nb.id, port: 'ring' }, to);
+  } });
+  const w = plain.modules.find((m) => m.type === 'weigh');
+  if (w) ideas.push({ label: `you ranked by ${w.params.field === 'betweenness' ? 'links' : 'betweenness'}`, why: 'A ranking is a choice. Try the other measure and see who rises.', change: (p) => { const x = p.modules.find((m) => m.id === w.id); x.params.field = x.params.field === 'betweenness' ? 'degree' : 'betweenness'; x.params.w = Number(x.params.w) || 0.4; } });
+  return ideas.slice(0, 4).map((idea) => {
+    const v = structuredClone(plain);
+    idea.change(v);
+    const count = finalCount(v);
+    return { label: idea.label, why: idea.why, before: say(before), count: say(count),
+      apply: (target) => { idea.change(target); return target; } };
+  });
+}
 
 /** A Translator's proposal as a patch of its own (modules laid out in order, cables between them). */
 export function specToPatch(spec, name = 'Translated') {

@@ -16,6 +16,11 @@ import { FIELDS } from './rack.js';
  * Each checks the other:
  *   verify(findings, ctx)           flags names and numbers the facts don't back
  *   critique(patch, run, ctx)       reads a patch and says what might be missing
+ * Teaching, creative, collaborative and safety tools (d, 2026-11-27):
+ *   tutor(patch, run, defs)         questions instead of answers: predict, notice, why, what if
+ *   (museVariants lives in rack.js, since it runs patches)  what-if variations of a patch
+ *   roundtable(findings, seats)     the same findings through several people's eyes, and who is missing
+ *   guard(findings, ctx, opts)      holds back what names people, private data, deficit words or overclaims
  */
 
 export const MOCK_MODEL = 'Claude (mocked)';
@@ -110,8 +115,12 @@ export function translate(question, ctx = null) {
     question,
     vocabulary: { types: Object.keys(Object.fromEntries(TYPE_WORDS)), fields: Object.keys(FIELDS), lists: ctx ? Object.keys(ctx.measures?.lists ?? {}) : [] },
   });
+  // Unsure? Ask back instead of guessing, as a good collaborator would.
+  let clarify = null;
+  if (!TYPE_WORDS.some(([, ws]) => has(q, ...ws))) clarify = `Did you mean ${typeName} (the default), or objectives, assets or people?`;
+  else if (confidence < 0.45) clarify = `I’m not sure what “${unknown.slice(0, 2).join('”, “')}” should do. Is it a condition (Filter), a way to rank (Weigh), or the place to start?`;
   const reply = JSON.stringify({ modules: mods, cables });
-  return { modules: mods, cables, steps, unknown, confidence, prompt, reply, usage: usageOf(prompt, reply) };
+  return { modules: mods, cables, steps, unknown, confidence, clarify, prompt, reply, usage: usageOf(prompt, reply) };
 }
 
 /* ------------------------------------------------------------ narrate */
@@ -139,6 +148,8 @@ export function narrate(findings, { imagination = 0.2, audience = 'board' } = {}
     sentences.push({ text: who && !first.includes(n[0]) ? `${who}: ${first}` : first, cites: [fs.indexOf(f)] });
   }
   if (fs.length > top.length) sentences.push({ text: `${fs.length - top.length} more finding${fs.length - top.length === 1 ? '' : 's'} follow the same pattern and are listed in full.`, cites: fs.slice(top.length).map((f) => fs.indexOf(f)) });
+  // Epistemic humility: say what this can't show.
+  sentences.push({ text: 'What this can’t show: only what your plugins record. Ties nobody wrote down, and the people behind the numbers, aren’t here.', cites: [], limits: true });
   if (imagination > 0.6) {
     const made = INVENTED[Math.floor(imagination * 10) % INVENTED.length];
     sentences.push({ text: `Working more closely with ${made} would likely strengthen these ties.`, cites: [], invented: true });
@@ -171,7 +182,7 @@ export function verify(findings, ctx) {
       (hit ? checked : problems).push(hit ? `“${name}” is in your facts` : `“${name}” is not in your facts`);
     }
     for (const r of f.rows ?? []) if (r.name && text.includes(r.name)) checked.push(`“${r.name}” is the thing this finding rests on`);
-    if (f.cites && !f.cites.length) problems.push('It cites no finding');
+    if (f.cites && !f.cites.length && !f.limits) problems.push('It cites no finding');
     return { ok: !problems.length, problems, checked: [...new Set(checked)] };
   });
 }
@@ -250,4 +261,86 @@ export function promptFor(tool, body) {
     '',
     ...Object.entries(body).map(([k, v]) => `## ${k}\n${typeof v === 'string' ? v : JSON.stringify(v, null, 1)}`),
   ].join('\n');
+}
+
+/* ------------------------------------------------------------ tutor */
+
+/**
+ * Questions instead of answers, for learning the rack: predict before you
+ * look, notice what the facts can't know, ask why a ranking came out so, and
+ * what would happen if… Returns [{ kind, text, answer, module }].
+ */
+export function tutor(patch, run, defs) {
+  const qs = [];
+  const sig = (id, port) => run.signals[id]?.[port];
+  const len = (x) => (!x ? 0 : x.kind === 'findings' ? x.findings.length : x.rows.length);
+  for (const m of patch.modules) {
+    const into = patch.cables.find((c) => c.to.m === m.id);
+    if (!into) continue;
+    if (m.type === 'filter') {
+      const pass = len(sig(m.id, 'pass')), all = pass + len(sig(m.id, 'reject'));
+      const what = `${FIELDS[m.params.field] ?? m.params.field} ${m.params.op === 'lte' ? 'at most' : m.params.op === 'gte' ? 'at least' : m.params.op === 'eq' ? 'is' : m.params.op} ${m.params.pct ? `your ${m.params.pct === 'p50' ? 'median' : `${m.params.pct.slice(1)}th percentile`}` : m.params.value ?? ''}`.trim();
+      qs.push({ kind: 'predict', module: m.id, text: `Predict first: of ${all} rows, how many will pass “${what}”?`, answer: `${pass} pass and ${all - pass} go out of reject.` });
+      if (m.params.pct && ['lte', 'gte'].includes(m.params.op)) qs.push({ kind: 'what if', module: m.id, text: `What if you moved the level from the ${m.params.pct.slice(1)}th percentile to the median: more rows or fewer?`, answer: m.params.op === 'lte' ? 'More: a higher ceiling lets more in.' : 'More: a lower floor lets more in.' });
+    }
+    if (m.type === 'weigh' && m.params.field) qs.push({ kind: 'why', module: m.id, text: `This Weigh ranks by ${FIELDS[m.params.field] ?? m.params.field}. Who might that put last who matters most to you?`, answer: 'There’s no right answer: a ranking is a choice about what counts. Try another field and compare.' });
+    if (m.type === 'say') {
+      const top = sig(m.id, 'out')?.findings?.[0];
+      const name = top?.rows?.[0]?.name;
+      if (name) qs.push({ kind: 'notice', module: m.id, text: `The top finding is about ${name}. What do you know about ${name} that the facts don’t?`, answer: 'Write it down, and add it as a tie or a note: the rack only knows what someone recorded.' });
+    }
+  }
+  if (!qs.length) qs.push({ kind: 'start', module: null, text: 'Patch a source into a Filter, and I’ll ask you to predict what gets through before you look.', answer: '' });
+  return qs;
+}
+
+/* ------------------------------------------------------------ round table */
+
+export const SEATS = {
+  community: { label: 'A community member', ask: (n) => `Who decided ${n} belongs in this, and did anyone ask us?` },
+  staff: { label: 'Frontline staff', ask: (n) => `What would it take, this month, to do something about ${n}? Who has the time?` },
+  funder: { label: 'A funder', ask: (n) => `How would we know if working on ${n} made a difference? What would we measure?` },
+  board: { label: 'The board', ask: (n) => `What’s the risk to the organisation if we leave ${n} as it is for a year?` },
+  missing: { label: 'Someone not in the data', ask: (n) => `Who isn’t on any map at all, and so can’t show up next to ${n}?` },
+};
+
+/** The same findings through several people's eyes: one question per seat, per finding. */
+export function roundtable(findings, seats = Object.keys(SEATS)) {
+  const out = [];
+  for (const [i, f] of (findings ?? []).slice(0, 3).entries()) {
+    const name = f.rows?.[0]?.name ?? 'this';
+    for (const k of seats) if (SEATS[k]) out.push({ seat: k, label: SEATS[k].label, text: `${SEATS[k].label}: ${SEATS[k].ask(name)}`, cites: [i] });
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------ guard */
+
+const DEFICIT = ['at-risk', 'at risk', 'vulnerable', 'hard-to-reach', 'hard to reach', 'disadvantaged', 'needy', 'underprivileged', 'broken', 'deprived', 'suffering from'];
+const OVERCLAIM = ['proves', 'definitely', 'guarantee', 'certainly', 'always', 'never', 'will fix', 'will solve', 'obviously'];
+
+/**
+ * Holds back what shouldn't go out without a person looking: findings that
+ * name people, rest on private data, use deficit words, or claim too much.
+ * Returns per finding { hold: bool, reasons: [text], suggest: [text] }.
+ * `audience: 'public'` also holds anything marked internal.
+ */
+export function guard(findings, ctx, { audience = 'team', approved = [] } = {}) {
+  const E = ctx.facts.entities;
+  return (findings ?? []).map((f) => {
+    const text = lc(f.text);
+    const reasons = [], suggest = [];
+    const ids = [...new Set([...(f.items ?? []), ...(f.rows ?? []).map((r) => r.id)])];
+    const people = ids.filter((id) => E[id]?.type === 'person');
+    if (people.length) { reasons.push(`It names ${people.length === 1 ? 'a person' : `${people.length} people`} (${people.slice(0, 2).map((id) => E[id].name).join(', ')})`); suggest.push('Check they’re happy to be named, or speak of the role instead.'); }
+    const secret = ids.filter((id) => ['confidential', 'restricted'].includes(E[id]?.attrs?.sensitivity) || (audience === 'public' && E[id]?.attrs?.sensitivity === 'internal'));
+    if (secret.length) { reasons.push(`It rests on data marked ${E[secret[0]].attrs.sensitivity}`); suggest.push(audience === 'public' ? 'Keep it for the team, or leave the names out.' : 'Share it only with people who can see that data.'); }
+    const deficit = DEFICIT.filter((w) => text.includes(w));
+    if (deficit.length) { reasons.push(`Deficit words: “${deficit.join('”, “')}”`); suggest.push('Try asset-based words: what people and places have, not what they lack.'); }
+    const over = OVERCLAIM.filter((w) => new RegExp(`\\b${w}`).test(text));
+    if (over.length) { reasons.push(`Claims more than the facts can: “${over.join('”, “')}”`); suggest.push('Hedge it: “suggests”, “may”, “in what we’ve recorded”.'); }
+    if (f.invented || (f.cites && !f.cites.length && !f.limits)) { reasons.push('It rests on no finding'); suggest.push('Leave it out, or find the fact behind it.'); }
+    const ok = approved.includes(f.id);
+    return { hold: reasons.length > 0 && !ok, approved: ok && reasons.length > 0, reasons, suggest };
+  });
 }

@@ -3,8 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildFacts } from '../src/rhizome/facts.js';
 import { measureFacts } from '../src/rhizome/measures.js';
-import { MODULES, blankPatch, addModule, connect, runPatch, unfoldTranslator, specToPatch, defaultRack } from '../src/rhizome/rack.js';
-import { translate, narrate, verify, critique, conceptLens, usageOf } from '../src/rhizome/neuro.js';
+import { MODULES, blankPatch, addModule, connect, runPatch, unfoldTranslator, specToPatch, defaultRack, museVariants } from '../src/rhizome/rack.js';
+import { translate, narrate, verify, critique, conceptLens, usageOf, tutor, roundtable, guard } from '../src/rhizome/neuro.js';
 import { kestrelBundle } from '../src/platform/clients/kestrel.js';
 
 const ctx = (() => {
@@ -16,7 +16,7 @@ const ctx = (() => {
 })();
 
 test('the neuro-symbolic tools are modules like any other, in rack B', () => {
-  for (const t of ['translator', 'concept', 'narrator', 'verifier', 'critic']) {
+  for (const t of ['translator', 'concept', 'narrator', 'verifier', 'critic', 'tutor', 'muse', 'roundtable', 'guardrail']) {
     assert.equal(MODULES[t].cat, 'Neuro-symbolic');
     assert.equal(defaultRack(t), 'b');
   }
@@ -59,7 +59,9 @@ test('the Narrator cites its findings, and the Verifier catches what it makes up
   const run = runPatch(p, ctx);
   const said = run.signals[n.id].out.findings;
   assert.ok(said.length >= 2);
-  assert.ok(said.filter((x) => !x.invented).every((x) => x.cites.length > 0), 'real sentences cite findings');
+  assert.ok(said.filter((x) => !x.invented && !x.limits).every((x) => x.cites.length > 0), 'real sentences cite findings');
+  assert.ok(said.some((x) => x.limits), 'it says what the data cannot show');
+  assert.ok(!run.signals[v.id].flag.findings.some((x) => x.limits), 'a limit is not flagged');
   assert.ok(said.some((x) => x.invented));
   const flagged = run.signals[v.id].flag.findings;
   assert.ok(flagged.some((x) => x.invented), 'the made-up sentence is flagged');
@@ -91,4 +93,36 @@ test('the Concept lens ranks by meaning', () => {
   assert.equal(r[r.length - 1].row.id, 'b');
   assert.ok(r[0].sim > 0);
   assert.equal(usageOf('abcd', 'abcdabcd').outTok, 2);
+});
+
+test('the Tutor asks, the Muse plays what-if, the Round table brings other voices, the Guardrail holds', () => {
+  const p = blankPatch();
+  const f = addModule(p, 'facts', { type: 'actor' });
+  const fl = addModule(p, 'filter', { field: 'degree', op: 'lte', pct: 'p25' });
+  const w = addModule(p, 'weigh', { field: 'degree', w: 0.4 });
+  const s = addModule(p, 'say', { tip: 'net-hub' });
+  connect(p, { m: f.id, port: 'out' }, { m: fl.id, port: 'in' });
+  connect(p, { m: fl.id, port: 'pass' }, { m: w.id, port: 'in' });
+  connect(p, { m: w.id, port: 'out' }, { m: s.id, port: 'in' });
+  const t = addModule(p, 'tutor'), mu = addModule(p, 'muse');
+  const rt = addModule(p, 'roundtable'), g = addModule(p, 'guardrail');
+  connect(p, { m: s.id, port: 'out' }, { m: rt.id, port: 'in' });
+  connect(p, { m: s.id, port: 'out' }, { m: g.id, port: 'in' });
+  const run = runPatch(p, ctx);
+  const qs = run.traces[t.id].questions;
+  assert.ok(qs.some((q) => q.kind === 'predict' && /\d+ pass/.test(q.answer)));
+  assert.ok(qs.some((q) => q.kind === 'notice'));
+  const vs = run.traces[mu.id].variants;
+  assert.ok(vs.length >= 3 && vs.some((v) => /other end/.test(v.label)));
+  // Applying a what-if changes the patch itself.
+  museVariants(p, ctx)[0].apply(p);
+  assert.equal(p.modules.find((m) => m.id === fl.id).params.op, 'gte');
+  assert.ok(run.signals[rt.id].out.findings.some((x) => x.seat === 'missing'));
+  assert.equal(roundtable([{ text: 'x', rows: [{ name: 'A' }] }], ['funder']).length, 1);
+  const held = guard([{ id: 'a', text: 'This proves the vulnerable families are hard to reach.', rows: [] }], ctx);
+  assert.equal(held[0].hold, true);
+  assert.ok(held[0].reasons.some((r) => /Deficit/.test(r)) && held[0].reasons.some((r) => /Claims more/.test(r)));
+  assert.equal(guard([{ id: 'a', text: 'This proves it.', rows: [] }], ctx, { approved: ['a'] })[0].hold, false);
+  assert.ok(translate('banana smoothie', ctx).clarify);
+  assert.ok(run.signals[g.id].pass.findings.length + run.signals[g.id].hold.findings.length > 0);
 });

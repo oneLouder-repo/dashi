@@ -123,6 +123,12 @@ The neuro-symbolic tools are Claude tools. For now they are **mocked**: they run
 - **Narrator** (rules to words): turns findings into a short summary for the board, the team or the public. Each sentence cites the findings it rests on, as [1], [2]. Turn **imagination** up and it starts to make things up, just as a real model can.
 - **Verifier** (rules check words): checks each sentence against your facts. A name or tie the facts don't have sends it out of **flag**, with the reason. Put a Narrator into it, turn imagination up, and watch it catch the made-up partner.
 - **Critic** (words check rules): reads the whole patch like a reviewer: a Say with no Weigh, a filter that lets nothing through, a gate with one input.
+- **Guardrail** (safety): holds back findings that name a person, rest on data marked confidential (or internal, for the public), use deficit words such as *at-risk* or *hard to reach*, or claim more than the facts can (*proves*, *definitely*). Each held finding says why and what to try instead. **OK** lets one through once a person has looked: the human in the loop.
+- **Tutor** (teaching): asks instead of answers. *Predict first: of 47 rows, how many will pass?* Then **Reveal**. It also asks what you know that the facts don't, and what would change if you moved a knob.
+- **Muse** (creative): plays what-if with your patch: look at the other end, loosen the cut-off, look one step out, rank by another measure. It runs each idea on your facts and shows the count, and **Try** keeps the one you like.
+- **Round table** (collaborative): reads the findings through several people's eyes (a community member, frontline staff, a funder, the board) and asks who isn't in the data at all.
+
+The Narrator also says what the data can't show, and the Translator asks back when it isn't sure what you meant, rather than guessing.
 
 # Is this machine learning?
 Not quite, and it's worth being plain about. Rhizome is **symbolic**: it works with named things, explicit ties and written rules, the way network analysts and expert systems do. The only part that learns from your data is **calibration**, which sets cut-offs from your own numbers. That is why every finding can show its Why?: nothing is hidden inside a model.
