@@ -41,6 +41,8 @@ export const BILLING_DEFAULTS = {
   prices: {},
   /** The Stripe coupon for the grassroots rate (30% off Community and Organization), made in Payments. */
   grassrootsCoupon: '',
+  /** The Stripe coupon for alpha testers: half price for the first 12 months. */
+  alphaCoupon: '',
   /** Let org admins pay by card. Off until the admin has checked the setup. */
   checkoutOn: false,
 };
@@ -163,19 +165,22 @@ export function eventChange(event, { settings, findOrg }) {
 export function checkoutParams({ settings, org, billing, user, plan, interval, returnUrl, currency = 'cad', grassrootsPlans = [] }) {
   const price = settings.prices?.[plan]?.[interval];
   if (!price) throw new Error('That plan can’t be paid for online yet');
-  const grassroots = !!(billing.grassroots?.declared && settings.grassrootsCoupon && grassrootsPlans.includes(plan));
+  // An alpha tester's half-price year beats the grassroots rate (Stripe Checkout takes one discount).
+  const alpha = !!(billing.alphaSupporter && settings.alphaCoupon);
+  const grassroots = !alpha && !!(billing.grassroots?.declared && settings.grassrootsCoupon && grassrootsPlans.includes(plan));
+  const coupon = alpha ? settings.alphaCoupon : grassroots ? settings.grassrootsCoupon : null;
   return {
     mode: 'subscription',
     line_items: [{ price, quantity: 1, ...(settings.taxMode === 'fixed' && settings.taxRateId && { tax_rates: [settings.taxRateId] }) }],
     ...(billing.customerId ? { customer: billing.customerId, customer_update: { address: 'auto', name: 'auto' } } : { customer_email: user.email }),
     client_reference_id: org.id,
     ...(currency === 'usd' && { currency: 'usd' }),
-    metadata: { org_id: org.id, plan, ...(grassroots && { grassroots: 'yes' }) },
+    metadata: { org_id: org.id, plan, ...(grassroots && { grassroots: 'yes' }), ...(alpha && { alpha_supporter: 'yes' }) },
     subscription_data: { metadata: { org_id: org.id, plan }, ...(!billing.hadTrial && settings.trialDays > 0 && { trial_period_days: settings.trialDays }) },
     ...(settings.taxMode === 'automatic' && { automatic_tax: { enabled: true } }),
     tax_id_collection: { enabled: true },
     billing_address_collection: 'required',
-    ...(grassroots ? { discounts: [{ coupon: settings.grassrootsCoupon }] } : { allow_promotion_codes: true }),
+    ...(coupon ? { discounts: [{ coupon }] } : { allow_promotion_codes: true }),
     success_url: returnUrl.includes('#') ? returnUrl.replace('#', '?paid=1#') : `${returnUrl}?paid=1`,
     cancel_url: returnUrl,
   };

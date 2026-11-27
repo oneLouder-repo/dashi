@@ -125,6 +125,9 @@ test('the grassroots rate takes the coupon on Community and Organization once de
   assert.equal(small.metadata.grassroots, 'yes');
   assert.equal(checkoutParams({ ...args, billing: {}, plan: 'basic' }).discounts, undefined, 'not declared');
   assert.equal(checkoutParams({ ...args, billing: { grassroots: { declared: true } }, plan: 'network' }).discounts, undefined, 'not on Network');
+  const both = checkoutParams({ ...args, settings: { ...settings, alphaCoupon: 'alpha50' }, billing: { alphaSupporter: true, grassroots: { declared: true } }, plan: 'basic' });
+  assert.deepEqual(both.discounts, [{ coupon: 'alpha50' }], 'an alpha tester’s half-price year wins');
+  assert.equal(both.metadata.alpha_supporter, 'yes');
 });
 
 test('legal pages publish versions and know who still has to accept', () => {

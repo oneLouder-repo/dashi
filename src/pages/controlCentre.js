@@ -214,9 +214,13 @@ export function Payments({ call }) {
       graceDays: h('input', { class: 'input input-sm', type: 'number', min: 0, max: 60, value: s.graceDays, style: 'width:80px', 'aria-label': 'Grace days' }),
       checkoutOn: h('input', { type: 'checkbox', class: 'toggle toggle-sm toggle-primary', checked: s.checkoutOn, disabled: !x.stripe.connected, 'aria-label': 'Card payments on' }),
       grassrootsCoupon: h('input', { class: 'input input-sm', value: s.grassrootsCoupon ?? '', placeholder: 'coupon id', 'aria-label': 'Grassroots coupon id' }),
+      alphaCoupon: h('input', { class: 'input input-sm', value: s.alphaCoupon ?? '', placeholder: 'coupon id', 'aria-label': 'Alpha supporter coupon id' }),
     };
     const makeCoupon = h('button', { class: 'btn btn-xs', disabled: !x.stripe.connected, onclick: async () => {
       try { await call('POST', '/api/admin/billing/create-coupon'); await load(); } catch (err) { uiAlert(err.message); }
+    } }, 'Create in Stripe');
+    const makeAlpha = h('button', { class: 'btn btn-xs', disabled: !x.stripe.connected, onclick: async () => {
+      try { await call('POST', '/api/admin/billing/create-coupon', { kind: 'alpha' }); await load(); } catch (err) { uiAlert(err.message); }
     } }, 'Create in Stripe');
     const priceFields = {};
     const paid = ['basic', 'standard', 'network'].filter((id) => x.plans[id]);
@@ -273,14 +277,15 @@ export function Payments({ call }) {
         h('div', { class: 'cc-form' },
           h('label', {}, h('span', {}, 'Free trial, days'), f.trialDays), h('label', {}, h('span', {}, 'Grace after a failed payment, days'), f.graceDays),
           h('label', { class: 'check' }, f.checkoutOn, h('span', {}, ' Let organisations pay by card')),
-          h('label', { class: 'cc-span' }, h('span', {}, 'Grassroots coupon (30% off Community and Organization, for orgs that tick “budget under C$250k”)'), h('span', { class: 'inline-form' }, f.grassrootsCoupon, makeCoupon))),
+          h('label', { class: 'cc-span' }, h('span', {}, 'Grassroots coupon (30% off Community and Organization, for orgs that tick “budget under C$250k”)'), h('span', { class: 'inline-form' }, f.grassrootsCoupon, makeCoupon)),
+          h('label', { class: 'cc-span' }, h('span', {}, 'Alpha supporter coupon (half price for the first 12 months; tick “Alpha tester” on an organisation below)'), h('span', { class: 'inline-form' }, f.alphaCoupon, makeAlpha))),
         h('div', { class: 'inline-form' }, h('button', { class: 'btn btn-sm btn-primary', onclick: save }, 'Save'), h('button', { class: 'btn btn-sm', disabled: !x.stripe.connected, onclick: () => runCheck().catch(fail(checks)) }, 'Check the prices with Stripe'), saved),
         checks),
       h('section', { class: 'cc-card' },
         h('h3', {}, 'Organisations'),
         h('p', { class: 'muted small' }, 'A free account (for a pilot partner, say) keeps the plan you give it under Organisations whatever happens in Stripe.'),
         h('div', { class: 'table-scroll' }, h('table', { class: 'table table-sm' },
-          h('thead', {}, h('tr', {}, ['Organisation', 'Plan', 'Billing', 'Renews', 'Last payment', 'Free account'].map((t) => h('th', {}, t)))),
+          h('thead', {}, h('tr', {}, ['Organisation', 'Plan', 'Billing', 'Renews', 'Last payment', 'Alpha tester', 'Free account'].map((t) => h('th', {}, t)))),
           h('tbody', {}, x.orgs.map((o) => {
             const b = o.billing;
             const st = STATUS_LABEL[b.status];
@@ -288,6 +293,9 @@ export function Payments({ call }) {
               h('td', {}, b.comp ? light('ok', 'Free account') : st ? light(st[0], `${st[1]}${b.interval ? `, ${b.interval}ly` : ''}`) : h('span', { class: 'muted' }, '—'), b.failedAt ? h('div', { class: 'small text-error' }, `Failed ${day(b.failedAt)}`) : null),
               h('td', { class: 'small' }, b.cancelAtPeriodEnd ? `Ends ${day(b.periodEnd)}` : day(b.trialEnd && b.status === 'trialing' ? b.trialEnd : b.periodEnd)),
               h('td', { class: 'small' }, b.lastInvoice ? [`$${b.lastInvoice.amount.toFixed(2)} (${s.taxLabel} $${b.lastInvoice.tax.toFixed(2)})`, h('br'), day(b.lastInvoice.at)] : '—'),
+              h('td', {}, h('input', { type: 'checkbox', class: 'checkbox checkbox-xs', checked: !!b.alphaSupporter, 'aria-label': `${o.name} is an alpha tester`, onchange: async (e) => {
+                try { await call('PATCH', `/api/admin/orgs/${o.id}/billing`, { alphaSupporter: e.target.checked }); } catch (err) { uiAlert(err.message); e.target.checked = !e.target.checked; }
+              } })),
               h('td', {}, h('label', { class: 'check small' }, h('input', { type: 'checkbox', class: 'toggle toggle-xs toggle-primary', checked: !!b.comp, onchange: async (e) => {
                 let note = b.compNote ?? '';
                 if (e.target.checked) { note = await uiPrompt('A note, for your records', note || 'Pilot partner', { title: `Free account for ${o.name}`, required: false }); if (note == null) { e.target.checked = false; return; } }

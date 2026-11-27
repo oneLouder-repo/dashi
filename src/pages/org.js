@@ -633,6 +633,7 @@ function Billing(plans, current) {
       st.status && h('p', {}, h('strong', {}, STATUS[st.status] ?? st.status), st.periodEnd && st.status !== 'canceled' ? ` · ${st.cancelAtPeriodEnd ? 'ends' : 'renews'} ${day(st.periodEnd)}` : '',
         st.lastInvoice ? h('span', { class: 'muted' }, ` · last payment $${st.lastInvoice.amount.toFixed(2)}, including $${st.lastInvoice.tax.toFixed(2)} ${b.taxLabel}`) : ''),
       st.portal && h('button', { class: 'btn btn-sm', onclick: () => go('/api/billing/portal') }, 'Change card, see receipts, or cancel'),
+      b.alpha && h('p', { class: 'note' }, `Thank you for testing Dashi’s alpha. Your first ${b.alpha.months} months are half price${b.alpha.online ? ', applied at checkout' : ''}.`),
       h('label', { class: 'billing-grass' },
         h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', checked: g.declared, onchange: (e) => declare(e.target.checked) }),
         h('span', {}, h('strong', {}, `Grassroots rate: ${g.percent}% off Community and Organization. `),

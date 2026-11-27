@@ -43,7 +43,7 @@ import { sendMail, letter } from './mail.js';
 import { zipStream, zipSize } from '../src/core/zip.js';
 import { showArchive } from '../src/platform/showArchive.js';
 import { blankOrg, migrateOrg } from '../src/platform/org.js';
-import { planFor, allPlans, overLimit, usageOf, PLAN_IDS, GRASSROOTS } from '../src/platform/plans.js';
+import { planFor, allPlans, overLimit, usageOf, PLAN_IDS, GRASSROOTS, ALPHA_SUPPORTER } from '../src/platform/plans.js';
 /** Plans an org can pay for through Stripe. */
 const PAID_PLANS = ['basic', 'standard', 'network', 'custom'];
 import { siteContent } from '../src/platform/salesSite.js';
@@ -1065,6 +1065,7 @@ export function createApp(db, options = {}) {
         const prices = Object.fromEntries(Object.entries(settings.prices).map(([plan, p]) => [plan, { month: !!p?.month, year: !!p?.year }]));
         return json(res, 200, { online, prices, taxLabel: settings.taxLabel, taxRate: settings.taxRate, trialDays: own.hadTrial ? 0 : settings.trialDays,
           grassroots: { ...GRASSROOTS, declared: !!own.grassroots?.declared, declaredAt: own.grassroots?.at ?? null, online: !!settings.grassrootsCoupon },
+          alpha: own.alphaSupporter ? { ...ALPHA_SUPPORTER, online: !!settings.alphaCoupon } : null,
           billing: { status: own.status ?? null, plan: own.plan ?? null, interval: own.interval ?? null, periodEnd: own.periodEnd ?? null, trialEnd: own.trialEnd ?? null, cancelAtPeriodEnd: !!own.cancelAtPeriodEnd, comp: !!own.comp, failedAt: own.failedAt ?? null, lastInvoice: own.lastInvoice ?? null, portal: !!own.customerId } });
       }
       // The grassroots rate is self-declared: a tick that says the budget is under the line.
@@ -1450,6 +1451,7 @@ export function createApp(db, options = {}) {
           trialDays: Math.max(0, Math.min(90, Math.round(Number(body?.trialDays ?? cur.trialDays) || 0))),
           graceDays: Math.max(0, Math.min(60, Math.round(Number(body?.graceDays ?? cur.graceDays) || 0))),
           checkoutOn: !!(body?.checkoutOn ?? cur.checkoutOn),
+          alphaCoupon: body && 'alphaCoupon' in body ? (/^[\w-]{1,60}$/.test(body.alphaCoupon ?? '') ? body.alphaCoupon : '') : cur.alphaCoupon,
           grassrootsCoupon: body && 'grassrootsCoupon' in body ? (/^[\w-]{1,60}$/.test(body.grassrootsCoupon ?? '') ? body.grassrootsCoupon : '') : cur.grassrootsCoupon,
           prices,
         };
@@ -1510,7 +1512,14 @@ export function createApp(db, options = {}) {
       // The grassroots coupon: 30% off Community and Organization, for as long as they pay.
       if (path === '/api/admin/billing/create-coupon' && method === 'POST') {
         const settings = billing();
+        const { kind } = await readJson(req, 500).catch(() => ({}));
         try {
+          if (kind === 'alpha') {
+            const coupon = await stripe('coupons', { percent_off: ALPHA_SUPPORTER.percent, duration: 'repeating', duration_in_months: ALPHA_SUPPORTER.months, name: `Alpha supporter (${ALPHA_SUPPORTER.percent}% off the first year)`, metadata: { dashi: 'alpha' } });
+            settings.alphaCoupon = coupon.id;
+            savePlatformDoc('billing', settings);
+            return json(res, 201, { coupon: coupon.id });
+          }
           const coupon = await stripe('coupons', { percent_off: GRASSROOTS.percent, duration: 'forever', name: `Grassroots rate (${GRASSROOTS.percent}% off)`, metadata: { dashi: 'grassroots' } });
           settings.grassrootsCoupon = coupon.id;
           savePlatformDoc('billing', settings);
@@ -1524,6 +1533,7 @@ export function createApp(db, options = {}) {
         const body = await readJson(req, 5000);
         const b = JSON.parse(org.billing || '{}');
         if ('comp' in body) b.comp = !!body.comp;
+        if ('alphaSupporter' in body) b.alphaSupporter = !!body.alphaSupporter;
         if ('compNote' in body) b.compNote = String(body.compNote ?? '').slice(0, 300);
         if ('compUntil' in body) b.compUntil = /^\d{4}-\d\d-\d\d$/.test(body.compUntil ?? '') ? body.compUntil : null;
         q('UPDATE orgs SET billing = ? WHERE id = ?').run(JSON.stringify(b), org.id);

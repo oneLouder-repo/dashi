@@ -22,6 +22,8 @@ export const PLAN_IDS = ['free', 'basic', 'standard', 'network', 'custom'];
 
 /** The grassroots rate: off Community and Organization for small organisations, self-declared. */
 export const GRASSROOTS = { percent: 30, plans: ['basic', 'standard'], budgetCad: 250000, budgetUsd: 200000 };
+/** Alpha testers: the first year at half price (d, 2026-11-27). The platform admin marks the org; checkout applies it. */
+export const ALPHA_SUPPORTER = { percent: 50, months: 12 };
 
 /** The limits, in the order the admin and the sales page show them. */
 export const LIMITS = [
@@ -60,14 +62,15 @@ export const DEFAULT_PLANS = {
     features: { liveSocial: false, socialLogin: false, customDomain: false, bibliographies: false, branding: false, linkedOrgs: false },
   },
   basic: {
-    id: 'basic', label: 'Community', tagline: 'For small nonprofits: every plugin for up to ten people, with podcasts, learning and place.',
+    id: 'basic', label: 'Community', tagline: 'For small nonprofits: ten people, with podcasts, Place, the Library and Rhizome.',
     price: { monthly: 39, yearly: 390, usdMonthly: 29, usdYearly: 290, note: 'a month' },
-    plugins: { ...ALL, ai: false },
+    // Teach and Learn sit in Organization and up (d, 2026-11-27).
+    plugins: { ...ALL, teach: false, learn: false, ai: false },
     limits: { users: 10, maps: 3, frameworks: 1, plans: 3, dashboards: 5, sites: 1, shows: 2, documents: 1000, storageMb: 10240, uploadMb: 100, aiTokensK: 0 },
     features: { liveSocial: false, socialLogin: true, customDomain: true, bibliographies: true, branding: false, linkedOrgs: false },
   },
   standard: {
-    id: 'standard', label: 'Organization', tagline: 'For staffed nonprofits: thirty people, AI included, live social posting and the Plan designer.',
+    id: 'standard', label: 'Organization', tagline: 'For staffed nonprofits: thirty people, AI included, Teach and Learn, and live social posting.',
     price: { monthly: 119, yearly: 1190, usdMonthly: 89, usdYearly: 890, note: 'a month' },
     plugins: { ...ALL },
     limits: { users: 30, maps: 10, frameworks: 2, plans: 6, dashboards: 20, sites: 3, shows: 5, documents: 10000, storageMb: 51200, uploadMb: 250, aiTokensK: 1800 },
