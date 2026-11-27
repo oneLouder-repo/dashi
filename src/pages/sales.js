@@ -75,7 +75,7 @@ function Home({ site, plans }) {
         h('div', { class: 'cta-row' },
           h('a', { class: 'btn btn-primary', href: '/signup.html' }, hero.cta),
           h('a', { class: 'btn', href: '/pricing.html' }, 'See plans'))),
-      HeroArt()),
+      HeroShot()),
     h('section', { class: 'sales-points' },
       site.points.map((pt) => {
         const p = pluginOf(pt.plugin);
@@ -91,28 +91,11 @@ function Home({ site, plans }) {
   ];
 }
 
-/**
- * A picture of Dashi, from its mark: three rings that touch at one point
- * (micro, meso and macro, or a drop landing in broth), on their own.
- */
-function HeroArt() {
-  const W = 520;
-  const H = 480;
-  // Rings tangent at the bottom, like the logo.
-  const rings = [{ r: 220 }, { r: 150 }, { r: 82 }].map((x) => ({ ...x, cx: W / 2, cy: H - 16 - x.r }));
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(svgNS, 'svg');
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  svg.setAttribute('class', 'hero-rings');
-  rings.forEach((x, i) => {
-    const c = document.createElementNS(svgNS, 'circle');
-    for (const [k, v] of Object.entries({ cx: x.cx, cy: x.cy, r: x.r, class: `hr hr${i}` })) c.setAttribute(k, v);
-    svg.append(c);
-  });
-  const drop = document.createElementNS(svgNS, 'circle');
-  for (const [k, v] of Object.entries({ cx: W / 2, cy: H - 16 - 82, r: 14, class: 'hr-drop' })) drop.setAttribute(k, v);
-  svg.append(drop);
-  return h('div', { class: 'hero-ripple', 'aria-hidden': 'true' }, svg);
+/** The real Dashi: the ecosystem mapper from the Kestrel Bay demo, in a window. */
+function HeroShot() {
+  return h('figure', { class: 'sales-hero-shot' },
+    h('div', { class: 'sales-hero-bar', 'aria-hidden': 'true' }, h('i'), h('i'), h('i')),
+    h('img', { src: '/media/home/ui-ecosystem.webp', width: 1600, height: 956, alt: 'Dashi’s ecosystem map for a community foundation: partners, funders and the people it serves, in rings from micro to macro', fetchpriority: 'high', decoding: 'async' }));
 }
 
 /* ----------------------------------------------------------- pricing */

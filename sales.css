@@ -191,3 +191,10 @@ body.sales-page .sales-main a:not(.btn) { color: var(--accent); }
 .sales-section > .plan-cards, .sales-plans-band > .plan-cards { margin-top: 48px; }
 .sales-page .table-scroll { position: relative; overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
 @media (max-width: 639px) { .sales-page .table-scroll .compare-table { min-width: 560px; font-size: 14px; } }
+
+/* The hero: a real Dashi screen in a soft window */
+.sales-hero-shot { margin: 0; border-radius: 14px; overflow: hidden; background: #fff; align-self: center;
+  box-shadow: 0 0 0 1px rgb(31 36 48 / .08), 0 30px 70px -34px rgb(31 36 48 / .5); }
+.sales-hero-bar { display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid rgb(31 36 48 / .08); }
+.sales-hero-bar i { width: 9px; height: 9px; border-radius: 50%; background: #e2e1de; }
+.sales-hero-shot img { display: block; width: 100%; height: auto; }
