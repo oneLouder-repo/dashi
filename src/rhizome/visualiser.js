@@ -21,8 +21,13 @@
  *
  * At each step a "critical lens" note asks where it could go wrong.
  *
- * visualise({ question, rows, facts, measures, weights }) → trace
- * trace = { question, lanes: { tokens, meaning, retrieval, attention, reasoning, answer }, lens: { lane: text }, findings }
+ * visualise({ question, rows, facts, measures, weights, statement }) → trace
+ * trace = { question, lanes: { tokens, meaning, retrieval, attention, reasoning, answer }, lens: { lane: text }, findings, statement }
+ *
+ * With a statement (a finding from the rack's Say module, d 2026-11-27), it
+ * doesn't answer: it reads the rack's sentence the way a language system
+ * would, step by step, beside the rack's own trail (the filters and weighing
+ * that really made it), so the two kinds of "reasoning" can be compared.
  */
 import { graphOf } from './rackGraph.js';
 import { ENTITY_TYPES } from './facts.js';
@@ -107,7 +112,7 @@ function listIds(measures) {
 }
 
 /** The engine. Pure and synchronous: same question, same facts, same trace. */
-export function visualise({ question = DEFAULT_QUESTION, rows = [], facts, measures, weights = DEFAULT_WEIGHTS } = {}) {
+export function visualise({ question = DEFAULT_QUESTION, rows = [], facts, measures, weights = DEFAULT_WEIGHTS, statement = null } = {}) {
   const W = { ...DEFAULT_WEIGHTS, ...(weights ?? {}) };
   const E = facts.entities;
   const g = graphOf(facts);
@@ -152,6 +157,8 @@ export function visualise({ question = DEFAULT_QUESTION, rows = [], facts, measu
   const seeds = new Map(); // id → { act, why }
   const seed = (id, act, why) => { if (E[id] && (seeds.get(id)?.act ?? 0) < act) seeds.set(id, { act, why }); };
   for (const m of matched.filter((x) => x.kind === 'name')) for (const id of m.ids) seed(id, 1, `the word “${m.text}”`);
+  // A statement names its things outright: they are where the reading starts.
+  if (statement) for (const id of focus) seed(id, 1, 'named in the statement');
   // Types, categories and zones narrow a pool: the patch's rows if there are any, otherwise every actor.
   const pool = focus.size ? [...focus] : Object.keys(E).filter((id) => E[id].type === 'actor');
   const fits = (id) => (!types.length || types.includes(E[id].type)) && (!cats.length || cats.includes(E[id].attrs?.category)) && (!zones.length || zones.includes(E[id].attrs?.zone));
@@ -211,6 +218,13 @@ export function visualise({ question = DEFAULT_QUESTION, rows = [], facts, measu
     else if (!fired.length) reasoning.push({ id: a.id, name: a.name, rule: null, fits: null, text: 'no rule fires: it is just close to your words', weight: a.weight });
     else for (const k of wanted.slice(0, 2)) reasoning.push({ id: a.id, name: a.name, rule: k, fits: true, text: RULE_TEXT[k], weight: a.weight });
   }
+  // A statement brings the rack's own trail: the filters it passed and how it was weighed. Those come first.
+  if (statement) {
+    const who = statement.rows?.[0]?.name ?? 'It';
+    const trail = (statement.trail ?? []).map((t) => ({ id: statement.rows?.[0]?.id ?? null, name: t.kind === 'weigh' ? 'Weigh' : 'Filter', rule: null, fits: t.ok, text: t.kind === 'weigh' ? t.text : `${who}: ${t.text}`, weight: 1, rack: true }));
+    trail.push({ id: null, name: 'Say', rule: null, fits: true, text: `the tip ${statement.tip ? `“${statement.tip}” ` : ''}turned it into this sentence`, weight: 1, rack: true });
+    reasoning.unshift(...trail);
+  }
   const firedSteps = reasoning.filter((r) => r.rule);
 
   /* 6. answer */
@@ -236,7 +250,14 @@ export function visualise({ question = DEFAULT_QUESTION, rows = [], facts, measu
     const tieNames = [...new Set(ties.map((x) => E[x].name))];
     if (tieNames.length) phrases.push({ text: `${E[leadId].name} is tied to ${names(tieNames)}.`, facts: [leadId, ...ties], rule: null });
   }
-  const evidence = matched.length + firedSteps.length;
+  if (statement) {
+    // The answer is the rack's sentence; the reading above is how a language system would rebuild it.
+    phrases.length = 0;
+    phrases.push({ text: statement.text, facts: [...focus], rule: null, rack: true });
+    const lost = [...focus].filter((id) => !keptIds.has(id));
+    if (lost.length) phrases.push({ text: `Reading it back, the engine lost track of ${names(lost.map((id) => E[id].name))}.`, facts: [], rule: null });
+  }
+  const evidence = matched.length + firedSteps.length + (statement ? (statement.trail?.length ?? 0) + 1 : 0);
   const confidence = evidence >= 6 ? 'solid' : evidence >= 3 ? 'some' : 'thin';
   if (!phrases.length) phrases.push({ text: 'It found nothing to say.', facts: [], rule: null });
 
@@ -264,6 +285,11 @@ export function visualise({ question = DEFAULT_QUESTION, rows = [], facts, measu
       : 'Every phrase links back to its facts and rules. Most real AI answers don’t show you that.',
   };
 
+  if (statement) {
+    lens.reasoning = `The first ${reasoning.filter((r) => r.rack).length} steps are the rack’s own: filters and a weighing you can see and change, so the statement is exact. A language model has no trail like this unless it is made to show one, and even then it may be a story told afterwards.`;
+    lens.answer = 'Same sentence, two ways: the rack made it from rules, and a language system would rebuild it from word pieces and weights. Check that both point at the same things.';
+    if (!focus.size) lens.retrieval = 'This statement names nothing in your facts, so there was nothing for the reading to start from.';
+  }
   const findings = phrases.filter((p) => p.facts.length).map((p, i) => ({ id: `vis:${i}`, score: Math.max(0.2, 0.9 - i * 0.2) * (confidence === 'thin' ? 0.6 : 1), text: p.text, items: p.facts, rows: p.facts.map((id) => ({ id, name: E[id].name })) }));
 
   return {
@@ -278,5 +304,6 @@ export function visualise({ question = DEFAULT_QUESTION, rows = [], facts, measu
     },
     lens,
     findings,
+    statement: !!statement,
   };
 }

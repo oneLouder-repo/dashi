@@ -19,6 +19,7 @@ import { ENTITY_TYPES, typeLabel } from './facts.js';
 import { themeById } from './setup.js';
 import { graphOf, plotLayout, spectrumOf, vennCounts } from './rackGraph.js';
 import { VisualiserPanel } from './VisualiserView.js';
+import { Readout, readoutLines } from './Readout.js';
 import { RippleMark } from '../ui/Wordmark.js';
 import { Drawer } from '../ui/drawer.js';
 import { PLUGINS } from '../plugins.js';
@@ -209,6 +210,12 @@ export function Rack(env, patchId) {
     window.addEventListener('pointercancel', up);
   }
 
+  /** Everything on a cable, in full, in a tray. */
+  function openReadout(signal, title) {
+    const n = signal?.kind === 'findings' ? signal.findings.length : signal?.rows?.length ?? 0;
+    Drawer({ title, sub: `${n} ${signal?.kind === 'findings' ? (n === 1 ? 'finding' : 'findings') : (n === 1 ? 'row' : 'rows')}, in full`, wide: true, body: Readout(signal, { typeLabel, toast: env.toast }) });
+  }
+
   /* ------------------------------------------------------ the AI visualiser */
   function VisFace(m, p, set) {
     const trace = traces[m.id];
@@ -216,8 +223,11 @@ export function Rack(env, patchId) {
     if (!trace) return h('div', { class: 'rk-face' });
     const panel = (big, st) => VisualiserPanel({
       trace, state: st, big, canSet, graph: graphOf(facts),
-      onAsk: (q) => { set({ q }, 'Asked the visualiser'); },
+      onAsk: (q) => { set({ q, mode: 'ask' }, 'Asked the visualiser'); },
       onWeights: (weights) => set({ weights }),
+      mode: p.mode ?? 'ask', pick: Number(p.pick) || 0,
+      onMode: (mode) => set({ mode, pick: 0 }, mode === 'statements' ? 'The visualiser reads the rack’s statements' : 'The visualiser takes questions'),
+      onPick: (pick) => set({ pick }),
       onExpand: big ? null : () => openTray(),
     });
     const openTray = () => {
@@ -297,7 +307,23 @@ export function Rack(env, patchId) {
           h('div', { class: 'rk-crt-head' }, h('span', {}, !s ? 'NO SIGNAL' : s.kind === 'findings' ? 'FINDINGS' : 'ROWS'), h('span', {}, String(total).padStart(3, '0'))),
           !s ? h('p', { class: 'rk-nosig' }, 'Patch a cable into IN') : lines.length ? h('ol', {}, lines.map(([sc, t]) => h('li', {}, sc ? h('b', {}, sc) : null, t))) : h('p', { class: 'rk-nosig' }, 'Nothing flowing'),
           total > lines.length ? h('small', {}, `+${total - lines.length} more`) : null),
-        Toggle(['green', 'amber'], p.phosphor === 'amber' ? 'amber' : 'green', (v) => set({ phosphor: v })));
+        h('div', { class: 'rk-switchrow' },
+          Toggle(['green', 'amber'], p.phosphor === 'amber' ? 'amber' : 'green', (v) => set({ phosphor: v })),
+          h('button', { type: 'button', class: 'rk-read', disabled: !total, title: 'Read every line in full, with why each one got through', onclick: () => openReadout(s, 'Scope readout') }, 'Read')));
+    }
+    if (m.type === 'printer') {
+      const s = ins.in;
+      const lines = readoutLines(s, { typeLabel });
+      return h('div', { class: 'rk-face' },
+        h('div', { class: 'rk-paper', tabindex: '0', 'aria-label': 'The paper roll' },
+          !s ? h('p', { class: 'rk-paper-idle' }, '— patch a cable into IN —') : !lines.length ? h('p', { class: 'rk-paper-idle' }, '— nothing to print —')
+            : lines.slice(0, 40).map((l, i) => h('div', { class: 'rk-paper-line' },
+              h('p', {}, h('b', {}, `${String(i + 1).padStart(2, '0')}${l.score != null ? ` · ${l.score.toFixed(2)}` : ''}`), ' ', l.text),
+              l.trail.length > 0 && h('small', {}, l.trail.map((t) => `${t.kind === 'weigh' ? '⚖' : t.ok ? '✓' : '✗'} ${t.text}`).join('  ')))),
+          lines.length > 40 && h('p', { class: 'rk-paper-idle' }, `— ${lines.length - 40} more: tear it off to read them all —`)),
+        h('div', { class: 'rk-switchrow' },
+          Led('lines', lines.length, 'amber'),
+          h('button', { type: 'button', class: 'rk-read', disabled: !lines.length, title: 'Tear it off: read it all in a tray, find in it, copy it', onclick: () => openReadout(s, 'Teleprinter') }, 'Tear off')));
     }
     if (m.type === 'meter') {
       const s = ins.in;

@@ -14,6 +14,117 @@ export const RHIZOME_HELP = {
   blurb: 'A systems analysis toolbox: your maps, strategy, studio and assets as one set of facts, measured and read by rules that offer tips.',
   pages: [
     {
+      id: 'rhizome-how',
+      title: 'How Rhizome thinks',
+      body: `Rhizome answers questions about your work by following connections. This page explains what happens between the moment you open it and the moment a tip appears, how a question is built out of modules, what each module does, and where this sits next to modern AI.
+
+# What is happening
+1. **Reading.** Rhizome reads each plugin you can open and writes down what it finds as **things** and **ties**. An actor on your ecosystem map is a thing. The link between two actors is a tie. A plan, an objective under it, the measure on that objective and the person who owns it are things too, tied by *part of*, *measured by* and *owned by*.
+2. **A graph.** All the things and ties together form a **graph**: dots and lines. This is the "fact layer". Nothing is guessed at this stage. Every fact points back to the plugin it came from.
+3. **Measuring.** Network science gives numbers for each dot: how many ties it has, how often it sits between others, whether removing it would split the network. Rhizome works these out, then **calibrates** them: it finds your own 25th, 50th and 75th percentiles, so "few links" means few *for you*.
+4. **Asking.** A rule (or a patch in the rack) is a question put to the graph. It picks some things, keeps the ones that meet conditions, scores them and says something about them.
+5. **Answering.** Each answer is a **finding**: a tip from the tip library, with names filled in, a score from 0 to 1, and a trail that shows every step it passed.
+
+Everything runs in your browser. The same facts and the same question always give the same answer.
+
+# How a graph question is formed
+In plain words, most questions about a network have the same shape:
+
+*Which* things, *that* meet these conditions, *ranked by* what, *and so* what?
+
+The rack builds that sentence out of modules, left to right:
+
+- **Which things** is a source: **Facts** (every actor, every objective…) or **Measure** (a list worked out already, such as isolates or hubs).
+- **That meet these conditions** is one or more **Filters**. Two streams can be joined with a **Gate**: AND, OR, NOT.
+- **Ranked by** is **Weigh**: a starting score plus a share of a measure.
+- **And so what** is **Say**: the tip that turns rows into words.
+
+Here is one question built three ways.
+
+**"Which of our partners are barely connected but sit between groups?"**
+
+1. **Facts** set to *actor*.
+2. **Filter**: links is at most your 25th percentile.
+3. **Filter**: betweenness is at least your 75th percentile.
+4. **Weigh**: start at 0.5, add 0.4 of betweenness.
+5. **Say**: the *gatekeeper you barely touch* tip.
+
+Read the patch out loud and it is the question: actors, with few links, that sit between others, ranked by how much they sit between, told as a gatekeeper tip.
+
+**"Which objectives have no measure, or nobody on them?"**
+
+1. **Facts** set to *objective*, cabled into two Filters.
+2. One Filter: measures equals 0. The other: people on it equals 0.
+3. A **Gate** set to OR joins them.
+4. **Say**: the *objective with no measure* tip.
+
+**"Who is one step away from our hubs but not tied to them yet?"**
+
+1. **Measure** set to *hubs*.
+2. **Neighbours**, one hop, taking the **ring** output (only the new things).
+3. **Gate** set to NOT, with the hubs into B, so the hubs themselves drop out.
+4. **Scope**, to see who is left.
+
+# The modules, one by one
+
+**Patchbay** (routing). A strip of jacks at the top. What goes in a jack comes out of the jack below it. Use it to send one source to several places, so a long cable doesn't cross the whole rack. *Example: Facts (actors) into jack 1, then jack 1 out to both a Filter and a Venn.*
+
+**Facts** (source). Every thing of one type: actors, people, plans, objectives, assets, SOAR cards, theory of change steps. The orange tubes count the rows. *Example: Facts set to asset gives every asset in your library and on your plans.*
+
+**Measure** (source). A list Rhizome already worked out: isolates, hubs, bridges, one-way flows, hollow objectives, unstaffed workplans, unused assets, untested theory of change links. *Example: Measure set to bridges gives the actors whose loss would split a network.*
+
+**Filter** (shaper). Lets through the rows that meet one condition; the rest go out of **reject**, so you can follow both. A number can be compared with a fixed value or with your own percentile. *Example: links ≤ p25 keeps your least connected quarter. Cable the reject output to a second Say to say something about the others.*
+
+**Weigh** (shaper). Gives each row a score: a base, plus a share of one measure. Scores rank the findings and decide what reaches Home. *Example: base 0.4, plus 0.5 of betweenness, puts the strongest brokers first.*
+
+**Gate** (logic). Joins two streams. **AND** keeps what is in both, **OR** what is in either, **NOT** what is in A but not in B. *Example: hubs AND bridges gives the actors you lean on most.*
+
+**Complement** (sets). Everything of the same type that is *not* coming in. *Example: actors on any plan, into Complement, gives the actors no plan mentions.*
+
+**Neighbours** (graphs). Walks out along ties, one to three hops. **Ring** gives only the new things it reaches; **ball** gives those plus what came in. *Example: one funder, two hops, ring: who your funder's partners work with.*
+
+**Triads** (graphs). Looks at each thing's pairs of neighbours. **Closed**: the neighbours know each other, a tight circle. **Open**: they don't, so the thing is a broker. *Example: actors through Triads, open output, gives the people holding separate groups together.*
+
+**Prism** (graphs). Splits what comes in by community, the three biggest clusters to three outputs. *Example: actors through Prism, each output to a Spectrum, to compare how connected each cluster is.*
+
+**Say** (voice). Turns rows into findings in the words of a tip. **Group** makes one finding for the whole set instead of one per row. *Example: the isolates tip, grouped: "Five actors have no links yet: …"*
+
+**Scope** (display). A screen that shows what is flowing in, a line per row. **Read** opens every line in full in a tray, with search and Copy as text.
+
+**Teleprinter** (display). Prints every answer in full on a paper roll: the finding, its score, the things it names, and the trail of checks it passed (✓ for a filter met, ⚖ for a weight added). **Tear off** opens the roll in a tray to read, search or copy.
+
+**VU meter** (display). A needle for how many rows flow through, and their top score. It passes everything on, so it can sit in the middle of a chain.
+
+**Plotter** (display). Draws what comes in as a little network on paper, with the ties between the rows.
+
+**Spectrum** (display). Bars for one number across the rows, so you can see the spread at a glance. *Example: links across your actors shows whether a few hubs hold everything.*
+
+**Venn** (display). Three circles and the counts in every overlap. Out gives what is in all the circles you patched.
+
+**AI visualiser** (engine). A small, see-through inference engine. Ask it a question, or switch it to **Read the rack's statements** and it walks through how a language model would handle one of your findings: tokens, meaning, retrieval, attention, reasoning and answer. In statements mode the rack's own steps (Filter, Weigh, Say) show in the reasoning chain, so you can compare how the rule got there with how an AI would. It mocks the process; it doesn't call a model.
+
+**Claude engine** (engine, stage 5). Will send a question and the relevant facts to Claude through the server, with your organisation's own key and cost caps, and bring findings back into the rack.
+
+**Open slot** (engine). Room for another engine later. Every engine plugs in the same way: facts and a question in, findings out.
+
+# Is this machine learning?
+Not quite, and it's worth being plain about. Rhizome is **symbolic**: it works with named things, explicit ties and written rules, the way network analysts and expert systems do. The only part that learns from your data is **calibration**, which sets cut-offs from your own numbers. That is why every finding can show its Why?: nothing is hidden inside a model.
+
+Modern AI, such as Claude, is **neural**: it learned patterns in language from a very large amount of text. It is very good at understanding a question as you would ask it, and at writing a clear answer. It is weaker at counting, at knowing what is in *your* data, and at showing exactly why it said what it said.
+
+The two fit together well. Researchers call this **neuro-symbolic** AI, and one popular form is **GraphRAG**: retrieval from a knowledge graph to ground a language model.
+
+# How Rhizome connects to modern AI
+These are the ways we plan to bring them together, starting with the Claude engine:
+
+1. **Question in, patch out.** You ask in plain words: *"Who should we introduce to the Harbour Trust?"* Claude turns it into a patch (Facts, Neighbours, Gate, Weigh, Say) and shows it in the rack before anything runs. You can read it, change a knob, then run it. The answer comes from your facts, not from the model's memory.
+2. **Facts in, words out.** The rack does the counting and the rules. Claude gets only the findings and the facts behind them, and writes a summary for a board report or a conversation. Every sentence can link back to a finding and its trail, the same way the visualiser links its phrases.
+3. **Checking each other.** The rack can check Claude: if an answer names an actor the facts don't have, or a tie that isn't there, the answer is flagged. Claude can check the rack: it can point out a tip that reads oddly for your context, or a rule whose wording doesn't fit your field.
+4. **Tips that grow.** The tip harvester's review queue can use Claude to draft tips in plain words from trusted sources. A person still approves every one.
+
+The **AI visualiser** is the bridge for now. Put your rack's statements into it and you can see, step by step, what an AI would do with them: which words it would understand, which facts it would reach for, where its attention would go, and where the critical lens says it could go wrong.`,
+    },
+    {
       id: 'rhizome-start',
       title: 'Switching Rhizome on',
       body: `Rhizome is off until your organisation switches it on. An admin turns it on in **Organisation → Plugins**, and chooses which roles can use it.

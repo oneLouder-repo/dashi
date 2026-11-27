@@ -58,12 +58,13 @@ export const MODULES = {
   triads: { label: 'Triads', cat: 'Sets & graphs', look: 'analog', hp: 6, ins: ['in'], outs: ['closed', 'open'], params: {}, blurb: 'Looks at each thing’s pairs of neighbours. Closed: tight circles, where neighbours know each other. Open: brokers sitting across structural holes.' },
   prism: { label: 'Prism', cat: 'Sets & graphs', look: 'analog', hp: 6, ins: ['in'], outs: ['1', '2', '3'], params: {}, blurb: 'Splits what comes in by community, like light through glass: the three biggest clusters each get an output.' },
   say: { label: 'Say', cat: 'Voice', look: 'analog', hp: 9, brand: true, ins: ['in'], outs: ['out'], params: { tip: 'net-isolates', group: false }, blurb: 'Turns rows into findings, in the words of a tip.' },
-  scope: { label: 'Scope', cat: 'Displays', look: 'analog', hp: 18, brand: true, ins: ['in'], outs: [], params: { phosphor: 'green' }, blurb: 'A CRT screen: shows what’s flowing in.' },
+  scope: { label: 'Scope', cat: 'Displays', look: 'analog', hp: 18, brand: true, ins: ['in'], outs: [], params: { phosphor: 'green' }, blurb: 'A CRT screen: shows what’s flowing in. Read opens every line in full.' },
+  printer: { label: 'Teleprinter', short: 'Print', cat: 'Displays', look: 'analog', hp: 18, brand: true, ins: ['in'], outs: [], params: {}, blurb: 'Prints every answer in full on a paper roll: each finding, its score, the things it names and why it got through. Tear it off to read it big, or copy it as text.' },
   meter: { label: 'VU meter', short: 'VU', cat: 'Displays', look: 'analog', hp: 6, ins: ['in'], outs: ['thru'], params: {}, blurb: 'A needle for how many rows flow through, and their top score.' },
   plotter: { label: 'Plotter', cat: 'Displays', look: 'analog', hp: 18, brand: true, ins: ['in'], outs: [], params: { ink: 'blue' }, blurb: 'A pen plotter: draws what comes in as a little network on paper, with the ties between them.' },
   spectrum: { label: 'Spectrum', short: 'Spect.', cat: 'Displays', look: 'analog', hp: 12, ins: ['in'], outs: ['thru'], params: { field: 'degree' }, blurb: 'A bar spectrum of one number across the rows, so you can see the spread at a glance.' },
   venn: { label: 'Venn', cat: 'Displays', look: 'analog', hp: 12, ins: ['a', 'b', 'c'], outs: ['all'], params: {}, blurb: 'Three circles and the counts in every overlap. Out: what is in all the circles you patched.' },
-  visualiser: { label: 'AI visualiser', cat: 'Engines', look: 'digital', hp: 42, ins: ['in'], outs: ['out'], params: { q: DEFAULT_QUESTION, weights: { ...DEFAULT_WEIGHTS } }, blurb: 'A tiny, see-through inference engine: ask it a question and watch, step by step, how a system turns your words into an answer, and where it can go wrong.' },
+  visualiser: { label: 'AI visualiser', cat: 'Engines', look: 'digital', hp: 42, ins: ['in'], outs: ['out'], params: { q: DEFAULT_QUESTION, weights: { ...DEFAULT_WEIGHTS }, mode: 'ask', pick: 0 }, blurb: 'A tiny, see-through inference engine: ask it a question, or feed it the rack’s statements from a Say module, and watch, step by step, how a system turns words into an answer, and where it can go wrong.' },
   claude: { label: 'Claude engine', cat: 'Engines', look: 'digital', hp: 12, ins: ['in'], outs: ['out'], stage: 5, blurb: 'Real questions of your facts, through the server, with your own key and cost caps.' },
   slot: { label: 'Open engine slot', cat: 'Engines', look: 'digital', hp: 7, ins: ['in'], outs: ['out'], stage: null, blurb: 'Room for another engine later. Every engine plugs in the same way: facts and a question in, findings out.' },
 };
@@ -270,7 +271,13 @@ export function runPatch(patch, ctx) {
     else if (m.type === 'visualiser') {
       const sig = ins.in;
       const rows = sig?.kind === 'rows' ? sig.rows : sig?.kind === 'findings' ? sig.findings.flatMap((f) => f.rows ?? []) : [];
-      const trace = visualise({ question: p.q || DEFAULT_QUESTION, rows, facts: ctx.facts, measures: ctx.measures, weights: p.weights });
+      // Statements mode (d, 2026-11-27): walk one of the rack's own statements through the six steps.
+      const said = sig?.kind === 'findings' ? sig.findings : [];
+      const statement = p.mode === 'statements' && said.length ? said[Math.min(said.length - 1, Math.max(0, Number(p.pick) || 0))] : null;
+      const trace = statement
+        ? visualise({ question: statement.text, rows: statement.rows ?? [], facts: ctx.facts, measures: ctx.measures, weights: p.weights, statement })
+        : visualise({ question: p.q || DEFAULT_QUESTION, rows, facts: ctx.facts, measures: ctx.measures, weights: p.weights });
+      trace.statements = said.map((f) => f.text);
       traces[id] = trace;
       out.out = { kind: 'findings', findings: trace.findings };
     } else if (m.type === 'claude' || m.type === 'slot') out.out = empty(); // engines arrive in later stages
@@ -282,6 +289,14 @@ export function runPatch(patch, ctx) {
 export const filterCond = (p) => ({ field: p.field, op: p.op, ...(p.pct && isNumeric(p.field) && !['yes', 'no'].includes(p.op) ? { pct: p.pct } : { value: p.value }) });
 export const weighOf = (p) => ({ base: Number(p.base ?? 0.5), plus: p.field && Number(p.w) ? [{ field: p.field, w: Number(p.w), ...(['degree', 'betweenness'].includes(p.field) ? { scale: p.field } : { cap: p.cap ?? 10 }) }] : [] });
 
+/** How a row got through the rack, in words: each filter it passed, then its weighing. */
+export function trailOf(r) {
+  const steps = (r._checks ?? []).map((c) => ({ kind: 'filter', ok: c.ok, text: `${FIELDS[c.field] ?? c.field} ${OPS[c.op]?.label ?? c.op}${['yes', 'no'].includes(c.op) ? '' : ` ${c.pct ? `${c.pct === 'p50' ? 'the median' : `the ${c.pct.slice(1)}th percentile`} (${fmt(c.want)})` : fmt(c.want)}`}: it has ${fmt(c.got)}` }));
+  if (r._w) steps.push({ kind: 'weigh', ok: true, text: `score ${r._w.score.toFixed(2)} = base ${r._w.base}${r._w.terms.map((t) => ` + ${t.part.toFixed(2)} for ${FIELDS[t.field] ?? t.field} (${fmt(t.value)})`).join('')}${r._w.themed ? ' + 0.06 for a chosen theme' : ''}` });
+  return steps;
+}
+const fmt = (v) => (typeof v === 'number' ? (Number.isInteger(v) ? String(v) : v.toFixed(2)) : Array.isArray(v) ? v.join(', ') : v == null ? 'nothing' : String(v));
+
 function sayRows(rows, p, mid) {
   const tip = tipById[p.tip];
   if (!rows.length) return [];
@@ -289,9 +304,9 @@ function sayRows(rows, p, mid) {
   if (p.group) {
     const names = rows.slice(0, 3).map((r) => r.name);
     const items = rows.length > 3 ? `${names.join(', ')} and ${rows.length - 3} more` : names.join(', ');
-    return [{ id: `${mid}:all`, score: Math.max(...scored.map((x) => x.score)), text: fillTip(tip?.text ?? 'A finding', { count: rows.length, items, map: rows[0].map, name: rows[0].name }), items: [...new Set(rows.flatMap((r) => r.items ?? []))], rows: rows.map((r) => ({ id: r.id, name: r.name })) }];
+    return [{ id: `${mid}:all`, score: Math.max(...scored.map((x) => x.score)), text: fillTip(tip?.text ?? 'A finding', { count: rows.length, items, map: rows[0].map, name: rows[0].name }), items: [...new Set(rows.flatMap((r) => r.items ?? []))], rows: rows.map((r) => ({ id: r.id, name: r.name })), tip: p.tip, trail: trailOf(rows[0]) }];
   }
-  return scored.map(({ r, score }) => ({ id: `${mid}:${r.id}`, score, text: fillTip(tip?.text ?? 'A finding', { ...r, label: r.label ?? r.name, count: 1 }), items: r.items ?? [], rows: [{ id: r.id, name: r.name }] }))
+  return scored.map(({ r, score }) => ({ id: `${mid}:${r.id}`, score, text: fillTip(tip?.text ?? 'A finding', { ...r, label: r.label ?? r.name, count: 1, items: r.name }), items: r.items ?? [], rows: [{ id: r.id, name: r.name }], tip: p.tip, trail: trailOf(r) }))
     .sort((a, b) => b.score - a.score);
 }
 
