@@ -152,14 +152,18 @@ function CmsList(kind) {
       h('div', {}, h('h2', {}, article ? 'News articles' : 'Pages'), h('p', { class: 'muted' }, article ? 'Dated news for your sites, newest first. Each has a cover and can go out on a schedule.' : 'The pages in your sites’ menus. Open one to write it, with a live preview beside it.')),
       h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: () => newPage(kind) }, icon('plus', 15), article ? 'New article' : 'New page')),
     rows.length ? h('table', { class: 'table cms-table' },
-      h('thead', {}, h('tr', {}, h('th', {}, 'Title'), h('th', {}, 'Site'), h('th', {}, article ? 'Date' : 'Menu'), h('th', {}, 'Status'))),
+      h('thead', {}, h('tr', {}, h('th', {}, 'Title'), h('th', {}, 'Site'), h('th', {}, article ? 'Date' : 'Menu'), h('th', {}, 'Status'), h('th', { class: 'cms-open-col' }, h('span', { class: 'sr-only' }, 'Open')))),
       h('tbody', {}, rows.map((p) => {
         const [cls, label] = state(p);
         return h('tr', { tabindex: 0, onclick: () => { location.hash = p.id; }, onkeydown: (e) => { if (e.key === 'Enter') location.hash = p.id; } },
           h('td', {}, h('a', { href: `#${p.id}`, class: 'cms-title' }, p.title || 'Untitled'), p.summary && h('small', { class: 'muted cms-sum' }, p.summary)),
           h('td', {}, org.sites[p.siteId]?.name ?? 'No site'),
           h('td', {}, article ? (p.publishedAt ? short(p.publishedAt) : '–') : p.inNav ? 'In the menu' : 'Not in the menu'),
-          h('td', {}, h('span', { class: 'cms-status' }, h('span', { class: `status-dot ${cls}` }), label)));
+          h('td', {}, h('span', { class: 'cms-status' }, h('span', { class: `status-dot ${cls}` }), label)),
+          // Open it to write, or see it on its site (a draft shows as a preview to people signed in).
+          h('td', { class: 'cms-open' },
+            h('a', { class: 'btn btn-xs', href: `#${p.id}`, onclick: (e) => e.stopPropagation() }, icon('pencil', 13), 'Edit'),
+            p.siteId && h('a', { class: 'btn btn-xs btn-ghost', href: siteUrl(p.siteId, { page: p.slug }), target: '_blank', rel: 'noopener', title: 'Open it on its site, in a new tab', onclick: (e) => e.stopPropagation() }, icon('export', 13), 'View')));
       })))
       : h('p', { class: 'empty' }, article ? 'No news articles yet.' : 'No pages yet.'));
 }
@@ -734,7 +738,7 @@ function Editor(p) {
   drawPreview();
   return h('div', { class: 'page-editor' },
     h('div', { class: 'page-editor-head' },
-      h('input', { class: 'title-input station-name', name: 'page-title', value: p.title, 'aria-label': 'Title', onchange: (e) => {
+      h('input', { class: 'title-input station-name', name: 'page-title', value: p.title, 'aria-label': 'Title', placeholder: 'Write a title', title: 'Click to edit the title', onchange: (e) => {
         const title = e.target.value.trim() || 'Untitled';
         // Keep the address in step with the title until the page goes live.
         save({ title, ...(p.status === 'draft' ? { slug: uniqueSlug(doc(), title, p.siteId, p.id) } : {}) });

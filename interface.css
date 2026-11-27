@@ -1079,3 +1079,11 @@ body.mapper-page > main { border-radius: 0 0 var(--r-sheet, 14px) var(--r-sheet,
 .shell-word { font-size: 24px; }
 .shell-slash { font-size: 25px; }
 .shell-orgname { font-size: 16px; }
+.cms-open { white-space: nowrap; text-align: right; }
+.cms-open .btn + .btn { margin-left: 4px; }
+
+/* Page and news editor: the title reads as a field you can type in (d, 2026-11-27). */
+input[name='page-title'] { border: 1px dashed var(--line); border-radius: 6px; padding: 2px 34px 2px 8px; cursor: text;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='%238c8f96'%3E%3Cpath d='M227.3 73.4 182.6 28.7a16 16 0 0 0-22.6 0L36.7 152A15.9 15.9 0 0 0 32 163.3V208a16 16 0 0 0 16 16h44.7a15.9 15.9 0 0 0 11.3-4.7L227.3 96a16 16 0 0 0 0-22.6ZM92.7 208H48v-44.7l88-88L180.7 120ZM192 108.7 147.3 64l24-24L216 84.7Z'/%3E%3C/svg%3E") no-repeat right 10px center / 16px; }
+input[name='page-title']:hover { border-color: #9aa1ab; }
+input[name='page-title']:focus { border-style: solid; border-color: var(--color-primary, #2c4fa3); background-image: none; }
