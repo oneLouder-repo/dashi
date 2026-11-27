@@ -19,7 +19,7 @@ import { SideNav, swapSide } from '../ui/SideNav.js';
 import { swSections } from './swNav.js';
 import { withoutLayers, layersInPlan } from '../platform/strategy.js';
 import { short } from './dates.js';
-import { uiConfirm } from '../ui/dialog.js';
+import { uiConfirm, uiPrompt } from '../ui/dialog.js';
 import { linkTo } from '../plugins.js';
 
 /**
@@ -92,20 +92,32 @@ const head = h('div', { class: 'strategy-head' });
 const tools = h('div', { class: 'plugin-header-actions' },
     h('button', { class: 'btn btn-sm', onclick: () => store.undo() }, 'Undo'),
     h('button', { class: 'btn btn-sm', onclick: () => store.redo() }, 'Redo'),
-    h('button', { class: 'btn btn-sm', title: 'Replace with the example strategy', onclick: async () => {
-      if (!await uiConfirm('Load the example strategy? Your current strategy is replaced.')) return;
-      store.load(migrateStrategy(seedStrategy()));
-      saveDoc('strategy', store.doc);
-      ctx.select(rootOf(store.doc).id);
-    } }, 'Example'));
+    h('button', { class: 'btn btn-sm', title: 'Replace with the example strategy', onclick: () => ctx.loadExample() }, 'Example'));
+/** The example strategy, in place of this one (after asking). */
+ctx.loadExample = async () => {
+  if (!await uiConfirm('Load the example strategy? Your current strategy is replaced.')) return;
+  store.load(migrateStrategy(seedStrategy()));
+  saveDoc('strategy', store.doc);
+  ctx.select(rootOf(store.doc).id);
+};
+/** A new plan under the framework, named first; it opens in the Framework. */
+ctx.newPlan = async () => {
+  const root = rootOf(store.doc);
+  if (!root) return;
+  const title = await uiPrompt('Name of the new strategic plan', 'Strategic plan');
+  if (!title?.trim()) return;
+  const op = store.apply(strategyOps.addNode(store.doc, { type: 'plan', parentId: root.id, title: title.trim() }));
+  ctx.select(op.id);
+};
+ctx.openPlanFile = () => openPlanFile({ strategy: store.doc, org, apply: (result) => {
+  store.apply(addPlansOp(result));
+  saveDoc('studio', addStudioItems(loadStudio(), result));
+  ctx.select(result.planIds[0]);
+} });
 /** Plan files: save plans as a .dashi-plan.json file, or open one as new plans. Fresh buttons for each header. */
 const fileTools = () => [
   h('button', { class: 'btn btn-sm', title: 'Save plans as a .dashi-plan.json file', onclick: () => savePlanFile({ strategy: store.doc, studio: loadStudio(), org, current: planOfNode(store.doc.nodes[ctx.selectedId]) }) }, icon('download', 14), 'Save plan file'),
-  h('button', { class: 'btn btn-sm', title: 'Add the plans in a .dashi-plan.json file', onclick: () => openPlanFile({ strategy: store.doc, org, apply: (result) => {
-    store.apply(addPlansOp(result));
-    saveDoc('studio', addStudioItems(loadStudio(), result));
-    ctx.select(result.planIds[0]);
-  } }) }, icon('upload', 14), 'Open plan file'),
+  h('button', { class: 'btn btn-sm', title: 'Add the plans in a .dashi-plan.json file', onclick: () => ctx.openPlanFile() }, icon('upload', 14), 'Open plan file'),
 ];
 const app = document.querySelector('#app');
 app.classList.add('strategy', 'frame');

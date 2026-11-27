@@ -23,6 +23,7 @@ import { ImagePicker } from './ImagePicker.js';
 import { printPlan } from './print.js';
 import { short } from '../strategy/dates.js';
 import { uiConfirm } from '../ui/dialog.js';
+import { EmptyState } from '../ui/EmptyState.js';
 import { linkTo } from '../plugins.js';
 
 /**
@@ -118,10 +119,15 @@ function render() {
   if (!pd) {
     head.replaceChildren(PluginHeader('strategy', { title: 'Plan designer', blurb: 'Turn your strategy into a designed plan document to share, print or publish.' }));
     panel.hidden = true;
-    stage.replaceChildren(
-      h('div', { class: 'card empty-card' }, plans().length
-        ? [h('p', {}, 'Pick a plan on the left to make its document.'), h('button', { class: 'btn btn-primary btn-sm', onclick: () => create(plans()[0].id) }, `Make one for “${plans()[0].title}”`)]
-        : h('p', {}, 'Add a strategic plan in Plan first: its mission, vision, objectives and goals fill the document.')));
+    // First run (d, 2026-11-27): what the designer makes, and the way in.
+    const looks = h('ul', { class: 'pd-empty-looks', 'aria-label': 'Looks to choose from' }, TEMPLATES.filter((t) => ['modern', 'bold', 'editorial'].includes(t.id)).map((t) => h('li', {}, h('span', { class: `pd-template-thumb pd-thumb-${t.id}`, 'aria-hidden': 'true' }), h('small', {}, t.label))));
+    stage.replaceChildren(plans().length
+      ? EmptyState({ icon: 'brush', title: 'Design a plan document', text: 'The plan designer turns a plan into pages to print, save as a PDF or publish on your site: a cover, your mission and vision, each objective with its goals and measures, and stories.',
+        extra: looks,
+        actions: [h('button', { class: 'btn btn-primary btn-sm', onclick: () => create(plans()[0].id) }, `Make one for “${plans()[0].title}”`), plans().length > 1 && h('span', { class: 'muted small' }, 'or pick another plan on the left')] })
+      : EmptyState({ icon: 'brush', title: 'Designed plans start from a plan', text: 'The plan designer turns a plan into pages to print, save as a PDF or publish: its mission, vision, objectives, goals and measures fill the pages. Start a plan in Plan first, then come back to choose a look.',
+        extra: looks,
+        actions: [h('a', { class: 'btn btn-primary btn-sm', href: 'strategy.html#overview' }, 'Start a plan in Plan'), linkTo('studio', '#framework') && h('a', { class: 'btn btn-sm btn-ghost', href: linkTo('studio', '#framework') }, 'Plan it together first')] }));
     return;
   }
   const snap = planSnapshot(strategy, data, pd.planId, org);

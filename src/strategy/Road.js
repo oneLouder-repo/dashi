@@ -1,4 +1,5 @@
 import { h } from '../ui/dom.js';
+import { EmptyState } from '../ui/EmptyState.js';
 import { icon } from '../ui/icons.js';
 import { svg } from '../core/svg.js';
 import { descendants, rootOf, withoutDrafts } from '../platform/strategy.js';
@@ -331,7 +332,7 @@ export function fitWindow(doc, planId, now = today()) {
 export function RoadmapRoad(ctx) {
   const doc = withoutDrafts(ctx.store.doc);
   const plans = Object.values(doc.nodes).filter((n) => n.type === 'plan').sort((a, b) => (a.start ?? '').localeCompare(b.start ?? '') || a.order - b.order);
-  if (!plans.length) return h('p', { class: 'empty' }, 'No plans yet.');
+  if (!plans.length) return EmptyState({ compact: true, icon: 'mapTrifold', title: 'No road to draw yet', text: 'The roadmap draws each plan as a road, with its workplans as stretches, milestones as flags and goals as signs. Start a plan and give it dates.', actions: [ctx.newPlan && h('button', { class: 'btn btn-sm btn-primary', onclick: () => ctx.newPlan() }, 'Start a plan'), h('a', { class: 'btn btn-sm', href: '#framework' }, 'Open the framework')] });
   // Start on the whole road: the longest plan whose dates hold today.
   // With plans side by side, it opens on all of them end to end (PR 17), so the one just finished shows too.
   if (!doc.nodes[planPick]) planPick = plans.length > 1 && rootOf(doc) ? rootOf(doc).id : (plans.filter((p) => p.start && p.end && p.start <= today() && today() <= p.end).sort((a, b) => daysBetween(b.start, b.end) - daysBetween(a.start, a.end))[0] ?? plans[0]).id;

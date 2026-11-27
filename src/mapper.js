@@ -21,6 +21,8 @@ import { LabelEditor } from './ui/LabelEditor.js';
 import { migrateMap } from './seed.js';
 import { Shell } from './ui/Shell.js';
 import { h } from './ui/dom.js';
+import { icon } from './ui/icons.js';
+import { EmptyState } from './ui/EmptyState.js';
 import { autosaveDoc, saveDoc } from './platform/storage.js';
 import { loadOrg, loadMaps, loadLibrary } from './platform/docs.js';
 import { putMedia, mediaUrl } from './platform/media.js';
@@ -405,7 +407,30 @@ autosaveDoc(mapDocName(mapId), store);
 store.map.name = index.maps[mapId].title;
 store.addEventListener('change', () => {
   if (store.map.name && store.map.name !== index.maps[mapId].title) ctx.actions.updateEntry({ title: store.map.name });
+  drawEmptyHint();
 });
+
+/*
+ * An empty map (d, 2026-11-27): a card over the board with the first moves,
+ * until the first actor goes on. It never blocks the board around it.
+ */
+const emptyHint = h('div', { class: 'map-empty', hidden: true });
+document.querySelector('main').append(emptyHint);
+function drawEmptyHint() {
+  const empty = !Object.keys(store.map.actors).length;
+  emptyHint.hidden = !empty;
+  if (!empty || emptyHint.childElementCount) return;
+  const key = (k) => h('kbd', {}, k);
+  emptyHint.append(EmptyState({ compact: true, icon: 'sec-mapper', title: 'Map your ecosystem',
+    text: 'Put the people, groups and organisations around your work on the board, then draw how they are linked. The rings are a lens: change it above.',
+    steps: [
+      { title: 'Add an actor', text: h('span', {}, 'Press ', key('A'), ' over the board, or use Actor on the left. Type its name.'), action: h('button', { class: 'btn btn-sm btn-primary', onclick: () => ctx.actions.addActorInView('actor') }, 'Add one') },
+      { title: 'Link two actors', text: h('span', {}, 'Press ', key('C'), ', then drag from one note to another.') },
+      { title: 'Choose a lens', text: 'Micro, meso and macro; the Water of Systems Change; leverage points…' },
+    ],
+    actions: [h('button', { class: 'btn btn-sm btn-ghost', onclick: () => ctx.openMapFile?.() }, icon('folderOpen', 14), 'Open a map file')] }));
+}
+drawEmptyHint();
 
 // Where the pointer last was on the board, so A adds an actor there.
 let pointer = null;

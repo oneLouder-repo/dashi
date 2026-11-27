@@ -39,6 +39,7 @@ export function TopBar(el, ctx) {
       uiAlert(`Couldn't open that file: ${err.message}`);
     }
   } });
+  ctx.openMapFile = () => fileInput.click();
 
   // The map's name, as a title (0.2): rename it in Share → Owner and members.
   const name = h('h1', { class: 'map-title', title: 'Rename it in Share → Owner and members' }, ctx.index.maps[ctx.mapId]?.title ?? '');

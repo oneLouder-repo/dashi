@@ -616,3 +616,8 @@ html.pv-open { overflow: hidden; }
 /* Headings inherit the page's ink (the app's own heading colour must not reach the document). */
 .pd-doc :where(h1, h2, h3, h4) { color: inherit; }
 .pd-magazine .pd-title { font-size: 64px; }
+
+/* The designer's first-run page: the looks to choose from. */
+.pd-empty-looks { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin: 18px 0 4px; padding: 0; }
+.pd-empty-looks li { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.pd-empty-looks .pd-template-thumb { --accent: var(--color-primary, #7b2fe8); }

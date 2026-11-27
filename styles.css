@@ -265,3 +265,9 @@ svg.dataviz-focus .connector.focus .connector-line { animation: connector-pulse 
 .strength-picker button.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .strength-picker button.on .strength-line { background: var(--accent); }
 .inspector-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+
+/* An empty map's first-moves card (mapper.js drawEmptyHint): over the board, never in the way around it. */
+.map-empty { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 5; padding: 16px; }
+.map-empty[hidden] { display: none; }
+.map-empty .empty-state { pointer-events: auto; margin: 0; box-shadow: 0 12px 40px rgb(0 0 0 / 0.14); }
+.map-empty kbd { font: inherit; font-size: 0.75rem; padding: 1px 6px; border: 1px solid var(--line-soft, #d1d5db); border-bottom-width: 2px; border-radius: 4px; background: var(--color-base-100, #fff); }

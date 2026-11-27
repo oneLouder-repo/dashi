@@ -23,6 +23,7 @@ import { Results } from './Results.js';
 import { Assemble, assembleLayers } from './Assemble.js';
 import { Change } from './Change.js';
 import { uiPrompt } from '../ui/dialog.js';
+import { EmptyState } from '../ui/EmptyState.js';
 import { col } from '../core/collections.js';
 import { savePlanFile, openPlanFile, addPlansOp } from '../strategy/planFileUi.js';
 
@@ -213,7 +214,15 @@ function Framework() {
         render();
       } }) }, icon('upload', 14), 'Open plan file'),
       h('button', { class: 'btn btn-sm btn-primary', onclick: newPlan }, icon('plus', 14), 'New plan')] }),
-    !root ? h('p', { class: 'empty' }, 'Start a framework in Plan first.') : [
+    !root ? EmptyState({ icon: 'strategy', title: 'Start with your framework', text: 'Plans sit under your organisation’s framework: its mission, vision and values. Set that up in Plan, then come back to plan together here.', actions: [h('a', { class: 'btn btn-sm btn-primary', href: 'strategy.html#framework' }, 'Open Plan')] })
+    : !plans.length ? EmptyState({ icon: 'studio', title: 'Plan together, here', text: 'The Planning Studio is where a strategic plan is worked out with your team: a SOAR board, a theory of change, a results framework, and a canvas that wires the ideas into objectives and goals.',
+      steps: [
+        { title: 'Start a plan', text: 'A name is enough. You become its facilitator.', action: h('button', { class: 'btn btn-sm btn-primary', onclick: newPlan }, 'New plan') },
+        { title: 'Invite your team', text: 'Add people on the plan’s home page, then fill the SOAR board together.' },
+        { title: 'Send it to Plan', text: 'Objectives and goals go into Plan, where the work is tracked.' },
+      ],
+      actions: [h('button', { class: 'btn btn-sm btn-ghost', onclick: () => openPlanFile({ strategy: strategy.doc, org, apply: (result) => { strategy.apply(addPlansOp(result)); const ops = Object.entries(result.studio).flatMap(([k, items]) => Object.values(items).map((x) => col.add(k, x))); if (ops.length) store.apply(col.batch(ops)); render(); } }) }, icon('upload', 14), 'Open a plan file')] })
+    : [
       h('div', { class: 'sw-section-head' }, h('h2', {}, 'Plans'), h('span', { class: 'muted small' }, 'Plan together here; the plans become work in Plan.')),
       h('div', { class: 'studio-plans' }, plans.map(planCard)),
       h('div', { class: 'sw-section-head' }, h('h2', {}, 'Designed plans'), h('a', { class: 'small', href: 'plandoc.html' }, 'Open the plan designer →')),
