@@ -22,7 +22,7 @@ import { HELP_SHOTS } from '../help/library.js';
 import { Markdown } from '../ui/markdown.js';
 import { linkTo } from '../plugins.js';
 import './adapters.js';
-import { Rack } from './RackView.js';
+import { Rack, rackVersion } from './RackView.js';
 import { Output } from './OutputView.js'; // not Rack.js: macOS would mix it up with rack.js
 import { loadTips, saveTips } from '../platform/tipsLibrary.js';
 import { can } from '../platform/session.js';
@@ -122,7 +122,9 @@ function render() {
 
 function drawSide(view) {
   const fc = factCounts(facts);
-  side = swapSide(side, SideNav({ label: 'Rhizome', sections: [
+  // Rack 2.0 gives the rack the room: the side nav starts folded there, and keeps its own fold.
+  const rack2 = view === 'rack' && rackVersion() === '2';
+  side = swapSide(side, SideNav({ label: 'Rhizome', ...(rack2 ? { foldKey: 'dashi.rhizome.rack2-nav', foldDefault: true } : {}), sections: [
     { title: 'Rhizome · experimental', items: [
       { label: 'Home', sub: setupDone(doc) ? 'Signals worth a look' : 'Finish setting up', icon: 'home', href: '#home', on: view === 'home' },
       { label: 'Analyses', sub: `${n(ANALYSES.length, 'canned analysis', 'canned analyses')} · ${n(RULES.length, 'rule')}`, icon: 'spark', href: '#analyses', on: view === 'analyses' },

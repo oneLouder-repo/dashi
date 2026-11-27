@@ -23,6 +23,7 @@ import { tipById, fillTip, SOURCES } from './tips.js';
 import { ENTITY_TYPES } from './facts.js';
 import { graphOf, neighbourhood, triadsOf, communities, entityRows } from './rackGraph.js';
 import { visualise, DEFAULT_QUESTION, DEFAULT_WEIGHTS } from './visualiser.js';
+import { translate, narrate, verify, critique, conceptLens } from './neuro.js';
 
 export const HP = 42; // a rack row is 42 HP wide (each of the twin racks is half an 84 HP case)
 
@@ -66,9 +67,15 @@ export const MODULES = {
   venn: { label: 'Venn', cat: 'Displays', look: 'analog', hp: 12, ins: ['a', 'b', 'c'], outs: ['all'], params: {}, blurb: 'Three circles and the counts in every overlap. Out: what is in all the circles you patched.' },
   visualiser: { label: 'AI visualiser', cat: 'Engines', look: 'digital', hp: 42, ins: ['in'], outs: ['out'], params: { q: DEFAULT_QUESTION, weights: { ...DEFAULT_WEIGHTS }, mode: 'ask', pick: 0 }, blurb: 'A tiny, see-through inference engine: ask it a question, or feed it the rack’s statements from a Say module, and watch, step by step, how a system turns words into an answer, and where it can go wrong.' },
   claude: { label: 'Claude engine', cat: 'Engines', look: 'digital', hp: 12, ins: ['in'], outs: ['out'], stage: 5, blurb: 'Real questions of your facts, through the server, with your own key and cost caps.' },
+  // Neuro-symbolic tools (d, 2026-11-27): Claude tools, mocked until the AI plugin's Claude proxy (alpha 0.7).
+  translator: { label: 'Translator', short: 'Transl.', cat: 'Neuro-symbolic', look: 'digital', hp: 14, neuro: true, ins: [], outs: ['out'], params: { q: 'Which of our partners are barely connected but sit between groups?' }, blurb: 'Plain words in, a patch out: Claude proposes the modules for your question, and the rack runs them on your facts. Unfold puts them in the rack.' },
+  concept: { label: 'Concept lens', short: 'Concept', cat: 'Neuro-symbolic', look: 'digital', hp: 9, neuro: true, ins: ['in'], outs: ['near', 'far'], params: { seed: 'food security', cut: 0.3 }, blurb: 'Ranks what comes in by meaning, not ties: things whose words sit close to a concept go out of near.' },
+  narrator: { label: 'Narrator', short: 'Narr.', cat: 'Neuro-symbolic', look: 'digital', hp: 12, neuro: true, ins: ['in'], outs: ['out'], params: { audience: 'board', imagination: 0.2 }, blurb: 'Findings in, a short summary out, every sentence citing the findings it rests on. Turn imagination up to see it make things up.' },
+  verifier: { label: 'Verifier', short: 'Verify', cat: 'Neuro-symbolic', look: 'digital', hp: 9, neuro: true, ins: ['in'], outs: ['ok', 'flag'], params: {}, blurb: 'Checks words against your facts: sentences with names or ties the facts don’t have go out of flag.' },
+  critic: { label: 'Critic', cat: 'Neuro-symbolic', look: 'digital', hp: 10, neuro: true, ins: [], outs: ['out'], params: {}, blurb: 'Reads the whole patch, like a reviewer, and says what might be missing or too strict.' },
   slot: { label: 'Open engine slot', cat: 'Engines', look: 'digital', hp: 7, ins: ['in'], outs: ['out'], stage: null, blurb: 'Room for another engine later. Every engine plugs in the same way: facts and a question in, findings out.' },
 };
-export const CATEGORIES = ['Routing', 'Sources', 'Shapers', 'Logic', 'Sets & graphs', 'Voice', 'Displays', 'Engines'];
+export const CATEGORIES = ['Routing', 'Sources', 'Shapers', 'Logic', 'Sets & graphs', 'Voice', 'Displays', 'Engines', 'Neuro-symbolic'];
 /** Cable colours, as patch cables come: red, yellow, blue, green, black, white, orange, violet. */
 export const CABLE_COLORS = ['#d23c2c', '#f2c12e', '#2f6fd6', '#3f9a4c', '#22252b', '#f4f1e8', '#ee7d2b', '#8a4fd8'];
 
@@ -87,7 +94,7 @@ export function addModule(patch, type, params = {}) {
 }
 
 /** Screens and engines go in the right-hand rack; everything else in the left. */
-export const defaultRack = (type) => (['Displays', 'Engines'].includes(MODULES[type]?.cat) ? 'b' : 'a');
+export const defaultRack = (type) => (['Displays', 'Engines', 'Neuro-symbolic'].includes(MODULES[type]?.cat) ? 'b' : 'a');
 export const inRack = (patch, rack) => patch.modules.filter((m) => (m.rack ?? defaultRack(m.type)) === rack);
 /** Move a module to the other rack. */
 export function swapRack(patch, id) {
@@ -131,12 +138,12 @@ export function placeModule(patch, id, rack, refId = null, after = false) {
 }
 
 /** Rows of a rack: modules flowed left to right, a new row when one is full (42 HP). */
-export function rowsOf(mods) {
+export function rowsOf(mods, max = HP) {
   const rows = [];
   let row = [], used = 0;
   for (const m of mods) {
     const hp = MODULES[m.type]?.hp ?? 10;
-    if (used + hp > HP && row.length) { rows.push(row); row = []; used = 0; }
+    if (used + hp > max && row.length) { rows.push(row); row = []; used = 0; }
     row.push(m); used += hp;
   }
   if (row.length) rows.push(row);
@@ -200,6 +207,9 @@ export function runPatch(patch, ctx) {
   const signals = {};
   const inputs = {};
   const traces = {};
+  // The Critic reads the rest of the patch as it runs, so run that first, without any Critic.
+  const critics = new Set(patch.modules.filter((m) => m.type === 'critic').map((m) => m.id));
+  const pre = critics.size ? runPatch({ ...patch, modules: patch.modules.filter((m) => !critics.has(m.id)), cables: patch.cables.filter((c) => !critics.has(c.from.m) && !critics.has(c.to.m)) }, ctx) : null;
   for (const id of order(patch)) {
     const m = byId[id];
     const def = MODULES[m.type];
@@ -280,6 +290,46 @@ export function runPatch(patch, ctx) {
       trace.statements = said.map((f) => f.text);
       traces[id] = trace;
       out.out = { kind: 'findings', findings: trace.findings };
+    } else if (m.type === 'translator') {
+      // Neural to symbolic: the proposal is a patch of its own, run on the same facts.
+      const spec = translate(p.q, ctx);
+      const sub = specToPatch(spec);
+      const run = runPatch(sub, ctx);
+      const last = sub.modules[sub.modules.length - 1];
+      traces[id] = { tool: 'translator', ...spec };
+      out.out = run.signals[last.id]?.out ?? empty();
+    } else if (m.type === 'concept') {
+      const ranked = conceptLens(rowsIn(ins.in), p.seed ?? '', ctx);
+      const cut = Number(p.cut ?? 0.3);
+      const tag = (x) => ({ ...x.row, _w: { score: x.sim }, _notes: [...(x.row._notes ?? []), { kind: 'meaning', ok: x.sim >= cut, text: `close to “${p.seed}” by meaning: ${x.sim.toFixed(2)}${x.words.length ? ` (${x.words.join(', ')})` : ''}` }] });
+      out = { near: { kind: 'rows', rows: ranked.filter((x) => x.sim >= cut).map(tag) }, far: { kind: 'rows', rows: ranked.filter((x) => x.sim < cut).map(tag) } };
+      traces[id] = { tool: 'concept', prompt: `# Rhizome · concept lens\nEmbed each thing’s words and the concept “${p.seed}”, and rank by closeness.`, ranked: ranked.slice(0, 12).map((x) => ({ name: x.row.name, sim: x.sim })) };
+    } else if (m.type === 'narrator') {
+      const fs = ins.in?.kind === 'findings' ? ins.in.findings : sayRows(rowsIn(ins.in), { tip: null, group: true }, id);
+      const said = narrate(fs, { imagination: Number(p.imagination ?? 0.2), audience: p.audience ?? 'board' });
+      const sorted = fs.slice().sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+      traces[id] = { tool: 'narrator', ...said };
+      out.out = { kind: 'findings', findings: said.sentences.map((st, i) => {
+        const cited = st.cites.map((k) => sorted[k]).filter(Boolean);
+        return { id: `${id}:${i}`, score: cited.length ? Math.max(...cited.map((f) => f.score ?? 0)) : 0, text: st.text, cites: st.cites, invented: !!st.invented,
+          items: [...new Set(cited.flatMap((f) => f.items ?? []))], rows: cited.flatMap((f) => f.rows ?? []).slice(0, 12),
+          trail: cited.length ? cited.slice(0, 3).map((f) => ({ kind: 'cite', ok: true, text: `rests on: ${String(f.text).slice(0, 90)}${String(f.text).length > 90 ? '…' : ''}` })) : [{ kind: 'cite', ok: false, text: 'rests on no finding' }] };
+      }) };
+    } else if (m.type === 'verifier') {
+      const fs = ins.in?.kind === 'findings' ? ins.in.findings : [];
+      const checks = verify(fs, ctx);
+      const ok = [], flag = [];
+      fs.forEach((f, i) => {
+        const c = checks[i];
+        const trail = [...(f.trail ?? []), ...c.checked.map((t) => ({ kind: 'filter', ok: true, text: t })), ...c.problems.map((t) => ({ kind: 'filter', ok: false, text: t }))];
+        (c.ok ? ok : flag).push({ ...f, trail });
+      });
+      traces[id] = { tool: 'verifier', checked: fs.length, flagged: flag.length };
+      out = { ok: { kind: 'findings', findings: ok }, flag: { kind: 'findings', findings: flag } };
+    } else if (m.type === 'critic') {
+      const notes = critique({ ...patch, modules: patch.modules.filter((x) => !critics.has(x.id)) }, pre, MODULES);
+      traces[id] = { tool: 'critic', notes };
+      out.out = { kind: 'findings', findings: notes.map((x, i) => ({ id: `${id}:${i}`, score: x.score, text: x.text, items: [], rows: [], trail: x.module ? [{ kind: 'cite', ok: true, text: `about the ${MODULES[patch.modules.find((y) => y.id === x.module)?.type]?.label ?? 'module'}` }] : [] })) };
     } else if (m.type === 'claude' || m.type === 'slot') out.out = empty(); // engines arrive in later stages
     signals[id] = out;
   }
@@ -292,10 +342,31 @@ export const weighOf = (p) => ({ base: Number(p.base ?? 0.5), plus: p.field && N
 /** How a row got through the rack, in words: each filter it passed, then its weighing. */
 export function trailOf(r) {
   const steps = (r._checks ?? []).map((c) => ({ kind: 'filter', ok: c.ok, text: `${FIELDS[c.field] ?? c.field} ${OPS[c.op]?.label ?? c.op}${['yes', 'no'].includes(c.op) ? '' : ` ${c.pct ? `${c.pct === 'p50' ? 'the median' : `the ${c.pct.slice(1)}th percentile`} (${fmt(c.want)})` : fmt(c.want)}`}: it has ${fmt(c.got)}` }));
-  if (r._w) steps.push({ kind: 'weigh', ok: true, text: `score ${r._w.score.toFixed(2)} = base ${r._w.base}${r._w.terms.map((t) => ` + ${t.part.toFixed(2)} for ${FIELDS[t.field] ?? t.field} (${fmt(t.value)})`).join('')}${r._w.themed ? ' + 0.06 for a chosen theme' : ''}` });
+  for (const x of r._notes ?? []) steps.push(x);
+  if (r._w && r._w.terms) steps.push({ kind: 'weigh', ok: true, text: `score ${r._w.score.toFixed(2)} = base ${r._w.base}${r._w.terms.map((t) => ` + ${t.part.toFixed(2)} for ${FIELDS[t.field] ?? t.field} (${fmt(t.value)})`).join('')}${r._w.themed ? ' + 0.06 for a chosen theme' : ''}` });
   return steps;
 }
 const fmt = (v) => (typeof v === 'number' ? (Number.isInteger(v) ? String(v) : v.toFixed(2)) : Array.isArray(v) ? v.join(', ') : v == null ? 'nothing' : String(v));
+
+/** A Translator's proposal as a patch of its own (modules laid out in order, cables between them). */
+export function specToPatch(spec, name = 'Translated') {
+  const sub = blankPatch(name);
+  const made = spec.modules.map((x) => addModule(sub, x.type, x.params));
+  for (const [a, pa, b, pb] of spec.cables) connect(sub, { m: made[a].id, port: pa }, { m: made[b].id, port: pb });
+  return sub;
+}
+
+/** Unfold a Translator: its proposed modules go into the patch, cabled up, with a Scope on the end. */
+export function unfoldTranslator(patch, id, ctx = null) {
+  const t = patch.modules.find((m) => m.id === id && m.type === 'translator');
+  if (!t) return null;
+  const spec = translate(t.params.q, ctx);
+  const made = spec.modules.map((x) => addModule(patch, x.type, x.params));
+  for (const [a, pa, b, pb] of spec.cables) connect(patch, { m: made[a].id, port: pa }, { m: made[b].id, port: pb });
+  const scope = addModule(patch, 'scope');
+  connect(patch, { m: made[made.length - 1].id, port: 'out' }, { m: scope.id, port: 'in' });
+  return made;
+}
 
 function sayRows(rows, p, mid) {
   const tip = tipById[p.tip];

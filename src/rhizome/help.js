@@ -107,6 +107,23 @@ Read the patch out loud and it is the question: actors, with few links, that sit
 
 **Open slot** (engine). Room for another engine later. Every engine plugs in the same way: facts and a question in, findings out.
 
+# Rack 2.0 and the neuro-symbolic tools
+**Classic / Rack 2.0**, on the strip above the rack, switches between the twin 1950s racks and Rack 2.0. Both show the same patch, so you can flip back and forth any time. Your choice is remembered.
+
+Rack 2.0 is one wide rack, built in rows. The side nav starts folded, to give the rack the room. Each kind of module wears a different late-90s look, as a real studio rack would: warm white samplers, slate blue sound modules, charcoal grooveboxes, graphite workstations, and pale grey drum machines for the neuro-symbolic tools. They all carry the Dashi badge. The tools sit in three panels you can drag, fold and dock, like Dashi's other editors:
+
+- **Modules**: everything you can add to the rack.
+- **Neuro-symbolic**: ask in plain words and **Translate to a patch**, or **Wire the loop after Say**, which adds a Narrator, a Verifier and a Teleprinter after your Say.
+- **Inspector**: click a module's name to see its settings, what flows in and out, and, for a tool, the prompt it would send.
+
+The neuro-symbolic tools are Claude tools. For now they are **mocked**: they run in your browser and send nothing. Each one has **Prompt**, to show exactly what it would send, and an estimate of the tokens and cost.
+
+- **Translator** (words to rules): ask a question and it proposes a patch, shown step by step with how sure it is and any words it had no meaning for. The rack runs the proposal on your facts. **Unfold** puts the modules in the rack, cabled up, so you can check them and turn a knob before you trust it.
+- **Concept lens** (words to rules): ranks what comes in by meaning, not by ties. Things whose words sit close to a concept, such as *food security*, go out of **near**. This stands in for the embeddings a language model would use.
+- **Narrator** (rules to words): turns findings into a short summary for the board, the team or the public. Each sentence cites the findings it rests on, as [1], [2]. Turn **imagination** up and it starts to make things up, just as a real model can.
+- **Verifier** (rules check words): checks each sentence against your facts. A name or tie the facts don't have sends it out of **flag**, with the reason. Put a Narrator into it, turn imagination up, and watch it catch the made-up partner.
+- **Critic** (words check rules): reads the whole patch like a reviewer: a Say with no Weigh, a filter that lets nothing through, a gate with one input.
+
 # Is this machine learning?
 Not quite, and it's worth being plain about. Rhizome is **symbolic**: it works with named things, explicit ties and written rules, the way network analysts and expert systems do. The only part that learns from your data is **calibration**, which sets cut-offs from your own numbers. That is why every finding can show its Why?: nothing is hidden inside a model.
 

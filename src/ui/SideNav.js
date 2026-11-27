@@ -30,16 +30,22 @@ const keepSection = (s) => {
   const items = s.items.filter(reachable);
   return items.length || s.body || s.menu || s.action ? { ...s, items } : null;
 };
-const folded = () => { try { return localStorage.getItem(KEY) === '1'; } catch { return false; } };
+const foldedAt = (key, dflt = false) => { try { const v = localStorage.getItem(key); return v == null ? dflt : v === '1'; } catch { return dflt; } };
 
-export function SideNav({ label, sections }) {
+/**
+ * `foldKey` gives a page its own remembered fold (Rhizome's Rack 2.0 opens
+ * with the side nav folded, to give the rack the room), and `foldDefault`
+ * is the fold until the person changes it there.
+ */
+export function SideNav({ label, sections, foldKey = KEY, foldDefault = false }) {
+  const folded = () => foldedAt(foldKey, foldDefault);
   foldTips();
   const nav = h('nav', { class: `side-nav${folded() ? ' folded' : ''}`, 'aria-label': label });
   const toggleLabel = () => (nav.classList.contains('folded') ? 'Open the side nav' : 'Fold the side nav');
   const toggle = h('button', { class: 'btn btn-ghost btn-xs btn-square side-fold', 'aria-expanded': String(!folded()),
     onclick: () => {
       const now = !nav.classList.toggle('folded') ? '0' : '1';
-      try { localStorage.setItem(KEY, now); } catch { /* private window: fold just for now */ }
+      try { localStorage.setItem(foldKey, now); } catch { /* private window: fold just for now */ }
       toggle.setAttribute('aria-expanded', String(now === '0'));
       toggle.setAttribute('aria-label', toggleLabel());
       toggle.dataset.tip = toggleLabel();

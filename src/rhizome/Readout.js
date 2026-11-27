@@ -22,7 +22,7 @@ export function readoutText(signal, opts) {
   return readoutLines(signal, opts).map((l, i) => [
     `${i + 1}. ${l.score != null ? `[${l.score.toFixed(2)}] ` : ''}${l.text}${l.type ? ` (${l.type})` : ''}`,
     l.names.length > 1 ? `   About: ${l.names.join(', ')}` : null,
-    ...l.trail.map((t) => `   ${t.kind === 'weigh' ? 'Weighed' : t.ok ? 'Passed' : 'Failed'}: ${t.text}`),
+    ...l.trail.map((t) => `   ${stepWord(t)}: ${t.text}`),
   ].filter(Boolean).join('\n')).join('\n\n');
 }
 
@@ -37,7 +37,7 @@ export function Readout(signal, { typeLabel, toast = null } = {}) {
     list.replaceChildren(...(shown.length ? shown.map((l) => h('li', {},
       h('div', { class: 'rk-readout-head' }, l.score != null && h('b', { class: 'rk-readout-score' }, l.score.toFixed(2)), h('p', {}, l.text), l.type && h('small', { class: 'muted' }, l.type)),
       l.names.length > 1 && h('p', { class: 'rk-readout-names' }, h('span', { class: 'muted' }, 'About: '), l.names.join(', ')),
-      l.trail.length > 0 && h('ul', { class: 'rk-readout-trail' }, l.trail.map((t) => h('li', { class: t.kind === 'weigh' ? 'weigh' : t.ok ? 'ok' : 'no' }, h('span', {}, t.kind === 'weigh' ? 'Weighed' : t.ok ? 'Passed' : 'Failed'), t.text))))) : [h('p', { class: 'empty' }, lines.length ? 'Nothing matches.' : 'Nothing is flowing in.')]));
+      l.trail.length > 0 && h('ul', { class: 'rk-readout-trail' }, l.trail.map((t) => h('li', { class: t.kind === 'weigh' || t.kind === 'cite' || t.kind === 'meaning' ? 'weigh' : t.ok ? 'ok' : 'no' }, h('span', {}, stepWord(t)), t.text))))) : [h('p', { class: 'empty' }, lines.length ? 'Nothing matches.' : 'Nothing is flowing in.')]));
   };
   draw();
   return h('div', { class: 'rk-readout' },
@@ -46,4 +46,12 @@ export function Readout(signal, { typeLabel, toast = null } = {}) {
       count,
       h('button', { type: 'button', class: 'btn btn-sm btn-ghost', onclick: async () => { try { await navigator.clipboard.writeText(readoutText(signal, { typeLabel })); toast?.('Copied as text'); } catch { toast?.('This browser wouldn’t copy it'); } } }, icon('copy', 14), 'Copy as text')),
     list);
+}
+
+/** The word for one step of a trail: a filter passed or failed, a weighing, a citation, a meaning match. */
+export function stepWord(t) {
+  if (t.kind === 'weigh') return 'Weighed';
+  if (t.kind === 'cite') return t.ok ? 'Cites' : 'Uncited';
+  if (t.kind === 'meaning') return 'Meaning';
+  return t.ok ? 'Passed' : 'Failed';
 }
