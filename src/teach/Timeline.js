@@ -83,7 +83,7 @@ export function Timeline({ cartridge: c, issues = [], ppd = 20, today = new Date
       if (!sp) return null;
       const n = streamBlocks(c, st.id).length;
       const bar = h('div', { class: 'tl-stream', 'data-sid': st.id, style: `left:${x(sp.start) + 1}px;width:${(sp.end - sp.start) * ppd - 2}px;--tone:${st.tone}`, tabindex: '0', role: 'button',
-        title: `${st.name}: ${n} linked blocks. Drag to move them together; click to edit.`, 'aria-label': `Stream ${st.name}, ${n} blocks` },
+        title: `${st.name}: ${n} linked blocks. Drag to move them together; click to edit.`, 'aria-label': `Pack ${st.name}, ${n} blocks` },
       icon('link', 12), h('span', {}, st.name), h('small', {}, String(n)));
       bar.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onStream?.(st.id); }
@@ -263,7 +263,7 @@ export function Timeline({ cartridge: c, issues = [], ppd = 20, today = new Date
     meter,
     h('div', { class: 'tl-head tl-head-meta' }, icon('flag', 14), h('span', { class: 'tl-head-text' }, h('b', {}, 'Pace notes'), h('small', {}, canEdit ? 'Double-click the lane to add' : `${(c.pace ?? []).length} notes`))),
     pace,
-    streams.length > 0 && h('div', { class: 'tl-head tl-head-meta' }, icon('link', 14), h('span', { class: 'tl-head-text' }, h('b', {}, 'Streams'), h('small', {}, `${streams.length} · drag to move together`))),
+    streams.length > 0 && h('div', { class: 'tl-head tl-head-meta' }, icon('link', 14), h('span', { class: 'tl-head-text' }, h('b', {}, 'Packs'), h('small', {}, `${streams.length} · drag to move together`))),
     streams.length > 0 && streamLane,
     lanes.flatMap(({ head, lane }) => [head, lane]));
   // The bands sit behind the lanes, outside the grid, so they never push a row out of place.

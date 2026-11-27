@@ -403,7 +403,10 @@ function BlockView(c, e, b, { preview, start, prev, next, base, pos }) {
         pos && h('span', { class: 'ln-pos' }, pos)),
       h('h2', {}, b.title),
       h('p', { class: 'ln-when' }, `${when}${b.minutes ? ` · about ${b.minutes} minutes` : ''}`)),
-    h('div', { class: 'ln-content' }, content),
+    h('div', { class: 'ln-content' }, content,
+      // Things the teacher linked to this block (Teach's manifest): documents, other shows, maps, plans.
+      op.open && b.assets?.length ? h('aside', { class: 'ln-also' }, h('h4', {}, icon('link', 13), 'Also in this block'),
+        h('ul', {}, b.assets.map((a) => h('li', {}, icon(a.icon ?? 'file', 14), a.href ? h('a', { href: a.href, target: '_blank', rel: 'noopener' }, a.title) : h('span', {}, a.title), h('small', {}, a.kind ?? ''))))) : null),
     h('footer', { class: 'ln-foot' },
       prev ? h('a', { class: 'btn btn-sm btn-ghost', 'data-go': 'prev', href: `#${base}/${c.id}/${prev.id}`, title: `Back: ${prev.title} (←)` }, icon('chevronLeft', 14), 'Back') : h('span', { class: 'ln-foot-gap' }),
       op.open && !['quiz', 'slideshow'].includes(b.type) && (done

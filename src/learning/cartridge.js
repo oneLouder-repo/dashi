@@ -14,7 +14,8 @@
  *               pace: [{ id, day, text, to, send }], competencies: [{ id, name, framework, level }],
  *               credential: { name, rule }, status, version, publishedAt, updatedAt, by }
  *   Block     { id, trackId, type, title, start, length, at, minutes, required, after: [ids],
- *               body, ref: { plugin, type, id } | null, settings, alts: [kinds], competencies: [ids] }
+ *               body, ref: { plugin, type, id } | null, settings, alts: [kinds], competencies: [ids],
+ *               assets?: [{ key, title, kind, icon, href }] }   other things linked to it (teach/LinkPicker.js)
  *
  * A block points at other plugins' things by `ref` (a podcast episode, an
  * asset, a Collab board) and never copies them.
@@ -264,7 +265,7 @@ export function linkStream(c, blockIds, name = null) {
   const n = Object.keys(c.streams ?? {}).length;
   const cartridge = edit(c, (x) => {
     x.streams ??= {};
-    x.streams[id] = { id, name: name ?? `Stream ${n + 1}`, tone: STREAM_TONES[n % STREAM_TONES.length] };
+    x.streams[id] = { id, name: name ?? `Pack ${n + 1}`, tone: STREAM_TONES[n % STREAM_TONES.length] };
     for (const b of ids) x.blocks[b].streamId = id;
   });
   return { cartridge, id: cartridge.streams?.[id] ? id : null };
@@ -296,7 +297,7 @@ export function streamToTemplate(c, sid, { name = null, blurb = '' } = {}) {
   const bs = streamBlocks(c, sid);
   const start = Math.min(...bs.map((b) => b.start));
   return {
-    id: rid('tpl'), name: name ?? c.streams?.[sid]?.name ?? 'My stream', blurb, saved: new Date().toISOString(),
+    id: rid('tpl'), name: name ?? c.streams?.[sid]?.name ?? 'My pack', blurb, saved: new Date().toISOString(),
     blocks: bs.map((b) => ({ type: b.type, offset: b.start - start, length: b.length, title: b.title, body: b.body ?? '', settings: clone(b.settings ?? {}), minutes: b.minutes, required: b.required, ...(b.at ? { at: b.at } : {}) })),
   };
 }
@@ -317,20 +318,20 @@ export function applyStream(c, tpl, start = 0) {
 
 /** Streams that come with Teach. */
 export const STREAM_TEMPLATES = [
-  { id: 'tpl_slideshow', name: 'Basic slideshow stream', blurb: 'Lesson intro, a slideshow, a quick check, a discussion and a wrap-up lesson.', builtIn: true, blocks: [
+  { id: 'tpl_slideshow', name: 'Basic slideshow pack', blurb: 'Lesson intro, a slideshow, a quick check, a discussion and a wrap-up lesson.', builtIn: true, blocks: [
     { type: 'lesson', offset: 0, length: 2, title: 'Intro: what this week is about' },
     { type: 'slideshow', offset: 1, length: 3, title: 'Slideshow' },
     { type: 'quiz', offset: 2, length: 3, title: 'Check yourself', settings: { questions: [{ q: 'What was the main idea?', options: ['', '', ''], answer: 0 }] } },
     { type: 'discussion', offset: 3, length: 4, title: 'Talk it through', body: 'What surprised you in the slideshow?' },
     { type: 'lesson', offset: 5, length: 2, title: 'Wrap-up: what we learned' },
   ] },
-  { id: 'tpl_live', name: 'Live session stream', blurb: 'A reading to prepare, an announcement, the session, and a reflection after.', builtIn: true, blocks: [
+  { id: 'tpl_live', name: 'Live session pack', blurb: 'A reading to prepare, an announcement, the session, and a reflection after.', builtIn: true, blocks: [
     { type: 'reading', offset: 0, length: 3, title: 'Read before the session' },
     { type: 'announce', offset: 1, length: 1, title: 'See you on the call' },
     { type: 'live', offset: 3, length: 1, title: 'Live session', at: '19:00' },
     { type: 'reflection', offset: 4, length: 3, title: 'What stayed with you?' },
   ] },
-  { id: 'tpl_assign', name: 'Assignment stream', blurb: 'A brief, the assignment, peer review and feedback.', builtIn: true, blocks: [
+  { id: 'tpl_assign', name: 'Assignment pack', blurb: 'A brief, the assignment, peer review and feedback.', builtIn: true, blocks: [
     { type: 'lesson', offset: 0, length: 2, title: 'The brief' },
     { type: 'assignment', offset: 1, length: 7, title: 'Assignment' },
     { type: 'peer', offset: 8, length: 5, title: 'Swap with a partner' },
