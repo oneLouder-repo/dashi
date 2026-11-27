@@ -260,7 +260,8 @@ function startMap() {
     else if (!v) fitAll(false);
   });
   // Sites (a hall, a street) crowd their town's label when zoomed out: they show from street level in.
-  const zoomClass = () => mapEl.classList.toggle('far', map.getZoom() < 12.6);
+  // A country-wide map (doc.view.labelZoom) also hides community labels until you zoom in on a region.
+  const zoomClass = () => { mapEl.classList.toggle('far', map.getZoom() < (doc.view?.siteZoom ?? 12.6)); mapEl.classList.toggle('distant', doc.view?.labelZoom != null && map.getZoom() < doc.view.labelZoom); };
   map.on('zoom', zoomClass);
   zoomClass();
   map.on('error', (e) => {
@@ -299,7 +300,7 @@ function loadBase() {
  * out at sea (src/place/kestrel.js), so real street tiles there are open water. Say so.
  */
 function streetNote() {
-  if (doc.basemap === 'street' && doc.drawn) showNote('These places sit on your drawn map. On the street map they are out at sea, so it shows only water here. Switch to the drawn map to see the coast and roads.');
+  if (doc.basemap === 'street' && doc.drawn && typeof doc.drawn !== 'string') showNote('These places sit on your drawn map. On the street map they are out at sea, so it shows only water here. Switch to the drawn map to see the coast and roads.');
 }
 function showNote(text) {
   noteEl.hidden = !text;
@@ -571,7 +572,9 @@ function flyToSelection() {
     const { here } = pinsAt(doc, p.id);
     for (const k of here) { const g = pointOf(k); if (g) pts.push(g); }
     const b = boundsOf(pts);
-    if (b) map.fitBounds(b, { padding: pad, maxZoom: p.kind === 'site' ? 15 : 14, duration: 600 });
+    // A country-wide map (doc.view.placeZoom, regionZoom) stops further out than a town map would.
+    const cap = p.kind === 'region' ? doc.view?.regionZoom : doc.view?.placeZoom;
+    if (b) map.fitBounds(b, { padding: pad, maxZoom: cap ?? (p.kind === 'site' ? 15 : 14), duration: 600 });
   } else if (selected.pin) {
     const g = pointOf(selected.pin);
     if (g) map.easeTo({ center: [g.lng, g.lat], zoom: Math.max(map.getZoom(), 13), padding: pad, duration: 600 });
