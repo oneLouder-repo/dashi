@@ -4,3 +4,5 @@ data
 node_modules
 test
 *.log
+docs/screenshots
+media/podBeam
