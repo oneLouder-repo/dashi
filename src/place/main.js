@@ -4,7 +4,7 @@ import { Shell, toast } from '../ui/Shell.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
 import { setCrumbs } from '../ui/crumbs.js';
-import { uiConfirm } from '../ui/dialog.js';
+import { uiConfirm, uiPrompt, uiAlert } from '../ui/dialog.js';
 import { Markdown } from '../ui/markdown.js';
 import { saveDoc, canWriteDoc } from '../platform/storage.js';
 import { loadOrg, loadAssets, loadMaps, loadLibrary, loadPodcasts, loadStrategy, loadStudio, loadPlace } from '../platform/docs.js';
@@ -15,12 +15,12 @@ import { enabledPlugins, linkTo } from '../plugins.js';
 import { WHEEL, inkOn } from '../ui/wheel.js';
 import { buildFacts, typeLabel } from '../rhizome/facts.js';
 import { addPlaceFacts } from './facts.js';
-import { PLACE_KINDS, kindById, kindLabel, LAYERS, geoOfPin, onTheMap, pinsAt, placesWithin, placeTrail, newPlaceId, boundsOf, formatGeo, migratePlace } from './model.js';
+import { PLACE_KINDS, kindById, kindLabel, LAYERS, geoOfPin, onTheMap, pinsAt, placesWithin, placeTrail, newPlaceId, boundsOf, formatGeo, migratePlace, featuresFromCsv, featuresFromGeoJSON, featureName, pointsOfFeatures, newDataId, DATA_COLOURS, MAX_FEATURES } from './model.js';
 import { BASEMAPS, basemapsFor, baseStyle } from './basemaps.js';
 import { PLACE_HELP, PLACE_HELP_ID } from './help.js';
 
 /**
- * Place (Place stage 1, experimental): Dashi's work on a real map, for
+ * Place (stages 1 and 2, experimental): Dashi's work on a real map, for
  * place-based development. MapLibre GL draws the map (vendor/maplibre, the
  * CSP build: its worker is a file, never a blob).
  *
@@ -28,6 +28,7 @@ import { PLACE_HELP, PLACE_HELP_ID } from './help.js';
  *   #map/<placeId>     the map, with that place's tray open
  *   #pin/<entityKey>   the map, with that pin's tray open
  *   #show/<ids>        things sent from elsewhere (Rhizome's findings), picked out
+ *   #data/<id>[/<n>]   a data layer (a file brought in, or your drawings), or one feature in it (stage 2)
  *   #places            every place, by kind
  *   #about[/<page>]    the quick reference, and the same tutorials as Help
  *
@@ -115,7 +116,7 @@ const route = () => {
   const i = raw.indexOf('/');
   return i < 0 ? [raw, ''] : [raw.slice(0, i), decodeURIComponent(raw.slice(i + 1))];
 };
-const onMap = (view) => ['map', 'pin', 'show'].includes(view);
+const onMap = (view) => ['map', 'pin', 'show', 'data'].includes(view);
 const n = (count, word, plural = `${word}s`) => `${count.toLocaleString()} ${count === 1 ? word : plural}`;
 
 function render() {
@@ -165,12 +166,21 @@ function drawSide(view, arg) {
       on: !!doc.layers[l.id]?.on,
       onclick: () => toggleLayer(l.id),
     })) },
+    { title: 'Data layers', action: canEdit ? { label: 'Bring in a file', icon: 'upload', onclick: () => fileIn.click() } : null, items: [
+      ...Object.values(doc.data ?? {}).map((l) => ({
+        label: l.name, sub: `${n(l.features.length, l.source === 'drawing' ? 'drawing' : 'feature')} · ${l.source === 'csv' ? 'CSV' : l.source === 'drawing' ? 'drawn here' : 'GeoJSON'}`,
+        lead: h('span', { class: 'pl-data-swatch', style: `--c:${hex(l.colour)}` }),
+        badge: l.on ? 'On' : 'Off', badgeClass: l.on ? 'pl-badge-on' : 'badge-ghost',
+        href: `#data/${encodeURIComponent(l.id)}`, on: view === 'data' && arg.split('/')[0] === l.id,
+      })),
+      canEdit && { label: 'Bring in a file', sub: 'CSV with latitude and longitude, or GeoJSON', icon: 'upload', onclick: () => fileIn.click() },
+      !Object.keys(doc.data ?? {}).length && !canEdit && { label: 'No data layers yet', sub: 'An editor can bring in a file', icon: 'info' },
+    ].filter(Boolean) },
     { title: 'Base map', items: BASEMAPS.map((b) => ({
       label: b.label, sub: b.sub, icon: b.icon, on: doc.basemap === b.id,
       disabled: !bases.includes(b), onclick: bases.includes(b) ? () => setBasemap(b.id) : null,
     })) },
     { title: 'Coming next', items: [
-      { label: 'Draw lines and areas', sub: 'Stage 2, with data layers from a file', icon: 'brush' },
       { label: 'Place profiles', sub: 'Stage 3: what’s here, gaps, the asset map', icon: 'lightbulb' },
       { label: 'Rhizome on the map', sub: 'Stage 4: findings and tips as a layer', icon: 'sec-rhizome' },
     ] },
@@ -202,7 +212,15 @@ const trayEl = h('aside', { class: 'pl-tray', hidden: true, 'aria-live': 'polite
 const hintEl = h('div', { class: 'pl-hint', hidden: true });
 const noteEl = h('div', { class: 'pl-banner', hidden: true });
 const tools = h('div', { class: 'pl-tools' },
-  h('button', { class: 'btn btn-xs', title: 'Fit everything', onclick: () => fitAll() }, icon('fit', 14), 'Fit everything'));
+  h('button', { class: 'btn btn-xs', title: 'Fit everything', onclick: () => fitAll() }, icon('fit', 14), 'Fit everything'),
+  canEdit && h('span', { class: 'pl-tools-group', role: 'group', 'aria-label': 'Draw on the map' },
+    h('button', { class: 'btn btn-xs', title: 'Draw a point', onclick: () => startDraw('point') }, icon('pin', 14), 'Point'),
+    h('button', { class: 'btn btn-xs', title: 'Draw a line: a route, a walk, a boundary', onclick: () => startDraw('line') }, icon('flow', 14), 'Line'),
+    h('button', { class: 'btn btn-xs', title: 'Draw an area', onclick: () => startDraw('area') }, icon('mapTrifold', 14), 'Area')),
+  canEdit && h('button', { class: 'btn btn-xs', title: 'Bring in a CSV (latitude and longitude columns) or a GeoJSON file', onclick: () => fileIn.click() }, icon('upload', 14), 'Add data'));
+/* A file brought in becomes a data layer (stage 2). */
+const fileIn = h('input', { type: 'file', class: 'sr-only', accept: '.csv,.tsv,.txt,.geojson,.json,text/csv,application/geo+json,application/json', onchange: (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) bringIn(f); } });
+document.body.append(fileIn);
 const mapPage = h('div', { class: 'pl-page pl-page-map' }, tabs('map'), h('div', { class: 'pl-stage' }, mapEl, tools, hintEl, noteEl, trayEl));
 const dark = document.documentElement.dataset.mode === 'dark';
 let map = null;
@@ -299,11 +317,22 @@ function addOverlayLayers() {
   add({ id: 'pl-serves', type: 'line', source: 'pl-serves', layout: { 'line-cap': 'round' }, paint: { 'line-color': hex('amber'), 'line-width': 2, 'line-dasharray': [1, 2], 'line-opacity': 0.95 } });
   add({ id: 'pl-links', type: 'line', source: 'pl-links', filter: ['!', ['get', 'speculative']], layout: { 'line-cap': 'round' }, paint: { 'line-color': INK, 'line-width': ['+', 0.6, ['*', 0.6, ['get', 'count']]], 'line-opacity': 0.38 } });
   add({ id: 'pl-links-spec', type: 'line', source: 'pl-links', filter: ['get', 'speculative'], paint: { 'line-color': INK, 'line-width': 1, 'line-dasharray': [2, 2], 'line-opacity': 0.4 } });
+  // Data layers and drawings (stage 2), under the places and pins.
+  for (const id of ['pl-data', 'pl-draft']) if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: empty() });
+  const isPoly = ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false];
+  const isLine = ['match', ['geometry-type'], ['LineString', 'MultiLineString'], true, false];
+  const isPoint = ['match', ['geometry-type'], ['Point', 'MultiPoint'], true, false];
+  add({ id: 'pl-data-fill', type: 'fill', source: 'pl-data', filter: isPoly, paint: { 'fill-color': ['get', '_c'], 'fill-opacity': ['case', ['get', '_on'], 0.38, 0.18] } });
+  add({ id: 'pl-data-line', type: 'line', source: 'pl-data', filter: ['any', isLine, isPoly], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': ['get', '_c'], 'line-width': ['case', ['get', '_on'], 4, 2.2] } });
+  add({ id: 'pl-data-point', type: 'circle', source: 'pl-data', filter: isPoint, paint: { 'circle-radius': ['case', ['get', '_on'], 8, 5], 'circle-color': ['get', '_c'], 'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5 } });
+  add({ id: 'pl-draft-line', type: 'line', source: 'pl-draft', paint: { 'line-color': INK, 'line-width': 2, 'line-dasharray': [2, 1] } });
+  add({ id: 'pl-draft-fill', type: 'fill', source: 'pl-draft', filter: isPoly, paint: { 'fill-color': INK, 'fill-opacity': 0.12 } });
+  add({ id: 'pl-draft-point', type: 'circle', source: 'pl-draft', filter: isPoint, paint: { 'circle-radius': 4, 'circle-color': '#fff', 'circle-stroke-color': INK, 'circle-stroke-width': 2 } });
   add({ id: 'pl-show', type: 'circle', source: 'pl-show', paint: { 'circle-radius': 16, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': INK, 'circle-stroke-width': 2.5 } });
 }
 
 let markers = [];
-let selected = { place: null, pin: null, show: [] };
+let selected = { place: null, pin: null, show: [], data: null };
 
 /** Things with a spot of their own, one dot per spot (an actor on three maps is one dot). */
 function thingDots() {
@@ -400,6 +429,8 @@ function drawOverlays() {
   set('pl-areas', { type: 'FeatureCollection', features: on('areas') ? Object.values(doc.places).filter((p) => p.area).map((p) => ({ type: 'Feature', id: p.id, properties: { id: p.id, kind: p.kind, colour: KIND_COLOURS[p.kind], on: selected.place === p.id }, geometry: p.area })) : [] });
   set('pl-links', { type: 'FeatureCollection', features: on('links') ? linkFeatures() : [] });
   set('pl-serves', { type: 'FeatureCollection', features: on('serves') ? servesFeatures() : [] });
+  set('pl-data', { type: 'FeatureCollection', features: dataFeatures() });
+  drawDraft();
   set('pl-show', { type: 'FeatureCollection', features: selected.show.map((k) => pointOf(k)).filter(Boolean).map((g) => ({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [g.lng, g.lat] } })) });
   drawMarkers();
 }
@@ -449,6 +480,13 @@ function setPicking(p) {
 }
 function onMapClick(e) {
   const g = { lat: +e.lngLat.lat.toFixed(5), lng: +e.lngLat.lng.toFixed(5) };
+  if (picking?.kind === 'draw') { addVertex(g); return; }
+  if (!picking) {
+    // A data feature under the click opens it (points first, then lines, then areas).
+    const layers = ['pl-data-point', 'pl-data-line', 'pl-data-fill'].filter((l) => map.getLayer(l));
+    const hit = layers.length ? map.queryRenderedFeatures(e.point, { layers })[0] : null;
+    if (hit?.properties?._layer != null) { location.hash = `#data/${encodeURIComponent(hit.properties._layer)}/${hit.properties._i}`; return; }
+  }
   if (picking) {
     const p = picking;
     setPicking(null);
@@ -493,11 +531,20 @@ const area = (polygon) => { const r = polygon?.coordinates?.[0] ?? []; let s = 0
 let editing = null;
 function openTray(view, arg) {
   const before = JSON.stringify(selected);
-  selected = { place: null, pin: null, show: [] };
+  selected = { place: null, pin: null, show: [], data: null };
   let body = null;
   if (view === 'map' && arg && doc.places[arg]) { selected.place = arg; body = PlaceTray(doc.places[arg]); setCrumbs([{ label: doc.places[arg].name }]); }
   else if (view === 'pin' && facts.entities[arg]) { selected.pin = arg; body = PinTray(arg); setCrumbs([{ label: nameOf(arg) }]); }
-  else if (view === 'show') {
+  else if (view === 'data') {
+    const [lid, idx] = arg.split('/');
+    const l = doc.data?.[lid];
+    if (l) {
+      const i = idx !== undefined && idx !== '' ? Number(idx) : null;
+      selected.data = { layer: lid, i: Number.isInteger(i) && l.features[i] ? i : null };
+      body = selected.data.i != null ? FeatureTray(l, selected.data.i) : DataTray(l);
+      setCrumbs([{ label: l.name, href: `#data/${encodeURIComponent(lid)}` }, ...(selected.data.i != null ? [{ label: featureName(l.features[selected.data.i], l.nameCol) }] : [])]);
+    } else setCrumbs([]);
+  } else if (view === 'show') {
     selected.show = arg.split(',').map((s) => s.trim()).filter((k) => facts.entities[k]);
     body = ShowTray(selected.show);
     setCrumbs([{ label: 'Picked out' }]);
@@ -528,6 +575,10 @@ function flyToSelection() {
   } else if (selected.pin) {
     const g = pointOf(selected.pin);
     if (g) map.easeTo({ center: [g.lng, g.lat], zoom: Math.max(map.getZoom(), 13), padding: pad, duration: 600 });
+  } else if (selected.data) {
+    const l = doc.data[selected.data.layer];
+    const b = boundsOf(pointsOfFeatures(selected.data.i != null ? [l.features[selected.data.i]] : l.features));
+    if (b) map.fitBounds(b, { padding: pad, maxZoom: 15, duration: 600 });
   } else if (selected.show.length) {
     const b = boundsOf(selected.show.map((k) => (k.startsWith('place:') ? doc.places[k.slice(6)]?.geo : pointOf(k))));
     if (b) map.fitBounds(b, { padding: pad, maxZoom: 14, duration: 600 });
@@ -710,6 +761,160 @@ function ShowTray(keys) {
     unplaced.length ? h('section', {}, h('h3', {}, 'Not on the map yet'), h('ul', { class: 'pl-things' }, unplaced.map((k) => h('li', {}, h('a', { href: `#pin/${encodeURIComponent(k)}` }, h('span', { class: 'pl-swatch none' }), h('b', {}, nameOf(k)), h('small', {}, typeLabel(facts.entities[k].type))))))) : null);
 }
 
+/* ------------------------------------------------------------ data layers and drawing (stage 2) */
+
+/** Every feature of every layer that's on, tagged with its layer, its colour and whether it's picked. */
+function dataFeatures() {
+  const out = [];
+  for (const l of Object.values(doc.data ?? {})) {
+    if (!l.on) continue;
+    const c = hex(l.colour);
+    l.features.forEach((f, i) => out.push({ ...f, properties: { ...f.properties, _layer: l.id, _i: i, _c: c, _on: selected.data?.layer === l.id && (selected.data.i == null || selected.data.i === i) } }));
+  }
+  return out;
+}
+
+/** Read a file and keep it as a new data layer. */
+async function bringIn(file) {
+  if (file.size > 15 * 1048576) { uiAlert('That file is over 15 MB. Trim it to the area you work in, or simplify its shapes, then try again.'); return; }
+  const text = await file.text();
+  const csv = /\.(csv|tsv|txt)$/i.test(file.name) || /csv/.test(file.type);
+  let r;
+  if (csv) r = featuresFromCsv(text);
+  else {
+    try { r = featuresFromGeoJSON(JSON.parse(text)); } catch { uiAlert('That file isn’t valid GeoJSON. Check it opens in a GeoJSON viewer, or save it as a CSV with latitude and longitude columns.'); return; }
+  }
+  if (r.error) { uiAlert(`${file.name}: ${r.error}`); return; }
+  if (!r.features.length) { uiAlert(`Nothing in ${file.name} could go on a map. Points need a latitude and longitude; shapes need GeoJSON in WGS84 (longitude, latitude).`); return; }
+  const id = newDataId(doc, file.name);
+  const used = new Set(Object.values(doc.data ?? {}).map((l) => l.colour));
+  const colour = DATA_COLOURS.find((c) => !used.has(c)) ?? DATA_COLOURS[Object.keys(doc.data ?? {}).length % DATA_COLOURS.length];
+  doc.data = { ...(doc.data ?? {}), [id]: { id, name: (file.name.replace(/\.[a-z]+$/i, '').replace(/[-_]+/g, ' ').trim() || 'Data').replace(/^./, (c) => c.toUpperCase()), colour, on: true, source: csv ? 'csv' : 'geojson', features: r.features, addedAt: new Date().toISOString(), ...(r.nameCol ? { nameCol: r.nameCol } : {}) } };
+  const skipped = r.skipped ? ` ${n(r.skipped, 'row')} couldn’t be placed${r.features.length >= MAX_FEATURES ? ` (a layer holds up to ${MAX_FEATURES.toLocaleString()})` : ''}.` : '';
+  save(`${n(r.features.length, 'feature')} brought in.${skipped}`);
+  location.hash = `#data/${encodeURIComponent(id)}`;
+}
+
+/** Download a layer as GeoJSON, to open in QGIS, geojson.io or another map. */
+function exportLayer(l) {
+  const blob = new Blob([JSON.stringify({ type: 'FeatureCollection', name: l.name, features: l.features }, null, 1)], { type: 'application/geo+json' });
+  const a = h('a', { href: URL.createObjectURL(blob), download: `${l.name.replace(/[^\w\- ]+/g, '').trim() || 'layer'}.geojson` });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+/* Drawing: click to add points, double-click (or Finish) to end a line or an area, Esc to stop. */
+const SHAPE_WORD = { point: 'point', line: 'line', area: 'area' };
+function startDraw(shape) {
+  if (!map) return;
+  setPicking({ kind: 'draw', shape, coords: [] });
+  map.doubleClickZoom.disable();
+  drawHint();
+}
+function drawHint() {
+  const p = picking;
+  if (p?.kind !== 'draw') return;
+  const need = p.shape === 'area' ? 3 : 2;
+  const say = p.shape === 'point' ? 'Click the map where the point goes.'
+    : p.coords.length === 0 ? `Click to start the ${SHAPE_WORD[p.shape]}.`
+    : p.coords.length < need ? `Keep clicking to add corners${p.shape === 'area' ? ' (three at least)' : ''}.`
+    : 'Double-click or press Finish to end it.';
+  hintEl.replaceChildren(icon(p.shape === 'point' ? 'pin' : p.shape === 'line' ? 'flow' : 'mapTrifold', 14), h('span', {}, say),
+    p.coords.length > 0 && h('button', { class: 'btn btn-ghost btn-xs', onclick: () => { p.coords.pop(); drawDraft(); drawHint(); } }, 'Undo'),
+    p.shape !== 'point' && p.coords.length >= need && h('button', { class: 'btn btn-xs pl-hint-ok', onclick: finishDraw }, 'Finish'),
+    h('button', { class: 'btn btn-ghost btn-xs', onclick: stopDraw }, 'Cancel'));
+}
+function addVertex(g) {
+  const p = picking;
+  const last = p.coords.at(-1);
+  // A double-click lands two clicks on one spot: the second finishes the shape.
+  if (last && Math.abs(last[0] - g.lng) < 1e-6 && Math.abs(last[1] - g.lat) < 1e-6) { finishDraw(); return; }
+  p.coords.push([g.lng, g.lat]);
+  if (p.shape === 'point') { finishDraw(); return; }
+  drawDraft(); drawHint();
+}
+function draftGeometry(p, closing = false) {
+  if (!p || p.kind !== 'draw' || !p.coords.length) return null;
+  if (p.shape === 'point') return { type: 'Point', coordinates: p.coords[0] };
+  if (p.shape === 'area' && (closing || p.coords.length >= 3)) return { type: 'Polygon', coordinates: [[...p.coords, p.coords[0]]] };
+  return p.coords.length >= 2 ? { type: 'LineString', coordinates: p.coords } : null;
+}
+function drawDraft() {
+  const src = map?.getSource?.('pl-draft');
+  if (!src) return;
+  const p = picking?.kind === 'draw' ? picking : null;
+  const g = draftGeometry(p);
+  src.setData({ type: 'FeatureCollection', features: [
+    ...(g ? [{ type: 'Feature', properties: {}, geometry: g }] : []),
+    ...(p ? p.coords.map((c) => ({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: c } })) : []),
+  ] });
+}
+function stopDraw() {
+  setPicking(null);
+  map?.doubleClickZoom.enable();
+  drawDraft();
+}
+async function finishDraw() {
+  const p = picking;
+  const need = p.shape === 'area' ? 3 : p.shape === 'line' ? 2 : 1;
+  if (p.coords.length < need) { drawHint(); return; }
+  const geometry = draftGeometry(p, true);
+  stopDraw();
+  const name = await uiPrompt(`Name this ${SHAPE_WORD[p.shape]}`, '', { title: `A new ${SHAPE_WORD[p.shape]}`, ok: 'Keep it', placeholder: p.shape === 'line' ? 'The harbour walk' : p.shape === 'area' ? 'Where the market sets up' : 'The new food hub', required: false });
+  if (name === null) return;
+  const id = 'data-drawings';
+  const layer = doc.data?.[id] ?? { id, name: 'Your drawings', colour: 'orchid', on: true, source: 'drawing', features: [], addedAt: new Date().toISOString() };
+  const feature = { type: 'Feature', geometry, properties: { name: name.trim() || `A ${SHAPE_WORD[p.shape]}`, drawnAt: new Date().toISOString().slice(0, 10) } };
+  doc.data = { ...(doc.data ?? {}), [id]: { ...layer, on: true, features: [...layer.features, feature] } };
+  save(`${feature.properties.name} drawn.`);
+  location.hash = `#data/${id}/${doc.data[id].features.length - 1}`;
+}
+addEventListener('keydown', (e) => {
+  if (picking?.kind !== 'draw' || e.target.closest?.('input, textarea, select, [contenteditable]')) return;
+  if (e.key === 'Escape') { e.preventDefault(); stopDraw(); }
+  else if (e.key === 'Enter') { e.preventDefault(); finishDraw(); }
+  else if ((e.key === 'Backspace' || (e.key === 'z' && (e.metaKey || e.ctrlKey))) && picking.coords.length) { e.preventDefault(); picking.coords.pop(); drawDraft(); drawHint(); }
+});
+
+/** A data layer's tray: its name, colour, show or hide, what's in it, export, remove. */
+function DataTray(l) {
+  const setL = (patch, note) => { doc.data = { ...doc.data, [l.id]: { ...doc.data[l.id], ...patch } }; if (canEdit) save(note); else { drawOverlays(); render(); } };
+  const kinds = { Point: 0, Line: 0, Area: 0 };
+  for (const f of l.features) kinds[/Point/.test(f.geometry.type) ? 'Point' : /Line/.test(f.geometry.type) ? 'Line' : 'Area']++;
+  const shown = l.features.slice(0, 200);
+  return h('div', { class: 'pl-tray-in' },
+    h('header', { class: 'pl-tray-head' }, h('div', {}, h('small', { class: 'pl-eyebrow' }, l.source === 'drawing' ? 'Drawn here' : `Data layer · ${l.source === 'csv' ? 'CSV' : 'GeoJSON'}`), h('h2', {}, l.name)), closeBtn()),
+    h('p', { class: 'pl-desc' }, Object.entries(kinds).filter(([, c]) => c).map(([k, c]) => n(c, k.toLowerCase())).join(' · ') || 'Empty', l.addedAt ? ` · added ${new Date(l.addedAt).toLocaleDateString()}` : ''),
+    canEdit && h('section', { class: 'pl-data-edit' },
+      h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Name'), h('input', { class: 'input input-sm w-full', value: l.name, onchange: (e) => { if (e.target.value.trim()) setL({ name: e.target.value.trim() }, 'Renamed.'); } })),
+      h('div', { class: 'pl-data-colours', role: 'radiogroup', 'aria-label': 'Colour' }, DATA_COLOURS.map((c) => h('button', { type: 'button', role: 'radio', 'aria-checked': String(l.colour === c), 'aria-label': c, title: c, class: l.colour === c ? 'on' : '', style: `--c:${hex(c)}`, onclick: () => setL({ colour: c }) })))),
+    h('div', { class: 'pl-data-actions' },
+      h('button', { class: 'btn btn-sm', onclick: () => setL({ on: !l.on }) }, icon(l.on ? 'eyeOff' : 'eye', 14), l.on ? 'Hide' : 'Show'),
+      h('button', { class: 'btn btn-sm', onclick: () => exportLayer(l), title: 'A .geojson file for QGIS, geojson.io or another map' }, icon('download', 14), 'Export GeoJSON'),
+      canEdit && h('button', { class: 'btn btn-sm btn-ghost text-error', onclick: async () => { if (!await uiConfirm(`Remove the layer “${l.name}”? Its ${n(l.features.length, 'feature')} go with it.`, { danger: true, ok: 'Remove' })) return; const { [l.id]: _gone, ...rest } = doc.data; doc.data = rest; location.hash = '#map'; save('Layer removed.'); } }, icon('trash', 14), 'Remove')),
+    h('section', {}, h('h3', {}, 'In this layer'),
+      h('ul', { class: 'pl-things' }, shown.map((f, i) => h('li', {}, h('a', { href: `#data/${encodeURIComponent(l.id)}/${i}` },
+        h('span', { class: 'pl-data-swatch', style: `--c:${hex(l.colour)}` }), h('b', {}, featureName(f, l.nameCol)), h('small', {}, /Point/.test(f.geometry.type) ? 'Point' : /Line/.test(f.geometry.type) ? 'Line' : 'Area'))))),
+      l.features.length > shown.length ? h('p', { class: 'pl-note' }, `And ${n(l.features.length - shown.length, 'more')}: click them on the map.`) : null));
+}
+
+/** One feature: its properties, and (for drawings) its name and a way to remove it. */
+function FeatureTray(l, i) {
+  const f = l.features[i];
+  const props = Object.entries(f.properties ?? {}).filter(([, v]) => v !== '' && v != null);
+  const setF = (patch, note) => { const features = [...doc.data[l.id].features]; features[i] = { ...features[i], properties: { ...features[i].properties, ...patch } }; doc.data = { ...doc.data, [l.id]: { ...doc.data[l.id], features } }; save(note); };
+  const len = (() => { const g = f.geometry; if (g.type !== 'LineString') return null; let km = 0; for (let k = 1; k < g.coordinates.length; k++) { const [a, b] = [g.coordinates[k - 1], g.coordinates[k]]; const R = 6371, r = Math.PI / 180; const s = Math.sin((b[1] - a[1]) * r / 2) ** 2 + Math.cos(a[1] * r) * Math.cos(b[1] * r) * Math.sin((b[0] - a[0]) * r / 2) ** 2; km += 2 * R * Math.asin(Math.sqrt(s)); } return km; })();
+  return h('div', { class: 'pl-tray-in' },
+    h('header', { class: 'pl-tray-head' }, h('div', {}, h('a', { class: 'pl-eyebrow', href: `#data/${encodeURIComponent(l.id)}` }, `← ${l.name}`), h('h2', {}, featureName(f, l.nameCol))), closeBtn()),
+    h('p', { class: 'pl-desc' }, /Point/.test(f.geometry.type) ? formatGeo({ lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }) : /Line/.test(f.geometry.type) ? `A line${len != null ? `, ${len < 1 ? `${Math.round(len * 1000)} m` : `${len.toFixed(1)} km`} long` : ''}` : 'An area'),
+    l.source === 'drawing' && canEdit && h('section', { class: 'pl-data-edit' },
+      h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Name'), h('input', { class: 'input input-sm w-full', value: f.properties?.name ?? '', onchange: (e) => setF({ name: e.target.value.trim() }, 'Saved.') })),
+      h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Note'), h('textarea', { class: 'textarea textarea-sm w-full', rows: 3, placeholder: 'What it is, who it’s for, what happens here', onchange: (e) => setF({ note: e.target.value.trim() }, 'Saved.') }, f.properties?.note ?? ''))),
+    props.length && !(l.source === 'drawing' && canEdit) ? h('section', {}, h('h3', {}, 'Details'), h('dl', { class: 'pl-ref pl-props' }, props.slice(0, 40).flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, String(v))]))) : null,
+    canEdit && h('div', { class: 'pl-data-actions' },
+      h('button', { class: 'btn btn-sm btn-ghost text-error', onclick: async () => { if (!await uiConfirm(`Remove “${featureName(f, l.nameCol)}” from ${l.name}?`, { danger: true, ok: 'Remove' })) return; const features = doc.data[l.id].features.filter((_, k) => k !== i); doc.data = { ...doc.data, [l.id]: { ...doc.data[l.id], features } }; location.hash = `#data/${encodeURIComponent(l.id)}`; save('Removed.'); } }, icon('trash', 14), 'Remove it')));
+}
+
 /* ------------------------------------------------------------ places */
 
 function Places() {
@@ -756,8 +961,9 @@ function About(arg) {
       : h('div', { class: 'pl-two' },
         h('div', { class: 'pl-stack' },
           ref('Kinds of place', PLACE_KINDS.map((k) => [k.label, k.why])),
-          ref('Words you’ll see', [['Pin', 'A Dashi thing tied to a place, and maybe to an exact spot'], ['Own spot', 'A pin with its own point on the map, drawn as a dot'], ['Serves', 'The places a thing works for, beyond where it is'], ['Inside', 'A place within a bigger one: a street in a town, a town in a region'], ['Link', 'A tie between two actors, from your ecosystem maps']]),
-          ref('On the map', [['Coloured outline', 'A community, neighbourhood or landmark'], ['Dashed outline', 'A region'], ['Round dot', 'An actor, coloured by its category'], ['Square dot', 'A story, document or other asset'], ['Black line', 'A link between actors; dashed if speculative'], ['Amber dots', 'Who serves where']])),
+          ref('Words you’ll see', [['Pin', 'A Dashi thing tied to a place, and maybe to an exact spot'], ['Own spot', 'A pin with its own point on the map, drawn as a dot'], ['Serves', 'The places a thing works for, beyond where it is'], ['Inside', 'A place within a bigger one: a street in a town, a town in a region'], ['Link', 'A tie between two actors, from your ecosystem maps'], ['Data layer', 'A file brought in (a CSV with latitude and longitude, or GeoJSON), or the things you drew']]),
+          ref('On the map', [['Coloured outline', 'A community, neighbourhood or landmark'], ['Dashed outline', 'A region'], ['Round dot', 'An actor, coloured by its category'], ['Square dot', 'A story, document or other asset'], ['Black line', 'A link between actors; dashed if speculative'], ['Amber dots', 'Who serves where'], ['Coloured dot, line or area', 'A data layer or a drawing: click it for its details']]),
+          ref('Drawing', [['Point, Line, Area', 'The buttons over the map. Click to add corners'], ['Finish', 'Double-click, press Enter, or the Finish button'], ['Undo', 'Backspace takes back the last corner; Esc stops'], ['Export', 'Any layer downloads as GeoJSON, for QGIS or geojson.io']])),
         h('div', { class: 'pl-stack' },
           h('section', { class: 'pl-panel' }, h('h3', {}, 'Tutorials'), h('p', { class: 'pl-note' }, 'The same pages are in Help, under Place.'),
             h('ul', { class: 'pl-tutorials' }, section.pages.map((p) => h('li', {}, h('a', { href: `#about/${p.id}` }, icon('book', 15), p.title), h('a', { class: 'pl-out', href: helpHref(p.id), title: 'Open in Help' }, 'Help'))))),
