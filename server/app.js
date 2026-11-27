@@ -43,7 +43,9 @@ import { sendMail, letter } from './mail.js';
 import { zipStream, zipSize } from '../src/core/zip.js';
 import { showArchive } from '../src/platform/showArchive.js';
 import { blankOrg, migrateOrg } from '../src/platform/org.js';
-import { planFor, allPlans, overLimit, usageOf, PLAN_IDS } from '../src/platform/plans.js';
+import { planFor, allPlans, overLimit, usageOf, PLAN_IDS, GRASSROOTS } from '../src/platform/plans.js';
+/** Plans an org can pay for through Stripe. */
+const PAID_PLANS = ['basic', 'standard', 'network', 'custom'];
 import { siteContent } from '../src/platform/salesSite.js';
 import { mergeRegistry, registryView, pausedByRegistry, manifestProblems, cleanManifest, compareVersions, bumpVersion, defaultManifest, manifestFromPackage, blankManifest, SCAFFOLDS } from '../src/platform/pluginRegistry.js';
 import { blankStrategy } from '../src/platform/strategySeed.js';
@@ -412,7 +414,7 @@ export function createApp(db, options = {}) {
   const uploads = uploadRoutes({ q, newId, limitsOf: (org) => orgPlan(org).limits });
   const support = supportRoutes({ q, newId, now, bump: (key, max) => bump(key, max) });
   // Real posting to Bluesky, Mastodon and webhooks (server/social.js); scheduled posts go out once a minute.
-  const social = socialRoutes({ q, now, dataDir: config.dataDir, mayPost: (a) => modeOf(a, 'social') === 'write', fetchImpl: options.fetch ?? fetch, allowLocal: options.socialAllowLocal ?? process.env.SOCIAL_ALLOW_LOCAL === 'true' });
+  const social = socialRoutes({ q, now, dataDir: config.dataDir, mayPost: (a) => modeOf(a, 'social') === 'write', mayGoLive: (orgId) => !!orgPlan(orgById(orgId)).features.liveSocial, fetchImpl: options.fetch ?? fetch, allowLocal: options.socialAllowLocal ?? process.env.SOCIAL_ALLOW_LOCAL === 'true' });
   let sweeping = false;
   setInterval(async () => {
     if (sweeping) return;
@@ -897,7 +899,9 @@ export function createApp(db, options = {}) {
       for (const k of LEGAL_KINDS.filter((x) => x.accept)) {
         q('INSERT OR IGNORE INTO legal_acceptances (user_id, doc, version, at, ip) VALUES (?, ?, ?, ?, ?)').run(user.id, k.id, currentVersion(legal, k.id).v, now(), clientIp(req));
       }
-      request('signup', { orgId: org.id, email: user.email, name: user.name, data: { plan, note: String(body?.note ?? '').slice(0, 2000) } });
+      // The grassroots rate is self-declared; it rides on the org's billing record.
+      if (body?.grassroots) q('UPDATE orgs SET billing = ? WHERE id = ?').run(JSON.stringify({ grassroots: { declared: true, at: now(), by: user.email } }), org.id);
+      request('signup', { orgId: org.id, email: user.email, name: user.name, data: { plan, grassroots: !!body?.grassroots, note: String(body?.note ?? '').slice(0, 2000) } });
       return json(res, 201, { org: { id: org.id, name: org.name, url: urlFor(hostOf(org), '/') }, plan, open: `/auth/switch?org=${encodeURIComponent(org.id)}&next=/` });
     }
     if (path === '/api/contact' && method === 'POST') {
@@ -1060,16 +1064,24 @@ export function createApp(db, options = {}) {
       if (path === '/api/billing' && method === 'GET') {
         const prices = Object.fromEntries(Object.entries(settings.prices).map(([plan, p]) => [plan, { month: !!p?.month, year: !!p?.year }]));
         return json(res, 200, { online, prices, taxLabel: settings.taxLabel, taxRate: settings.taxRate, trialDays: own.hadTrial ? 0 : settings.trialDays,
+          grassroots: { ...GRASSROOTS, declared: !!own.grassroots?.declared, declaredAt: own.grassroots?.at ?? null, online: !!settings.grassrootsCoupon },
           billing: { status: own.status ?? null, plan: own.plan ?? null, interval: own.interval ?? null, periodEnd: own.periodEnd ?? null, trialEnd: own.trialEnd ?? null, cancelAtPeriodEnd: !!own.cancelAtPeriodEnd, comp: !!own.comp, failedAt: own.failedAt ?? null, lastInvoice: own.lastInvoice ?? null, portal: !!own.customerId } });
+      }
+      // The grassroots rate is self-declared: a tick that says the budget is under the line.
+      if (path === '/api/billing/grassroots' && method === 'PUT') {
+        const { declared } = await readJson(req, 1000);
+        const next = { ...own, grassroots: { declared: !!declared, at: now(), by: a.user.email } };
+        q('UPDATE orgs SET billing = ? WHERE id = ?').run(JSON.stringify(next), a.org.id);
+        return json(res, 200, { declared: !!declared });
       }
       if (!online) throw new HttpError(409, 'Paying online isn’t switched on yet. Ask for the plan instead.');
       const returnUrl = urlFor(hostOf(a.org), '/org.html#plan');
       if (path === '/api/billing/checkout' && method === 'POST') {
         bump(`checkout:${a.org.id}`, 20);
-        const { plan, interval } = await readJson(req, 1000);
+        const { plan, interval, currency } = await readJson(req, 1000);
         if (!['month', 'year'].includes(interval)) throw new HttpError(400, 'Monthly or yearly?');
         let params;
-        try { params = checkoutParams({ settings, org: a.org, billing: own, user: a.user, plan, interval, returnUrl }); } catch (err) { throw new HttpError(400, err.message); }
+        try { params = checkoutParams({ settings, org: a.org, billing: own, user: a.user, plan, interval, returnUrl, currency: currency === 'usd' ? 'usd' : 'cad', grassrootsPlans: GRASSROOTS.plans }); } catch (err) { throw new HttpError(400, err.message); }
         try {
           const session = await stripe('checkout/sessions', params);
           return json(res, 200, { url: session.url });
@@ -1424,7 +1436,7 @@ export function createApp(db, options = {}) {
         const cur = billing();
         const priceId = (x) => (/^price_\w+$/.test(x ?? '') ? x : '');
         const prices = {};
-        for (const plan of ['basic', 'standard', 'custom']) {
+        for (const plan of PAID_PLANS) {
           const p = body?.prices?.[plan] ?? cur.prices[plan] ?? {};
           if (p.month || p.year) prices[plan] = { month: priceId(p.month), year: priceId(p.year) };
         }
@@ -1438,6 +1450,7 @@ export function createApp(db, options = {}) {
           trialDays: Math.max(0, Math.min(90, Math.round(Number(body?.trialDays ?? cur.trialDays) || 0))),
           graceDays: Math.max(0, Math.min(60, Math.round(Number(body?.graceDays ?? cur.graceDays) || 0))),
           checkoutOn: !!(body?.checkoutOn ?? cur.checkoutOn),
+          grassrootsCoupon: body && 'grassrootsCoupon' in body ? (/^[\w-]{1,60}$/.test(body.grassrootsCoupon ?? '') ? body.grassrootsCoupon : '') : cur.grassrootsCoupon,
           prices,
         };
         savePlatformDoc('billing', next);
@@ -1452,15 +1465,17 @@ export function createApp(db, options = {}) {
           for (const interval of ['month', 'year']) {
             if (!p?.[interval]) continue;
             try {
-              const pr = await stripe(`prices/${p[interval]}`);
+              const pr = await stripe(`prices/${p[interval]}?expand[]=currency_options`);
               const amount = (pr.unit_amount ?? 0) / 100;
               const problems = [];
               if (pr.tax_behavior !== 'inclusive') problems.push(`Its tax behaviour is “${pr.tax_behavior ?? 'unspecified'}”. Prices must include tax: make a new price with “Include tax in price” set.`);
               if (pr.recurring?.interval !== interval) problems.push(`It bills every ${pr.recurring?.interval ?? 'once'}, not every ${interval}.`);
               if (pr.currency !== settings.currency) problems.push(`It is in ${String(pr.currency).toUpperCase()}, not ${settings.currency.toUpperCase()}.`);
               if (!pr.active) problems.push('It is archived in Stripe.');
-              const shown = plans[plan]?.price?.monthly;
-              if (shown != null && interval === 'year' && Math.abs(amount - shown * 12) > 0.5) problems.push(`The pricing page shows $${shown} a month billed yearly ($${shown * 12} a year), but this price is $${amount}.`);
+              const shown = interval === 'year' ? plans[plan]?.price?.yearly : plans[plan]?.price?.monthly;
+              if (shown != null && Math.abs(amount - shown) > 0.5) problems.push(`The pricing page shows $${shown} ${interval === 'year' ? 'a year' : 'a month'}, but this price is $${amount}.`);
+              const usd = interval === 'year' ? plans[plan]?.price?.usdYearly : plans[plan]?.price?.usdMonthly;
+              if (usd && !pr.currency_options?.usd) problems.push(`It has no US dollar option (US$${usd}). Make the prices again from here to add one.`);
               results.push({ plan, interval, id: p[interval], amount, ok: !problems.length, problems });
             } catch (err) {
               results.push({ plan, interval, id: p[interval], ok: false, problems: [err.message] });
@@ -1471,22 +1486,35 @@ export function createApp(db, options = {}) {
       }
       // Make a plan's product and prices in Stripe, with tax included, and remember their ids.
       if (path === '/api/admin/billing/create-prices' && method === 'POST') {
-        const { plan, month, year } = await readJson(req, 2000);
+        const { plan, month, year, usdMonth, usdYear } = await readJson(req, 2000);
         const plans = allPlans(planOverrides());
-        if (!['basic', 'standard', 'custom'].includes(plan)) throw new HttpError(400, 'Which plan?');
+        if (!PAID_PLANS.includes(plan)) throw new HttpError(400, 'Which plan?');
         const settings = billing();
         try {
           const product = await stripe('products', { name: `Dashi ${plans[plan].label}`, description: plans[plan].tagline, metadata: { plan }, tax_code: 'txcd_10103001' });
           const made = {};
+          const usdOf = { month: usdMonth ?? plans[plan].price?.usdMonthly, year: usdYear ?? plans[plan].price?.usdYearly };
           for (const [interval, dollars] of [['month', month], ['year', year]]) {
             const cents = Math.round(Number(dollars) * 100);
             if (!cents) continue;
-            const price = await stripe('prices', { product: product.id, currency: settings.currency, unit_amount: cents, tax_behavior: 'inclusive', recurring: { interval }, lookup_key: `dashi_${plan}_${interval}`, transfer_lookup_key: true, metadata: { plan } });
+            const usdCents = Math.round(Number(usdOf[interval]) * 100);
+            const price = await stripe('prices', { product: product.id, currency: settings.currency, unit_amount: cents, tax_behavior: 'inclusive', recurring: { interval }, lookup_key: `dashi_${plan}_${interval}`, transfer_lookup_key: true, metadata: { plan },
+              ...(usdCents > 0 && { currency_options: { usd: { unit_amount: usdCents, tax_behavior: 'inclusive' } } }) });
             made[interval] = price.id;
           }
           settings.prices[plan] = { ...(settings.prices[plan] ?? {}), ...made };
           savePlatformDoc('billing', settings);
           return json(res, 201, { product: product.id, prices: made });
+        } catch (err) { throw new HttpError(502, `Stripe: ${err.message}`); }
+      }
+      // The grassroots coupon: 30% off Community and Organization, for as long as they pay.
+      if (path === '/api/admin/billing/create-coupon' && method === 'POST') {
+        const settings = billing();
+        try {
+          const coupon = await stripe('coupons', { percent_off: GRASSROOTS.percent, duration: 'forever', name: `Grassroots rate (${GRASSROOTS.percent}% off)`, metadata: { dashi: 'grassroots' } });
+          settings.grassrootsCoupon = coupon.id;
+          savePlatformDoc('billing', settings);
+          return json(res, 201, { coupon: coupon.id });
         } catch (err) { throw new HttpError(502, `Stripe: ${err.message}`); }
       }
       // A free account for a pilot partner, or a note: payments then never change its plan.

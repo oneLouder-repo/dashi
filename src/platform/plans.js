@@ -1,5 +1,8 @@
 /**
- * Plans (tiers): what each org gets on Free, Basic, Standard or Custom.
+ * Plans (tiers): what each org gets. Alpha 0.4 tiers from the pricing report
+ * (d, 2026-11-27): Seed (free), Community, Organization, Network, and Custom
+ * for bespoke setups. Plan ids stay as they were (free, basic, standard) so
+ * existing orgs keep their plan; only the names, prices and contents moved.
  *
  * The values here are the starting point. The platform admin changes them
  * for every org on a tier (Platform admin → Plans, stored as the platform
@@ -8,11 +11,17 @@
  * three layers and puts it on the org document as `platform.plan`, so
  * every page can read it; the server is what enforces it.
  *
- *   Plan { id, label, tagline, price: { monthly, note }, plugins: { [pluginId]: bool },
- *          limits: { [field]: number | null (no limit) },
- *          features: { socialLogin, customDomain, bibliographies, branding } }
+ *   Plan { id, label, tagline, price: { monthly, yearly, usdMonthly, usdYearly, note },
+ *          plugins: { [pluginId]: bool }, limits: { [field]: number | null (no limit) },
+ *          features: { socialLogin, customDomain, bibliographies, branding, liveSocial, linkedOrgs } }
+ *
+ * Prices are Canadian dollars with tax included (see server/billing.js);
+ * usdMonthly / usdYearly are the US prices, near parity.
  */
-export const PLAN_IDS = ['free', 'basic', 'standard', 'custom'];
+export const PLAN_IDS = ['free', 'basic', 'standard', 'network', 'custom'];
+
+/** The grassroots rate: off Community and Organization for small organisations, self-declared. */
+export const GRASSROOTS = { percent: 30, plans: ['basic', 'standard'], budgetCad: 250000, budgetUsd: 200000 };
 
 /** The limits, in the order the admin and the sales page show them. */
 export const LIMITS = [
@@ -22,52 +31,66 @@ export const LIMITS = [
   { id: 'plans', label: 'Strategic plans', short: 'plans' },
   { id: 'dashboards', label: 'Dashboards', short: 'dashboards' },
   { id: 'sites', label: 'Public sites', short: 'sites' },
-  { id: 'shows', label: 'Podcast shows', short: 'shows' },
+  { id: 'shows', label: 'Podcast series', short: 'series' },
   { id: 'documents', label: 'Documents in the library', short: 'documents' },
   { id: 'storageMb', label: 'Storage', short: 'storage', unit: 'MB' },
   { id: 'uploadMb', label: 'Largest audio file', short: 'per file', unit: 'MB' },
+  { id: 'aiTokensK', label: 'AI each month (thousand tokens)', short: 'AI tokens', unit: 'K' },
 ];
 
 export const FEATURES = [
+  { id: 'liveSocial', label: 'Post to Bluesky, Mastodon and webhooks for real' },
   { id: 'socialLogin', label: 'Sign in with Google, Facebook or Microsoft' },
   { id: 'customDomain', label: 'Your own domain (yourorg.org)' },
   { id: 'bibliographies', label: 'Annotated bibliographies and weekly briefs' },
   { id: 'branding', label: 'No “Made with Dashi” on public sites' },
+  { id: 'linkedOrgs', label: 'Linked organisations: a funder and its grantees' },
 ];
 
 /** Plugins a plan can include. Organisation and Help are always there. */
-export const PLAN_PLUGINS = ['mapper', 'assets', 'strategy', 'studio', 'palette', 'podcasts', 'pages', 'library'];
+export const PLAN_PLUGINS = ['mapper', 'assets', 'strategy', 'studio', 'palette', 'podcasts', 'pages', 'library', 'social', 'rhizome', 'place', 'teach', 'learn', 'ai'];
 
+const ALL = Object.fromEntries(PLAN_PLUGINS.map((id) => [id, true]));
 export const DEFAULT_PLANS = {
   free: {
-    id: 'free', label: 'Free', tagline: 'Try Dashi with a small team: a map, a dashboard, a public site and a weekly podcast.',
-    price: { monthly: 0, note: 'Free for good' },
-    plugins: { mapper: true, assets: true, strategy: false, studio: false, palette: true, podcasts: true, pages: true, library: true },
-    limits: { users: 5, maps: 1, frameworks: 0, plans: 0, dashboards: 1, sites: 1, shows: 1, documents: 50, storageMb: 1024, uploadMb: 10 },
-    features: { socialLogin: false, customDomain: false, bibliographies: false, branding: false },
+    id: 'free', label: 'Seed', tagline: 'For volunteer groups trying Dashi: a plan, a map, your assets and a public site.',
+    price: { monthly: 0, yearly: 0, usdMonthly: 0, usdYearly: 0, note: 'Free for good' },
+    plugins: { ...ALL, studio: false, podcasts: false, library: false, social: false, rhizome: false, place: false, teach: false, learn: false, ai: false },
+    limits: { users: 3, maps: 1, frameworks: 1, plans: 1, dashboards: 1, sites: 1, shows: 0, documents: 50, storageMb: 1024, uploadMb: 10, aiTokensK: 0 },
+    features: { liveSocial: false, socialLogin: false, customDomain: false, bibliographies: false, branding: false, linkedOrgs: false },
   },
   basic: {
-    id: 'basic', label: 'Basic', tagline: 'For a small nonprofit putting its first strategic plan and impact data online.',
-    price: { monthly: 19, note: 'a month, billed yearly' },
-    plugins: { mapper: true, assets: true, strategy: true, studio: false, palette: true, podcasts: true, pages: true, library: true },
-    limits: { users: 15, maps: 2, frameworks: 1, plans: 2, dashboards: 3, sites: 1, shows: 2, documents: 500, storageMb: 5120, uploadMb: 50 },
-    features: { socialLogin: true, customDomain: false, bibliographies: false, branding: false },
+    id: 'basic', label: 'Community', tagline: 'For small nonprofits: every plugin for up to ten people, with podcasts, learning and place.',
+    price: { monthly: 39, yearly: 390, usdMonthly: 29, usdYearly: 290, note: 'a month' },
+    plugins: { ...ALL, ai: false },
+    limits: { users: 10, maps: 3, frameworks: 1, plans: 3, dashboards: 5, sites: 1, shows: 2, documents: 1000, storageMb: 10240, uploadMb: 100, aiTokensK: 0 },
+    features: { liveSocial: false, socialLogin: true, customDomain: true, bibliographies: true, branding: false, linkedOrgs: false },
   },
   standard: {
-    id: 'standard', label: 'Standard', tagline: 'Everything in Dashi, with room for a whole staff team and several programs.',
-    price: { monthly: 49, note: 'a month, billed yearly' },
-    plugins: { mapper: true, assets: true, strategy: true, studio: true, palette: true, podcasts: true, pages: true, library: true },
-    limits: { users: 50, maps: 5, frameworks: 2, plans: 4, dashboards: 10, sites: 3, shows: 5, documents: 5000, storageMb: 25600, uploadMb: 250 },
-    features: { socialLogin: true, customDomain: false, bibliographies: true, branding: true },
+    id: 'standard', label: 'Organization', tagline: 'For staffed nonprofits: thirty people, AI included, live social posting and the Plan designer.',
+    price: { monthly: 119, yearly: 1190, usdMonthly: 89, usdYearly: 890, note: 'a month' },
+    plugins: { ...ALL },
+    limits: { users: 30, maps: 10, frameworks: 2, plans: 6, dashboards: 20, sites: 3, shows: 5, documents: 10000, storageMb: 51200, uploadMb: 250, aiTokensK: 1800 },
+    features: { liveSocial: true, socialLogin: true, customDomain: true, bibliographies: true, branding: true, linkedOrgs: false },
+  },
+  network: {
+    id: 'network', label: 'Network', tagline: 'For foundations, coalitions and networks: unlimited people, linked organisations and Lyceum.',
+    price: { monthly: 349, yearly: 3490, usdMonthly: 259, usdYearly: 2590, note: 'a month' },
+    plugins: { ...ALL },
+    limits: { users: null, maps: null, frameworks: null, plans: null, dashboards: null, sites: 10, shows: null, documents: null, storageMb: 204800, uploadMb: 700, aiTokensK: 6000 },
+    features: { liveSocial: true, socialLogin: true, customDomain: true, bibliographies: true, branding: true, linkedOrgs: true },
   },
   custom: {
-    id: 'custom', label: 'Custom', tagline: 'Your own domain, no limits, and a setup shaped around your organisation or network.',
-    price: { monthly: null, note: 'Let’s talk' },
-    plugins: { mapper: true, assets: true, strategy: true, studio: true, palette: true, podcasts: true, pages: true, library: true },
-    limits: { users: null, maps: null, frameworks: null, plans: null, dashboards: null, sites: null, shows: null, documents: null, storageMb: 102400, uploadMb: 700 },
-    features: { socialLogin: true, customDomain: true, bibliographies: true, branding: true },
+    id: 'custom', label: 'Custom', tagline: 'A setup shaped around your organisation or network, with its own limits and support.',
+    price: { monthly: null, yearly: null, usdMonthly: null, usdYearly: null, note: 'Let’s talk' },
+    plugins: { ...ALL },
+    limits: { users: null, maps: null, frameworks: null, plans: null, dashboards: null, sites: null, shows: null, documents: null, storageMb: 512000, uploadMb: 700, aiTokensK: null },
+    features: { liveSocial: true, socialLogin: true, customDomain: true, bibliographies: true, branding: true, linkedOrgs: true },
   },
 };
+
+/** A price after the grassroots rate, rounded to the cent. */
+export const grassrootsPrice = (amount) => (amount == null ? null : Math.round(amount * (100 - GRASSROOTS.percent)) / 100);
 
 const merge = (base, over) => {
   const out = structuredClone(base);
@@ -130,6 +153,7 @@ export function limitText(plan, field) {
 export function amount(v, l) {
   if (v == null) return 'No limit';
   if (l?.unit === 'MB') return v >= 1024 ? `${+(v / 1024).toFixed(1)} GB` : `${v} MB`;
+  if (l?.unit === 'K') return v >= 1000 ? `${+(v / 1000).toFixed(1)} million` : `${v} thousand`;
   return String(v);
 }
 

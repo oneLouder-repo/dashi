@@ -600,26 +600,52 @@ function Plan(org) {
  */
 function Billing(plans, current) {
   const box = h('div', {});
+  let currency = 'cad';
+  try { currency = localStorage.getItem('dashi.currency') === 'usd' ? 'usd' : 'cad'; } catch {}
   api('GET', '/api/billing').then((b) => {
     const st = b.billing;
-    const paid = Object.keys(b.prices).filter((id) => b.prices[id].month || b.prices[id].year);
+    const g = b.grassroots ?? { percent: 30, plans: [], declared: false };
+    const paid = Object.keys(b.prices).filter((id) => plans[id] && (b.prices[id].month || b.prices[id].year));
     const day = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { dateStyle: 'long' }) : '');
     const go = async (url, body) => { try { location.assign((await api('POST', url, body)).url); } catch (err) { uiAlert(err.message); } };
     const STATUS = { active: 'Paid by card', trialing: `Free trial until ${day(st.trialEnd)}`, past_due: 'The last payment didn’t go through', canceled: 'Cancelled' };
     if (st.comp) return box.replaceChildren(h('p', { class: 'note' }, 'Your organisation has a free account from Dashi. Thank you for helping us build it.'));
-    if (!b.online && !st.status) return;
-    box.replaceChildren(h('section', { class: 'card card-border bg-base-100 billing-card' }, h('div', { class: 'card-body' },
-      h('h2', { class: 'card-title' }, 'Billing'),
+    const grassrootsOn = (id) => g.declared && g.online && g.plans.includes(id);
+    const money = (n) => `${currency === 'usd' ? 'US$' : 'C$'}${n % 1 ? n.toFixed(2) : n}`;
+    const cost = (id, interval) => {
+      const pr = plans[id].price;
+      const base = currency === 'usd' ? (interval === 'year' ? pr.usdYearly : pr.usdMonthly) : (interval === 'year' ? pr.yearly : pr.monthly);
+      if (base == null) return '';
+      const off = grassrootsOn(id) ? Math.round(base * (100 - g.percent)) / 100 : null;
+      return off != null ? h('span', {}, h('s', { class: 'muted' }, money(base)), ' ', h('strong', {}, money(off))) : h('strong', {}, money(base));
+    };
+    const declare = async (on) => {
+      try { await api('PUT', '/api/billing/grassroots', { declared: on }); g.declared = on; draw(); toast(on ? `Thank you. The grassroots rate (${g.percent}% off) is on for Community and Organization.` : 'The grassroots rate is off.'); } catch (err) { uiAlert(err.message); }
+    };
+    const setCurrency = (c) => { currency = c; try { localStorage.setItem('dashi.currency', c); } catch {} draw(); };
+    const budget = currency === 'usd' ? `US$${(g.budgetUsd ?? 200000).toLocaleString()}` : `C$${(g.budgetCad ?? 250000).toLocaleString()}`;
+    const draw = () => box.replaceChildren(h('section', { class: 'card card-border bg-base-100 billing-card' }, h('div', { class: 'card-body' },
+      h('div', { class: 'billing-head' },
+        h('h2', { class: 'card-title' }, 'Billing'),
+        h('div', { class: 'join billing-cur', role: 'group', 'aria-label': 'Currency' },
+          ['cad', 'usd'].map((c) => h('button', { class: `btn btn-xs join-item ${currency === c ? 'btn-active' : ''}`, 'aria-pressed': String(currency === c), onclick: () => setCurrency(c) }, c.toUpperCase())))),
       new URLSearchParams(location.search).get('paid') && h('p', { class: 'note' }, 'Thank you. Your plan changes as soon as Stripe confirms the payment, usually within a minute.'),
       st.status && h('p', {}, h('strong', {}, STATUS[st.status] ?? st.status), st.periodEnd && st.status !== 'canceled' ? ` · ${st.cancelAtPeriodEnd ? 'ends' : 'renews'} ${day(st.periodEnd)}` : '',
         st.lastInvoice ? h('span', { class: 'muted' }, ` · last payment $${st.lastInvoice.amount.toFixed(2)}, including $${st.lastInvoice.tax.toFixed(2)} ${b.taxLabel}`) : ''),
       st.portal && h('button', { class: 'btn btn-sm', onclick: () => go('/api/billing/portal') }, 'Change card, see receipts, or cancel'),
+      h('label', { class: 'billing-grass' },
+        h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', checked: g.declared, onchange: (e) => declare(e.target.checked) }),
+        h('span', {}, h('strong', {}, `Grassroots rate: ${g.percent}% off Community and Organization. `),
+          `Tick this if your organisation’s yearly budget is under ${budget}. We take your word for it.`,
+          g.declared && !g.online ? h('span', { class: 'muted' }, ' The platform admin applies it when they set up your plan.') : '')),
       b.online && !['active', 'trialing', 'past_due'].includes(st.status) && paid.length > 0 && h('div', { class: 'billing-plans' },
-        h('p', { class: 'muted small' }, `Pay by card. Prices include ${b.taxLabel}.${b.trialDays ? ` Your first ${b.trialDays} days are free, and you can cancel before you pay anything.` : ''}`),
+        h('p', { class: 'muted small' }, `Pay by card. Prices include ${b.taxLabel}. Paying yearly gives you two months free.${b.trialDays ? ` Your first ${b.trialDays} days are free, and you can cancel before you pay anything.` : ''}`),
         paid.map((id) => h('div', { class: 'billing-plan' },
-          h('strong', {}, plans[id].label), h('span', { class: 'muted small' }, `$${plans[id].price.monthly} ${plans[id].price.note}`),
-          b.prices[id].year && h('button', { class: `btn btn-sm ${id === current.id ? '' : 'btn-primary'}`, onclick: () => go('/api/billing/checkout', { plan: id, interval: 'year' }) }, 'Pay yearly'),
-          b.prices[id].month && h('button', { class: 'btn btn-sm btn-ghost', onclick: () => go('/api/billing/checkout', { plan: id, interval: 'month' }) }, 'Pay monthly')))))));
+          h('strong', {}, plans[id].label),
+          h('span', { class: 'small' }, cost(id, 'month'), h('span', { class: 'muted' }, ' a month')),
+          b.prices[id].year && h('button', { class: `btn btn-sm ${id === current.id ? '' : 'btn-primary'}`, onclick: () => go('/api/billing/checkout', { plan: id, interval: 'year', currency }) }, 'Pay yearly ', h('span', { class: 'billing-yr' }, cost(id, 'year'))),
+          b.prices[id].month && h('button', { class: 'btn btn-sm btn-ghost', onclick: () => go('/api/billing/checkout', { plan: id, interval: 'month', currency }) }, 'Pay monthly')))))));
+    draw();
   }).catch(() => {});
   return box;
 }

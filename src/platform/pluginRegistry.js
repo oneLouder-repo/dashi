@@ -39,8 +39,8 @@ export const FIELD_TYPES = [
   { id: 'url', label: 'Web address' },
   { id: 'list', label: 'List' },
 ];
-export const TIERS = ['free', 'basic', 'standard', 'custom'];
-const ALL_TIERS = { free: true, basic: true, standard: true, custom: true };
+export const TIERS = ['free', 'basic', 'standard', 'network', 'custom'];
+const ALL_TIERS = { free: true, basic: true, standard: true, network: true, custom: true };
 
 const f = (id, label, type = 'text', extra = {}) => ({ id, label, type, ...extra });
 const feat = (id, label, description, extra = {}) => ({ id, label, description, enabled: true, plans: { ...ALL_TIERS }, ...extra });

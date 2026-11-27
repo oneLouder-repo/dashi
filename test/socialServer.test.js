@@ -158,3 +158,20 @@ test('checking a connection posts nothing public; Mastodon visibility and Bluesk
     assert.match(ping.headers['x-dashi-signature'], /^sha256=/);
   } finally { s.done(); }
 });
+
+test('an org whose plan has no live posting can practise, but nothing is sent and the scheduler skips it', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'social-plan-'));
+  const db = openDb(dir);
+  const q = (sql) => db.prepare(sql);
+  try {
+    q("INSERT INTO orgs (id, slug, name, plan, status, created_at) VALUES ('org-k', 'k', 'Kestrel', 'basic', 'active', ?)").run(now());
+    const nets = fakeNetworks();
+    const routes = socialRoutes({ q, now, dataDir: dir, mayPost: () => true, mayGoLive: () => false, fetchImpl: nets.fetchImpl, envKey: 'test-key' });
+    await connect({ q, dir, fetchImpl: nets.fetchImpl }, 'mastodon', { instance: 'mastodon.example', token: 'tok' });
+    const before = nets.sent.length;
+    const docs = { social: { posts: { a: { id: 'a', title: 'A', text: 'Due', networks: ['mastodon'], status: 'scheduled', scheduledAt: '2020-01-01T00:00:00Z', results: {} } } } };
+    await routes.sweep({ readDoc: (o, n) => docs[n], writeDoc: () => {}, textFor });
+    assert.equal(docs.social.posts.a.status, 'scheduled', 'left for when the plan allows it');
+    assert.equal(nets.sent.length, before, 'nothing reached the network');
+  } finally { db.close(); rmSync(dir, { recursive: true, force: true }); }
+});

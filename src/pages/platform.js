@@ -28,7 +28,7 @@ const call = async (method, url, body) => {
   if (!res.ok) throw new Error(out.error ?? `The server said ${res.status}`);
   return out;
 };
-const PLANS = [{ id: 'free', label: 'Free' }, { id: 'basic', label: 'Basic' }, { id: 'standard', label: 'Standard' }, { id: 'custom', label: 'Custom' }];
+const PLANS = [{ id: 'free', label: 'Seed' }, { id: 'basic', label: 'Community' }, { id: 'standard', label: 'Organization' }, { id: 'network', label: 'Network' }, { id: 'custom', label: 'Custom' }];
 const slugify = (s) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_-]+/g, '-').slice(0, 40);
 const open = (o) => `/auth/switch?org=${encodeURIComponent(o.id)}&next=/`;
 
@@ -419,7 +419,7 @@ function Requests(requests, act) {
     (r.data.message || r.data.note) && h('blockquote', {}, r.data.message || r.data.note));
   return h('div', {},
     h('h2', {}, 'Requests'),
-    h('p', { class: 'muted small' }, 'Sign-ups from the public site, plan changes organisations ask for, and messages from the contact page. New organisations start on Free; moving one to a paid plan is your call, once payment is arranged.'),
+    h('p', { class: 'muted small' }, 'Sign-ups from the public site, plan changes organisations ask for, and messages from the contact page. New organisations start on Seed (free); moving one to a paid plan is your call, once payment is arranged.'),
     shown.length ? h('ul', { class: 'requests' }, shown.map(card)) : h('p', { class: 'empty' }, 'Nothing waiting.'),
     done.length > 0 && h('details', {}, h('summary', {}, `${done.length} dealt with`), h('ul', { class: 'requests' }, done.map(card))));
 }

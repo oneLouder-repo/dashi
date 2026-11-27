@@ -39,6 +39,8 @@ export const BILLING_DEFAULTS = {
   graceDays: 7,
   /** Stripe price ids: { basic: { month, year }, standard: { month, year } }. */
   prices: {},
+  /** The Stripe coupon for the grassroots rate (30% off Community and Organization), made in Payments. */
+  grassrootsCoupon: '',
   /** Let org admins pay by card. Off until the admin has checked the setup. */
   checkoutOn: false,
 };
@@ -152,21 +154,28 @@ export function eventChange(event, { settings, findOrg }) {
   }
 }
 
-/** The Checkout page's settings for one org paying for one plan. */
-export function checkoutParams({ settings, org, billing, user, plan, interval, returnUrl }) {
+/**
+ * The Checkout page's settings for one org paying for one plan.
+ * currency 'usd' uses the price's USD option (made with the price); the
+ * grassroots rate applies the coupon when the org has declared a small
+ * budget, and then promotion codes are off (Stripe allows one or the other).
+ */
+export function checkoutParams({ settings, org, billing, user, plan, interval, returnUrl, currency = 'cad', grassrootsPlans = [] }) {
   const price = settings.prices?.[plan]?.[interval];
   if (!price) throw new Error('That plan can’t be paid for online yet');
+  const grassroots = !!(billing.grassroots?.declared && settings.grassrootsCoupon && grassrootsPlans.includes(plan));
   return {
     mode: 'subscription',
     line_items: [{ price, quantity: 1, ...(settings.taxMode === 'fixed' && settings.taxRateId && { tax_rates: [settings.taxRateId] }) }],
     ...(billing.customerId ? { customer: billing.customerId, customer_update: { address: 'auto', name: 'auto' } } : { customer_email: user.email }),
     client_reference_id: org.id,
-    metadata: { org_id: org.id, plan },
+    ...(currency === 'usd' && { currency: 'usd' }),
+    metadata: { org_id: org.id, plan, ...(grassroots && { grassroots: 'yes' }) },
     subscription_data: { metadata: { org_id: org.id, plan }, ...(!billing.hadTrial && settings.trialDays > 0 && { trial_period_days: settings.trialDays }) },
     ...(settings.taxMode === 'automatic' && { automatic_tax: { enabled: true } }),
     tax_id_collection: { enabled: true },
     billing_address_collection: 'required',
-    allow_promotion_codes: true,
+    ...(grassroots ? { discounts: [{ coupon: settings.grassrootsCoupon }] } : { allow_promotion_codes: true }),
     success_url: returnUrl.includes('#') ? returnUrl.replace('#', '?paid=1#') : `${returnUrl}?paid=1`,
     cancel_url: returnUrl,
   };

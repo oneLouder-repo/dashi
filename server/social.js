@@ -228,11 +228,16 @@ export const NETWORK_CLIENTS = {
 
 /* ---------------------------------------------------------------- routes and the scheduler */
 
+export const NOT_ON_PLAN = 'Posting for real comes with the Organization plan and up. You can still practise every step here.';
+
 /**
  * mayPost(a) says whether a person may post for their org (they can write the
- * social document). fetchImpl and allowLocal are for tests.
+ * social document). mayGoLive(orgId) says whether the org's plan includes
+ * posting for real (the liveSocial feature); without it the org can still
+ * practise, and its connected accounts stay but nothing is sent.
+ * fetchImpl and allowLocal are for tests.
  */
-export function socialRoutes({ q, now, dataDir, mayPost, fetchImpl = fetch, allowLocal = false, envKey }) {
+export function socialRoutes({ q, now, dataDir, mayPost, mayGoLive = () => true, fetchImpl = fetch, allowLocal = false, envKey }) {
   const box = sealer(dataDir, envKey);
   const check = (raw) => safeUrl(raw, { allowLocal });
   const ctx = { fetchImpl, check };
@@ -244,6 +249,7 @@ export function socialRoutes({ q, now, dataDir, mayPost, fetchImpl = fetch, allo
     if (done) return { permalink: done.permalink, remoteId: done.remote_id, at: done.at, already: true };
     const acc = account(orgId, network);
     if (!acc) throw new HttpError(400, `${NETWORK_CLIENTS[network]?.label ?? network} isn’t connected`);
+    if (!mayGoLive(orgId)) throw new HttpError(402, NOT_ON_PLAN);
     const text = clip(post.text, 10_000);
     if (!text && !post.image) throw new HttpError(400, 'The post is empty');
     const full = { ...post, text, link: post.link ?? firstLink(text), idempotencyKey: `${post.postId}:${network}` };
@@ -269,9 +275,11 @@ export function socialRoutes({ q, now, dataDir, mayPost, fetchImpl = fetch, allo
       const optionsOf = (r) => { if (r.network !== 'mastodon') return {}; try { return { visibility: visibilityOf(box.open(r.secret).visibility) }; } catch { return {}; } };
       const full = q('SELECT network, secret FROM social_accounts WHERE org_id = ?').all(a.org.id);
       const opts = Object.fromEntries(full.map((r) => [r.network, optionsOf(r)]));
-      return json(res, 200, { live: LIVE_NETWORKS, visibilities: VISIBILITIES, accounts: rows.map((r) => ({ network: r.network, handle: r.handle, connectedAt: r.created_at, lastUsedAt: r.last_used_at, lastError: r.last_error, ...opts[r.network] })) });
+      return json(res, 200, { live: LIVE_NETWORKS, allowed: !!mayGoLive(a.org.id), visibilities: VISIBILITIES, accounts: rows.map((r) => ({ network: r.network, handle: r.handle, connectedAt: r.created_at, lastUsedAt: r.last_used_at, lastError: r.last_error, ...opts[r.network] })) });
     }
     if (!mayPost(a)) throw new HttpError(403, 'You can look at the Social Media Integrator, but not post for your organisation');
+    // Unplugging an account is always allowed; anything that reaches a network needs the plan.
+    if (!mayGoLive(a.org.id) && !(method === 'DELETE' && /^\/api\/social\/accounts\/\w+$/.test(path))) throw new HttpError(402, NOT_ON_PLAN);
     if ((m = path.match(/^\/api\/social\/accounts\/(\w+)\/(check|options)$/)) && method === 'POST') {
       const [, network, what] = m;
       const acc = LIVE_NETWORKS.includes(network) ? account(a.org.id, network) : null;
@@ -327,7 +335,7 @@ export function socialRoutes({ q, now, dataDir, mayPost, fetchImpl = fetch, allo
    * networks (text and link; pictures go when posted from the page).
    */
   async function sweep({ readDoc, writeDoc, textFor, nowDate = new Date() }) {
-    const orgs = q('SELECT DISTINCT org_id FROM social_accounts').all().map((r) => r.org_id);
+    const orgs = q('SELECT DISTINCT org_id FROM social_accounts').all().map((r) => r.org_id).filter((id) => mayGoLive(id));
     for (const orgId of orgs) {
       const doc = readDoc(orgId, 'social');
       if (!doc?.posts) continue;

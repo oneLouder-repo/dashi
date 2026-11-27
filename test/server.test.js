@@ -373,32 +373,32 @@ test('plans set what an org can add; the platform admin changes them', async () 
   const lead = await signIn('lead@tiny.example', 'tiny.localhost');
   const { json: session } = await call('tiny.localhost', 'GET', '/api/session', { cookie: lead });
   assert.equal(session.docs.org.platform.tier, 'free');
-  assert.equal(session.docs.org.platform.paused.strategy, true, 'Free has no strategy plugin');
+  assert.ok(!session.docs.org.platform.paused.strategy, 'Seed includes Plan');
+  assert.equal(session.docs.org.platform.paused.podcasts, true, 'Seed has no Listen');
   assert.equal(session.limits.uploadMb, 10);
 
-  // Free includes no strategic frameworks.
+  // Seed includes one framework: a second is refused.
   const strategy = session.docs.strategy;
-  strategy.nodes['fw-1'] = { id: 'fw-1', type: 'framework', parentId: null, order: 9, title: 'A framework' };
+  const have = Object.values(strategy.nodes || {}).filter((n) => n.type === 'framework').length;
+  for (let i = have; i < 2; i++) strategy.nodes[`fw-${i}`] = { id: `fw-${i}`, type: 'framework', parentId: null, order: 9 + i, title: `Framework ${i}` };
   const refused = await call('tiny.localhost', 'PUT', '/api/docs/strategy', { cookie: lead, body: strategy });
   assert.equal(refused.status, 403);
-  assert.match(refused.json.error, /isn’t switched on|Free plan doesn’t include strategic frameworks/, 'Free has no Strategy & Work, so its document is closed');
+  assert.match(refused.json.error, /includes 1 strategic framework/);
 
-  // Five people on Free: a sixth with an email is refused.
+  // Three people on Seed: a fourth with an email is refused.
   const orgDoc = session.docs.org;
-  for (let i = 0; i < 5; i++) orgDoc.staff[`s-${i}`] = { id: `s-${i}`, name: `P${i}`, email: `p${i}@tiny.example`, roleId: 'staff', teamIds: [] };
+  const people = Object.values(orgDoc.staff || {}).filter((s) => s.email).length;
+  for (let i = 0; i < 4 - people; i++) orgDoc.staff[`s-${i}`] = { id: `s-${i}`, name: `P${i}`, email: `p${i}@tiny.example`, roleId: 'staff', teamIds: [] };
   assert.equal((await call('tiny.localhost', 'PUT', '/api/docs/org', { cookie: lead, body: orgDoc })).status, 403);
 
-  // No social sign-in on Free.
+  // No social sign-in on Seed.
   assert.deepEqual((await call('tiny.localhost', 'GET', '/api/auth/options')).json.providers, []);
 
-  // The admin gives Free one framework for everyone; then it saves.
+  // The admin gives Seed more frameworks; then it saves.
   const { json: plans } = await call('localhost', 'GET', '/api/admin/plans', { cookie: admin });
-  assert.equal(plans.plans.basic.limits.plans, 2);
-  // (0.2: Free has no Strategy & Work, so its plan must include it before the strategy saves at all.)
-  await call('localhost', 'PUT', '/api/admin/plans', { cookie: admin, body: { free: { plugins: { strategy: true } } } });
-  const capped = await call('tiny.localhost', 'PUT', '/api/docs/strategy', { cookie: lead, body: strategy });
-  assert.match(capped.json.error, /Free plan doesn’t include strategic frameworks/, 'then the plan’s limits apply');
-  await call('localhost', 'PUT', '/api/admin/plans', { cookie: admin, body: { free: { plugins: { strategy: true }, limits: { frameworks: 5 } } } });
+  assert.equal(plans.plans.basic.limits.plans, 3);
+  assert.equal(plans.plans.network.label, 'Network');
+  await call('localhost', 'PUT', '/api/admin/plans', { cookie: admin, body: { free: { limits: { frameworks: 5 } } } });
   assert.equal((await call('tiny.localhost', 'PUT', '/api/docs/strategy', { cookie: lead, body: strategy })).status, 200);
 
   // A Custom org's own limits, over the tier's.
@@ -406,13 +406,13 @@ test('plans set what an org can add; the platform admin changes them', async () 
   assert.equal((await call('tiny.localhost', 'PUT', '/api/docs/org', { cookie: lead, body: orgDoc })).status, 200);
   const { json: mine } = await call('tiny.localhost', 'GET', '/api/plan', { cookie: lead });
   assert.equal(mine.plan.limits.users, 40);
-  assert.equal(mine.usage.users, 6);
+  assert.equal(mine.usage.users, 4);
   await call('localhost', 'PUT', '/api/admin/plans', { cookie: admin, body: {} });
 });
 
 test('anyone can sign up for a free org on the platform site, and asks for a bigger plan', async () => {
   const { json: info } = await call('localhost', 'GET', '/api/platform');
-  assert.equal(info.plans.standard.label, 'Standard');
+  assert.equal(info.plans.standard.label, 'Organization');
   assert.ok(info.site.hero.title);
   assert.equal((await call('example.localhost', 'POST', '/api/signup', { body: { orgName: 'X' } })).status, 404, 'only on the platform site');
   assert.equal((await call('localhost', 'POST', '/api/signup', { body: { orgName: 'Bots', slug: 'bots', email: 'b@b.example', password: 'longenough1', website: 'spam' } })).status, 400);

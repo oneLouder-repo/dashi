@@ -213,23 +213,29 @@ export function Payments({ call }) {
       trialDays: h('input', { class: 'input input-sm', type: 'number', min: 0, max: 90, value: s.trialDays, style: 'width:80px', 'aria-label': 'Trial days' }),
       graceDays: h('input', { class: 'input input-sm', type: 'number', min: 0, max: 60, value: s.graceDays, style: 'width:80px', 'aria-label': 'Grace days' }),
       checkoutOn: h('input', { type: 'checkbox', class: 'toggle toggle-sm toggle-primary', checked: s.checkoutOn, disabled: !x.stripe.connected, 'aria-label': 'Card payments on' }),
+      grassrootsCoupon: h('input', { class: 'input input-sm', value: s.grassrootsCoupon ?? '', placeholder: 'coupon id', 'aria-label': 'Grassroots coupon id' }),
     };
+    const makeCoupon = h('button', { class: 'btn btn-xs', disabled: !x.stripe.connected, onclick: async () => {
+      try { await call('POST', '/api/admin/billing/create-coupon'); await load(); } catch (err) { uiAlert(err.message); }
+    } }, 'Create in Stripe');
     const priceFields = {};
-    const paid = ['basic', 'standard'];
+    const paid = ['basic', 'standard', 'network'].filter((id) => x.plans[id]);
     const priceRows = paid.map((plan) => {
-      const shown = x.plans[plan].price.monthly ?? 0;
+      const pr = x.plans[plan].price;
+      const shown = pr.monthly ?? 0;
+      const shownYear = pr.yearly ?? shown * 10;
       priceFields[plan] = {
         month: h('input', { class: 'input input-xs cc-price-id', value: s.prices[plan]?.month ?? '', placeholder: 'price_…', 'aria-label': `${plan} monthly price id` }),
         year: h('input', { class: 'input input-xs cc-price-id', value: s.prices[plan]?.year ?? '', placeholder: 'price_…', 'aria-label': `${plan} yearly price id` }),
       };
       const make = h('button', { class: 'btn btn-xs', disabled: !x.stripe.connected, onclick: async () => {
-        const year = await uiPrompt(`Yearly price for ${x.plans[plan].label}, in dollars, ${s.taxLabel} included`, String(shown * 12), { title: 'Create the prices in Stripe', help: `The pricing page shows $${shown} a month billed yearly. A monthly price is made at 1.2× that unless you change it next.` });
-        if (!year) return;
-        const month = await uiPrompt(`Monthly price, in dollars, ${s.taxLabel} included`, String(Math.round(shown * 1.2)), { title: 'Create the prices in Stripe' });
+        const month = await uiPrompt(`Monthly price for ${x.plans[plan].label}, in Canadian dollars, ${s.taxLabel} included`, String(shown), { title: 'Create the prices in Stripe', help: `The pricing page shows C$${shown} a month and C$${shownYear} a year (two months free). Each price also gets a US dollar option: US$${pr.usdMonthly ?? '—'} a month, US$${pr.usdYearly ?? '—'} a year.` });
         if (!month) return;
+        const year = await uiPrompt(`Yearly price, in Canadian dollars, ${s.taxLabel} included`, String(shownYear), { title: 'Create the prices in Stripe' });
+        if (!year) return;
         try { await call('POST', '/api/admin/billing/create-prices', { plan, year: Number(year), month: Number(month) }); await load(); } catch (err) { uiAlert(err.message); }
       } }, 'Create in Stripe');
-      return h('tr', {}, h('td', {}, h('strong', {}, x.plans[plan].label), h('div', { class: 'muted small' }, `$${shown}/mo shown, of which ${s.taxLabel} $${taxInsideOf(shown, s.taxRate)}`)),
+      return h('tr', {}, h('td', {}, h('strong', {}, x.plans[plan].label), h('div', { class: 'muted small' }, `C$${shown}/mo · C$${shownYear}/yr · US$${pr.usdMonthly ?? '—'}/mo, of which ${s.taxLabel} C$${taxInsideOf(shown, s.taxRate)}`)),
         h('td', {}, priceFields[plan].month), h('td', {}, priceFields[plan].year), h('td', {}, make));
     });
     const checks = h('div', {});
@@ -266,7 +272,8 @@ export function Payments({ call }) {
         h('div', { class: 'table-scroll' }, h('table', { class: 'table table-sm' }, h('thead', {}, h('tr', {}, ['Plan', 'Monthly', 'Yearly', ''].map((t) => h('th', {}, t)))), h('tbody', {}, priceRows))),
         h('div', { class: 'cc-form' },
           h('label', {}, h('span', {}, 'Free trial, days'), f.trialDays), h('label', {}, h('span', {}, 'Grace after a failed payment, days'), f.graceDays),
-          h('label', { class: 'check' }, f.checkoutOn, h('span', {}, ' Let organisations pay by card'))),
+          h('label', { class: 'check' }, f.checkoutOn, h('span', {}, ' Let organisations pay by card')),
+          h('label', { class: 'cc-span' }, h('span', {}, 'Grassroots coupon (30% off Community and Organization, for orgs that tick “budget under C$250k”)'), h('span', { class: 'inline-form' }, f.grassrootsCoupon, makeCoupon))),
         h('div', { class: 'inline-form' }, h('button', { class: 'btn btn-sm btn-primary', onclick: save }, 'Save'), h('button', { class: 'btn btn-sm', disabled: !x.stripe.connected, onclick: () => runCheck().catch(fail(checks)) }, 'Check the prices with Stripe'), saved),
         checks),
       h('section', { class: 'cc-card' },

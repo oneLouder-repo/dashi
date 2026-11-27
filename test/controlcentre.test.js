@@ -111,6 +111,20 @@ test('checkout asks for the address (for tax), a trial once, and the right tax s
   assert.equal(again.automatic_tax, undefined);
   assert.equal(again.customer, 'cus_1');
   assert.throws(() => checkoutParams({ settings, org: {}, billing: {}, user: {}, plan: 'basic', interval: 'month', returnUrl: '' }), /can’t be paid/);
+  assert.equal(p.allow_promotion_codes, true);
+  assert.equal(p.currency, undefined, 'Canadian dollars unless asked');
+});
+
+test('the grassroots rate takes the coupon on Community and Organization once declared; US dollars on request', () => {
+  const settings = billingSettings({ prices: { basic: { month: 'price_bm' }, network: { month: 'price_nm' } }, grassrootsCoupon: 'grass30' });
+  const args = { settings, org: { id: 'o1' }, user: { email: 'a@b.ca' }, interval: 'month', returnUrl: 'https://x', grassrootsPlans: ['basic', 'standard'] };
+  const small = checkoutParams({ ...args, billing: { grassroots: { declared: true } }, plan: 'basic', currency: 'usd' });
+  assert.deepEqual(small.discounts, [{ coupon: 'grass30' }]);
+  assert.equal(small.allow_promotion_codes, undefined, 'Stripe takes a coupon or promotion codes, not both');
+  assert.equal(small.currency, 'usd');
+  assert.equal(small.metadata.grassroots, 'yes');
+  assert.equal(checkoutParams({ ...args, billing: {}, plan: 'basic' }).discounts, undefined, 'not declared');
+  assert.equal(checkoutParams({ ...args, billing: { grassroots: { declared: true } }, plan: 'network' }).discounts, undefined, 'not on Network');
 });
 
 test('legal pages publish versions and know who still has to accept', () => {

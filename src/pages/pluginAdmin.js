@@ -17,7 +17,7 @@ import {
  * The designer edits a working copy; Save keeps it (same version), and
  * Release makes it the next version, keeping the one before for rollback.
  */
-const TIER_LABEL = { free: 'Free', basic: 'Basic', standard: 'Standard', custom: 'Custom' };
+const TIER_LABEL = { free: 'Seed', basic: 'Community', standard: 'Organization', network: 'Network', custom: 'Custom' };
 const TONES = ['#3e8fa6', '#2c4fa3', '#b05bd8', '#ef7f2d', '#c8432f', '#e35a2c', '#4da65c', '#56657f', '#0f7ea8', '#a1462e', '#5b6b2f', '#8a3fa0'];
 const fill = (el, ...c) => el.replaceChildren(...c.flat(Infinity).filter((x) => x != null && x !== false));
 const statusOf = (id) => STATUSES.find((s) => s.id === id) ?? STATUSES[0];

@@ -1,7 +1,7 @@
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { PLUGINS } from '../plugins.js';
-import { LIMITS, FEATURES, PLAN_IDS, PLAN_PLUGINS, amount, allPlans } from '../platform/plans.js';
+import { LIMITS, FEATURES, PLAN_IDS, PLAN_PLUGINS, GRASSROOTS, amount, allPlans, grassrootsPrice } from '../platform/plans.js';
 import { siteContent } from '../platform/salesSite.js';
 import { Markdown } from '../ui/markdown.js';
 import { LEGAL_KINDS, LEGAL_DEFAULTS, fillLegal } from '../platform/legal.js';
@@ -18,7 +18,13 @@ import { LEGAL_KINDS, LEGAL_DEFAULTS, fillLegal } from '../platform/legal.js';
  * admin → Sales site), the plans and prices from "plans".
  */
 const pluginOf = (id) => PLUGINS.find((p) => p.id === id);
-const fmtPrice = (p) => (p.price.monthly == null ? 'Let’s talk' : p.price.monthly === 0 ? 'Free' : `$${p.price.monthly}`);
+/** Canadian dollars by default; a visitor can switch the pricing page to US dollars. */
+let currency = 'cad';
+try { currency = localStorage.getItem('dashi.currency') === 'usd' ? 'usd' : 'cad'; } catch { /* private window */ }
+const monthlyOf = (p) => (currency === 'usd' ? p.price.usdMonthly ?? p.price.monthly : p.price.monthly);
+const yearlyOf = (p) => (currency === 'usd' ? p.price.usdYearly ?? p.price.yearly : p.price.yearly);
+const money = (n) => `${currency === 'usd' ? 'US$' : 'C$'}${n % 1 ? n.toFixed(2) : n}`;
+const fmtPrice = (p) => (p.price.monthly == null ? 'Let’s talk' : p.price.monthly === 0 ? 'Free' : money(monthlyOf(p)));
 
 async function platformInfo() {
   try {
@@ -126,34 +132,51 @@ function PlanCards(plans, { compact = false } = {}) {
       id === 'standard' && h('span', { class: 'badge badge-primary badge-sm plan-flag' }, 'Most chosen'),
       h('h3', {}, p.label),
       h('p', { class: 'plan-price' }, h('strong', {}, fmtPrice(p)), p.price.monthly ? h('span', {}, ` ${p.price.note}`) : null),
-      p.price.monthly ? h('p', { class: 'plan-tax' }, `Includes ${taxLabel}`) : null,
+      p.price.monthly ? h('p', { class: 'plan-tax' }, yearlyOf(p) ? `or ${money(yearlyOf(p))} a year, two months free · ${currency === 'usd' ? 'tax included' : `includes ${taxLabel}`}` : `Includes ${taxLabel}`) : null,
+      GRASSROOTS.plans.includes(id) && monthlyOf(p) ? h('p', { class: 'plan-grass' }, `Grassroots rate: ${money(grassrootsPrice(monthlyOf(p)))} a month`) : null,
       h('p', { class: 'plan-tag' }, p.tagline),
       !compact && h('ul', { class: 'plan-list' },
         key.map((t) => h('li', {}, icon('check', 14), t)),
         p.features.socialLogin && h('li', {}, icon('check', 14), 'Google, Facebook and Microsoft sign-in'),
-        p.features.customDomain && h('li', {}, icon('check', 14), 'Your own domain')),
+        p.features.customDomain && h('li', {}, icon('check', 14), 'Your own domain'),
+        p.features.liveSocial && h('li', {}, icon('check', 14), 'Post to Bluesky, Mastodon and webhooks'),
+        p.features.linkedOrgs && h('li', {}, icon('check', 14), 'Linked organisations')),
       h('a', { class: `btn btn-sm ${id === 'standard' ? 'btn-primary' : ''}`, href: id === 'custom' ? '/contact.html?plan=custom' : `/signup.html?plan=${id}` }, id === 'custom' ? 'Talk to us' : id === 'free' ? 'Start free' : `Start with ${p.label}`));
   }));
 }
 
 function Pricing({ plans, site }) {
+  const cards = PlanCards(plans);
+  function CurrencyPicker() {
+    return h('div', { class: 'cur-pick', role: 'group', 'aria-label': 'Currency' }, ['cad', 'usd'].map((c) => h('button', {
+      type: 'button', class: currency === c ? 'on' : '', 'aria-pressed': String(currency === c),
+      onclick: () => {
+        currency = c;
+        try { localStorage.setItem('dashi.currency', c); } catch { /* fine */ }
+        // Redraw the cards section in place; the comparison table has no prices.
+        cards.closest('.sales-section')?.replaceWith(Pricing({ plans, site })[0]);
+      },
+    }, c === 'cad' ? 'CAD' : 'USD')));
+  }
   const yes = h('span', { class: 'yes' }, icon('check', 16), h('span', { class: 'sr-only' }, 'Included'));
   const no = () => h('span', { class: 'no', 'aria-label': 'Not included' }, '—');
   return [
     h('section', { class: 'sales-section' },
       h('h1', {}, 'Plans and pricing'),
-      h('p', { class: 'lede' }, site.pricingNote),
-      PlanCards(plans)),
+      h('p', { class: 'lede' }, currency === 'usd' ? String(site.pricingNote).replace(/Canadian dollars/i, 'US dollars') : site.pricingNote),
+      CurrencyPicker(),
+      cards,
+      h('p', { class: 'plan-grass-note' }, icon('spark', 15), ` The grassroots rate: ${GRASSROOTS.percent}% off Community and Organization for organisations with a yearly budget under ${currency === 'usd' ? `US$${GRASSROOTS.budgetUsd.toLocaleString()}` : `C$${GRASSROOTS.budgetCad.toLocaleString()}`}. Tick a box when you sign up; we take your word for it.`)),
     h('section', { class: 'sales-section' },
       h('h2', {}, 'Everything in each plan'),
       h('div', { class: 'table-scroll' }, h('table', { class: 'compare-table' },
         h('thead', {}, h('tr', {}, h('th', {}, ''), PLAN_IDS.map((id) => h('th', { scope: 'col' }, plans[id].label)))),
         h('tbody', {},
-          h('tr', { class: 'group' }, h('th', { colspan: 5 }, 'Plugins')),
+          h('tr', { class: 'group' }, h('th', { colspan: PLAN_IDS.length + 1 }, 'Plugins')),
           PLAN_PLUGINS.map((pid) => h('tr', {}, h('th', { scope: 'row' }, pluginOf(pid)?.name ?? pid), PLAN_IDS.map((id) => h('td', {}, plans[id].plugins[pid] ? yes.cloneNode(true) : no())))),
-          h('tr', { class: 'group' }, h('th', { colspan: 5 }, 'How much')),
+          h('tr', { class: 'group' }, h('th', { colspan: PLAN_IDS.length + 1 }, 'How much')),
           LIMITS.map((l) => h('tr', {}, h('th', { scope: 'row' }, l.label), PLAN_IDS.map((id) => h('td', {}, plans[id].limits[l.id] === 0 ? no() : amount(plans[id].limits[l.id], l))))),
-          h('tr', { class: 'group' }, h('th', { colspan: 5 }, 'Features')),
+          h('tr', { class: 'group' }, h('th', { colspan: PLAN_IDS.length + 1 }, 'Features')),
           h('tr', {}, h('th', { scope: 'row' }, 'Address'), PLAN_IDS.map((id) => h('td', {}, plans[id].features.customDomain ? 'Your own domain, and yourorg.dashi.ca' : 'yourorg.dashi.ca'))),
           FEATURES.filter((f) => f.id !== 'customDomain').map((f) => h('tr', {}, h('th', { scope: 'row' }, f.label), PLAN_IDS.map((id) => h('td', {}, plans[id].features[f.id] ? yes.cloneNode(true) : no())))))))),
   ];
@@ -193,17 +216,18 @@ function Signup({ plans, signup, baseDomain }, user) {
   const msg = h('p', { class: 'form-msg', role: 'alert' });
   const field = (label, el, hint) => h('label', { class: 'field' }, h('span', {}, label), el, hint && h('small', { class: 'muted' }, hint));
   const accept = h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', name: 'accept', required: true });
+  const grassroots = h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', name: 'grassroots' });
   const form = h('form', { class: 'signup-form', onsubmit: async (e) => {
     e.preventDefault();
     msg.textContent = '';
-    const body = { ...Object.fromEntries(Object.entries(f).map(([k, el]) => [k, el.value])), accept: accept.checked };
+    const body = { ...Object.fromEntries(Object.entries(f).map(([k, el]) => [k, el.value])), accept: accept.checked, grassroots: grassroots.checked };
     try {
       const res = await fetch('/api/signup', { method: 'POST', headers: { 'content-type': 'application/json', 'x-toolbox': '1' }, body: JSON.stringify(body) });
       const out = await res.json();
       if (!res.ok) throw new Error(out.error ?? 'That didn’t work. Try again.');
       form.replaceWith(h('div', { class: 'signup-done' },
         h('h2', {}, `${out.org.name} is ready`),
-        h('p', {}, `Its address is ${out.org.url.replace(/^https?:\/\//, '')}. `, out.plan !== 'free' ? `It starts on Free; we’ll be in touch about ${plans[out.plan].label} within two working days.` : ''),
+        h('p', {}, `Its address is ${out.org.url.replace(/^https?:\/\//, '')}. `, out.plan !== 'free' ? `It starts on Seed; we’ll be in touch about ${plans[out.plan].label} within two working days.` : ''),
         h('a', { class: 'btn btn-primary', href: out.open }, 'Open it')));
     } catch (err) { msg.textContent = err.message; }
   } },
@@ -211,7 +235,8 @@ function Signup({ plans, signup, baseDomain }, user) {
     field('Address', h('span', { class: 'slug-field' }, f.slug, h('span', { class: 'muted' }, `.${baseDomain}`)), 'Letters, numbers and dashes. You can add your own domain on the Custom plan.'),
     !user && [field('Your name', f.name), field('Email', f.email, 'You’ll sign in with this.'), field('Password', f.password, 'At least 10 characters; a short sentence works well.')],
     user && h('p', { class: 'muted' }, `You’re signed in as ${user.email}; you’ll be the new organisation’s admin.`),
-    field('Plan', f.plan, 'Every organisation starts on Free. If you choose a paid plan, we’ll set it up with you.'),
+    field('Plan', f.plan, 'Every organisation starts on Seed, free. If you choose a paid plan, we’ll set it up with you.'),
+    h('label', { class: 'check signup-accept' }, grassroots, h('span', {}, `Our yearly budget is under C$${GRASSROOTS.budgetCad.toLocaleString()} (US$${GRASSROOTS.budgetUsd.toLocaleString()}). That gives you the grassroots rate, ${GRASSROOTS.percent}% off Community and Organization.`)),
     f.website,
     h('label', { class: 'check signup-accept' }, accept, h('span', {}, 'I agree to the ', h('a', { href: '/legal.html?doc=terms', target: '_blank' }, 'Terms of service'), ' and the ', h('a', { href: '/legal.html?doc=privacy', target: '_blank' }, 'Privacy policy'), '.')),
     msg,
