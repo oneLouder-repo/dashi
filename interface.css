@@ -1058,3 +1058,24 @@ body.mapper-page > main { border-radius: 0 0 var(--r-sheet, 14px) var(--r-sheet,
 /* Site editor: the Homepage picker stays inside its column, however long a page's title (alpha 0.4 bug sweep). */
 .site-home-pick { min-width: 0; max-width: 100%; }
 .site-home-pick select { min-width: 0; max-width: 100%; text-overflow: ellipsis; }
+
+/* Two-step sign-in: the QR code to scan (alpha 0.4). */
+.cc-qr-box { margin: 10px 0 4px; }
+.cc-qr { display: block; border: 1px solid var(--line); border-radius: 6px; }
+
+/* Organisation → Plugins: the order of the plugin menu (alpha 0.4). */
+.rp-order { margin: 4px 0 14px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.rp-order > summary { cursor: pointer; padding: 8px 12px; font-weight: 600; font-size: 13.5px; display: flex; gap: 6px; align-items: center; }
+.rp-order[open] > summary { border-bottom: 1px solid var(--line); }
+.rp-order-list { list-style: none; margin: 0; padding: 6px; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 4px; counter-reset: rp; }
+.rp-order-list li { display: flex; align-items: center; gap: 8px; padding: 3px 4px 3px 6px; border-radius: 5px; counter-increment: rp; font-size: 13px; }
+.rp-order-list li::before { content: counter(rp); width: 16px; text-align: right; color: var(--muted); font-size: 11px; }
+.rp-order-list li:hover { background: color-mix(in oklab, var(--ink) 4%, transparent); }
+.rp-order-list .tone-tile { width: 26px; height: 26px; }
+.rp-order-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-order > .btn { margin: 0 0 8px 10px; }
+
+/* Top bar (d, 2026-11-27): the Dashi mark and word about 15% larger, and the organisation's name with them. */
+.shell-word { font-size: 24px; }
+.shell-slash { font-size: 25px; }
+.shell-orgname { font-size: 16px; }

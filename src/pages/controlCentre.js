@@ -294,6 +294,27 @@ export function Payments({ call }) {
 }
 
 /* --------------------------------------------- your two-step sign-in, sessions */
+/** A QR code for `text` as an SVG: black squares on white, with a quiet border (made here, nothing sent anywhere). */
+async function qrSvg(text, size = 184) {
+  const { default: qrcode } = await import('../../vendor/qrcode/qrcode.js');
+  const qr = qrcode(0, 'M');
+  qr.addData(text);
+  qr.make();
+  const n = qr.getModuleCount();
+  let d = '';
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (qr.isDark(y, x)) d += `M${x + 4} ${y + 4}h1v1h-1z`;
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${n + 8} ${n + 8}`);
+  svg.setAttribute('width', size); svg.setAttribute('height', size);
+  svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'QR code for your authenticator app');
+  svg.setAttribute('class', 'cc-qr');
+  const bg = document.createElementNS(NS, 'rect'); bg.setAttribute('width', '100%'); bg.setAttribute('height', '100%'); bg.setAttribute('fill', '#fff');
+  const path = document.createElementNS(NS, 'path'); path.setAttribute('d', d); path.setAttribute('fill', '#000'); path.setAttribute('shape-rendering', 'crispEdges');
+  svg.append(bg, path);
+  return svg;
+}
+
 export function TwoStep({ call, onDone }) {
   const box = h('div', { class: 'cc-card' }, loading());
   const load = async () => {
@@ -310,10 +331,12 @@ export function TwoStep({ call, onDone }) {
       const { secret, url } = await call('POST', '/api/auth/two-step/setup');
       const code = h('input', { class: 'input input-sm', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6, placeholder: '123456', 'aria-label': 'Code from your app' });
       const msg = h('span', { class: 'small text-error', role: 'alert' });
+      const qrBox = h('div', { class: 'cc-qr-box' });
+      qrSvg(url).then((svg) => qrBox.replaceChildren(svg)).catch(() => qrBox.remove());
       fill(box, h('h3', {}, 'Set up two-step sign-in'),
         h('ol', { class: 'cc-steps' },
-          h('li', {}, 'Open an authenticator app on your phone (1Password, Google Authenticator, Microsoft Authenticator or Authy) and add an account. Choose “Enter a setup key”.'),
-          h('li', {}, 'Account: ', h('strong', {}, 'Dashi'), '. Key: ', h('code', { class: 'cc-secret' }, secret.match(/.{1,4}/g).join(' ')), '. Type: time-based. On a computer, a password manager can open ', h('a', { href: url }, 'this setup link'), ' instead.'),
+          h('li', {}, 'Open an authenticator app on your phone (1Password, Google Authenticator, Microsoft Authenticator or Authy), add an account and scan this code:', qrBox),
+          h('li', {}, 'Can’t scan it? Choose “Enter a setup key” instead. Account: ', h('strong', {}, 'Dashi'), '. Key: ', h('code', { class: 'cc-secret' }, secret.match(/.{1,4}/g).join(' ')), ' (letters A–Z and digits 2–7 only, so O is a letter, never zero). Type: time-based. On a computer, a password manager can open ', h('a', { href: url }, 'this setup link'), ' instead.'),
           h('li', {}, 'Type the six-digit code it shows.')),
         h('form', { class: 'inline-form', onsubmit: async (e) => {
           e.preventDefault();

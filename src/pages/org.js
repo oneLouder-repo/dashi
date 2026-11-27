@@ -11,7 +11,7 @@ import { toast } from '../ui/Shell.js';
 import { loadOrg } from '../platform/docs.js';
 import { ROLES, staffList, teamList, membersOf } from '../platform/org.js';
 import { renameOrg } from '../platform/session.js';
-import { PLUGINS, pausedForOrg, featureOn, chosenByOrg, roleHas, linkTo } from '../plugins.js';
+import { PLUGINS, pausedForOrg, featureOn, chosenByOrg, roleHas, linkTo, orderPlugins } from '../plugins.js';
 import { LIMITS, FEATURES, PLAN_IDS, PLAN_PLUGINS, amount } from '../platform/plans.js';
 import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
 
@@ -383,6 +383,7 @@ function openFromHash() {
  * plugin's features open in a drawer.
  */
 const READING_SET = ['strategy', 'palette', 'library', 'pages'];
+let orderOpen = false;   // the menu-order box stays open while you move things
 function Plugins(org) {
   const cats = [...new Set(PLUGINS.filter((p) => !p.platformOff).map((p) => p.category ?? 'Other'))];
   // Sub-plugins sit right under their parent (Planning Studio under Plan).
@@ -443,12 +444,23 @@ function Plugins(org) {
               'aria-label': `${p.name} for ${r.label}`, title: used ? `${p.name} for ${r.label}` : `${p.name} is switched off for the whole organisation`,
               onchange: (e) => setRole(p.id, r.id, e.target.checked) }))));
   };
+  // The plugin bar's order: up and down arrows, saved as org.pluginOrder.
+  const barList = orderPlugins(org, PLUGINS.filter((p) => !p.platformOff && !p.parent && p.nav !== false && p.id !== 'home' && inUse(p)));
+  const moveTo = (i, j) => { const ids = barList.map((p) => p.id); [ids[i], ids[j]] = [ids[j], ids[i]]; set('pluginOrder', ids); };
+  const orderBox = h('details', { class: 'rp-order', open: orderOpen, ontoggle: (e) => { orderOpen = e.target.open; } },
+    h('summary', {}, icon('listNumbers', 14), ' Order of the plugin menu', h('small', { class: 'muted' }, ' · the bar at the top of every page')),
+    h('ol', { class: 'rp-order-list' }, barList.map((p, i) => h('li', { style: `--tone:${p.tone}` },
+      h('span', { class: 'tone-tile' }, icon(p.icon, 16)), h('span', { class: 'rp-order-name' }, p.name),
+      h('button', { type: 'button', class: 'btn btn-xs btn-ghost btn-square', 'aria-label': `Move ${p.name} up`, title: 'Move up', disabled: i === 0, onclick: () => moveTo(i, i - 1) }, icon('chevronUp', 14)),
+      h('button', { type: 'button', class: 'btn btn-xs btn-ghost btn-square', 'aria-label': `Move ${p.name} down`, title: 'Move down', disabled: i === barList.length - 1, onclick: () => moveTo(i, i + 1) }, icon('chevronDown', 14))))),
+    org.pluginOrder?.length ? h('button', { type: 'button', class: 'btn btn-xs btn-ghost', onclick: () => set('pluginOrder', []) }, 'Back to the usual order') : null);
   return h('div', { class: 'rp' },
     h('p', { class: 'lede' }, 'Choose the plugins your organisation uses, then which roles get each one. Leaders can have a different palette of tools from the board or guests. Switching one off hides it from the dashboard and header; its data is kept.'),
     h('div', { class: 'rp-presets' },
       h('span', { class: 'section-label' }, 'Start from'),
       h('button', { class: 'btn btn-sm', onclick: () => preset('all') }, 'Same tools for everyone'),
       h('button', { class: 'btn btn-sm', onclick: () => preset('reading') }, 'Reading tools for the board and guests')),
+    orderBox,
     h('div', { class: 'rp-scroll' },
       h('table', { class: 'rp-table' }, h('thead', {}, head), h('tbody', {}, list.map(row)))),
     h('p', { class: 'muted small rp-note' }, icon('info', 13), ' Board directors, guests and viewers can only read, whatever their palette. Someone who opens a plugin outside their palette is told who to ask.'));
