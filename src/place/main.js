@@ -102,7 +102,7 @@ function openIn(key) {
   const e = facts.entities[key];
   if (!e) return null;
   const [src, rest] = [key.slice(0, key.indexOf(':')), key.slice(key.indexOf(':') + 1)];
-  if (e.type === 'actor') { const href = linkTo('mapper', `#${e.attrs.mapId}`); return href && { href, label: `Open on ${facts.entities[`map:${e.attrs.mapId}`]?.name ?? 'its map'}` }; }
+  if (e.type === 'actor') { const href = linkTo('mapper', `#${rest.includes('/') ? rest : e.attrs.mapId}`); return href && { href, label: `Open on ${facts.entities[`map:${e.attrs.mapId}`]?.name ?? 'its map'}` }; }
   if (src === 'episode') { const href = linkTo('podcasts', `#episodes/${rest}`); return href && { href, label: 'Open the episode' }; }
   if (src === 'library') { const href = linkTo('library', '#files/all'); return href && { href, label: 'Open the Library' }; }
   const href = linkTo('assets');

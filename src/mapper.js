@@ -364,7 +364,41 @@ requestAnimationFrame(() => requestAnimationFrame(() => { if (!fittedCamera || (
 document.fonts?.ready.then(() => { if (fittedCamera && stage.x === fittedCamera.x && stage.y === fittedCamera.y && stage.scale === fittedCamera.scale) fitView(); });
 if (focusId && (store.map.actors[focusId] || store.map.connectors[focusId] || store.map.groups?.[focusId])) {
   history.replaceState(null, '', `#${mapId}`);
-  setTimeout(() => { mapView.select([focusId]); mapView.signalActor(focusId); ctx.panel?.reveal('inspector'); }, 450);
+  setTimeout(() => arriveAt(focusId), 450);
+}
+/**
+ * Opening the map at an item (d, 2026-11-27): bring it to the middle of the
+ * board without changing the zoom much, choose it, and for about four seconds
+ * let it pulse while everything else dims, so the eye lands on it.
+ */
+function arriveAt(id) {
+  const w = mapView.world;
+  const actorIds = w.actors[id] ? [id] : w.connectors[id] ? [w.connectors[id].from, w.connectors[id].to] : w.groups[id]?.memberIds ?? [];
+  const boxes = actorIds.map((a) => w.actors[a]).filter(Boolean);
+  if (boxes.length) {
+    const x0 = Math.min(...boxes.map((a) => a.x - a.w / 2)), x1 = Math.max(...boxes.map((a) => a.x + a.w / 2));
+    const y0 = Math.min(...boxes.map((a) => a.y - a.h / 2)), y1 = Math.max(...boxes.map((a) => a.y + a.h / 2));
+    const { clientWidth: cw, clientHeight: ch } = stage.svgEl;
+    // Close enough to read it, never zoomed further out than the fitted view.
+    stage.scale = Math.max(stage.scale, Math.min(1.2, (cw * 0.6) / Math.max(1, x1 - x0), (ch * 0.6) / Math.max(1, y1 - y0)));
+    stage.moveTo(cw / 2 - ((x0 + x1) / 2) * stage.scale, ch / 2 - ((y0 + y1) / 2) * stage.scale);
+  }
+  mapView.select([id]);
+  ctx.panel?.reveal('inspector');
+  if (ctx.tools.active?.id === 'dataviz') { mapView.signalActor(id); return; } // the data view's own focus stays
+  mapView.focus([id, ...actorIds]);
+  mapView.signalActor(id);
+  stage.svgEl.classList.add('arrival');
+  clearTimeout(arriveAt.timer);
+  const end = () => {
+    clearTimeout(arriveAt.timer);
+    stage.svgEl.removeEventListener('pointerdown', end);
+    if (!stage.svgEl.classList.contains('arrival')) return;
+    stage.svgEl.classList.remove('arrival');
+    if (ctx.tools.active?.id !== 'dataviz') mapView.focus(null);
+  };
+  arriveAt.timer = setTimeout(end, 4000);
+  stage.svgEl.addEventListener('pointerdown', end);
 }
 autosaveDoc(mapDocName(mapId), store);
 // The map's name and its title in the org's list of maps stay the same.

@@ -354,7 +354,7 @@ function Finding(f, { compact = false } = {}) {
   const rule = ruleById[f.ruleId] ?? doc.ownRules?.[f.ruleId];
   const tone = THEME_TONE[rule?.theme] ?? '#56657f';
   const first = facts.entities[f.items[0]];
-  const mapHref = f.show === 'map' && first?.attrs.mapId ? linkTo('mapper', `#${first.attrs.mapId}`) : null;
+  const mapHref = f.show === 'map' && first?.attrs.mapId ? linkTo('mapper', `#${f.items[0].startsWith('actor:') ? f.items[0].slice(6) : first.attrs.mapId}`) : null;
   // Things with a real-world location can be shown on Place's map (only for people who can open Place).
   const placeHref = f.placed?.length && plugins.has('place') ? linkTo('place', `#show/${f.placed.slice(0, 40).map(encodeURIComponent).join(',')}`) : null;
   const whyOpen = openWhy === f.id;
