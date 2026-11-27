@@ -5,11 +5,11 @@ import { toast } from '../ui/toast.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
 import { setCrumbs } from '../ui/crumbs.js';
-import { uiConfirm, uiPrompt } from '../ui/dialog.js';
+import { uiConfirm, uiPrompt, uiForm, uiAlert } from '../ui/dialog.js';
 import { Store } from '../core/Store.js';
 import { applyCollectionOp, col } from '../core/collections.js';
 import { uid } from '../core/ops.js';
-import { autosaveDoc, canWriteDoc } from '../platform/storage.js';
+import { autosaveDoc, canWriteDoc, isHosted } from '../platform/storage.js';
 import { loadOrg, loadPodcasts, loadPages, loadData, loadStrategy, loadDashboards, loadSocial } from '../platform/docs.js';
 import { measureIndex } from '../platform/strategy.js';
 import { valueAt } from '../platform/data.js';
@@ -28,15 +28,17 @@ import {
  * posts, data, dashboards), fit each post to each network, then schedule
  * it or push it now.
  *
- * PUSHING IS MOCKED: nothing leaves Dashi in this alpha. Connecting a
- * network asks only for a handle; a push stores a pretend permalink and
- * pretend numbers so the whole flow can be tried.
+ * LIVE where it can be (d, 2026-11-27): Bluesky, Mastodon and webhooks
+ * connect for real through the server (server/social.js), which keeps the
+ * credentials and posts; it also sends scheduled posts on time. The other
+ * networks need an approved app first, so they stay in PRACTICE mode: a
+ * push stores a pretend permalink and pretend numbers.
  *
  *   #compose[/<post id>]  make or edit a post (#compose/new/<kind>/<source id> starts from something)
  *   #queue                drafts and scheduled posts
  *   #calendar             the month, with what goes out when
  *   #posted               what went out, with its numbers
- *   #channels             connect networks (mock)
+ *   #channels             connect networks (live or practice)
  *   #insights             reach by network, the posts that did best
  */
 const org = loadOrg();
@@ -148,10 +150,31 @@ store.addEventListener('change', () => { if (!editing) render(); });
 window.addEventListener('hashchange', render);
 let editing = null;
 
-// MOCK: scheduled posts whose time has come go out when anyone opens the page.
+/*
+ * Live accounts, from the server (never their secrets). Without a server
+ * (the local demo) every network is practice.
+ */
+const live = { networks: [], accounts: {} };
+const api = async (method, path, body) => {
+  const res = await fetch(path, { method, headers: { 'content-type': 'application/json', 'x-toolbox': '1' }, body: body ? JSON.stringify(body) : undefined });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `It didn’t work (${res.status})`);
+  return data;
+};
+async function loadLive() {
+  if (!isHosted()) return;
+  try {
+    const r = await api('GET', '/api/social/accounts');
+    live.networks = r.live ?? [];
+    live.accounts = Object.fromEntries((r.accounts ?? []).map((x) => [x.network, x]));
+  } catch { /* no server: practice only */ }
+}
+const isLive = (nw) => !!live.accounts[nw] && !!doc().channels[nw]?.live;
+
+// Scheduled posts whose time has come go out when anyone opens the page (the server sends the live ones on time).
 // Posts saved without their picture (seeded ones, say) draw it from their source, here only; it is saved if the post is edited.
 for (const p of Object.values(doc().posts)) if (!p.media && p.source) p.media = draftFrom(p.kind, p.source.id).media ?? null;
-for (const p of duePosts(doc())) push(p, { quiet: true });
+loadLive().then(() => { for (const p of duePosts(doc())) push(p, { quiet: true }); if (route().view === 'channels') render(); });
 
 const count = (status) => Object.values(doc().posts).filter((p) => p.status === status).length;
 function drawSide(view) {
@@ -207,19 +230,51 @@ const chip = (network, { on = true, small = false } = {}) => { const n = network
 const when = (iso) => (iso ? new Date(iso).toLocaleString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '');
 const num = (n) => (n >= 10000 ? `${(n / 1000).toFixed(1)}k` : Number(n).toLocaleString('en-CA'));
 
-function push(post, { quiet = false } = {}) {
+/** A post's picture as a JPEG data URL the networks take (ours are SVG), or null. */
+async function rasterise(media) {
+  if (!media?.src || media.kind === 'video') return null;
+  if (/^data:image\/(png|jpeg);/.test(media.src)) return media.src;
+  try {
+    const img = new Image();
+    img.src = media.src;
+    await img.decode();
+    const w = Math.min(1080, img.naturalWidth || 1080);
+    const hgt = Math.round(w * ((img.naturalHeight || 1080) / (img.naturalWidth || 1080)));
+    const c = Object.assign(document.createElement('canvas'), { width: w, height: hgt });
+    c.getContext('2d').drawImage(img, 0, 0, w, hgt);
+    for (const qual of [0.9, 0.75, 0.6]) { const url = c.toDataURL('image/jpeg', qual); if (url.length * 0.75 < 900_000) return url; }
+  } catch { /* leave the picture out */ }
+  return null;
+}
+
+/** Send a post to its networks: for real where the network is live, as practice elsewhere. */
+async function push(post, { quiet = false } = {}) {
   const at = new Date().toISOString();
   const results = { ...(post.results ?? {}) };
   const failed = [];
+  const sentLive = [];
+  let image;
   for (const nw of post.networks) {
     const ch = doc().channels[nw];
+    if (results[nw]?.permalink && results[nw].live) continue; // already out (the scheduler, say)
     if (!ch?.connected) { failed.push(networkById[nw]?.label); continue; }
     if (problemsFor(post, nw, doc().settings).length) { failed.push(networkById[nw]?.label); continue; }
-    results[nw] = mockPush(post, nw, ch, at);
+    if (isLive(nw)) {
+      try {
+        image ??= post.media ? { dataUrl: await rasterise(post.media), alt: post.media.alt ?? '' } : null;
+        const r = await api('POST', '/api/social/push', { network: nw, postId: post.id, title: post.title, text: textFor(post, nw, doc().settings), image: image?.dataUrl ? image : null });
+        results[nw] = { permalink: r.permalink, at: r.at ?? at, live: true };
+        sentLive.push(networkById[nw].label);
+      } catch (e) { failed.push(`${networkById[nw]?.label} (${e.message})`); }
+    } else results[nw] = mockPush(post, nw, ch, at);
   }
   const ok = Object.keys(results).length > 0;
-  store.apply(col.update('posts', post.id, { results, status: failed.length && !ok ? 'failed' : 'posted', postedAt: at, failed }));
-  if (!quiet) toast(ok ? `Pushed to ${Object.keys(results).map((k) => networkById[k].label).join(', ')} (pretend: nothing left Dashi)${failed.length ? `. Not sent to ${failed.join(', ')}.` : ''}` : `Not sent: ${failed.join(', ')} need a look.`, ok ? 'ok' : 'error');
+  const cur = doc().posts[post.id];
+  if (cur) store.apply(col.update('posts', post.id, { results, status: failed.length && !ok ? 'failed' : 'posted', postedAt: at, failed }));
+  const practice = Object.keys(results).filter((k) => results[k].mock && !post.results?.[k]).map((k) => networkById[k].label);
+  if (!quiet) toast(ok
+    ? [sentLive.length && `Posted to ${sentLive.join(', ')}`, practice.length && `practice push to ${practice.join(', ')} (nothing left Dashi)`, failed.length && `not sent to ${failed.join(', ')}`].filter(Boolean).join('; ').replace(/^./, (c) => c.toUpperCase())
+    : `Not sent: ${failed.join(', ')}.`, ok && !failed.length ? 'ok' : 'error');
 }
 
 /* ----------------------------------------------------------- create */
@@ -294,7 +349,7 @@ function Start() {
     h('div', { class: 'so-recent-list' }, list.slice(0, 4).map(([id, title, sub]) => h('a', { href: `#compose/new/${kind}/${id}` }, h('strong', {}, title), h('small', { class: 'muted' }, sub)))));
   return h('div', { class: 'so-startpage' },
     h('div', { class: 'so-starts' }, POST_KINDS.map((k) => tile(k, `#compose/new/${k.id}`))),
-    !Object.values(doc().channels).some((c) => c.connected) && h('p', { class: 'so-note' }, icon('plug', 16), 'No networks are connected yet. ', h('a', { href: '#channels' }, 'Connect one'), ' (pretend, for now) to push posts.'),
+    !Object.values(doc().channels).some((c) => c.connected) && h('p', { class: 'so-note' }, icon('plug', 16), 'No networks are connected yet. ', h('a', { href: '#channels' }, 'Connect one'), ' to push posts: Bluesky, Mastodon and webhooks for real, the others as practice.'),
     recent(episodes.map((e) => [e.id, e.title, src.podcasts.podcasts[e.podcastId]?.title]), 'episode', 'New episodes to share'),
     recent(articles.filter((p) => p.kind === 'article').map((p) => [p.id, p.title, p.publishedAt]), 'article', 'Latest blog posts'),
     recent(measures.map((m) => [m.id, m.name, m.nodeTitle]), 'datacard', 'Numbers worth a card'));
@@ -312,10 +367,18 @@ function Preview(post, nw, settings) {
     h('header', {}, chip(nw, { small: true }), h('span', {}, h('strong', {}, org.name), h('small', {}, ch?.handle ?? `@${n.id}`))),
     post.media && h('img', { src: post.media.src, alt: post.media.alt ?? '' }),
     h('p', {}, shown),
-    res && h('footer', {}, h('span', {}, icon('eye', 13), num(res.stats.views)), h('span', {}, icon('heart', 13), num(res.stats.likes)), h('span', {}, icon('share', 13), num(res.stats.shares)), h('a', { href: res.permalink, target: '_blank', rel: 'noopener', title: 'Pretend link' }, 'View')));
+    res && h('footer', {}, res.stats ? [h('span', {}, icon('eye', 13), num(res.stats.views)), h('span', {}, icon('heart', 13), num(res.stats.likes)), h('span', {}, icon('share', 13), num(res.stats.shares))] : h('span', { class: 'so-live-tag' }, res.error ? 'Didn’t go' : 'Live'),
+      res.permalink && h('a', { href: res.permalink, target: '_blank', rel: 'noopener', title: res.live ? 'Open the post' : 'Pretend link' }, 'View')));
 }
 
 /* ----------------------------------------------------------- queue, calendar, posted */
+/** A posted post's numbers; live posts have none yet (the networks' own counts come later), so they link to the post. */
+function RowStats(p, t) {
+  const res = Object.values(p.results ?? {});
+  const liveOne = res.find((r) => r.live && r.permalink);
+  if (res.length && res.every((r) => r.live)) return h('span', { class: 'so-row-stats' }, h('span', { class: 'so-live-tag' }, 'Live'), liveOne && h('a', { href: liveOne.permalink, target: '_blank', rel: 'noopener' }, 'View'));
+  return h('span', { class: 'so-row-stats' }, h('span', {}, icon('eye', 13), num(t.views)), h('span', {}, icon('heart', 13), num(t.likes)), liveOne && h('span', { class: 'so-live-tag', title: 'Some of it went out for real' }, 'Live'));
+}
 function Row(p) {
   const k = kindById[p.kind] ?? kindById.note;
   const t = totalStats(p);
@@ -325,7 +388,7 @@ function Row(p) {
       h('a', { href: `#compose/${p.id}` }, h('strong', {}, p.title || k.label)),
       h('small', { class: 'muted' }, [k.label, p.status === 'scheduled' ? `goes out ${when(p.scheduledAt)}` : p.status === 'posted' ? `posted ${when(p.postedAt)}` : p.status === 'failed' ? 'needs a look' : 'draft', p.campaign].filter(Boolean).join(' · '))),
     h('span', { class: 'so-row-nets' }, p.networks.map((nw) => chip(nw, { small: true, on: !!p.results?.[nw] || p.status !== 'posted' }))),
-    p.status === 'posted' ? h('span', { class: 'so-row-stats' }, h('span', {}, icon('eye', 13), num(t.views)), h('span', {}, icon('heart', 13), num(t.likes))) : h('span'),
+    p.status === 'posted' ? RowStats(p, t) : h('span'),
     h('span', { class: 'so-row-tools' },
       p.status !== 'posted' && canEdit && h('button', { class: 'btn btn-xs btn-primary', onclick: () => push(p) }, 'Push now'),
       canEdit && h('button', { class: 'btn btn-xs btn-ghost', title: 'Make a copy', onclick: () => { const id = uid('post'); store.apply(col.add('posts', { ...structuredClone(p), id, status: 'draft', results: {}, postedAt: null, scheduledAt: null, title: `${p.title} (copy)`, createdAt: new Date().toISOString() })); location.hash = `#compose/${id}`; } }, 'Copy'),
@@ -372,21 +435,64 @@ function Calendar() {
 }
 
 /* ----------------------------------------------------------- channels and insights */
+/** How to connect each live network: what to ask for, and where to find it. */
+const LIVE_FORMS = {
+  bluesky: { title: 'Connect Bluesky', message: 'Use an app password, never your main password. Make one in Bluesky under Settings → Privacy and security → App passwords. Dashi keeps it on the server, sealed, and only uses it to post.',
+    fields: [{ name: 'identifier', label: 'Handle', placeholder: 'yourorg.bsky.social', required: true }, { name: 'password', label: 'App password', type: 'password', placeholder: 'xxxx-xxxx-xxxx-xxxx', required: true, autocomplete: 'off' }] },
+  mastodon: { title: 'Connect Mastodon', message: 'On your Mastodon server, go to Preferences → Development → New application. Tick write:statuses and write:media, save, then copy “Your access token”. Dashi keeps it on the server, sealed.',
+    fields: [{ name: 'instance', label: 'Your server', placeholder: 'mastodon.social', required: true }, { name: 'token', label: 'Access token', type: 'password', required: true, autocomplete: 'off' }] },
+  webhook: { title: 'Connect a webhook', message: 'Each post is sent to this address as JSON (title, text, link and the picture). Zapier, Make, IFTTT and Buffer can take it from there, or your own server. Add a signing secret to check it came from Dashi (header X-Dashi-Signature).',
+    fields: [{ name: 'url', label: 'Webhook address', type: 'url', placeholder: 'https://hooks.zapier.com/hooks/catch/…', required: true }, { name: 'signingSecret', label: 'Signing secret (optional)', type: 'password', autocomplete: 'off' }] },
+};
+const setChannel = (nw, patch) => store.apply(col.set('channels', { ...doc().channels, [nw]: patch && { ...(doc().channels[nw] ?? {}), ...patch } }));
+
+async function connectLive(n) {
+  const form = LIVE_FORMS[n.id];
+  let made = null;
+  const v = await uiForm({ title: form.title, message: form.message, fields: form.fields, ok: 'Connect', validate: async (values) => { made = await api('POST', `/api/social/accounts/${n.id}`, values); } });
+  if (!v || !made) return;
+  live.accounts[n.id] = { network: n.id, handle: made.handle, connectedAt: made.connectedAt };
+  setChannel(n.id, { network: n.id, handle: made.handle, connected: true, live: true, connectedAt: made.connectedAt, auto: doc().channels[n.id]?.auto ?? false });
+  toast(`${n.label} connected as ${made.handle}`);
+}
+async function disconnect(n, ch) {
+  if (!await uiConfirm(`Disconnect ${n.label}? Posts stay in your queue.${ch.live ? ' Dashi forgets the credentials.' : ''}`, { ok: 'Disconnect' })) return;
+  if (ch.live && live.accounts[n.id]) {
+    try { await api('DELETE', `/api/social/accounts/${n.id}`); } catch (e) { await uiAlert(e.message, { title: 'Couldn’t disconnect' }); return; }
+    delete live.accounts[n.id];
+  }
+  setChannel(n.id, { connected: false, live: false });
+}
+
 function Channels() {
   setCrumbs([]);
   const settings = doc().settings;
+  const canLive = (id) => live.networks.includes(id);
+  const card = (n) => {
+    const ch = doc().channels[n.id];
+    const on = !!ch?.connected;
+    const real = on && isLive(n.id);
+    const acc = live.accounts[n.id];
+    return h('article', { class: `so-channel${on ? ' on' : ''}${real ? ' live' : ''}`, style: `--net:${n.colour}` },
+      h('header', {}, chip(n.id, { on }), h('div', {}, h('strong', {}, n.label, real ? h('span', { class: 'so-live-badge' }, 'Live') : on && h('span', { class: 'so-practice-badge' }, 'Practice')),
+        h('small', { class: 'muted' }, on ? `${ch.handle} · since ${new Date(ch.connectedAt).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })}` : n.shape))),
+      h('p', { class: 'muted small' }, `${n.limit.toLocaleString('en-CA')} characters · ${n.media === 'required' ? 'a picture or video is required' : n.media === 'video' ? 'video only' : 'pictures optional'}`),
+      real && acc?.lastError && h('p', { class: 'so-error small' }, icon('alert', 13), ` Last try: ${acc.lastError}`),
+      on && h('label', { class: 'so-auto' }, h('input', { type: 'checkbox', class: 'toggle toggle-xs', checked: !!ch.auto, disabled: !canEdit, onchange: (e) => setChannel(n.id, { auto: e.target.checked }) }), 'Draft a post for each new episode'),
+      h('footer', {}, on
+        ? [h('button', { class: 'btn btn-xs btn-ghost', disabled: !canEdit, onclick: () => disconnect(n, ch) }, 'Disconnect'), !real && canLive(n.id) && h('button', { class: 'btn btn-xs btn-primary', disabled: !canEdit, onclick: () => connectLive(n) }, 'Connect for real')]
+        : canLive(n.id)
+          ? h('button', { class: 'btn btn-xs btn-primary', disabled: !canEdit, onclick: () => connectLive(n) }, 'Connect')
+          : h('button', { class: 'btn btn-xs', disabled: !canEdit, title: 'A practice connection: posts get a pretend link and pretend numbers', onclick: async () => { const handle = await uiPrompt(`Your ${n.label} handle`, `@${org.name.toLowerCase().replace(/[^a-z]+/g, '')}`, { title: `Practise with ${n.label}`, ok: 'Connect for practice', help: `${n.label} needs an approved app before Dashi can post for real. Until then, practise the whole flow: nothing leaves Dashi.` }); if (handle?.trim()) setChannel(n.id, { network: n.id, handle: handle.trim(), connected: true, live: false, connectedAt: new Date().toISOString(), auto: false }); } }, 'Practise')));
+  };
+  const liveNets = NETWORKS.filter((n) => canLive(n.id));
+  const practiceNets = NETWORKS.filter((n) => !canLive(n.id));
   return h('div', {},
-    h('p', { class: 'so-note' }, icon('alert', 16), 'Pretend connections: no network is really reached in this alpha. Connecting asks only for the handle to show in previews.'),
-    h('div', { class: 'so-channels' }, NETWORKS.map((n) => {
-      const ch = doc().channels[n.id];
-      return h('article', { class: `so-channel${ch?.connected ? ' on' : ''}`, style: `--net:${n.colour}` },
-        h('header', {}, chip(n.id, { on: !!ch?.connected }), h('div', {}, h('strong', {}, n.label), h('small', { class: 'muted' }, ch?.connected ? `${ch.handle} · since ${new Date(ch.connectedAt).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })}` : n.shape))),
-        h('p', { class: 'muted small' }, `${n.limit.toLocaleString('en-CA')} characters · ${n.media === 'required' ? 'a picture or video is required' : n.media === 'video' ? 'video only' : 'pictures optional'}`),
-        ch?.connected && h('label', { class: 'so-auto' }, h('input', { type: 'checkbox', class: 'toggle toggle-xs', checked: !!ch.auto, disabled: !canEdit, onchange: (e) => store.apply(col.set('channels', { ...doc().channels, [n.id]: { ...ch, auto: e.target.checked } })) }), 'Draft a post for each new episode'),
-        h('footer', {}, ch?.connected
-          ? h('button', { class: 'btn btn-xs btn-ghost', disabled: !canEdit, onclick: async () => { if (await uiConfirm(`Disconnect ${n.label}? Posts stay in your queue.`, { ok: 'Disconnect' })) store.apply(col.set('channels', { ...doc().channels, [n.id]: { ...ch, connected: false } })); } }, 'Disconnect')
-          : h('button', { class: 'btn btn-xs btn-primary', disabled: !canEdit, onclick: async () => { const handle = await uiPrompt(`Your ${n.label} handle`, `@${org.name.toLowerCase().replace(/[^a-z]+/g, '')}`, { title: `Connect ${n.label} (pretend)`, ok: 'Connect' }); if (handle?.trim()) store.apply(col.set('channels', { ...doc().channels, [n.id]: { network: n.id, handle: handle.trim(), connected: true, connectedAt: new Date().toISOString(), auto: false } })); } }, 'Connect')));
-    })),
+    liveNets.length
+      ? [h('div', { class: 'so-section-head' }, h('h3', {}, 'Post for real'), h('span', { class: 'muted small' }, 'Dashi posts with your own account. Credentials stay on the server.')), h('div', { class: 'so-channels' }, liveNets.map(card))]
+      : h('p', { class: 'so-note' }, icon('alert', 16), 'Posting for real needs Dashi’s server. In this local demo every network is practice.'),
+    h('div', { class: 'so-section-head' }, h('h3', {}, liveNets.length ? 'Practice for now' : 'Networks'), h('span', { class: 'muted small' }, 'These need an approved app on each network before Dashi can post. Practise the flow: nothing leaves Dashi.')),
+    h('div', { class: 'so-channels' }, practiceNets.map(card)),
     h('section', { class: 'so-settings' }, h('h3', {}, 'On every post'),
       h('label', { class: 'so-field' }, h('span', {}, 'Hashtags, separated by commas'), h('input', { class: 'input input-sm w-full', value: settings.hashtags.join(', '), disabled: !canEdit, onchange: (e) => store.apply(col.set('settings', { ...settings, hashtags: e.target.value.split(',').map((x) => x.trim().replace(/^#/, '')).filter(Boolean) })) })),
       h('label', { class: 'so-field' }, h('span', {}, 'Sign-off'), h('input', { class: 'input input-sm w-full', value: settings.signoff, placeholder: 'e.g. Give local: kestrelbay.example/give', disabled: !canEdit, onchange: (e) => store.apply(col.set('settings', { ...settings, signoff: e.target.value })) }))));
@@ -396,9 +502,9 @@ function Insights() {
   setCrumbs([]);
   const posted = Object.values(doc().posts).filter((p) => p.status === 'posted');
   // Refresh the pretend numbers as time passes.
-  for (const p of posted) for (const [nw, res] of Object.entries(p.results ?? {})) res.stats = statsFor(p, nw, res.at);
+  for (const p of posted) for (const [nw, res] of Object.entries(p.results ?? {})) if (!res.live) res.stats = statsFor(p, nw, res.at);
   const byNet = Object.fromEntries(NETWORKS.map((n) => [n.id, { views: 0, likes: 0, shares: 0, posts: 0 }]));
-  for (const p of posted) for (const [nw, res] of Object.entries(p.results ?? {})) { const b = byNet[nw]; if (!b) continue; b.views += res.stats.views; b.likes += res.stats.likes; b.shares += res.stats.shares; b.posts++; }
+  for (const p of posted) for (const [nw, res] of Object.entries(p.results ?? {})) { const b = byNet[nw]; if (!b) continue; b.views += res.stats?.views ?? 0; b.likes += res.stats?.likes ?? 0; b.shares += res.stats?.shares ?? 0; b.posts++; }
   const all = posted.reduce((t, p) => { const s = totalStats(p); t.views += s.views; t.likes += s.likes; t.shares += s.shares; t.comments += s.comments; return t; }, { views: 0, likes: 0, shares: 0, comments: 0 });
   const max = Math.max(1, ...Object.values(byNet).map((b) => b.views));
   const byKind = POST_KINDS.map((k) => { const ps = posted.filter((p) => p.kind === k.id); const v = ps.reduce((t, p) => t + totalStats(p).views, 0); return [k, ps.length, ps.length ? Math.round(v / ps.length) : 0]; });

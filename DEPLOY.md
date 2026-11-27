@@ -46,6 +46,7 @@ Copy `.env.example` to `.env` and change what you need. The ones that matter on 
 - `DNS_TARGET`: the name orgs on the Custom plan point their own domain at with a CNAME, such as `sites.dashi.ca`. Without it, they point at `BASE_DOMAIN`.
 - `FLY_API_TOKEN` and `FLY_APP_NAME`: on Fly.io, the platform asks for a certificate for each custom domain as soon as its DNS checks out.
 - `MAIL_PROVIDER`, `MAIL_API_KEY` and `MAIL_FROM`: email for password resets, invitations and support replies (see below).
+- `SOCIAL_SECRET_KEY`: seals the Bluesky, Mastodon and webhook credentials orgs connect in the Social Media Integrator. Set any long random string (`openssl rand -hex 32`). Without it, a key file `social.key` is made in the data folder the first time; keep it with your backups, or connected accounts have to be connected again.
 - `SUPPORT_EMAIL`: where new support tickets are announced. The platform admin's email if not set.
 - `STAGING` and `STAGING_ACCESS_CODE`: a test server for testers (see below).
 

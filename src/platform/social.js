@@ -3,21 +3,20 @@
  * Web. Make a post once (an episode clip, a blog post, a data
  * card, a dashboard), fit it to each network, schedule it, and push it out.
  *
- * Pushing is MOCKED in this alpha: nothing leaves Dashi. A push writes a
- * pretend permalink and pretend numbers, so the flow can be tried end to
- * end before real network connections (OAuth apps, review, rate limits)
- * are built.
+ * Bluesky, Mastodon and webhooks post for real through the server
+ * (server/social.js). The others are PRACTICE until their apps are approved:
+ * a push writes a pretend permalink and pretend numbers (mockPush).
  *
  *   social doc {
  *     id: 'social',
- *     channels: { [network]: { network, handle, connected, connectedAt, auto: bool } },
+ *     channels: { [network]: { network, handle, connected, live: bool, connectedAt, auto: bool } },   live: credentials on the server
  *     posts: { [id]: Post },
  *     settings: { hashtags: [], signoff, utm: bool },
  *   }
  *   Post { id, kind, title, text, source: { type, id } | null, media: { kind, src, alt } | null,
  *          networks: [network], perNetwork: { [network]: { text } },
  *          status: 'draft' | 'scheduled' | 'posted' | 'failed', scheduledAt, postedAt,
- *          results: { [network]: { permalink, at, stats: { views, likes, shares, comments } } },
+ *          results: { [network]: { permalink, at, live?, error?, mock?, stats?: { views, likes, shares, comments } } },   live ones have no stats yet
  *          createdBy, createdAt, campaign }
  */
 export const NETWORKS = [
@@ -28,6 +27,7 @@ export const NETWORKS = [
   { id: 'linkedin', label: 'LinkedIn', short: 'IN', limit: 3000, media: 'optional', shape: 'Link preview, picture or document', colour: '#3e8fa6' },
   { id: 'bluesky', label: 'Bluesky', short: 'BS', limit: 300, media: 'optional', shape: 'Up to four pictures', colour: '#4da65c' },
   { id: 'mastodon', label: 'Mastodon', short: 'MA', limit: 500, media: 'optional', shape: 'Up to four pictures', colour: '#7b2fe8' },
+  { id: 'webhook', label: 'Webhook', short: 'WH', limit: 10000, media: 'optional', shape: 'Zapier, Make, Buffer or your own server', colour: '#56657f' },
 ];
 export const networkById = Object.fromEntries(NETWORKS.map((n) => [n.id, n]));
 
@@ -109,6 +109,7 @@ export function mockPush(post, network, channel, at = new Date().toISOString()) 
     linkedin: `https://linkedin.example/feed/update/${slug}`,
     bluesky: `https://bsky.example/profile/${handle}/post/${slug}`,
     mastodon: `https://mastodon.example/@${handle}/${slug}`,
+    webhook: `https://hooks.example/${slug}`,
   }[network];
   return { permalink, at, mock: true, stats: statsFor(post, network, at) };
 }

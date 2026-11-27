@@ -100,7 +100,7 @@
 .so-channel header { display: flex; align-items: center; gap: 10px; }
 .so-channel header div { display: flex; flex-direction: column; }
 .so-channel p { margin: 0; }
-.so-channel footer { margin-top: auto; }
+.so-channel footer { margin-top: auto; display: flex; gap: 6px; flex-wrap: wrap; }
 .so-auto { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .so-settings { margin-top: 24px; max-width: 640px; display: grid; gap: 12px; }
 
@@ -119,3 +119,12 @@
 .so-bykind { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
 .so-bykind > div { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 12px; background: #fff; border: 1px solid var(--line, #e3e5ea); }
 .so-bykind strong { font-size: 22px; }
+
+/* Live and practice connections (d, 2026-11-27). */
+.so-section-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 18px 0 10px; }
+.so-section-head h3 { margin: 0; font-size: 1rem; }
+.so-live-badge, .so-practice-badge, .so-live-tag { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 999px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.03em; vertical-align: 2px; }
+.so-live-badge, .so-live-tag { background: #2a9d8f; color: #fff; }
+.so-live-tag { margin-left: 0; }
+.so-practice-badge { border: 1px dashed currentColor; color: var(--muted, #6b7280); font-weight: 600; }
+.so-error { color: #b5442f; margin: 0; }
