@@ -51,14 +51,21 @@ To connect:
 
 Dashi checks the details with the network as you connect. Passwords and tokens stay on the server, sealed, and are never in your organisation's documents.
 
+On a live channel's card:
+- **Check connection** signs in again without posting anything (a webhook gets a small ping instead).
+- **Who sees posts** (Mastodon only): Public, Unlisted (public but kept off timelines), or Followers only. Unlisted is a good setting for your first tries.
+
+The first time, Channels shows a short **Trying it live** checklist.
+
 # Make a post
 1. Open **Create a post** and pick what it's about: an episode, a blog post, a figure from your data, or a dashboard.
 2. Tick the networks. **How it looks** shows a preview for each one, and the counter shows each network's length limit. Use a network's tab to give it its own wording.
 3. Choose **Save draft**, **Schedule** with a date and time, or **Push now**.
 
 # What happens next
-- **Push now** posts to the live networks straight away. Picture cards are turned into JPEGs first. The **Posted** list links to each live post.
-- **Scheduled** posts go out on time, even when nobody has Dashi open.
+- **Push now** first asks you to confirm, naming each account it will post to, then posts to the live networks straight away. Picture cards are turned into JPEGs first. The **Posted** list links to each live post.
+- **Scheduled** posts go out on time, even when nobody has Dashi open. Live networks get the words and link; use **Push now** to send the picture as well.
+- A network that didn't take the post shows **Try again** in the Posted list.
 - A post goes to each network **at most once**, so a second press or a page reload won't post it twice.
 
 # Tips

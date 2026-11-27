@@ -199,7 +199,7 @@ function drawSide(view) {
 
 const header = (current) => PluginHeader('social', {
   title: 'Social Media Integrator',
-  blurb: 'Experimental. Make a post once from your episodes, blog posts, data and dashboards, fit it to every network, then schedule it or push it out. Pushing is pretend in this alpha: nothing leaves Dashi yet.',
+  blurb: 'Experimental. Make a post once from your episodes, blog posts, data and dashboards, fit it to every network, then schedule it or push it out. Bluesky, Mastodon and webhooks post for real; the other networks are practice for now.',
   tabs: [
     { id: 'compose', label: 'Create', icon: 'plus' },
     { id: 'queue', label: 'Queue', icon: 'listBullets' },
@@ -247,8 +247,24 @@ async function rasterise(media) {
   return null;
 }
 
+/**
+ * Before a person pushes for real: say which accounts it goes to, publicly,
+ * and that Dashi can't take it back. Practice pushes need no question.
+ */
+async function confirmLive(post) {
+  const nets = post.networks.filter((nw) => isLive(nw) && !(post.results?.[nw]?.live && post.results[nw].permalink));
+  if (!nets.length) return true;
+  const where = nets.map((nw) => {
+    const vis = nw === 'mastodon' && live.accounts.mastodon?.visibility;
+    return `${networkById[nw].label} as ${live.accounts[nw]?.handle ?? doc().channels[nw]?.handle}${vis && vis !== 'public' ? ` (${VIS_LABEL[vis]})` : ''}`;
+  });
+  return uiConfirm(`This posts “${post.title || 'this post'}” for real to ${where.join(', ')}. Dashi can’t unsend it: you’d delete it on the network itself.`, { title: 'Post for real now?', ok: 'Post now' });
+}
+const VIS_LABEL = { public: 'public', unlisted: 'unlisted: public, kept off timelines', private: 'followers only' };
+
 /** Send a post to its networks: for real where the network is live, as practice elsewhere. */
-async function push(post, { quiet = false } = {}) {
+async function push(post, { quiet = false, ask = !quiet } = {}) {
+  if (ask && !await confirmLive(post)) return false;
   const at = new Date().toISOString();
   const results = { ...(post.results ?? {}) };
   const failed = [];
@@ -268,13 +284,15 @@ async function push(post, { quiet = false } = {}) {
       } catch (e) { failed.push(`${networkById[nw]?.label} (${e.message})`); }
     } else results[nw] = mockPush(post, nw, ch, at);
   }
-  const ok = Object.keys(results).length > 0;
+  const ok = Object.values(results).some((r) => r.permalink || r.mock);
   const cur = doc().posts[post.id];
   if (cur) store.apply(col.update('posts', post.id, { results, status: failed.length && !ok ? 'failed' : 'posted', postedAt: at, failed }));
   const practice = Object.keys(results).filter((k) => results[k].mock && !post.results?.[k]).map((k) => networkById[k].label);
-  if (!quiet) toast(ok
+  if (quiet) return ok;
+  toast(ok
     ? [sentLive.length && `Posted to ${sentLive.join(', ')}`, practice.length && `practice push to ${practice.join(', ')} (nothing left Dashi)`, failed.length && `not sent to ${failed.join(', ')}`].filter(Boolean).join('; ').replace(/^./, (c) => c.toUpperCase())
     : `Not sent: ${failed.join(', ')}.`, ok && !failed.length ? 'ok' : 'error');
+  return ok;
 }
 
 /* ----------------------------------------------------------- create */
@@ -310,7 +328,8 @@ function Compose(r) {
       oninput: (e) => { if (tab === 'all') post.text = e.target.value; else post.perNetwork[tab] = { text: e.target.value }; counter.textContent = `${e.target.value.length} / ${limit}`; counter.classList.toggle('over', e.target.value.length > limit); drawPreviews(); } });
     const channels = doc().channels;
     const previews = h('div', { class: 'so-previews' });
-    const drawPreviews = () => previews.replaceChildren(...(post.networks.length ? post.networks : ['instagram']).map((nw) => Preview(post, nw, settings)));
+    // One network's tab shows just its preview; Every network shows them all.
+    const drawPreviews = () => previews.replaceChildren(...(tab !== 'all' ? [tab] : post.networks.length ? post.networks : ['instagram']).map((nw) => Preview(post, nw, settings)));
     drawPreviews();
     const at = h('input', { type: 'datetime-local', class: 'input input-sm', 'aria-label': 'When it goes out', value: (post.scheduledAt ?? new Date(Date.now() + 864e5).toISOString()).slice(0, 16) });
     const problems = post.networks.flatMap((nw) => problemsFor(post, nw, settings).map((x) => [nw, x]));
@@ -336,11 +355,23 @@ function Compose(r) {
         h('div', { class: 'so-actions' },
           h('button', { class: 'btn btn-sm', disabled: !canEdit, onclick: () => { save('draft'); toast('Saved as a draft'); location.hash = '#queue'; } }, 'Save draft'),
           h('span', { class: 'so-sched' }, at, h('button', { class: 'btn btn-sm btn-secondary', disabled: !canEdit || !post.networks.length, onclick: () => { save('scheduled', { scheduledAt: new Date(at.value).toISOString() }); toast(`Scheduled for ${when(new Date(at.value).toISOString())}`); location.hash = '#calendar'; } }, icon('clock', 14), 'Schedule')),
-          h('button', { class: 'btn btn-sm btn-primary', disabled: !canEdit || !post.networks.length, onclick: () => { const p = save('draft'); push(doc().posts[p.id]); location.hash = '#posted'; } }, icon('share', 14), 'Push now'))),
+          h('button', { class: 'btn btn-sm btn-primary', disabled: !canEdit || !post.networks.length, onclick: async () => { if (!await confirmLive(post)) return; const p = save('draft'); location.hash = '#posted'; push(doc().posts[p.id], { ask: false }); } }, icon('share', 14), 'Push now')),
+        liveNote(post)),
       h('div', { class: 'so-side' }, h('h3', {}, 'How it looks'), previews));
   };
   draw();
   return wrap;
+}
+
+/** Under the buttons: which networks post for real, and what a scheduled live post leaves out. */
+function liveNote(post) {
+  const real = post.networks.filter(isLive);
+  const practice = post.networks.filter((nw) => !isLive(nw));
+  if (!post.networks.length) return null;
+  return h('p', { class: 'so-live-note muted small' },
+    real.length ? [h('span', { class: 'so-live-tag' }, 'Live'), ` ${real.map((nw) => networkById[nw].label).join(', ')} post for real.`] : null,
+    practice.length ? ` ${practice.map((nw) => networkById[nw].label).join(', ')} ${practice.length === 1 ? 'is' : 'are'} practice: nothing leaves Dashi.` : null,
+    real.length && post.media ? ' Scheduled posts go to live networks as words and link; press Push now to send the picture too.' : null);
 }
 
 function Start() {
@@ -391,8 +422,9 @@ function Row(p) {
     p.status === 'posted' ? RowStats(p, t) : h('span'),
     h('span', { class: 'so-row-tools' },
       p.status !== 'posted' && canEdit && h('button', { class: 'btn btn-xs btn-primary', onclick: () => push(p) }, 'Push now'),
+      p.status === 'posted' && p.failed?.length > 0 && canEdit && h('button', { class: 'btn btn-xs', title: `Didn’t go to ${p.failed.join(', ')}`, onclick: () => push(p) }, 'Try again'),
       canEdit && h('button', { class: 'btn btn-xs btn-ghost', title: 'Make a copy', onclick: () => { const id = uid('post'); store.apply(col.add('posts', { ...structuredClone(p), id, status: 'draft', results: {}, postedAt: null, scheduledAt: null, title: `${p.title} (copy)`, createdAt: new Date().toISOString() })); location.hash = `#compose/${id}`; } }, 'Copy'),
-      canEdit && h('button', { class: 'btn btn-xs btn-ghost btn-square', 'aria-label': `Delete ${p.title}`, onclick: async () => { if (await uiConfirm(`Delete “${p.title}”?${p.status === 'posted' ? ' It stays up on the networks (pretend ones, for now).' : ''}`)) store.apply(col.remove('posts', p.id)); } }, icon('trash', 13))));
+      canEdit && h('button', { class: 'btn btn-xs btn-ghost btn-square', 'aria-label': `Delete ${p.title}`, onclick: async () => { if (await uiConfirm(`Delete “${p.title}”?${p.status === 'posted' ? ' Dashi forgets it, but anything posted for real stays up on the networks: delete it there too.' : ''}`)) store.apply(col.remove('posts', p.id)); } }, icon('trash', 13))));
 }
 
 function Queue() {
@@ -440,7 +472,8 @@ const LIVE_FORMS = {
   bluesky: { title: 'Connect Bluesky', message: 'Use an app password, never your main password. Make one in Bluesky under Settings → Privacy and security → App passwords. Dashi keeps it on the server, sealed, and only uses it to post.',
     fields: [{ name: 'identifier', label: 'Handle', placeholder: 'yourorg.bsky.social', required: true }, { name: 'password', label: 'App password', type: 'password', placeholder: 'xxxx-xxxx-xxxx-xxxx', required: true, autocomplete: 'off' }] },
   mastodon: { title: 'Connect Mastodon', message: 'On your Mastodon server, go to Preferences → Development → New application. Tick write:statuses and write:media, save, then copy “Your access token”. Dashi keeps it on the server, sealed.',
-    fields: [{ name: 'instance', label: 'Your server', placeholder: 'mastodon.social', required: true }, { name: 'token', label: 'Access token', type: 'password', required: true, autocomplete: 'off' }] },
+    fields: [{ name: 'instance', label: 'Your server', placeholder: 'mastodon.social', required: true }, { name: 'token', label: 'Access token', type: 'password', required: true, autocomplete: 'off' },
+      { name: 'visibility', label: 'Who sees posts', type: 'select', value: 'unlisted', options: [{ id: 'unlisted', label: 'Unlisted: public, kept off timelines (good for a first try)' }, { id: 'public', label: 'Public' }, { id: 'private', label: 'Followers only' }] }] },
   webhook: { title: 'Connect a webhook', message: 'Each post is sent to this address as JSON (title, text, link and the picture). Zapier, Make, IFTTT and Buffer can take it from there, or your own server. Add a signing secret to check it came from Dashi (header X-Dashi-Signature).',
     fields: [{ name: 'url', label: 'Webhook address', type: 'url', placeholder: 'https://hooks.zapier.com/hooks/catch/…', required: true }, { name: 'signingSecret', label: 'Signing secret (optional)', type: 'password', autocomplete: 'off' }] },
 };
@@ -455,6 +488,26 @@ async function connectLive(n) {
   setChannel(n.id, { network: n.id, handle: made.handle, connected: true, live: true, connectedAt: made.connectedAt, auto: doc().channels[n.id]?.auto ?? false });
   toast(`${n.label} connected as ${made.handle}`);
 }
+async function checkLive(n, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  try {
+    const r = await api('POST', `/api/social/accounts/${n.id}/check`);
+    live.accounts[n.id] = { ...live.accounts[n.id], handle: r.handle, lastError: null };
+    toast(`${n.label} works: signed in as ${r.handle}`, 'ok');
+  } catch (e) {
+    live.accounts[n.id] = { ...live.accounts[n.id], lastError: e.message };
+    toast(e.message, 'error');
+  }
+  render();
+}
+async function setVisibility(v) {
+  try {
+    const r = await api('POST', '/api/social/accounts/mastodon/options', { visibility: v });
+    live.accounts.mastodon = { ...live.accounts.mastodon, visibility: r.visibility };
+    toast(`Mastodon posts will be ${VIS_LABEL[r.visibility]}`);
+  } catch (e) { toast(e.message, 'error'); }
+}
 async function disconnect(n, ch) {
   if (!await uiConfirm(`Disconnect ${n.label}? Posts stay in your queue.${ch.live ? ' Dashi forgets the credentials.' : ''}`, { ok: 'Disconnect' })) return;
   if (ch.live && live.accounts[n.id]) {
@@ -462,6 +515,19 @@ async function disconnect(n, ch) {
     delete live.accounts[n.id];
   }
   setChannel(n.id, { connected: false, live: false });
+}
+
+/** A short first-try checklist, until something has gone out for real. */
+function TryLive() {
+  if (Object.values(live.accounts).some((x) => x.lastUsedAt)) return null;
+  return h('details', { class: 'so-try', open: true },
+    h('summary', {}, icon('spark', 15), 'Trying it live for the first time'),
+    h('ol', {},
+      h('li', {}, h('strong', {}, 'Start safe. '), 'Connect a webhook into your own email or chat (Zapier or Make can forward it), or Mastodon set to Unlisted. Bluesky has no private posts, so use a test account there.'),
+      h('li', {}, h('strong', {}, 'Check the connection. '), 'It signs in without posting (a webhook gets a ping).'),
+      h('li', {}, h('strong', {}, 'Push one short post. '), 'Dashi asks first and names the accounts. The Posted list links to the live post.'),
+      h('li', {}, h('strong', {}, 'Then schedule one '), 'a few minutes ahead and close the page: the server sends it on time.')),
+    h('p', { class: 'muted small' }, 'Each post goes to each network once, even if you press twice. Help has the full guide: ', h('a', { href: 'help.html#new-in-0-4/social-posting' }, 'Post to social media for real'), '.'));
 }
 
 function Channels() {
@@ -478,9 +544,15 @@ function Channels() {
         h('small', { class: 'muted' }, on ? `${ch.handle} · since ${new Date(ch.connectedAt).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })}` : n.shape))),
       h('p', { class: 'muted small' }, `${n.limit.toLocaleString('en-CA')} characters · ${n.media === 'required' ? 'a picture or video is required' : n.media === 'video' ? 'video only' : 'pictures optional'}`),
       real && acc?.lastError && h('p', { class: 'so-error small' }, icon('alert', 13), ` Last try: ${acc.lastError}`),
+      real && acc?.lastUsedAt && h('p', { class: 'muted small' }, `Last posted ${when(acc.lastUsedAt)}`),
+      real && n.id === 'mastodon' && h('label', { class: 'so-field so-vis' }, h('span', {}, 'Who sees posts'),
+        h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => setVisibility(e.target.value) },
+          Object.entries(VIS_LABEL).map(([v, label]) => h('option', { value: v, selected: (acc?.visibility ?? 'public') === v }, label.replace(/^./, (c) => c.toUpperCase()))))),
       on && h('label', { class: 'so-auto' }, h('input', { type: 'checkbox', class: 'toggle toggle-xs', checked: !!ch.auto, disabled: !canEdit, onchange: (e) => setChannel(n.id, { auto: e.target.checked }) }), 'Draft a post for each new episode'),
       h('footer', {}, on
-        ? [h('button', { class: 'btn btn-xs btn-ghost', disabled: !canEdit, onclick: () => disconnect(n, ch) }, 'Disconnect'), !real && canLive(n.id) && h('button', { class: 'btn btn-xs btn-primary', disabled: !canEdit, onclick: () => connectLive(n) }, 'Connect for real')]
+        ? [h('button', { class: 'btn btn-xs btn-ghost', disabled: !canEdit, onclick: () => disconnect(n, ch) }, 'Disconnect'),
+          real && h('button', { class: 'btn btn-xs', disabled: !canEdit, title: n.id === 'webhook' ? 'Sends a ping (event dashi.social.ping), not a post' : 'Signs in to check; posts nothing', onclick: (e) => checkLive(n, e.currentTarget) }, 'Check connection'),
+          !real && canLive(n.id) && h('button', { class: 'btn btn-xs btn-primary', disabled: !canEdit, onclick: () => connectLive(n) }, 'Connect for real')]
         : canLive(n.id)
           ? h('button', { class: 'btn btn-xs btn-primary', disabled: !canEdit, onclick: () => connectLive(n) }, 'Connect')
           : h('button', { class: 'btn btn-xs', disabled: !canEdit, title: 'A practice connection: posts get a pretend link and pretend numbers', onclick: async () => { const handle = await uiPrompt(`Your ${n.label} handle`, `@${org.name.toLowerCase().replace(/[^a-z]+/g, '')}`, { title: `Practise with ${n.label}`, ok: 'Connect for practice', help: `${n.label} needs an approved app before Dashi can post for real. Until then, practise the whole flow: nothing leaves Dashi.` }); if (handle?.trim()) setChannel(n.id, { network: n.id, handle: handle.trim(), connected: true, live: false, connectedAt: new Date().toISOString(), auto: false }); } }, 'Practise')));
@@ -489,7 +561,7 @@ function Channels() {
   const practiceNets = NETWORKS.filter((n) => !canLive(n.id));
   return h('div', {},
     liveNets.length
-      ? [h('div', { class: 'so-section-head' }, h('h3', {}, 'Post for real'), h('span', { class: 'muted small' }, 'Dashi posts with your own account. Credentials stay on the server.')), h('div', { class: 'so-channels' }, liveNets.map(card))]
+      ? [h('div', { class: 'so-section-head' }, h('h3', {}, 'Post for real'), h('span', { class: 'muted small' }, 'Dashi posts with your own account. Credentials stay on the server.')), TryLive(), h('div', { class: 'so-channels' }, liveNets.map(card))]
       : h('p', { class: 'so-note' }, icon('alert', 16), 'Posting for real needs Dashi’s server. In this local demo every network is practice.'),
     h('div', { class: 'so-section-head' }, h('h3', {}, liveNets.length ? 'Practice for now' : 'Networks'), h('span', { class: 'muted small' }, 'These need an approved app on each network before Dashi can post. Practise the flow: nothing leaves Dashi.')),
     h('div', { class: 'so-channels' }, practiceNets.map(card)),

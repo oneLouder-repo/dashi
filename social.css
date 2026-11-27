@@ -128,3 +128,34 @@
 .so-live-tag { margin-left: 0; }
 .so-practice-badge { border: 1px dashed currentColor; color: var(--muted, #6b7280); font-weight: 600; }
 .so-error { color: #b5442f; margin: 0; }
+
+/* Getting ready to post for real (d, 2026-11-27) */
+.so-live-note { margin: 8px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; line-height: 1.5; }
+.so-try { margin: 0 0 14px; padding: 12px 16px; border-radius: 12px; background: color-mix(in oklab, #4da65c 7%, var(--panel, #fff)); border: 1px solid color-mix(in oklab, #4da65c 22%, transparent); }
+.so-try summary { display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; }
+.so-try ol { margin: 10px 0 6px; padding-left: 22px; display: grid; gap: 6px; font-size: 13.5px; line-height: 1.5; }
+.so-try p { margin: 4px 0 0; }
+.so-vis { margin: 4px 0 8px; }
+.so-vis select { max-width: 100%; }
+
+/* Softer, in Dashi's look (d, 2026-11-27): white cards with a light line and a soft shadow, the network's
+   colour as a thin accent, and hovers that tint rather than draw a black outline and a hard offset shadow. */
+.social-app { --so-line: color-mix(in oklab, #16181d 12%, transparent); --so-soft: 0 1px 2px rgb(22 24 29 / .05), 0 8px 22px -14px rgb(22 24 29 / .22); }
+.so-note { border: 1px solid color-mix(in oklab, #e0a92a 40%, transparent); background: color-mix(in oklab, #f7c744 14%, #fff); }
+.so-start { border: 1px solid var(--so-line); box-shadow: var(--so-soft); transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease; }
+.so-start:hover { transform: translateY(-1px); border-color: color-mix(in oklab, #c77deb 35%, transparent); box-shadow: 0 2px 4px rgb(22 24 29 / .05), 0 14px 30px -16px rgb(22 24 29 / .28); }
+.so-recent-list a:hover { border-color: color-mix(in oklab, #c77deb 35%, transparent); background: color-mix(in oklab, #c77deb 5%, #fff); }
+.so-kind.on { border-color: color-mix(in oklab, #c77deb 55%, transparent); box-shadow: 0 0 0 3px color-mix(in oklab, #c77deb 14%, transparent); }
+.so-net-toggle.on { border-color: color-mix(in oklab, var(--net, #c77deb) 55%, transparent); }
+.so-tabs { border-bottom: 1px solid var(--so-line); }
+.so-tabs button.on { background: color-mix(in oklab, #c77deb 12%, #fff); color: #16181d; box-shadow: inset 0 -2px 0 #c77deb; }
+.so-preview { border: 1px solid var(--so-line); box-shadow: var(--so-soft); border-top: 3px solid var(--net); }
+.so-thumb { border: 1px solid var(--so-line); }
+.so-day.today { border: 1.5px solid color-mix(in oklab, #c77deb 60%, transparent); }
+.so-channel { border: 1px solid var(--so-line); }
+.so-channel.on { border-color: var(--so-line); border-top: 3px solid var(--net); box-shadow: var(--so-soft); }
+.so-kpi { border: 1px solid var(--so-line); box-shadow: var(--so-soft); }
+/* The previews: two across, scrolling beside the editor rather than making the page eight pictures tall. */
+.so-side { top: 12px; max-height: calc(100vh - 150px); overflow: auto; padding: 2px 6px 6px 2px; }
+.so-previews { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.so-preview p { font-size: 12.5px; }

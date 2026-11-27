@@ -233,7 +233,7 @@ export const PLUGINS = [
     href: 'social.html',
     icon: 'share',
     experimental: true,
-    blurb: 'Experimental: make posts from your episodes, blog posts, data and dashboards, fit them to each network, schedule them and push them to Instagram, Facebook, TikTok, YouTube and more (pretend pushes in this alpha).',
+    blurb: 'Experimental: make posts from your episodes, blog posts, data and dashboards, fit them to each network, schedule them and push them out: Bluesky, Mastodon and webhooks for real, Instagram, Facebook, TikTok, YouTube and LinkedIn as practice until their apps are approved.',
     stats: ({ social }) => { const ps = Object.values(social?.posts ?? {}); return `${ps.filter((p) => p.status === 'scheduled').length} scheduled · ${ps.filter((p) => p.status === 'posted').length} posted · experimental`; },
   },
   {

@@ -132,3 +132,29 @@ test('the scheduler sends due posts to live networks and leaves practice ones fo
   assert.equal(writes, 1);
   s.done();
 });
+
+test('checking a connection posts nothing public; Mastodon visibility and Bluesky length are kept to', async () => {
+  const s = setup();
+  try {
+    const ctx = ctxFor(s);
+    const bs = await NETWORK_CLIENTS.bluesky.connect({ identifier: 'kestrel.bsky.social', password: 'app-pass' }, ctx);
+    assert.equal((await NETWORK_CLIENTS.bluesky.check(bs.secret, ctx)).handle, '@kestrel.bsky.social');
+    assert.ok(!s.sent.some((x) => x.url.endsWith('createRecord')), 'a check makes no post');
+    await assert.rejects(NETWORK_CLIENTS.bluesky.push(bs.secret, { text: 'x'.repeat(301) }, ctx), /301 characters/);
+    assert.ok((await NETWORK_CLIENTS.bluesky.push(bs.secret, { text: '👋🏽'.repeat(300) }, ctx)).permalink, 'an emoji counts as one');
+
+    const ma = await NETWORK_CLIENTS.mastodon.connect({ instance: 'mastodon.example', token: 'tok', visibility: 'unlisted' }, ctx);
+    assert.equal(ma.secret.visibility, 'unlisted');
+    await NETWORK_CLIENTS.mastodon.push(ma.secret, { text: 'Hello', idempotencyKey: 'p:m' }, ctx);
+    assert.equal(s.sent.find((x) => x.url.endsWith('/api/v1/statuses')).body.visibility, 'unlisted');
+    const odd = await NETWORK_CLIENTS.mastodon.connect({ instance: 'mastodon.example', token: 'tok', visibility: 'everyone!' }, ctx);
+    assert.equal(odd.secret.visibility, 'public', 'an unknown visibility falls back to public');
+    await assert.rejects(NETWORK_CLIENTS.mastodon.check({ ...ma.secret, token: 'bad' }, ctx), /invalid/);
+
+    const wh = await NETWORK_CLIENTS.webhook.connect({ url: 'https://hooks.example/hook', signingSecret: 'sh' }, ctx);
+    await NETWORK_CLIENTS.webhook.check(wh.secret, ctx);
+    const ping = s.sent.filter((x) => x.url === 'https://hooks.example/hook').pop();
+    assert.equal(ping.body.event, 'dashi.social.ping');
+    assert.match(ping.headers['x-dashi-signature'], /^sha256=/);
+  } finally { s.done(); }
+});

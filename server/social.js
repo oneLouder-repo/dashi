@@ -18,6 +18,9 @@
  *   GET    /api/social/accounts            the org's live accounts (never the secrets)
  *   POST   /api/social/accounts/<network>  connect: checks the credentials with the network first
  *   DELETE /api/social/accounts/<network>  forget them
+ *   POST   /api/social/accounts/<network>/check    check the credentials still work (posts nothing public;
+ *                                                  a webhook gets a { event: 'dashi.social.ping' })
+ *   POST   /api/social/accounts/<network>/options  { visibility } for Mastodon: public, unlisted or private
  *   POST   /api/social/push                { network, postId, text, title?, link?, image?: { dataUrl, alt } }
  */
 import { createCipheriv, createDecipheriv, randomBytes, createHash, createHmac } from 'node:crypto';
@@ -39,6 +42,11 @@ export const SOCIAL_SCHEMA = [
 
 export const LIVE_NETWORKS = ['bluesky', 'mastodon', 'webhook'];
 const clip = (s, n) => String(s ?? '').replace(/\u0000/g, '').trim().slice(0, n);
+/** Mastodon's post visibility: public, unlisted (public but kept off timelines), or private (followers only). */
+export const VISIBILITIES = ['public', 'unlisted', 'private'];
+const visibilityOf = (v) => (VISIBILITIES.includes(v) ? v : 'public');
+/** Characters as people count them (an emoji is one), which is how Bluesky counts its 300. */
+export const graphemes = (s) => { try { return [...new Intl.Segmenter('en', { granularity: 'grapheme' }).segment(String(s ?? ''))].length; } catch { return [...String(s ?? '')].length; } };
 
 /* ---------------------------------------------------------------- sealing */
 
@@ -137,8 +145,14 @@ export const NETWORK_CLIENTS = {
       const s = await call(fetchImpl, `${service}/xrpc/com.atproto.server.createSession`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ identifier, password }), what: 'Bluesky' });
       return { handle: `@${s.handle ?? identifier}`, secret: { identifier, password, service } };
     },
+    async check(secret, { fetchImpl }) {
+      const s = await call(fetchImpl, `${secret.service}/xrpc/com.atproto.server.createSession`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ identifier: secret.identifier, password: secret.password }), what: 'Bluesky' });
+      return { handle: `@${s.handle ?? secret.identifier}` };
+    },
     async push(secret, post, { fetchImpl }) {
       const what = 'Bluesky';
+      const n = graphemes(post.text);
+      if (n > 300) throw new HttpError(400, `Bluesky: the post is ${n} characters, and Bluesky takes 300. Shorten it on the Bluesky tab.`);
       const s = await call(fetchImpl, `${secret.service}/xrpc/com.atproto.server.createSession`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ identifier: secret.identifier, password: secret.password }), what });
       const auth = { authorization: `Bearer ${s.accessJwt}` };
       const record = { $type: 'app.bsky.feed.post', text: post.text, createdAt: new Date().toISOString(), langs: ['en'] };
@@ -164,7 +178,11 @@ export const NETWORK_CLIENTS = {
       const token = clip(body.token, 500);
       if (!token) throw new HttpError(400, 'Give the access token');
       const me = await call(fetchImpl, `${instance}/api/v1/accounts/verify_credentials`, { headers: { authorization: `Bearer ${token}` }, what: 'Mastodon' });
-      return { handle: `@${me.acct ?? me.username}@${new URL(instance).host}`, secret: { instance, token } };
+      return { handle: `@${me.acct ?? me.username}@${new URL(instance).host}`, secret: { instance, token, visibility: visibilityOf(body.visibility) } };
+    },
+    async check(secret, { fetchImpl }) {
+      const me = await call(fetchImpl, `${secret.instance}/api/v1/accounts/verify_credentials`, { headers: { authorization: `Bearer ${secret.token}` }, what: 'Mastodon' });
+      return { handle: `@${me.acct ?? me.username}@${new URL(secret.instance).host}` };
     },
     async push(secret, post, { fetchImpl }) {
       const what = 'Mastodon';
@@ -178,7 +196,7 @@ export const NETWORK_CLIENTS = {
         const m = await call(fetchImpl, `${secret.instance}/api/v2/media`, { method: 'POST', headers: auth, body: form, what });
         mediaIds.push(m.id);
       }
-      const r = await call(fetchImpl, `${secret.instance}/api/v1/statuses`, { method: 'POST', headers: { ...auth, 'content-type': 'application/json', 'idempotency-key': post.idempotencyKey }, body: JSON.stringify({ status: post.text, media_ids: mediaIds, visibility: 'public' }), what });
+      const r = await call(fetchImpl, `${secret.instance}/api/v1/statuses`, { method: 'POST', headers: { ...auth, 'content-type': 'application/json', 'idempotency-key': post.idempotencyKey }, body: JSON.stringify({ status: post.text, media_ids: mediaIds, visibility: visibilityOf(secret.visibility) }), what });
       return { permalink: r.url ?? null, remoteId: r.id ?? null };
     },
   },
@@ -188,6 +206,14 @@ export const NETWORK_CLIENTS = {
       const u = await check(body.url);
       const signingSecret = clip(body.signingSecret, 200);
       return { handle: u.host, secret: { url: u.href, signingSecret } };
+    },
+    async check(secret, { fetchImpl, check }) {
+      await check(secret.url);
+      const payload = JSON.stringify({ event: 'dashi.social.ping', sentAt: new Date().toISOString() });
+      const headers = { 'content-type': 'application/json', 'user-agent': 'Dashi-Social/1.0' };
+      if (secret.signingSecret) headers['x-dashi-signature'] = `sha256=${createHmac('sha256', secret.signingSecret).update(payload).digest('hex')}`;
+      await call(fetchImpl, secret.url, { method: 'POST', headers, body: payload, what: 'The webhook' });
+      return { handle: new URL(secret.url).host };
     },
     async push(secret, post, { fetchImpl, check }) {
       await check(secret.url);
@@ -240,9 +266,33 @@ export function socialRoutes({ q, now, dataDir, mayPost, fetchImpl = fetch, allo
     let m;
     if (path === '/api/social/accounts' && method === 'GET') {
       const rows = q('SELECT network, handle, created_at, last_used_at, last_error FROM social_accounts WHERE org_id = ?').all(a.org.id);
-      return json(res, 200, { live: LIVE_NETWORKS, accounts: rows.map((r) => ({ network: r.network, handle: r.handle, connectedAt: r.created_at, lastUsedAt: r.last_used_at, lastError: r.last_error })) });
+      const optionsOf = (r) => { if (r.network !== 'mastodon') return {}; try { return { visibility: visibilityOf(box.open(r.secret).visibility) }; } catch { return {}; } };
+      const full = q('SELECT network, secret FROM social_accounts WHERE org_id = ?').all(a.org.id);
+      const opts = Object.fromEntries(full.map((r) => [r.network, optionsOf(r)]));
+      return json(res, 200, { live: LIVE_NETWORKS, visibilities: VISIBILITIES, accounts: rows.map((r) => ({ network: r.network, handle: r.handle, connectedAt: r.created_at, lastUsedAt: r.last_used_at, lastError: r.last_error, ...opts[r.network] })) });
     }
     if (!mayPost(a)) throw new HttpError(403, 'You can look at the Social Media Integrator, but not post for your organisation');
+    if ((m = path.match(/^\/api\/social\/accounts\/(\w+)\/(check|options)$/)) && method === 'POST') {
+      const [, network, what] = m;
+      const acc = LIVE_NETWORKS.includes(network) ? account(a.org.id, network) : null;
+      if (!acc) throw new HttpError(404, `${NETWORK_CLIENTS[network]?.label ?? 'That network'} isn’t connected`);
+      const secret = box.open(acc.secret);
+      if (what === 'options') {
+        const body = await readJson(req, 2_000);
+        if (network !== 'mastodon') throw new HttpError(400, 'Only Mastodon has options here');
+        secret.visibility = visibilityOf(body?.visibility);
+        q('UPDATE social_accounts SET secret = ? WHERE org_id = ? AND network = ?').run(box.seal(secret), a.org.id, network);
+        return json(res, 200, { network, visibility: secret.visibility });
+      }
+      try {
+        const r = await NETWORK_CLIENTS[network].check(secret, ctx);
+        q('UPDATE social_accounts SET handle = ?, last_error = NULL WHERE org_id = ? AND network = ?').run(r.handle ?? acc.handle, a.org.id, network);
+        return json(res, 200, { network, ok: true, handle: r.handle ?? acc.handle, checkedAt: now() });
+      } catch (e) {
+        q('UPDATE social_accounts SET last_error = ? WHERE org_id = ? AND network = ?').run(clip(e.message, 300), a.org.id, network);
+        throw e;
+      }
+    }
     if ((m = path.match(/^\/api\/social\/accounts\/(\w+)$/))) {
       const network = m[1];
       if (!LIVE_NETWORKS.includes(network)) throw new HttpError(404, 'That network can’t be connected for real yet');
