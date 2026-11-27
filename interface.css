@@ -1087,3 +1087,23 @@ input[name='page-title'] { border: 1px dashed var(--line); border-radius: 6px; p
   background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='%238c8f96'%3E%3Cpath d='M227.3 73.4 182.6 28.7a16 16 0 0 0-22.6 0L36.7 152A15.9 15.9 0 0 0 32 163.3V208a16 16 0 0 0 16 16h44.7a15.9 15.9 0 0 0 11.3-4.7L227.3 96a16 16 0 0 0 0-22.6ZM92.7 208H48v-44.7l88-88L180.7 120ZM192 108.7 147.3 64l24-24L216 84.7Z'/%3E%3C/svg%3E") no-repeat right 10px center / 16px; }
 input[name='page-title']:hover { border-color: #9aa1ab; }
 input[name='page-title']:focus { border-style: solid; border-color: var(--color-primary, #2c4fa3); background-image: none; }
+
+/* Listen: the episode tray's audio step, with the Studio as one of four choices (d, 2026-11-27). */
+.pc-audio-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+.pc-audio-opt { display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 10px 12px; background: #fff; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); cursor: pointer; text-decoration: none; }
+.pc-audio-opt:hover { border-color: var(--color-primary, #6d4fc2); background: color-mix(in oklab, var(--color-primary, #6d4fc2) 5%, #fff); }
+.pc-audio-opt > svg { flex: none; margin-top: 1px; color: var(--color-primary, #6d4fc2); }
+.pc-audio-opt span { display: grid; gap: 1px; min-width: 0; }
+.pc-audio-opt b { font-size: 13px; }
+.pc-audio-opt small { font-size: 11.5px; color: var(--muted); }
+@media (max-width: 560px) { .pc-audio-opts { grid-template-columns: 1fr; } }
+
+/* Listen → Audio files: open a file's details tray from its name (d, 2026-11-27). */
+.af-name { font-weight: 700; background: none; border: 0; padding: 0; color: var(--ink); cursor: pointer; text-align: left; }
+.af-name:hover { text-decoration: underline; }
+.af-tray { display: grid; gap: 10px; }
+.af-tray-play { display: flex; gap: 10px; align-items: center; padding: 8px 10px; background: var(--soft, #f5f4f0); border-radius: 8px; }
+.af-tray-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.af-tray-uses h4 { margin: 4px 0; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.af-tray-uses ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.af-tray-uses a { display: inline-flex; gap: 6px; align-items: center; }

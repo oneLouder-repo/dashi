@@ -36,7 +36,7 @@ import { StudioHome, StudioEditor } from './studio/Studio.js';
 import { FeaturedEpisodesBox, featureToggle } from './featured.js';
 import { StudioFiles } from './studio/Files.js';
 import { currentUser } from '../platform/session.js';
-import { projectLength, clock } from './studio/project.js';
+import { projectLength, clock, newProject, addClip } from './studio/project.js';
 
 /**
  * Podcasts: the studio for an org's own podcast station.
@@ -127,7 +127,8 @@ function relatedChoices() {
 const relatedOf = (key) => relatedChoices().find((r) => r.key === key) ?? { key, label: key, href: null, icon: 'link' };
 
 /* ------------------------------------------------------------------ frame */
-const recentSessions = () => Object.values(doc().projects ?? {}).sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')).slice(0, 6);
+// The Studio menu keeps the four sessions worked on last (d, 2026-11-27); the rest are on the Studio page.
+const recentSessions = () => Object.values(doc().projects ?? {}).sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')).slice(0, 4);
 function render() {
   const r = route();
   const all = allEpisodes();
@@ -769,6 +770,7 @@ function EpisodeDetail(e) {
           [episodeCode(e), short(e.publishedAt), fmtDuration(e.audio?.duration)].filter(Boolean).join(' · ')),
         h('p', { class: 'pc-ep-file muted small' }, icon('music', 13), e.audio?.name ?? (e.audio?.mediaId ? 'Uploaded audio' : 'Sample audio')),
         e.description ? h('p', { class: 'pc-ep-desc' }, e.description) : h('p', { class: 'pc-ep-desc muted' }, 'No summary yet.'))),
+    AudioStep(e),
     e.slides?.length > 0 && SlideshowBlock(e),
     crew.length > 0 && h('section', { class: 'pc-block' }, h('h3', {}, 'In this episode'),
       h('div', { class: 'pc-people' }, crew.map(({ p, tag }) => h('span', { class: 'pc-person' }, Avatar(p, 22), p.name, tag && h('small', { class: 'pc-person-tag' }, tag))))),
@@ -780,6 +782,40 @@ function EpisodeDetail(e) {
     e.notes && h('section', { class: 'pc-block' }, h('h3', {}, 'Episode notes'), h('div', { class: 'pc-notes' }, Markdown(e.notes))),
     e.transcript && h('details', { class: 'pc-block pc-transcript' }, h('summary', {}, h('h3', {}, 'Transcript'), h('span', { class: 'muted small' }, `${e.transcript.split(/\s+/).filter(Boolean).length} words`)),
       h('div', {}, e.transcript.split(/\n{2,}/).map((x) => h('p', {}, x)))));
+}
+
+/**
+ * The episode's audio, step 1 (d, 2026-11-27): the tray stays the place to see and edit an episode, and
+ * the Studio is a step you choose from here: carry on with its session, start a fresh one from its
+ * audio, upload a new file, or link to audio kept elsewhere.
+ */
+function AudioStep(e) {
+  const session = Object.values(doc().projects ?? {}).filter((p) => p.episodeId === e.id).sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))[0];
+  const fromAudio = () => {
+    const p = newProject({ title: e.title, template: 'solo', podcastId: e.podcastId ?? null });
+    p.episodeId = e.id;
+    const len = e.audio?.duration ?? 0;
+    const withClip = len && p.tracks[0] ? addClip(p, { trackId: p.tracks[0].id, source: { episodeId: e.id }, name: e.audio?.name ?? e.title, start: 0, length: len, sourceLength: len }) : p;
+    store.apply(col.add('projects', { ...withClip, episodeId: e.id }));
+    location.hash = `studio/${p.id}`;
+  };
+  const link = async () => {
+    const url = await uiPrompt('The web address of the audio (.mp3 or .wav)', e.audio?.url ?? 'https://', { title: 'Link to an audio file', ok: 'Link it' });
+    if (!url?.trim() || !/^https?:\/\/\S+$/i.test(url.trim())) return;
+    const name = decodeURIComponent(url.trim().split('/').pop() || 'Linked audio');
+    store.apply(col.update('episodes', e.id, { audio: { url: url.trim(), name, duration: e.audio?.duration ?? null } }));
+  };
+  const opt = (ic, label, sub, props) => h(props.href ? 'a' : 'button', { class: 'pc-audio-opt', type: props.href ? null : 'button', ...props }, icon(ic, 18), h('span', {}, h('b', {}, label), h('small', {}, sub)));
+  return h('section', { class: 'pc-block pc-audio-step' },
+    h('h3', {}, 'The audio'),
+    h('p', { class: 'muted small' }, icon('music', 13), ' ', e.audio?.name ?? (e.audio?.mediaId ? 'Uploaded audio' : e.audio?.url ? 'Linked audio' : 'No audio yet'), e.audio?.duration ? ` · ${fmtDuration(e.audio.duration)}` : ''),
+    h('div', { class: 'pc-audio-opts' },
+      session
+        ? opt('waveform', 'Edit in the Studio', `Carry on with “${session.title}”`, { href: `#studio/${session.id}` })
+        : opt('waveform', 'Edit in the Studio', 'Opens its audio on a track, ready to cut and mix', { onclick: fromAudio }),
+      opt('plus', 'New session', 'Record or build it again from the start', { onclick: () => { const p = { ...newProject({ title: `${e.title} (new take)`, template: 'interview', podcastId: e.podcastId ?? null }), episodeId: e.id }; store.apply(col.add('projects', p)); location.hash = `studio/${p.id}`; } }),
+      opt('upload', 'Upload a new file', 'Replace the audio with an .mp3 or .wav', { href: `#${here()}/${e.id}/edit` }),
+      opt('link', 'Link to an audio file', 'Audio kept on another site', { onclick: link })));
 }
 
 /**
