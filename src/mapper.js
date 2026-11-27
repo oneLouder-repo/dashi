@@ -381,9 +381,36 @@ function arriveAt(id) {
     const x0 = Math.min(...boxes.map((a) => a.x - a.w / 2)), x1 = Math.max(...boxes.map((a) => a.x + a.w / 2));
     const y0 = Math.min(...boxes.map((a) => a.y - a.h / 2)), y1 = Math.max(...boxes.map((a) => a.y + a.h / 2));
     const { clientWidth: cw, clientHeight: ch } = stage.svgEl;
-    // Close enough to read it, never zoomed further out than the fitted view.
-    stage.scale = Math.max(stage.scale, Math.min(1.2, (cw * 0.6) / Math.max(1, x1 - x0), (ch * 0.6) / Math.max(1, y1 - y0)));
-    stage.moveTo(cw / 2 - ((x0 + x1) / 2) * stage.scale, ch / 2 - ((y0 + y1) / 2) * stage.scale);
+    // Arrive close on it, hold a beat, then ease out to take in the map
+    // around it (d, 2026-11-27): ending well short of close-up, but never
+    // further out than the fitted view.
+    const fit = stage.scale;
+    const close = Math.max(fit, Math.min(1.2, (cw * 0.6) / Math.max(1, x1 - x0), (ch * 0.6) / Math.max(1, y1 - y0)));
+    const far = Math.max(fit, Math.min(close * 0.45, (cw * 0.16) / Math.max(1, x1 - x0)));
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    const at = (sc) => { stage.scale = sc; stage.moveTo(cw / 2 - cx * sc, ch / 2 - cy * sc); stage.dispatchEvent('camera'); };
+    at(close);
+    cancelAnimationFrame(arriveAt.frame);
+    clearTimeout(arriveAt.hold);
+    const reduce = matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (far < close - 0.01) {
+      if (reduce) at(far);
+      else arriveAt.hold = setTimeout(() => {
+        const t0 = performance.now(), dur = 2400;
+        const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+        const step = (now) => {
+          const t = Math.min(1, (now - t0) / dur);
+          // Zoom in log space, so the speed feels even.
+          at(Math.exp(Math.log(close) + (Math.log(far) - Math.log(close)) * ease(t)));
+          if (t < 1) arriveAt.frame = requestAnimationFrame(step);
+        };
+        arriveAt.frame = requestAnimationFrame(step);
+      }, 900);
+      // Any touch or wheel on the board stops the camera where it is.
+      const stop = () => { clearTimeout(arriveAt.hold); cancelAnimationFrame(arriveAt.frame); };
+      stage.svgEl.addEventListener('pointerdown', stop, { once: true });
+      stage.svgEl.addEventListener('wheel', stop, { once: true, passive: true });
+    }
   }
   mapView.select([id]);
   ctx.panel?.reveal('inspector');
@@ -399,7 +426,7 @@ function arriveAt(id) {
     stage.svgEl.classList.remove('arrival');
     if (ctx.tools.active?.id !== 'dataviz') mapView.focus(null);
   };
-  arriveAt.timer = setTimeout(end, 4000);
+  arriveAt.timer = setTimeout(end, 5200);
   stage.svgEl.addEventListener('pointerdown', end);
 }
 autosaveDoc(mapDocName(mapId), store);
