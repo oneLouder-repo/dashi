@@ -128,11 +128,11 @@ function HomeChooser(site, save) {
   const pagesHere = Object.values(doc().pages).filter((p) => p.siteId === site.id && p.kind === 'page');
   const value = site.home?.kind === 'page' ? `page:${site.home.slug}` : site.home?.kind === 'station' && hasStation ? 'station' : 'default';
   const opts = [
-    { id: 'default', label: 'Dashi home: dashboards, news, the latest episode' },
+    { id: 'default', label: 'Dashi home (dashboards, news, episodes)' },
     hasStation && { id: 'station', label: `The podcast station (${docs.podcasts.station.name || 'station'})` },
     ...pagesHere.map((p) => ({ id: `page:${p.slug}`, label: `Page: ${p.title}` })),
   ].filter(Boolean);
-  return h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Homepage'),
+  return h('label', { class: 'fieldset site-home-pick' }, h('span', { class: 'fieldset-legend' }, 'Homepage'),
     h('select', { class: 'select select-sm w-full', name: 'site-home', onchange: (e) => {
       const v = e.target.value;
       save({ home: v === 'default' ? { kind: 'default' } : v === 'station' ? { kind: 'station' } : { kind: 'page', slug: v.slice(5) } });

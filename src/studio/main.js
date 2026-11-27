@@ -138,9 +138,10 @@ function drawSide({ planId, tab }) {
 }
 
 async function newPlan() {
+  const root = rootOf(strategy.doc);
+  if (!root) { location.href = 'strategy.html'; return; }  // plans sit under the framework: start that in Plan first
   const title = await uiPrompt('Name of the new strategic plan', 'Strategic plan');
   if (!title?.trim()) return;
-  const root = rootOf(strategy.doc);
   const op = strategy.apply(strategyOps.addNode(strategy.doc, { type: 'plan', parentId: root.id, title: title.trim() }));
   ctx.savePlan(op.id, { team: ctx.me ? [{ staffId: ctx.me.id, role: 'facilitator' }] : [] });
   ctx.go(`${op.id}/soar`);

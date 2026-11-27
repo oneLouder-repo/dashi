@@ -1054,3 +1054,7 @@ body.mapper-page > main { border-radius: 0 0 var(--r-sheet, 14px) var(--r-sheet,
 /* Narrow (the details panel open beside it): the list goes under the map, so the map keeps its width. */
 .ah-mapview { container-type: inline-size; }
 @container (max-width: 980px) { .am-view { grid-template-columns: 1fr; } .am-side { position: static; max-height: 440px; } }
+
+/* Site editor: the Homepage picker stays inside its column, however long a page's title (alpha 0.4 bug sweep). */
+.site-home-pick { min-width: 0; max-width: 100%; }
+.site-home-pick select { min-width: 0; max-width: 100%; text-overflow: ellipsis; }

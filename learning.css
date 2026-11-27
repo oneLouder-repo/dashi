@@ -660,3 +660,9 @@ body.ln-focus #app.frame > .side-nav { display: none; }
 .tc-glance-card dt { color: var(--muted); } .tc-glance-card dd { margin: 0; }
 .tc-fsec > .lx-form { gap: 12px; }
 .tc-fsec .lx-form .input:not([type=checkbox]):not([type=radio]) { max-width: none; }
+
+/* Tool tray in three columns (d, 2026-11-27): wider and about a third shorter, so it fits on a laptop screen. */
+.tc-palette { width: 400px; }
+.tc-pal-body section { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tc-pal-item { font-size: 11px; padding: 0 4px 0 6px; gap: 4px; }
+@media (max-width: 900px) { .tc-palette { width: 300px; } .tc-pal-body section { grid-template-columns: 1fr 1fr; } }

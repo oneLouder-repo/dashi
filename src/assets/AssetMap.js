@@ -5,8 +5,9 @@ import { loadD3 } from '../ui/Sunburst.js';
  * The asset map, alpha 0.4: a wheel and a list, or an icicle, over the same
  * tree (ABCD type › where it lives › asset). Built from the asset map lab.
  *
- * Assets are never thin slices. On the wheel they are dots on the rim and
- * rows in the list beside it; on the icicle each asset gets its own row once
+ * Assets are never thin slices. On the wheel each one is a short arc of the
+ * outer ring (dots on the rim when a group is too crowded for arcs) and a
+ * row in the list beside it; on the icicle each asset gets its own row once
  * a type is open. Labels are always level. ↑ ↓ step through the list, Esc or
  * Backspace step back out.
  *
@@ -73,10 +74,15 @@ function mount(d3, wrap, { data, mode = 'wheel', color, focus: focusNames = [], 
   }
   const back = () => { if (focus.parent) open(focus.parent); };
   function pick(leaf, e, { scroll = true } = {}) {
-    pickedKey = leaf.data.key;
-    if (!leaf.ancestors().includes(focus)) { focus = leaf.parent; onFocus?.(pathOf(focus), focus.data); draw(true); } else highlight();
-    side(scroll);
-    onPick?.(leaf.data, e ?? {});
+    hold(() => {
+      pickedKey = leaf.data.key;
+      if (!leaf.ancestors().includes(focus)) { focus = leaf.parent; onFocus?.(pathOf(focus), focus.data); draw(true); } else highlight();
+      side(scroll);
+      onPick?.(leaf.data, e ?? {});
+    });
+    // Some browsers scroll a clicked button into view a moment later: put things back once more.
+    const boxes = []; for (let el = wrap.parentElement; el; el = el.parentElement) if (el.scrollHeight > el.clientHeight) boxes.push([el, el.scrollTop]);
+    requestAnimationFrame(() => { for (const [el, top] of boxes) if (el.scrollTop !== top) el.scrollTop = top; });
   }
 
   /* ------------------------------------------------------------ tooltip */
@@ -88,7 +94,17 @@ function mount(d3, wrap, { data, mode = 'wheel', color, focus: focusNames = [], 
   }
   const hideTip = () => { tip.hidden = true; };
 
-  function draw(animate = false) { hideTip(); W = Math.max(480, Math.round(scroller.clientWidth || 900)); (mode === 'icicle' ? drawIcicle : drawWheel)(animate); }
+  // Picking or redrawing changes heights around the map (the details panel, the list); hold every
+  // scrolling box the map sits in (the page column, the window) where it was, so the map never jumps.
+  const hold = (fn) => {
+    const boxes = [];
+    for (let e = wrap.parentElement; e; e = e.parentElement) if (e.scrollHeight > e.clientHeight) boxes.push([e, e.scrollTop]);
+    const y = scrollY;
+    fn();
+    for (const [e, top] of boxes) if (e.scrollTop !== top) e.scrollTop = top;
+    if (scrollY !== y) scrollTo({ top: y });
+  };
+  function draw(animate = false) { hideTip(); hold(() => { W = Math.max(480, Math.round(scroller.clientWidth || 900)); (mode === 'icicle' ? drawIcicle : drawWheel)(animate); }); }
 
   /* ------------------------------------------------------------ the wheel */
   function drawWheel(animate) {
@@ -125,14 +141,24 @@ function mount(d3, wrap, { data, mode = 'wheel', color, focus: focusNames = [], 
       .on('pointermove', (e, s) => showTip(e, s.d)).on('pointerleave', hideTip);
     const p1 = arcs(g.append('g').selectAll('path').data(inner), r0, r1, 1.5);
     // The outer ring: groups as arcs, or assets as dots.
-    const outer = [], dots = [];
+    // Assets with room to show get a short arc of their own, so the outer ring reads whole all the way
+    // round; only a crowded group falls back to dots on the rim.
+    const outer = [], dots = [], ticks = [];
     for (const s of inner) {
       const kids = s.d.children ?? [];
       if (!kids.length) continue;
-      if (isLeaf(kids[0])) { const step = (s.a1 - s.a0) / kids.length; kids.forEach((k, i) => dots.push({ d: k, a: s.a0 + step * (i + 0.5) })); }
-      else outer.push(...angles(kids, s.a0, s.a1, 0.012));
+      if (isLeaf(kids[0])) {
+        const step = (s.a1 - s.a0) / kids.length;
+        if (step * r3 >= 7) kids.forEach((k, i) => ticks.push({ d: k, a0: s.a0 + step * i, a1: s.a0 + step * (i + 1), i }));
+        else kids.forEach((k, i) => dots.push({ d: k, a: s.a0 + step * (i + 0.5) }));
+      } else outer.push(...angles(kids, s.a0, s.a1, 0.012));
     }
     const p2 = arcs(g.append('g').selectAll('path').data(outer), r2, r3, 1);
+    const shade = (s) => (s.i % 2 ? d3.color(s.d.parent.fill).brighter(0.35).formatHex() : s.d.parent.fill);
+    const tick = g.append('g').selectAll('path').data(ticks).join('path').attr('fill', shade).attr('stroke', '#fff').attr('stroke-width', 1).style('cursor', 'pointer')
+      .attr('tabindex', 0).attr('role', 'button').attr('aria-label', (s) => s.d.data.name)
+      .on('click', (e, s) => pick(s.d, e)).on('keydown', (e, s) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(s.d, e); } })
+      .on('pointermove', (e, s) => showTip(e, s.d)).on('pointerleave', hideTip);
     const dotR = dots.length > 120 ? 2.6 : 3.6;
     const dot = g.append('g').selectAll('circle').data(dots).join('circle')
       .attr('cx', (s) => Math.sin(s.a) * rDots).attr('cy', (s) => -Math.cos(s.a) * rDots).attr('r', dotR)
@@ -143,10 +169,12 @@ function mount(d3, wrap, { data, mode = 'wheel', color, focus: focusNames = [], 
     if (animate && !reduce) {
       p1.transition(T(600)).attrTween('d', grow(r0, r1));
       p2.transition(T(700)).attrTween('d', grow(r2, r3));
+      tick.transition(T(700)).attrTween('d', grow(r2, r3));
       dot.attr('opacity', 0).transition(T(700)).delay(200).attr('opacity', 1);
     } else {
       p1.attr('d', (s) => arc({ innerRadius: r0, outerRadius: r1, startAngle: s.a0, endAngle: s.a1 }));
       p2.attr('d', (s) => arc({ innerRadius: r2, outerRadius: r3, startAngle: s.a0, endAngle: s.a1 }));
+      tick.attr('d', (s) => arc({ innerRadius: r2, outerRadius: r3, startAngle: s.a0, endAngle: s.a1 }));
     }
     // Labels inside the inner wedges, level, where they fit whole or nearly.
     const mid = (r0 + r1) / 2;
@@ -159,7 +187,7 @@ function mount(d3, wrap, { data, mode = 'wheel', color, focus: focusNames = [], 
     inLab.append('tspan').attr('x', 0).attr('dy', '1.25em').attr('font-weight', 400).attr('font-size', 11).text((s) => s.d.value);
     // Labels outside, level, on leader lines: the outer ring's groups, or inner wedges whose name didn't fit.
     const labelled = outer.length ? outer.filter((s) => s.a1 - s.a0 > 0.03) : inner.filter((s) => !fitsInside(s) || fit(s.d.data.name, room(s)) !== s.d.data.name);
-    const rOut = outer.length ? r3 : dots.length ? rDots + 6 : r1;
+    const rOut = outer.length || ticks.length ? r3 : dots.length ? rDots + 6 : r1;
     const items = labelled.map((s) => { const a = (s.a0 + s.a1) / 2; return { s, a, right: Math.sin(a) >= 0, y: -Math.cos(a) * (rOut + 14), x: Math.sin(a) * (rOut + 14) }; });
     for (const right of [true, false]) {
       const col = items.filter((d) => d.right === right).sort((p, q) => p.y - q.y);
@@ -181,8 +209,10 @@ function mount(d3, wrap, { data, mode = 'wheel', color, focus: focusNames = [], 
       const on = (s) => s.d.data.key === pickedKey;
       dot.attr('r', (s) => (on(s) ? 6 : dotR)).attr('stroke', (s) => (on(s) ? '#16181d' : '#fff')).attr('stroke-width', (s) => (on(s) ? 2 : 0.8));
       dot.filter(on).raise();
+      tick.attr('stroke', (s) => (on(s) ? '#16181d' : '#fff')).attr('stroke-width', (s) => (on(s) ? 2.5 : 1));
+      tick.filter(on).raise();
       const holds = (s) => !!pickedKey && leavesOf(s.d).some((l) => l.data.key === pickedKey);
-      p1.attr('stroke', (s) => (holds(s) && !dots.length && !outer.length ? '#16181d' : '#fff')).attr('stroke-width', (s) => (holds(s) && !dots.length && !outer.length ? 2.5 : 1.5));
+      p1.attr('stroke', (s) => (holds(s) && !dots.length && !outer.length && !ticks.length ? '#16181d' : '#fff')).attr('stroke-width', (s) => (holds(s) && !dots.length && !outer.length && !ticks.length ? 2.5 : 1.5));
       p2.attr('stroke', (s) => (holds(s) ? '#16181d' : '#fff')).attr('stroke-width', (s) => (holds(s) ? 2.5 : 1));
     };
     highlight();
@@ -261,7 +291,13 @@ function mount(d3, wrap, { data, mode = 'wheel', color, focus: focusNames = [], 
     }
     list.replaceChildren(...rows);
     count.textContent = q ? `${visible.length} match${visible.length === 1 ? '' : 'es'}` : `${visible.length} in this group · ↑ ↓ to step through`;
-    if (scroll && pickedKey) [...list.querySelectorAll('.am-row')].find((r) => r.dataset.key === pickedKey)?.scrollIntoView({ block: 'nearest' });
+    // Scroll the list only: scrollIntoView also scrolls the page, which made the wheel jump when a row was picked.
+    const row = scroll && pickedKey && [...list.querySelectorAll('.am-row')].find((r) => r.dataset.key === pickedKey);
+    if (row && list.scrollHeight > list.clientHeight) {
+      const top = row.offsetTop - list.offsetTop, bottom = top + row.offsetHeight;
+      if (top < list.scrollTop) list.scrollTop = top;
+      else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight;
+    }
   }
 
   wrap.addEventListener('keydown', (e) => {

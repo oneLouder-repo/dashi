@@ -463,7 +463,10 @@ function MapView(list, cards) {
       selection = new Set([c.key]);
       focusKey = c.key;
       history.replaceState(null, '', `#${new URLSearchParams({ ...Object.fromEntries(Object.entries(scope()).filter(([k, v]) => v && k !== 'key')), key: c.key })}`);
+      // The detail panel changes height; keep the page (and so the map) where it was.
+      const y = scrollY;
       drawDetail(allCards());
+      if (scrollY !== y) scrollTo({ top: y });
     },
   }));
 }

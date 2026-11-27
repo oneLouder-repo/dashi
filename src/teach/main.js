@@ -771,6 +771,12 @@ function fullEditor(b) {
 /** The block tray: a large drawer with a quick editor and a learner's-eye preview side by side. */
 function openBlock(cid, bid) {
   drawer?.close();
+  // Changes save as you type; Cancel puts the cartridge back the way it was when the tray opened.
+  const before = structuredClone(doc.cartridges[cid]);
+  const cancel = () => {
+    if (JSON.stringify(doc.cartridges[cid]) !== JSON.stringify(before)) { setCartridge(structuredClone(before), 'Changes to the block undone'); render(); }
+    drawer?.close();
+  };
   const sub = () => { const c = doc.cartridges[cid]; const x = c.blocks[bid]; return `${blockType(x.type).label} · ${shortDate(dateOf(c.run.start, x.start))}${x.length > 1 ? ` – ${shortDate(dateOf(c.run.start, x.start + x.length - 1))}` : ''}${x.streamId ? ` · in ${c.streams?.[x.streamId]?.name ?? 'a stream'}` : ''}`; };
   const draw = () => {
     const c = doc.cartridges[cid];
@@ -800,6 +806,7 @@ function openBlock(cid, bid) {
       h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { const r = duplicateBlock(doc.cartridges[cid], bid); setCartridge(r.cartridge, 'Copied a week later'); selected = r.id; render(); openBlock(cid, r.id); } }, icon('copy', 14), 'Copy to next week'),
       b.streamId && h('button', { type: 'button', class: 'btn btn-sm', onclick: () => openStream(cid, b.streamId) }, icon('link', 14), 'Its stream'),
       h('span', { class: 'spacer' }),
+      h('button', { type: 'button', class: 'btn btn-sm btn-ghost', title: 'Undo what you changed since opening this block', onclick: cancel }, 'Cancel'),
       h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => drawer.close() }, 'Done'),
     ].filter(Boolean) : []);
     return h('div', { class: 'tc-tray' }, tabsEl, pane);
