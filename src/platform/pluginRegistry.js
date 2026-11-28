@@ -173,6 +173,7 @@ const BUILT_IN = {
       feat('setup', 'Switch-on set-up', 'A context profile, a baseline and calibration, run once when the plugin is switched on.'),
       feat('rules', 'Rules and canned analyses', 'Rules as data, tips with their sources, findings with Why?.'),
       feat('rack', 'The rack', 'Twin racks of cabled modules (sources, filters, weigh, gates, voice, screens, engines); patches become your own rules.'),
+      feat('lab', 'The Lab', 'Experiments in the browser: a pipe console with saved patches and installable patch packs, Leiden-style communities, brokers, ties worth making, shape checks and a hive plot.'),
       feat('tips', 'Tip harvester', 'A source registry, offline and polite online harvests, a review queue, and your own public or private tips.'),
     ],
     dataModel: { docs: [{ name: 'rhizome', label: 'Rhizome instance', collections: [

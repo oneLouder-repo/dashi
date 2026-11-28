@@ -11,7 +11,8 @@ import { linkTo } from '../plugins.js';
 export const RHIZOME_TABS = [
   { id: 'home', label: 'Home', icon: 'home' },
   { id: 'analyses', label: 'Analyses', icon: 'spark' },
-  { id: 'rack', label: 'Rack', icon: 'connect' },
+  // The Lab took the Rack's place in alpha 0.4.x; the Rack is one of its experiments (#rack still works).
+  { id: 'lab', label: 'Lab', icon: 'flask' },
   { id: 'graph', label: 'Graph', icon: 'sec-graph', page: 'graph' },
   { id: 'report', label: 'Report', icon: 'file' },
   { id: 'facts', label: 'Facts', icon: 'sec-rhizome' },

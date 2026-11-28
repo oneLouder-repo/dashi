@@ -23,6 +23,7 @@ import { Markdown } from '../ui/markdown.js';
 import { linkTo } from '../plugins.js';
 import './adapters.js';
 import { Rack, rackVersion } from './RackView.js';
+import { Lab, LAB_EXPERIMENTS } from './LabView.js';
 import { Output } from './OutputView.js'; // not Rack.js: macOS would mix it up with rack.js
 import { loadTips, saveTips } from '../platform/tipsLibrary.js';
 import { can } from '../platform/session.js';
@@ -110,6 +111,7 @@ function render() {
   if (view === 'analyses') page = Analyses(arg);
   else if (view === 'tips') page = Tips(arg);
   else if (view === 'rack') page = RackPage(arg);
+  else if (view === 'lab') page = LabPage(arg);
   else if (view === 'report') page = ReportPage();
   else if (view === 'about') page = About(arg);
   else if (view === 'facts') page = Facts(arg);
@@ -128,7 +130,8 @@ function drawSide(view) {
     { title: 'Rhizome · experimental', items: [
       { label: 'Home', sub: setupDone(doc) ? 'Signals worth a look' : 'Finish setting up', icon: 'home', href: '#home', on: view === 'home' },
       { label: 'Analyses', sub: `${n(ANALYSES.length, 'canned analysis', 'canned analyses')} · ${n(RULES.length, 'rule')}`, icon: 'spark', href: '#analyses', on: view === 'analyses' },
-      { label: 'The rack', sub: `${n(Math.max(1, Object.keys(doc.patches ?? {}).length), 'patch', 'patches')} · twin racks`, icon: 'connect', href: '#rack', on: view === 'rack' },
+      { label: 'Lab', sub: `${LAB_EXPERIMENTS.length} experiments · console and patches`, icon: 'flask', href: '#lab', on: view === 'lab' },
+      { label: 'The rack', sub: `In the Lab · ${n(Math.max(1, Object.keys(doc.patches ?? {}).length), 'patch', 'patches')}`, icon: 'connect', href: '#rack', on: view === 'rack' },
       linkTo('graph') && { label: 'Graph', sub: 'Search, loops, hubs and bridges, linked data', icon: 'sec-graph', href: linkTo('graph', '#explore') },
       { label: 'Facts', sub: `${n(fc.entities, 'thing')} · ${n(fc.relations, 'tie')}`, icon: 'sec-rhizome', href: '#facts', on: view === 'facts' },
       { label: 'Report', sub: 'Everything Rhizome found, to print or save as PDF', icon: 'file', href: '#report', on: view === 'report' },
@@ -410,8 +413,17 @@ function RulesList() {
 function RackPage(arg) {
   const p = doc.patches?.[arg];
   setCrumbs(p ? [{ label: p.name }] : []);
-  return h('div', { class: 'rz-page rz-page-wide' }, tabs('rack'),
+  return h('div', { class: 'rz-page rz-page-wide' }, tabs('lab'),
     Rack({ doc, save, render, ctx, canSet, toast, confirm: uiConfirm }, arg));
+}
+
+/* ----------------------------------------------------------------- lab */
+
+function LabPage(arg) {
+  const x = LAB_EXPERIMENTS.find((e) => e.id === arg);
+  setCrumbs(x ? [{ label: x.name }] : []);
+  return h('div', { class: 'rz-page rz-page-wide' }, tabs('lab'),
+    Lab({ doc, facts, save, render, canSet, toast }, x ? arg : null));
 }
 
 /* -------------------------------------------------------------- report */
@@ -578,7 +590,7 @@ function About(arg) {
           h('ol', { class: 'rz-sentence', 'aria-label': 'A graph question, as modules' }, [['Which things', 'Facts · Measure'], ['that meet conditions', 'Filter · Gate'], ['ranked by', 'Weigh'], ['and so…', 'Say']].map(([w, m]) => h('li', {}, h('b', {}, w), h('small', {}, m))))),
         h('div', { class: 'rz-two' },
         h('div', { class: 'rz-stack' },
-          ref('The tabs', [['Home', 'Your welcome report and the signals worth a look'], ['Analyses', 'Canned analyses, your set, findings with Why?, every rule'], ['Facts', 'Every thing Rhizome knows, and its ties'], ['Measures', 'The network actor by actor, your calibration, the ABCD balance'], ['Set-up', 'Your context profile and the set-up steps'], ['About', 'This page']]),
+          ref('The tabs', [['Home', 'Your welcome report and the signals worth a look'], ['Analyses', 'Canned analyses, your set, findings with Why?, every rule'], ['Lab', 'Experiments: the console and patch packs, the rack, communities, brokers, ties worth making, shape checks, a hive plot'], ['Facts', 'Every thing Rhizome knows, and its ties'], ['Measures', 'The network actor by actor, your calibration, the ABCD balance'], ['Set-up', 'Your context profile and the set-up steps'], ['About', 'This page']]),
           ref('Words you’ll see', [['Single point of failure', 'An actor whose loss splits its network'], ['Hub', 'Top 10% for links, for your organisation'], ['Betweenness', 'How often an actor sits on the shortest way between two others'], ['One-way flow', 'Resources, information or power with nothing coming back'], ['Zone gap', 'A part of a lens with nobody in it, or zones that never link'], ['Calibration', 'Cut-offs from your own data, so “few” means few for you']]),
           ref('A rule has four parts', [['When', 'What it looks for'], ['Weigh', 'A score from 0 to 1, for ranking'], ['Say', 'A tip from the library, with names filled in'], ['Show', 'On the map, or as a list']])),
         h('div', { class: 'rz-stack' },

@@ -12,6 +12,14 @@ Fixes and tooling only, no new features. Dashi stays plain JavaScript with no bu
 - **Accessibility (axe-core):** `npm run a11y` opens 21 pages, public and staff, on a throwaway seeded server and runs the WCAG 2.1 AA rules. Also a ratchet (`a11y-baseline.json`). First fixes: muted text darkened to pass contrast (about 450 findings gone), labels on two file pickers, the Mapper toolbar's list roles. The main one left is white text on the Dashi orange (3.9:1, AA wants 4.5:1), which is a brand choice to make.
 - **CI:** GitHub Actions runs lint, type check, tests with coverage and the accessibility check on every push and pull request, and CodeQL scans for security problems weekly and on each PR. Dependabot now also watches the dev tools.
 - `npm run check` runs lint, type check and tests together.
+- **Rhizome Lab (a small experiment):** the Lab takes the Rack's place on Rhizome's tabs, and the Rack becomes one of its experiments (`#rack` still works). All read-only and in the browser:
+  - **Console:** a short pipe language over the facts (`people | weigh broker | top 3 | say`), saved patches, two patch packs to install, and export or paste a pack to share.
+  - **Communities:** Leiden-style (Louvain moves, then every community split into its connected parts), with modularity.
+  - **Brokers:** Burt's structural holes: constraint, effective size and a broker score.
+  - **Ties worth making:** Adamic–Adar link prediction, clearly labelled as guesses.
+  - **Shape checks:** after W3C SHACL: actors with no ties, objectives outside a plan, people without a title.
+  - **Hive plot:** people, ecosystem and work on three axes, the same network always drawn the same.
+  - **Sound:** a placeholder for the coming sound experiment.
 
 ## 0.4.0-alpha (2026-11-27): learning, on a clean build
 
