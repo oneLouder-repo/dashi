@@ -2,9 +2,30 @@
 
 Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and so on). Each point version (0.2, 0.3…) is one major platform feature; 0.2.1-alpha, 0.2.2-alpha… are fixes and polish from testing. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
-## 0.4.0-alpha (in progress): learning, on a clean build
+## 0.4.0-alpha (2026-11-27): learning, on a clean build
 
-Alpha 0.4 is the learning release (Teach, Learn and what follows), opened from the `v0.3.0-alpha` tag and tested on a fresh `data-clients` seed. Rhizome's later stages and Place stage 2 onwards stay paused. Going live moves to 0.5. Newest first.
+Alpha 0.4 is the learning release (Teach, Learn and what follows), opened from the `v0.3.0-alpha` tag and tested on a fresh `data-clients` seed. It ends with a last feature batch (PR #37). From here, 0.4.x is fixes from testing only, with no new features. Going live moves to 0.5. Newest first.
+
+### The last feature batch (PR #37)
+
+- **Deploy:** a smaller Docker image and a 90-second health-check grace on Fly.
+- **Bug sweep:** no more stray "null" or "falsefalse"; slides no longer lost on the first save; the SOAR nav works with no plan; the Assets ring, the asset map, the site editor's Homepage picker and Teach's tray all fixed.
+- **Small UX:** a QR code for two-step sign-in, your own plugin menu order, a larger logo, Edit and View on Web pages.
+- **Listen:** an "audio" step in the episode tray (edit in the Studio, record, upload or link), recent sessions in the Studio, and a slimmer audio file tray.
+- **Place stage 2:** data layers from CSV or GeoJSON, drawing points, lines and areas, and export. The map can be shared on public sites (places and the layers you mark public, never pins). Web pages embed it with `[[map:place]]`, and each community gets its own page.
+- **Place example:** Shared Ground Canada, a made-up nation-wide coalition with a hub, six regional hubs and 44 local tables on a map of Canada, with a members site.
+- **Teach:** link slideshows, episodes, assets and more into a block; a Preview tab; streams are now Packs.
+- **Plan files:** save plans to a `.dashi-plan.json` file and open them in any org, without overwriting anything.
+- **Ecosystem:** links open the map at an actor, with a zoom and a pulse.
+- **Tag suggester:** suggested tags in Assets, the Library and Listen, with no AI service.
+- **First-run pages:** a helpful empty state for Plan, its dashboards, the Planning Studio, the Plan designer and an empty map.
+- **Social Media Integrator:** real posting to Bluesky, Mastodon and webhooks, with sealed credentials, a scheduler, and posting at most once per network.
+- **Rhizome:** full answers (Read, the Teleprinter), the visualiser reads the rack's statements, "How Rhizome thinks", Rack 2.0 and nine neuro-symbolic tools (mocked until the Claude engine).
+- **Help and search:** "New in alpha 0.4" help, and search finds help.
+- **Billing tiers:** Seed (free), Community, Organization, Network and Custom, CAD and USD prices, a grassroots rate and alpha supporters' half-price first year.
+- **Public site:** real Dashi screens on the home page, and the new tiers.
+- **EoViz stage 1 (experimental):** the eco data lens: 16 instrument and data file types, the vessel workflow (CTD, bottles, dissolved carbon), a viz finder and a sketchbook.
+- **Feedback forms** embed in pages with `[[form:id]]`.
 
 ### Funding report tracks
 
