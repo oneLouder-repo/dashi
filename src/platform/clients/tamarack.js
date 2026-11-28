@@ -21,6 +21,7 @@
 import { migrateOrg } from '../org.js';
 import { migratePlace } from '../../place/model.js';
 import { CANADA_MAP } from '../../place/basemaps.js';
+import { migratePages } from '../pages.js';
 
 const SRC = {
   report: 'https://www.tamarackcommunity.ca/2024-annual-report',
@@ -170,6 +171,7 @@ export function tamarackOrg() {
       'a-learning': { id: 'a-learning', name: 'Learning and evaluation (to name)', title: 'Research, learning and evaluation', roleId: 'staff', teamIds: ['t-networks'], interests: [], email: '', avatar: null },
     },
     teams: { 't-networks': { id: 't-networks', name: 'Networks for Change', color: '#2f6b3a' } },
+    sites: { [TAMARACK_SITE.id]: TAMARACK_SITE },
   });
 }
 
@@ -193,24 +195,133 @@ export function tamarackPlace() {
     places[c.id] = { id: c.id, name: c.name, kind: 'community', geo: { lat: c.lat, lng: c.lng }, ...(places[`prov-${c.prov}`] ? { within: `prov-${c.prov}` } : {}), description: lines.join(' '), tags: nets.map((n) => n.toLowerCase()) };
   }
   places.waterloo = { id: 'waterloo', name: 'Tamarack Institute', kind: 'landmark', geo: { lat: 43.46, lng: -80.52 }, ...(places['prov-ON'] ? { within: 'prov-ON' } : {}), description: ['Tamarack’s home in Waterloo, Ontario. It runs all four Networks for Change.', ...TAMARACK_NETWORKS.map((n) => `${n.name}: ${n.about}`)].join(' '), tags: ['tamarack'] };
-  const layer = (id, name, colour, entries, note) => ({
-    id, name, colour, on: true, source: 'geojson', addedAt: '2026-11-27', note,
+  const layer = (id, name, colour, entries, note, group) => ({
+    id, name, colour, on: true, source: 'geojson', addedAt: '2026-11-27', note, public: true, group,
     features: entries.map(([cid, orgs, basis, source]) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [r2(byId[cid].lng), r2(byId[cid].lat)] }, properties: { name: byId[cid].name, province: P[byId[cid].prov], organisations: orgs, basis, source } })),
   });
   const data = {
-    'data-climate-2023': layer('data-climate-2023', 'Climate cohort 2023', 'green', Object.entries(CCT_2023).map(([id, orgs]) => [id, orgs, 'listed by Tamarack', SRC.cct2023]), 'Named in Tamarack’s announcement of 22 Feb 2023: 15 English and 15 French communities (Cohorte ClimatIC).'),
-    'data-climate-2024': layer('data-climate-2024', 'Climate cohort 2024', 'teal', Object.entries(CCT_2024).map(([id, orgs]) => [id, orgs, 'listed by Tamarack', SRC.cct2024]), 'Named in Tamarack’s announcement of 13 Feb 2024: 20 English and 4 French entries, some province-wide or national.'),
-    'data-youth-futures': layer('data-youth-futures', 'Youth Futures (stories)', 'orange', YOUTH.map((id) => [id, 'Named in a Youth Futures community story', 'to confirm', SRC.youth]), 'Youth Futures has 20 communities; its page doesn’t list them. These places are named in its stories: confirm with Tamarack.'),
+    'data-climate-2023': layer('data-climate-2023', 'Climate cohort 2023', 'green', Object.entries(CCT_2023).map(([id, orgs]) => [id, orgs, 'listed by Tamarack', SRC.cct2023]), 'Named in Tamarack’s announcement of 22 Feb 2023: 15 English and 15 French communities (Cohorte ClimatIC).', 'climate'),
+    'data-climate-2024': layer('data-climate-2024', 'Climate cohort 2024', 'teal', Object.entries(CCT_2024).map(([id, orgs]) => [id, orgs, 'listed by Tamarack', SRC.cct2024]), 'Named in Tamarack’s announcement of 13 Feb 2024: 20 English and 4 French entries, some province-wide or national.', 'climate'),
+    'data-youth-futures': layer('data-youth-futures', 'Youth Futures (stories)', 'orange', YOUTH.map((id) => [id, 'Named in a Youth Futures community story', 'to confirm', SRC.youth]), 'Youth Futures has 20 communities; its page doesn’t list them. These places are named in its stories: confirm with Tamarack.', 'youth'),
   };
   return migratePlace({
     basemap: 'drawn',
     drawn: CANADA_MAP,
     view: { lat: 55.5, lng: -96, zoom: 2.9, labelZoom: 4.6, siteZoom: 7, placeZoom: 7, regionZoom: 4.5 },
     places, pins: {}, data,
+    // The members site shows the map: places and the three public layers, never pins.
+    publicMap: true,
     layers: { areas: { on: true }, links: { on: false }, serves: { on: false }, places: { on: true }, actors: { on: false }, assets: { on: false } },
   });
 }
 
+/* ---------------------------------------------------------------- the members site (Web) */
+/**
+ * Networks for Change, the members site (alpha 0.4, plan doc "Tamarack on
+ * Dashi"): a public site made in Web around the shared map. Community pages
+ * come from the map's places (site.html?place=<id>); the join form and the
+ * "Is this right?" form are feedback forms, so answers land in Dashi now and
+ * in HubSpot once the app is connected.
+ */
+export const TAMARACK_SITE = {
+  id: 'site-members', name: 'Networks for Change', url: 'https://members.example/tamarack', visibility: 'public',
+  shows: 'Tamarack’s four networks on one map, a page for every member community, and how to join',
+  home: { kind: 'page', slug: 'home' },
+  look: { template: 'harbour', masthead: { preset: 'canopy', image: null, height: 'm', focus: 50 }, type: 'sans', header: 'over' },
+};
+
+const SITE_AT = '2026-11-27';
+const sitePage = (id, title, summary, body, more = {}) => [id, {
+  id, kind: 'page', siteId: TAMARACK_SITE.id, title, slug: more.slug ?? title.toLowerCase().replace(/[^\w]+/g, '-').replace(/^-|-$/g, ''), summary, body, cover: null,
+  status: 'published', publishedAt: SITE_AT, authorId: null, inNav: true, order: 0, ...more,
+}];
+
+export function tamarackPages() {
+  const net = Object.fromEntries(TAMARACK_NETWORKS.map((n) => [n.id, n]));
+  const page = (id) => `?site=${TAMARACK_SITE.id}&page=${id}`;
+  return migratePages({ id: 'pages', pages: Object.fromEntries([
+    sitePage('pg-t-home', 'Networks for Change', 'Communities across Canada, learning together.', `## Find your community, find your peers
+
+Tamarack’s four Networks for Change bring together councils, roundtables and community groups working on the same hard things. Click a dot to see a community’s networks and its page; the colours are the networks it’s in.
+
+[[map:place]]
+
+## The networks
+
+- **[Climate Transitions](${page('climate-transitions')})**: just, community-led climate action. ${new Set([...Object.keys(CCT_2023), ...Object.keys(CCT_2024)]).size} cohort communities on the map.
+- **[Youth Futures](${page('youth-futures')})**: youth-led pathways from high school to work and leadership.
+- **[Ending Poverty](${page('ending-poverty')})**: more than 400 municipalities through 90 regional roundtables.
+- **[Building Belonging](${page('building-belonging')})**: communities where everyone belongs.
+
+## Is your community here?
+
+The map shows what Tamarack has published so far. If your community is missing, or something is out of date, [tell us](${page('join')}).`, { slug: 'home', inNav: false, order: -1 }),
+    sitePage('pg-t-map', 'The map', 'Every member community we can show, and where each comes from.', `Each dot is a community; its colours are the networks it’s in. Click one for its page.
+
+[[map:place]]
+
+## Where this comes from
+
+- **Climate Transitions**: the communities Tamarack named when it welcomed its 2023 and 2024 cohorts.
+- **Youth Futures**: places named in the network’s community stories. Still **to confirm** with Tamarack.
+- **Ending Poverty** and **Building Belonging** have no public list yet. They join the map when Tamarack’s own member lists come in.
+
+Organisations show here; people never do, unless they choose to.`, { order: 0 }),
+    sitePage('pg-t-climate', 'Climate Transitions', 'Climate action that is just and community-led.', `${net.climate.about}
+
+[[map:climate]]
+
+Two cohorts are on the map: 2023 (green) and 2024 (teal). Communities in both show both colours.`, { order: 1, slug: 'climate-transitions' }),
+    sitePage('pg-t-youth', 'Youth Futures', 'Youth-led pathways to post-secondary, training, work and leadership.', `${net.youth.about}
+
+[[map:youth]]
+
+These places are **to confirm**: they come from the network’s stories, not a member list.`, { order: 2, slug: 'youth-futures' }),
+    sitePage('pg-t-poverty', 'Ending Poverty', 'More than 400 municipalities, 90 regional roundtables.', `${net.poverty.about}
+
+The roundtables aren’t on the map yet: their list comes from Tamarack, and each roundtable says how it wants to be shown. [Is your roundtable a member?](${page('join')})`, { order: 3, slug: 'ending-poverty' }),
+    sitePage('pg-t-belonging', 'Building Belonging', 'Communities where everyone belongs.', `${net.belonging.about}
+
+Its members join the map when Tamarack’s list comes in. [Tell us about your community](${page('join')}).`, { order: 4, slug: 'building-belonging' }),
+    sitePage('pg-t-join', 'Join or update', 'Join a network, or put your community’s listing right.', `A minute, and Tamarack’s networks team will be in touch. Only Tamarack sees what you send.
+
+[[form:form-t-join]]`, { order: 5, slug: 'join' }),
+  ]) });
+}
+
+const q = (id, kind, text, more = {}) => ({ id, kind, text, options: [], required: false, help: '', ...more });
+/** The join form (on the Join page) and "Is this right?" (on every community page). */
+export function tamarackForms() {
+  return {
+    'form-t-join': {
+      id: 'form-t-join', title: 'Join or update your listing', intro: 'Tell us who you are and which network you’d like to join, or what to correct on the map.',
+      thanks: 'Thank you. Tamarack’s networks team will be in touch within two weeks.', visibility: 'public', siteId: TAMARACK_SITE.id, place: 'join', createdAt: SITE_AT,
+      style: { layout: 'card', button: 'Send' },
+      questions: [
+        q('q-why', 'choice', 'What would you like to do?', { required: true, options: ['Join a network', 'Add my community to the map', 'Correct our listing', 'Something else'] }),
+        q('q-community', 'text', 'Your community', { required: true, placeholder: 'Town, city, region or First Nation' }),
+        q('q-org', 'text', 'Your organisation', { placeholder: 'Council, roundtable, collaborative…' }),
+        q('q-nets', 'multi', 'Which networks?', { options: TAMARACK_NETWORKS.map((n) => n.name) }),
+        q('q-more', 'long', 'Anything else we should know?'),
+        q('q-email', 'text', 'Email, so we can reply', { help: 'Only Tamarack sees this. It never shows on the site.' }),
+      ],
+    },
+    'form-t-check': {
+      id: 'form-t-check', title: 'Is this right?', intro: 'Help keep the map true: tell us if anything on this page is wrong or missing.',
+      thanks: 'Thank you. We’ll check and update the page.', visibility: 'public', siteId: TAMARACK_SITE.id, place: 'community', createdAt: SITE_AT,
+      style: { layout: 'plain', button: 'Send' },
+      questions: [
+        q('q-right', 'yesno', 'Is this page right?'),
+        q('q-fix', 'long', 'What should change?'),
+      ],
+    },
+  };
+}
+
 export function tamarackDocs() {
-  return { org: tamarackOrg(), place: tamarackPlace() };
+  const org = tamarackOrg();
+  return {
+    org, place: tamarackPlace(), pages: tamarackPages(),
+    dashboards: { id: 'dashboards', dashboards: {}, calculators: {}, stories: {}, forms: tamarackForms(), reports: {}, grants: {} },
+  };
 }

@@ -14,6 +14,8 @@
  *   [[show:<id>]]        a podcast show card
  *   [[calculator:<id>]]  an impact calculator (Workbench)
  *   [[story:<id>]]       a data story (Workbench)
+ *   [[map:place]]        the org's shared Place map (or [[map:<layer or group>]] for some of its layers)
+ *   [[form:<id>]]        a public feedback form (Workbench), e.g. a join or update-your-listing form
  */
 import { loadOrSeed, saveDoc } from './storage.js';
 

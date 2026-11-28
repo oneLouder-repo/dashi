@@ -113,7 +113,7 @@ export function FormView(form, { onSubmit = null, edit = null } = {}) {
     h('div', { class: 'feedback-foot' },
       layout === 'steps' && !edit && back, layout === 'steps' && !edit && next,
       edit ? h('span', { class: 'btn btn-primary btn-sm fb-inline-btn', contenteditable: 'true', onblur: (e) => edit.text({ style: 'button' }, e.target.textContent.trim()), onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } } }, form.style?.button || 'Send') : submit,
-      h('small', {}, 'Anonymous. We don’t ask for your name or email.'))));
+      h('small', {}, qs.some((q) => /e-?mail|name|contact/i.test(q.text ?? '')) ? 'Only the people who run this site see your answers.' : 'Anonymous. We don’t ask for your name or email.'))));
   if (layout === 'steps' && !edit) showStep();
   return box;
 }

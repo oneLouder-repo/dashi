@@ -18,7 +18,7 @@ import { migrateAssets, blankAssets } from '../assetHub.js';
 import { seedPlanDocs } from '../plandocs.js';
 import { actuaDocs } from './actua.js';
 import { kestrelBundle } from './kestrel.js';
-import { tamarackDocs } from './tamarack.js';
+import { tamarackDocs, tamarackPages, tamarackForms, tamarackPlace, TAMARACK_SITE } from './tamarack.js';
 import { seedKestrelEco } from '../../eoviz/kestrel.js';
 
 /**
@@ -63,6 +63,22 @@ export const CLIENT_TOPUPS = [
     const out = {};
     if (!eco || !Object.keys(eco.sites ?? {}).length) out.eco = seedKestrelEco();
     if (org && org.plugins?.eoviz == null) out.org = { ...org, plugins: { ...(org.plugins ?? {}), eoviz: true } };
+    return out;
+  } },
+  // Tamarack's members site (alpha 0.4), for a Tamarack set up with only the map.
+  { id: 'a04-tamarack-site', org: 'org-tamarack', label: 'Networks for Change members site', run: (read) => {
+    const out = {};
+    const org = read('org');
+    if (org && !org.sites?.[TAMARACK_SITE.id]) out.org = { ...org, sites: { ...(org.sites ?? {}), [TAMARACK_SITE.id]: TAMARACK_SITE } };
+    const pages = read('pages');
+    if (!pages?.pages?.['pg-t-home']) out.pages = { id: 'pages', ...(pages ?? {}), pages: { ...(pages?.pages ?? {}), ...tamarackPages().pages } };
+    const dash = read('dashboards');
+    if (!dash?.forms?.['form-t-join']) out.dashboards = { id: 'dashboards', dashboards: {}, calculators: {}, stories: {}, reports: {}, grants: {}, ...(dash ?? {}), forms: { ...(dash?.forms ?? {}), ...tamarackForms() } };
+    const place = read('place');
+    if (place && !place.publicMap) {
+      const seeded = tamarackPlace();
+      out.place = { ...place, publicMap: true, data: Object.fromEntries(Object.entries(place.data ?? {}).map(([id, l]) => [id, seeded.data[id] ? { ...l, public: true, group: seeded.data[id].group } : l])) };
+    }
     return out;
   } },
 ];

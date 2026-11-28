@@ -12,6 +12,7 @@
  *     layers: { id: { on } },                   which layers show (see LAYERS)
  *     drawn: GeoJSON FeatureCollection | null,  a drawn base map (land, marsh, rivers, roads)
  *     data: { id: DataLayer },                  files brought in and things drawn (stage 2, below)
+ *     publicMap: boolean,                       the map may show on the org's public sites (see publicPlace)
  *   }
  *
  *   Place = { id, name, kind, geo: { lat, lng }, area?: GeoJSON Polygon,
@@ -295,8 +296,39 @@ export function migrateData(data) {
   for (const [id, l] of Object.entries(data ?? {})) {
     if (!l || typeof l !== 'object') continue;
     const features = (l.features ?? []).map(cleanFeature).filter(Boolean).slice(0, MAX_FEATURES);
-    out[id] = { id, name: String(l.name ?? 'Data').slice(0, 80), colour: DATA_COLOURS.includes(l.colour) ? l.colour : DATA_COLOURS[i % DATA_COLOURS.length], on: l.on !== false, source: ['csv', 'geojson', 'drawing'].includes(l.source) ? l.source : 'geojson', features, addedAt: l.addedAt ?? null, ...(l.nameCol ? { nameCol: String(l.nameCol) } : {}), ...(l.note ? { note: String(l.note).slice(0, 300) } : {}) };
+    out[id] = { id, name: String(l.name ?? 'Data').slice(0, 80), colour: DATA_COLOURS.includes(l.colour) ? l.colour : DATA_COLOURS[i % DATA_COLOURS.length], on: l.on !== false, source: ['csv', 'geojson', 'drawing'].includes(l.source) ? l.source : 'geojson', features, addedAt: l.addedAt ?? null, ...(l.nameCol ? { nameCol: String(l.nameCol) } : {}), ...(l.note ? { note: String(l.note).slice(0, 300) } : {}), ...(l.public ? { public: true } : {}), ...(l.group ? { group: String(l.group).slice(0, 40) } : {}) };
     i++;
   }
   return out;
+}
+
+/**
+ * What a visitor may see of the map on a public site (Tamarack members site,
+ * alpha 0.4): nothing unless `publicMap` is on; then the base map, the view,
+ * the places that aren't held back, and only the data layers marked public.
+ * Never the pins: they tie people and private things to places. Each public
+ * feature gets the id of the place of the same name, for its community page.
+ */
+export function publicPlace(doc) {
+  if (!doc?.publicMap) return null;
+  const d = migratePlace(doc);
+  const places = Object.fromEntries(Object.entries(d.places).filter(([, p]) => !p.held)
+    .map(([id, p]) => [id, { id, name: p.name, kind: p.kind, geo: p.geo, ...(p.within ? { within: p.within } : {}), description: p.description ?? '', tags: p.tags ?? [] }]));
+  const byName = new Map(Object.values(places).map((p) => [p.name.toLowerCase(), p.id]));
+  const data = Object.fromEntries(Object.values(d.data).filter((l) => l.public).map((l) => [l.id, {
+    ...l, on: true,
+    features: l.features.map((f) => {
+      const placeId = byName.get(String(featureName(f, l.nameCol)).toLowerCase());
+      return placeId ? { ...f, properties: { ...f.properties, placeId } } : f;
+    }),
+  }]));
+  return { version: d.version, basemap: d.basemap, view: d.view, drawn: d.drawn, places, pins: {}, data, publicMap: true, layers: d.layers };
+}
+
+/** The public layers a [[map:<id>]] embed shows: all of them, one layer, or a group of layers. */
+export const layersFor = (pub, id = 'place') => Object.values(pub?.data ?? {}).filter((l) => !id || id === 'place' || l.id === id || l.group === id);
+
+/** A place's networks on the public map: each public layer it's in, with that feature's properties. */
+export function placeMemberships(pub, placeId) {
+  return Object.values(pub?.data ?? {}).flatMap((l) => l.features.filter((f) => f.properties?.placeId === placeId).map((f) => ({ layer: l, props: f.properties })));
 }
