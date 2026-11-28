@@ -38,7 +38,8 @@ export { LAB_EXPERIMENTS };
 
 export function Lab(ctx, sub) {
   const g = graphOf(ctx.facts);
-  const body = {
+  // A Map, not an object lookup: a route like #lab/constructor must not reach Object's own methods.
+  const body = new Map(Object.entries({
     console: () => ConsolePanel(ctx, g),
     communities: () => Communities(ctx, g),
     brokers: () => Brokers(ctx, g),
@@ -46,7 +47,7 @@ export function Lab(ctx, sub) {
     shapes: () => Shapes(ctx, g),
     hive: () => Hive(ctx, g),
     sound: () => Sound(ctx, g),
-  }[sub];
+  })).get(sub);
   return h('div', { class: 'lab' }, Chips(body ? sub : null), body ? body() : Home(ctx, g));
 }
 
