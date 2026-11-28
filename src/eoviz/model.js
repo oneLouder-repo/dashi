@@ -11,6 +11,8 @@
  *     series: { <id>: { id, siteId, param, unit, fileId, format, depth?, points: [[iso, value, flag?], …] } },
  *     files:  { <id>: { id, name, format, size, at, by, rows, seriesIds, meta, partnerId? } },
  *     partners: { <id>: { id, name, kind, about, share: 'open'|'network'|'own', colour } },
+ *     collections: { <id>: one cruise, float track or mooring, in four dimensions (ocean.js) },
+ *     windows: { <id>: a small view of the data for the windows grid (windows.js) },
  *     settings: { guideline: 'canada' },
  *   }
  *
@@ -44,7 +46,7 @@ export const SHARES = {
 
 export function migrateEco(d) {
   const doc = { ...blankEco(), ...(d ?? {}) };
-  for (const k of ['sites', 'series', 'files', 'partners']) if (!doc[k] || typeof doc[k] !== 'object') doc[k] = {};
+  for (const k of ['sites', 'series', 'files', 'partners', 'collections', 'windows']) if (!doc[k] || typeof doc[k] !== 'object') doc[k] = {};
   doc.settings = { guideline: 'canada', ...(doc.settings ?? {}) };
   for (const s of Object.values(doc.series)) if (!Array.isArray(s.points)) s.points = [];
   return doc;

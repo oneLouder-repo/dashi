@@ -37,6 +37,9 @@ import { publish } from '../../learning/cartridge.js';
 import { blankLearn, enrol } from '../../learning/records.js';
 import { seedRhizome } from '../../rhizome/setup.js';
 import { blankMeta } from '../library.js';
+import { blankEco, migrateEco } from '../../eoviz/model.js';
+import { mockLabradorSea, mockDavisStrait, mockFloats } from '../../eoviz/ocean.js';
+import { setsOf, starters } from '../../eoviz/windows.js';
 
 export const HALCYON_COLOURS = {
   primary: '#1f5f8b', 'primary-content': '#ffffff',
@@ -224,7 +227,33 @@ export function memberDocs(spec) {
     teams: { [`t-${spec.slug}`]: { id: `t-${spec.slug}`, name: spec.name, color: '#1f5f8b' } },
   });
   org.network = { share: shareFor(spec, library) };
-  return { org, library };
+  const eco = ecoFor(spec.id);
+  return { org, library, ...(eco && { eco }) };
+}
+
+/* ---------------------------------------------------------------- ocean data (EoViz) */
+
+const tagged = (cols, partnerId) => { for (const c of Object.values(cols)) c.partnerId = partnerId; return cols; };
+
+/** Each lab's own ocean data, shared with the network: the Labrador Sea line, the Davis Strait moorings, the floats. Mock data. */
+export function ecoFor(id) {
+  const spec = halcyonSpec(id);
+  const partner = (kind, about) => ({ id: `p-${spec.slug}`, name: spec.name, kind, about, share: 'network', colour: '#1f5f8b' });
+  let collections = null; let p = null;
+  if (id === 'org-labsea') { collections = mockLabradorSea(LABSEA_LINE); p = partner('lab', 'Bottle data from the Labrador Sea line, every spring since 2014, on RV Halcyon.'); }
+  if (id === 'org-davis') { collections = mockDavisStrait(DAVIS_ARRAY); p = partner('lab', 'Six moorings across Davis Strait, recovered each autumn.'); }
+  if (id === 'org-floats') { collections = mockFloats(4); p = partner('lab', 'Biogeochemical floats in the Labrador Sea.'); }
+  if (!collections) return null;
+  for (const c of Object.values(collections)) c.partnerId = p.id;
+  const eco = migrateEco({ ...blankEco(), partners: { [p.id]: p }, collections, settings: { guideline: 'canada', ocean: true } });
+  // The lab's windows: its own line, beside the moorings and floats the network shares with it.
+  if (id === 'org-labsea') {
+    const reach = { ...collections, ...tagged(mockDavisStrait(DAVIS_ARRAY), 'p-davis-moorings'), ...tagged(mockFloats(4), 'p-float-ops') };
+    const picks = starters(setsOf(reach), reach).filter((_, i) => [0, 1, 2, 4, 6, 8, 3, 10].includes(i));
+    // The first section and the T–S are linked: a new year moves both.
+    eco.windows = Object.fromEntries(picks.map((g, i) => [`win-${i + 1}`, { ...g.window, id: `win-${i + 1}`, order: i, link: i === 0 || i === 2, ...(i === 2 ? { slice: { ...picks[0].window.slice } } : {}) }]));
+  }
+  return eco;
 }
 
 /* ---------------------------------------------------------------- the hub's map */
@@ -452,6 +481,8 @@ export function halcyonBundle(id) {
     docs.rhizome = seedRhizome(docs);
   }
   docs.mobilize = mobilizeFor(spec, org.staff);
+  const eco = ecoFor(id);
+  if (eco) docs.eco = eco;
   if (!hub) {
     const lead = Object.keys(org.staff)[0];
     const course = benchToBasin(lead);
