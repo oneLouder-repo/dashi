@@ -16,6 +16,7 @@ import { RHIZOME_HELP } from '../rhizome/help.js';
 import { LEARNING_HELP } from '../learning/help.js';
 import { PLACE_HELP } from '../place/help.js';
 import { EOVIZ_HELP } from '../eoviz/help.js';
+import { MOBILIZE_HELP } from '../mobilize/help.js';
 import { NEW_04_HELP } from './new04.js';
 
 /** The screenshots tutorials can show, by id, with their captions. Files are in media/help/. */
@@ -59,18 +60,19 @@ export const HELP_SHOTS = {
   'rhizome-output': 'The Report tab: a report pack on paper, ready to save as a PDF.',
   'rhizome-rack': 'The twin racks: controls on the left, screens and engines on the right, cabled together.',
 };
-// Place took 7, Teach and Learn 8, New in alpha 0.4 9.
-export const HELP_VERSION = 9;
+// Place took 7, Teach and Learn 8, New in alpha 0.4 9, Mobilize 10.
+export const HELP_VERSION = 10;
 
 /**
  * Sections added since a version: a saved (edited) library that is older
  * gets them too, at the top, so new guides reach every server.
  */
-export const HELP_ADDED = { alpha: 2, 'new-in-0-2': 3, 'new-in-0-2-planning': 4, 'asset-graph': 5, rhizome: 6, place: 7, learning: 8, 'new-in-0-4': 9 };
+export const HELP_ADDED = { alpha: 2, 'new-in-0-2': 3, 'new-in-0-2-planning': 4, 'asset-graph': 5, rhizome: 6, place: 7, learning: 8, 'new-in-0-4': 9, mobilize: 10 };
 
 export const HELP_SEED = {
   version: HELP_VERSION,
   sections: [
+    MOBILIZE_HELP,
     NEW_04_HELP,
     LEARNING_HELP,
     PLACE_HELP,

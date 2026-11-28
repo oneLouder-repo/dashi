@@ -2,6 +2,19 @@
 
 Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and so on). Each point version (0.2, 0.3…) is one major platform feature; 0.2.1-alpha, 0.2.2-alpha… are fixes and polish from testing. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
+## 0.5.0-alpha (in progress): Mobilize, knowledge mobilization
+
+Stage 1 of the alpha 0.5 feature, built on the same branch as 0.4.1 and merged with it.
+
+- **Mobilize** (experimental, off until an org switches it on; Organization plan and up): a new plugin for moving what an organization learns to the people who can use it, and learning from what they do with it.
+  - **Knowledge objects:** one finding, practice, lesson, resource or open question, held with Lavis's five questions: what, to whom, by whom, how, and with what effect. Each has evidence (library sources and where it came from, and how strong it is), links to the plan's objectives, goals and workplans, an owner and a review date.
+  - **Readiness check:** an object moves from Draft to Ready to share only when the five questions, evidence, consent and review date are in place. Each failing check says what is missing.
+  - **Consent first:** open, partners, internal, or held by its holders. Community and Indigenous knowledge (OCAP) can't be shared until the holders' sign-off is recorded, and held objects never show in the asset library.
+  - **The loop:** make, share, listen, review. Log what comes back (counts, stories of use, pickups, decisions). Each review records what was heard and what changes. A double-loop review proposes a change to the plan, listed on the Loop page with links to the plan items.
+  - **Asset library:** knowledge objects show there as live cards.
+  - **Strategic AI at Actua:** Mobilize is switched on with eight knowledge objects from the AI strategy and Actua's public reports. The plan gains two goals with workplans: knowledge mobilization (a Mobilize pilot) and learning development grounded in adult education. Figures are from the reports; stories marked "Example" only show how the loop works.
+  - Help gains a Mobilize section, shown on Mobilize's About tab too.
+
 ## 0.4.1-alpha (unreleased): quality checks
 
 Fixes and tooling only, no new features. Dashi stays plain JavaScript with no build step and no runtime packages; these tools are for development only and the app never loads them.

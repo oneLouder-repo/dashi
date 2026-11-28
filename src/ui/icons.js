@@ -110,6 +110,8 @@ export const SECTION_ICONS = {
   'sec-learn': `<path d="M12 5 L2.5 9.5 L12 14 L21.5 9.5 Z"/><path d="M6 11.5 V16 C8.5 18.5 15.5 18.5 18 16 V11.5"/><path d="M21.5 9.5 V15"/><circle cx="21.5" cy="16.5" r="1.6" ${ACF}/>`,
   // EoViz, the eco data lens: a lens over a line of readings, with a leaf in its tone.
   'sec-eoviz': `<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.2 15.2 L20.5 20.5"/><path d="M2.5 13 L6 11 L9 12.5 L12 8 L15 9.5" stroke-opacity=".45"/><path d="M8 13.5 C8 9.8 10 7.8 13.6 7.4 C13.3 11 11.4 13.2 8 13.5 Z" ${AC}/>`,
+  // Mobilize, knowledge mobilization: a loop that goes out and comes back, around a seed of knowledge.
+  'sec-mobilize': `<path d="M5 12 A7 7 0 0 1 17.5 7.5"/><path d="M19 12 A7 7 0 0 1 6.5 16.5"/><path d="M15.5 4.8 L17.8 7.6 L14.6 8.6"/><path d="M8.5 19.2 L6.2 16.4 L9.4 15.4"/><circle cx="12" cy="12" r="2.6" ${ACF}/>`,
   'sec-place': `<path d="M3 19.5 C6 17.5 8.5 20.5 12 18.8 S18 17 21 19"/><path d="M12 15.5 C9 12 7.5 9.8 7.5 8 A4.5 4.5 0 0 1 16.5 8 C16.5 9.8 15 12 12 15.5 Z"/><circle cx="12" cy="8" r="1.9" ${ACF}/>`,
   'sec-plugins': `<rect x="4" y="4" width="7" height="7"/><rect x="13" y="13" width="7" height="7"/><path d="M4 13 H11 V20 H4 Z" stroke-dasharray="2 2"/><circle cx="16.5" cy="7.5" r="3.5" ${AC}/>`,
 };

@@ -20,6 +20,8 @@ import { actuaDocs } from './actua.js';
 import { kestrelBundle } from './kestrel.js';
 import { coalitionDocs } from './coalition.js';
 import { seedKestrelEco } from '../../eoviz/kestrel.js';
+import { actuaMobilize, addMobilizeGoals } from '../../mobilize/actua.js';
+import { migrateStrategy } from '../strategy.js';
 
 /**
  * A fresh start for testing (0.2, PR 9): when this mark changes, the client
@@ -63,6 +65,16 @@ export const CLIENT_TOPUPS = [
     const out = {};
     if (!eco || !Object.keys(eco.sites ?? {}).length) out.eco = seedKestrelEco();
     if (org && org.plugins?.eoviz == null) out.org = { ...org, plugins: { ...(org.plugins ?? {}), eoviz: true } };
+    return out;
+  } },
+  // Mobilize stage 1 (alpha 0.5): switched on for Actua, with a starting set of knowledge objects and two plan goals for the loop to feed.
+  { id: 'a05-mobilize', org: 'org-actua-ai', label: 'Mobilize starting set', run: (read) => {
+    const org = read('org');
+    const strategy = read('strategy');
+    const out = {};
+    if (strategy) { addMobilizeGoals(strategy); out.strategy = migrateStrategy(strategy); }
+    if (!Object.keys(read('mobilize')?.objects ?? {}).length) out.mobilize = actuaMobilize(out.strategy ?? strategy);
+    if (org && org.plugins?.mobilize == null) out.org = { ...org, plugins: { ...(org.plugins ?? {}), mobilize: true } };
     return out;
   } },
 ];

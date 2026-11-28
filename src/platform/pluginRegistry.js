@@ -239,6 +239,20 @@ const BUILT_IN = {
       { id: 'files', label: 'Files', fields: [f('name', 'Name', 'text'), f('format', 'Format', 'text'), f('rows', 'Rows', 'number')] }] }] },
     changelog: [{ version: '0.1.0', date: '2026-11-27', notes: 'Stage 1: file types and mocks, sites and readings, the viz finder, the dashboard and the sketchbook, with Kestrel Bay’s watershed as the demo.', by: 'Dashi' }],
   },
+  mobilize: {
+    category: 'Knowledge',
+    version: '0.1.0',
+    features: [
+      feat('objects', 'Knowledge objects', 'One thing worth sharing, held with Lavis’s five questions: what, to whom, by whom, how, and with what effect.'),
+      feat('readiness', 'Readiness check', 'An object is ready to share when its message, audiences, messengers, outputs, hoped-for change, evidence, consent and review date are in place.'),
+      feat('consent', 'Consent first', 'Open, partners, internal or held by its holders. Community and Indigenous knowledge follows its holders’ terms (OCAP) and needs their sign-off.'),
+      feat('loop', 'The loop', 'Make, share, listen, review. Reviews record what was heard and what changes; a double-loop review proposes a change to the plan.'),
+      feat('streams', 'Practice and academic streams', 'Briefs, posts, episodes and modules beside talks, posters and papers.'),
+    ],
+    dataModel: { docs: [{ name: 'mobilize', label: 'Knowledge objects', collections: [
+      { id: 'objects', label: 'Knowledge objects', fields: [f('title', 'Title', 'text', { required: true }), f('kind', 'Kind', 'select', { options: ['finding', 'practice', 'lesson', 'resource', 'question'] }), f('message', 'Message', 'longtext'), f('strength', 'Strength', 'select', { options: ['emerging', 'tested', 'established'] }), f('stage', 'Stage', 'select', { options: ['draft', 'ready', 'out', 'reviewed', 'revised', 'retired'] }), f('ownerId', 'Owner', 'reference'), f('nextReview', 'Next review', 'date'), f('tags', 'Tags', 'list')] }] }] },
+    changelog: [{ version: '0.1.0', date: '2026-11-28', notes: 'Stage 1: knowledge objects with the five questions, the readiness check, consent, reviews and uptake, plan links, and a starting set for Strategic AI at Actua.', by: 'Dashi' }],
+  },
   pages: {
     category: 'Publishing',
     features: [

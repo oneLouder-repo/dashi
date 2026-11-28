@@ -15,7 +15,7 @@ import { uid } from '../core/ops.js';
 import { StoryCard, StoryEditor } from '../ui/StoryEditor.js';
 import { storyOf, newStoryItem, applyStory } from '../platform/stories.js';
 import { saveDoc, onDocChange, session } from '../platform/storage.js';
-import { loadOrg, loadAssets, loadMaps, loadLibrary, loadPodcasts, loadStrategy } from '../platform/docs.js';
+import { loadOrg, loadAssets, loadMaps, loadLibrary, loadPodcasts, loadStrategy, loadMobilize } from '../platform/docs.js';
 import { openRhizomeTray } from './rhizomeTray.js';
 import { loadAllMaps } from '../platform/maps.js';
 import { currentUser } from '../platform/session.js';
@@ -55,7 +55,7 @@ let hub = loadAssets();
 let docs = loadDocs();
 function loadDocs() {
   const maps = plugins.has('mapper') ? loadMaps() : null;
-  return { org, maps, mapContents: maps ? loadAllMaps(maps) : {}, library: plugins.has('library') ? loadLibrary() : null, podcasts: plugins.has('podcasts') ? loadPodcasts() : null };
+  return { org, maps, mapContents: maps ? loadAllMaps(maps) : {}, library: plugins.has('library') ? loadLibrary() : null, podcasts: plugins.has('podcasts') ? loadPodcasts() : null, mobilize: plugins.has('mobilize') ? loadMobilize() : null };
 }
 
 /* ------------------------------------------------------------------ state */
@@ -85,7 +85,7 @@ function save(what = null, key = null) {
 }
 // Someone else changed the assets (or a map, the library...): pick it up.
 onDocChange('assets', (doc) => { hub = migrateAssets(doc); render(); });
-for (const name of ['maps', 'library', 'podcasts', 'org']) onDocChange(name, () => { docs = loadDocs(); render(); });
+for (const name of ['maps', 'library', 'podcasts', 'org', 'mobilize']) onDocChange(name, () => { docs = loadDocs(); render(); });
 
 /* ------------------------------------------------------------------ cards */
 const allCards = () => gatherAssets(hub, docs, { plugins });

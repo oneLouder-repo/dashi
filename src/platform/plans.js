@@ -50,14 +50,14 @@ export const FEATURES = [
 ];
 
 /** Plugins a plan can include. Organisation and Help are always there. */
-export const PLAN_PLUGINS = ['mapper', 'assets', 'strategy', 'studio', 'palette', 'podcasts', 'pages', 'library', 'social', 'rhizome', 'place', 'eoviz', 'teach', 'learn', 'ai'];
+export const PLAN_PLUGINS = ['mapper', 'assets', 'strategy', 'studio', 'palette', 'podcasts', 'pages', 'library', 'social', 'rhizome', 'place', 'eoviz', 'mobilize', 'teach', 'learn', 'ai'];
 
 const ALL = Object.fromEntries(PLAN_PLUGINS.map((id) => [id, true]));
 export const DEFAULT_PLANS = {
   free: {
     id: 'free', label: 'Seed', tagline: 'For volunteer groups trying Dashi: a plan, a map, your assets and a public site.',
     price: { monthly: 0, yearly: 0, usdMonthly: 0, usdYearly: 0, note: 'Free for good' },
-    plugins: { ...ALL, studio: false, podcasts: false, library: false, social: false, rhizome: false, place: false, eoviz: false, teach: false, learn: false, ai: false },
+    plugins: { ...ALL, studio: false, podcasts: false, library: false, social: false, rhizome: false, place: false, eoviz: false, mobilize: false, teach: false, learn: false, ai: false },
     limits: { users: 3, maps: 1, frameworks: 1, plans: 1, dashboards: 1, sites: 1, shows: 0, documents: 50, storageMb: 1024, uploadMb: 10, aiTokensK: 0 },
     features: { liveSocial: false, socialLogin: false, customDomain: false, bibliographies: false, branding: false, linkedOrgs: false },
   },
@@ -65,7 +65,7 @@ export const DEFAULT_PLANS = {
     id: 'basic', label: 'Community', tagline: 'For small nonprofits: ten people, with podcasts, Place, the Library and Rhizome.',
     price: { monthly: 39, yearly: 390, usdMonthly: 29, usdYearly: 290, note: 'a month' },
     // Teach and Learn sit in Organization and up (d, 2026-11-27).
-    plugins: { ...ALL, teach: false, learn: false, ai: false },
+    plugins: { ...ALL, mobilize: false, teach: false, learn: false, ai: false },
     limits: { users: 10, maps: 3, frameworks: 1, plans: 3, dashboards: 5, sites: 1, shows: 2, documents: 1000, storageMb: 10240, uploadMb: 100, aiTokensK: 0 },
     features: { liveSocial: false, socialLogin: true, customDomain: true, bibliographies: true, branding: false, linkedOrgs: false },
   },

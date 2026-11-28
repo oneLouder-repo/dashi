@@ -140,6 +140,11 @@ const ACTIONS = {
     { label: 'Finder', icon: 'chart', href: own('eoviz', '#finder'), here: '#finder' },
     { label: 'Formats', icon: 'fileText', href: own('eoviz', '#formats'), here: '#formats' },
   ],
+  mobilize: () => [
+    { label: 'Objects', icon: 'lightbulb', href: own('mobilize', '#objects'), here: '#objects' },
+    { label: 'Loop', icon: 'refresh', href: own('mobilize', '#loop'), here: '#loop' },
+    { label: 'About', icon: 'help', href: own('mobilize', '#about'), here: '#about' },
+  ],
   place: () => [
     { label: 'Map', icon: 'mapTrifold', href: own('place', '#map'), here: '#map' },
     { label: 'Places', icon: 'pin', href: own('place', '#places'), here: '#places' },
