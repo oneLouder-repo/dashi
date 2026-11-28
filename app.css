@@ -339,7 +339,8 @@ body.site-page { background: var(--color-base-100); color: var(--color-base-cont
 .pub-map-pop strong { font-size: 15px; }
 .pub-map-pop small { color: #5b6270; }
 .pub-map-pop ul { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 3px; }
-.pub-map-pop li { display: flex; align-items: center; gap: 6px; }
+.pub-map-pop li { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0 6px; }
+.pub-map-pop li em { grid-column: 2; font-size: 12px; color: #5b6270; font-style: normal; }
 .pub-map-pop a { color: var(--color-primary); font-weight: 600; }
 .pub-map-note { color: var(--muted); margin: 0; }
 .pub-map-list summary { cursor: pointer; display: inline-flex; gap: 6px; align-items: center; color: var(--color-primary); font-weight: 600; font-size: 14px; }

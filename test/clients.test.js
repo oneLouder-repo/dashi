@@ -7,13 +7,13 @@ import { actuaDocs, ACTUA_TAGS } from '../src/platform/clients/actua.js';
 import { fmtDuration } from '../src/site/station.js';
 
 test('four client orgs, each on its own subdomain', () => {
-  assert.deepEqual(CLIENT_ORGS.map((o) => o.slug), ['sjr', 'actua-ai', 'kestrel', 'tamarack']);
+  assert.deepEqual(CLIENT_ORGS.map((o) => o.slug), ['sjr', 'actua-ai', 'kestrel', 'coalition']);
   for (const o of CLIENT_ORGS) {
     const docs = o.docs();
     assert.equal(docs.org.id, o.id);
     assert.ok(docs.org.staff);
-    // Tamarack starts with its map only: no plan is made up for it.
-    if (o.id === 'org-tamarack') { assert.ok(docs.place && !docs.strategy); continue; }
+    // The coalition is a Place example: no plan is made up for it.
+    if (o.id === 'org-coalition') { assert.ok(docs.place && !docs.strategy); continue; }
     assert.ok(docs.strategy);
     // One framework per org, and plans sit under it, never inside another plan.
     const nodes = Object.values(docs.strategy.nodes);

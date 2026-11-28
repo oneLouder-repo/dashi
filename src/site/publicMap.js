@@ -5,8 +5,8 @@ import { baseStyle } from '../place/basemaps.js';
 import { layersFor, featureName, boundsOf } from '../place/model.js';
 
 /**
- * The org's shared Place map on a public site (Tamarack members site, alpha
- * 0.4): `[[map:place]]` shows every public layer, `[[map:<layer or group>]]`
+ * The org's shared Place map on a public site (the example coalition's members
+ * site, alpha 0.4): `[[map:place]]` shows every public layer, `[[map:<layer or group>]]`
  * just those. One dot per member community, its colours the networks it's in;
  * click one for its networks and a link to its community page. Under the map,
  * a key you can filter by and every community as a plain list, so the map is
@@ -95,7 +95,7 @@ export function PublicMap(pub, id, { link, focus = null }) {
   const popup = (m) => h('div', { class: 'pub-map-pop' },
     h('strong', {}, m.name), m.province && h('small', {}, m.province),
     h('ul', {}, m.layers.map((x) => h('li', {}, h('span', { class: 'pub-map-swatch', style: `--c:${hex(x.layer.colour)}` }), x.layer.name,
-      x.props.basis && x.props.basis !== 'listed by Tamarack' && h('em', {}, ` (${x.props.basis})`)))),
+      x.props.basis && h('em', {}, x.props.basis)))),
     m.placeId && h('a', { href: link({ place: m.placeId }) }, 'See this community →'));
   function drawMarkers() {
     if (!map) return;

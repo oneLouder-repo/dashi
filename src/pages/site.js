@@ -47,7 +47,7 @@ import { WHEEL } from '../ui/wheel.js';
  *   ?site=x&show=<id>         a show, by season
  *   ?site=x&episode=<id>      an episode
  *   ?site=x&plan=<id>         a published strategic plan document (Plan designer), printable as PDF
- *   ?site=x&place=<id>        a community page, made from the shared Place map (Tamarack members site)
+ *   ?site=x&place=<id>        a community page, made from the shared Place map (e.g. a coalition's members site)
  *
  * A private site is a members-only portal, e.g. the board's: signed-in
  * staff and viewers see it, everyone else gets a sign-in panel. A board

@@ -6,7 +6,7 @@
  *   actua-ai.<base>  Strategic AI at Actua: plan, ecosystem map, bibliography and files
  *   kestrel.<base>   Kestrel Bay Community Foundation (made up, alpha 0.3): the biggest test org,
  *                    every plugin on, a busy public portal, a board site and the Social Media Integrator
- *   tamarack.<base>  Tamarack Institute (alpha client): the ecosystem surfer, its Networks for Change on a map of Canada
+ *   coalition.<base> Shared Ground Canada (made up): the example Place project, a nation-wide coalition with a hub org
  *
  * Each builder is a pure function of public sources, so the server seeds
  * the same documents every time. See docs/INTAKE.md for turning this into
@@ -18,7 +18,7 @@ import { migrateAssets, blankAssets } from '../assetHub.js';
 import { seedPlanDocs } from '../plandocs.js';
 import { actuaDocs } from './actua.js';
 import { kestrelBundle } from './kestrel.js';
-import { tamarackDocs, tamarackPages, tamarackForms, tamarackPlace, TAMARACK_SITE } from './tamarack.js';
+import { coalitionDocs } from './coalition.js';
 import { seedKestrelEco } from '../../eoviz/kestrel.js';
 
 /**
@@ -65,27 +65,11 @@ export const CLIENT_TOPUPS = [
     if (org && org.plugins?.eoviz == null) out.org = { ...org, plugins: { ...(org.plugins ?? {}), eoviz: true } };
     return out;
   } },
-  // Tamarack's members site (alpha 0.4), for a Tamarack set up with only the map.
-  { id: 'a04-tamarack-site', org: 'org-tamarack', label: 'Networks for Change members site', run: (read) => {
-    const out = {};
-    const org = read('org');
-    if (org && !org.sites?.[TAMARACK_SITE.id]) out.org = { ...org, sites: { ...(org.sites ?? {}), [TAMARACK_SITE.id]: TAMARACK_SITE } };
-    const pages = read('pages');
-    if (!pages?.pages?.['pg-t-home']) out.pages = { id: 'pages', ...(pages ?? {}), pages: { ...(pages?.pages ?? {}), ...tamarackPages().pages } };
-    const dash = read('dashboards');
-    if (!dash?.forms?.['form-t-join']) out.dashboards = { id: 'dashboards', dashboards: {}, calculators: {}, stories: {}, reports: {}, grants: {}, ...(dash ?? {}), forms: { ...(dash?.forms ?? {}), ...tamarackForms() } };
-    const place = read('place');
-    if (place && !place.publicMap) {
-      const seeded = tamarackPlace();
-      out.place = { ...place, publicMap: true, data: Object.fromEntries(Object.entries(place.data ?? {}).map(([id, l]) => [id, seeded.data[id] ? { ...l, public: true, group: seeded.data[id].group } : l])) };
-    }
-    return out;
-  } },
 ];
 
 export const CLIENT_ORGS = [
   { id: 'org-sjr', slug: 'sjr', name: 'Social Justice Radio', plan: 'standard', docs: sjrDocs },
   { id: 'org-actua-ai', slug: 'actua-ai', name: 'Strategic AI at Actua', plan: 'custom', docs: actuaDocs },
   { id: 'org-kestrel', slug: 'kestrel', name: 'Kestrel Bay Community Foundation', plan: 'custom', docs: () => kestrelBundle().docs, bundle: kestrelBundle },
-  { id: 'org-tamarack', slug: 'tamarack', name: 'Tamarack Institute', plan: 'custom', docs: tamarackDocs },
+  { id: 'org-coalition', slug: 'coalition', name: 'Shared Ground Canada', plan: 'custom', docs: coalitionDocs },
 ];

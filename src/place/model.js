@@ -303,7 +303,7 @@ export function migrateData(data) {
 }
 
 /**
- * What a visitor may see of the map on a public site (Tamarack members site,
+ * What a visitor may see of the map on a public site (a coalition's members site,
  * alpha 0.4): nothing unless `publicMap` is on; then the base map, the view,
  * the places that aren't held back, and only the data layers marked public.
  * Never the pins: they tie people and private things to places. Each public
