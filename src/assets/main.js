@@ -15,7 +15,7 @@ import { uid } from '../core/ops.js';
 import { StoryCard, StoryEditor } from '../ui/StoryEditor.js';
 import { storyOf, newStoryItem, applyStory } from '../platform/stories.js';
 import { saveDoc, onDocChange, session } from '../platform/storage.js';
-import { loadOrg, loadAssets, loadMaps, loadLibrary, loadPodcasts, loadStrategy } from '../platform/docs.js';
+import { loadOrg, loadAssets, loadMaps, loadLibrary, loadPodcasts, loadStrategy, loadMobilize } from '../platform/docs.js';
 import { openRhizomeTray } from './rhizomeTray.js';
 import { loadAllMaps } from '../platform/maps.js';
 import { currentUser } from '../platform/session.js';
@@ -55,7 +55,7 @@ let hub = loadAssets();
 let docs = loadDocs();
 function loadDocs() {
   const maps = plugins.has('mapper') ? loadMaps() : null;
-  return { org, maps, mapContents: maps ? loadAllMaps(maps) : {}, library: plugins.has('library') ? loadLibrary() : null, podcasts: plugins.has('podcasts') ? loadPodcasts() : null };
+  return { org, maps, mapContents: maps ? loadAllMaps(maps) : {}, library: plugins.has('library') ? loadLibrary() : null, podcasts: plugins.has('podcasts') ? loadPodcasts() : null, mobilize: plugins.has('mobilize') ? loadMobilize() : null };
 }
 
 /* ------------------------------------------------------------------ state */
@@ -85,7 +85,7 @@ function save(what = null, key = null) {
 }
 // Someone else changed the assets (or a map, the library...): pick it up.
 onDocChange('assets', (doc) => { hub = migrateAssets(doc); render(); });
-for (const name of ['maps', 'library', 'podcasts', 'org']) onDocChange(name, () => { docs = loadDocs(); render(); });
+for (const name of ['maps', 'library', 'podcasts', 'org', 'mobilize']) onDocChange(name, () => { docs = loadDocs(); render(); });
 
 /* ------------------------------------------------------------------ cards */
 const allCards = () => gatherAssets(hub, docs, { plugins });
@@ -427,7 +427,7 @@ function MapView(list, cards) {
     mode !== 'arrange' && h('span', { class: 'ah-map-size' }, h('span', { class: 'muted small' }, 'Group by'), seg([['home', 'Where it lives'], ['filed', 'Collection or tag']], groupBy, (v) => { prefs.mapGroup = v; sunFocus = sunFocus.slice(0, 1); })),
     mode !== 'arrange' && h('span', { class: 'ah-map-size' }, h('span', { class: 'muted small' }, 'Size by'), seg([['count', 'Count'], ['links', 'Links']], by, (v) => { prefs.mapSize = v; })),
     h('span', { class: 'muted small ah-map-hint' }, mode === 'wheel' ? 'Click a wedge to open it, the centre to step back. ↑ ↓ step through the list.' : mode === 'icicle' ? 'Click a bar to open it, the left column to step back. ↑ ↓ step through the list.' : 'Drag to sort, or grab the ring on an asset to link it.'));
-  if (mode === 'arrange') return h('div', { class: 'ah-mapview' }, bar, AssetMap(list, cards));
+  if (mode === 'arrange') return h('div', { class: 'ah-mapview' }, bar, AssetMap(list));
   const linksOf = (c) => (c.item?.related ?? []).length + list.filter((x) => x.item?.related?.includes(c.key)).length;
   const filedIn = (c) => (c.collectionIds[0] && hub.collections[c.collectionIds[0]] ? hub.collections[c.collectionIds[0]].name : c.tags[0] ? `#${c.tags[0]}` : 'Not filed');
   const groupOf = groupBy === 'home' ? homeOf : filedIn;

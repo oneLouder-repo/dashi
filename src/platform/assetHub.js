@@ -2,6 +2,7 @@ import { coverArt } from '../ui/standIn.js';
 import { episodeHref } from './podcasts.js';
 import { uid } from '../core/ops.js';
 import { linkTo } from '../plugins.js';
+import { assetCards as knowledgeCards } from '../mobilize/model.js';
 import { photoById, photoThumb } from './photos.js';
 
 /**
@@ -77,6 +78,7 @@ export const SOURCES = [
   { id: 'library', label: 'Library', icon: 'sec-library', plugin: 'library', sub: 'Documents and references' },
   { id: 'episode', label: 'Podcast episodes', icon: 'sec-podcasts', plugin: 'podcasts', sub: 'Your stories, told aloud' },
   { id: 'audio', label: 'Studio audio', icon: 'music', plugin: 'podcasts', sub: 'Recordings, imports and beds' },
+  { id: 'knowledge', label: 'Knowledge objects', icon: 'lightbulb', plugin: 'mobilize', sub: 'What we learn, to share' },
 ];
 export const sourceById = Object.fromEntries(SOURCES.map((s) => [s.id, s]));
 
@@ -221,6 +223,10 @@ export function gatherAssets(hub, docs = {}, { plugins = null } = {}) {
     for (const f of Object.values(docs.podcasts?.files ?? {})) {
       add({ type: 'audio', id: f.id }, { source: 'audio', title: f.name || 'Untitled audio', description: '', href: linkTo('podcasts', '#studio/files'), file: { mediaId: f.mediaId, name: `${f.name}.${/mpeg|mp3/.test(f.type ?? '') ? 'mp3' : 'wav'}`, size: f.size, type: f.type || 'audio/wav' }, updatedAt: f.createdAt, by: f.createdBy, kindLabel: 'Studio audio', icon: 'music', group: 'audio', sub: { recording: 'Recorded in the studio', import: 'Imported to the studio', mixdown: 'Studio mixdown' }[f.origin] ?? 'Studio audio', abcd: 'cultural', tagsFrom: f.tags ?? [] });
     }
+  }
+  if (on('mobilize')) {
+    // Knowledge objects (Mobilize): live here; held community knowledge never shows.
+    for (const { ref, card } of knowledgeCards(docs.mobilize)) add(ref, { ...card, href: linkTo('mobilize', `#object/${ref.id}`) });
   }
   // Notes about things that have since been removed elsewhere: keep them, marked missing.
   for (const [key, it] of refs) out.push({ key, item: it, ref: it.ref, source: it.ref.type, title: it.title || 'Removed item', description: it.description ?? '', tags: it.tags, collectionIds: it.collectionIds, abcd: it.abcd ?? null, sensitivity: it.sensitivity, missing: true, kindLabel: 'Removed', icon: 'warn', pinned: !!it.pinned });

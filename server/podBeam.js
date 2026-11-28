@@ -129,7 +129,7 @@ function* waiting(dir, log) {
     if (!statSync(path).isFile()) continue;
     if (AUDIO.test(file)) yield { name: file, from: file, bytes: readFileSync(path) };
     else if (/\.zip$/i.test(file)) {
-      let entries = [];
+      let entries;
       try { entries = unzipEntries(readFileSync(path), (n) => AUDIO.test(n)); } catch (err) { log(`podBeam: couldn’t open ${file} (${err.message}).`); continue; }
       if (!entries.length) log(`podBeam: ${file} has no audio files in it.`);
       for (const e of entries) yield { name: basename(e.name), from: `${file} → ${e.name}`, bytes: e.bytes };

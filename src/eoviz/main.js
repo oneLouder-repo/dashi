@@ -16,6 +16,7 @@ import { KINDS, PARAMS, paramById, paramLabel, judge, latest, seriesOf, stats, t
 import { FORMATS, FAMILIES, formatById, readFile, mockFile, toDataStream } from './formats.js';
 import { datasetFromParsed, datasetFromDoc, shapeOf, suggest, VIZ, vizById, GREEN } from './viz.js';
 import { EOVIZ_HELP, EOVIZ_HELP_ID } from './help.js';
+import { OceanData, Windows, Studio, takeOceanFile, loadNetworkEco, leaveStudio } from './oceanViews.js';
 
 /**
  * EoViz (stage 1, experimental): the eco data lens.
@@ -27,6 +28,9 @@ import { EOVIZ_HELP, EOVIZ_HELP_ID } from './help.js';
  *   #finder[/<source>]      the viz finder: a mock (mock:<format>), a site (site:<id>) or the file in hand
  *   #formats                file types, their specs, and a mock of each
  *   #sketchbook[/<site>]    generative drawings, the process drawing first
+ *   #ocean                  ocean collections (cruises, floats, moorings): ours and the network's
+ *   #windows                the windows grid: data, query, time and form chips
+ *   #studio                 the 3D studio: the windows switched on, in one space
  *   #about[/<page>]         the quick reference, and the same tutorials as Help
  */
 const org = loadOrg();
@@ -85,19 +89,39 @@ const route = () => {
   const i = raw.indexOf('/');
   return i < 0 ? [raw, ''] : [raw.slice(0, i), decodeURIComponent(raw.slice(i + 1))];
 };
-const VIEWS = { overview: Overview, site: Site, files: Files, sea: AtSea, finder: Finder, formats: Formats, sketchbook: Sketchbook, about: About };
+/** The page for a route (a switch, so the route word never indexes an object). */
+function viewFor(view) {
+  switch (view) {
+    case 'site': return Site;
+    case 'files': return Files;
+    case 'sea': return AtSea;
+    case 'finder': return Finder;
+    case 'formats': return Formats;
+    case 'sketchbook': return Sketchbook;
+    case 'about': return About;
+    case 'ocean': return () => OceanData(ocean);
+    case 'windows': return () => Windows(ocean);
+    case 'studio': return () => Studio(ocean);
+    default: return Overview;
+  }
+}
 
+let lastView = null;
 function render() {
   const [view, arg] = route();
+  if (lastView === 'studio' && view !== 'studio') leaveStudio();
+  const keep = view === lastView && view === 'windows' ? main.scrollTop : 0;
+  lastView = view;
   drawSide(view, arg);
   setCrumbs([]);
-  main.replaceChildren((VIEWS[view] ?? Overview)(arg));
-  main.scrollTop = 0;
+  main.replaceChildren(viewFor(view)(arg));
+  main.scrollTop = keep;
 }
 addEventListener('hashchange', render);
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: 'gauge' },
+  ...(Object.keys(doc.collections ?? {}).length || doc.settings?.ocean ? [{ id: 'ocean', label: 'Ocean', icon: 'waves' }, { id: 'windows', label: 'Windows', icon: 'tiles' }, { id: 'studio', label: '3D studio', icon: 'layers' }] : []),
   { id: 'files', label: 'Files', icon: 'file' },
   { id: 'sea', label: 'At sea', icon: 'waves' },
   { id: 'finder', label: 'Finder', icon: 'chart' },
@@ -112,6 +136,10 @@ const bringInButton = () => canEdit && h('button', { class: 'btn btn-sm btn-prim
 const fileIn = h('input', { type: 'file', class: 'sr-only', onchange: (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) takeFile(f); } });
 document.body.append(fileIn);
 
+/** What the ocean pages (oceanViews.js) need from this page. */
+const ocean = { doc: () => doc, save: (note) => save(note), canEdit, page: (current, ...children) => page(current, ...children), download, pickFile: () => fileIn.click(), rerender: () => render() };
+loadNetworkEco(() => { if (['ocean', 'windows', 'studio'].includes(route()[0])) render(); });
+
 /* ------------------------------------------------------------ side nav */
 
 function drawSide(view, arg) {
@@ -119,6 +147,9 @@ function drawSide(view, arg) {
     { title: 'EoViz · experimental', items: [
       { label: 'Overview', sub: `${n(Object.keys(doc.sites).length, 'site')} · ${n(Object.keys(doc.series).length, 'series', 'series')}`, icon: 'gauge', href: '#overview', on: view === 'overview' && !arg },
       { label: 'Files', sub: `${n(Object.keys(doc.files).length, 'file')} brought in`, icon: 'file', href: '#files', on: view === 'files' },
+      { label: 'Ocean data', sub: `${n(Object.keys(doc.collections ?? {}).length, 'collection')} · cruises, floats, moorings`, icon: 'waves', href: '#ocean', on: view === 'ocean' },
+      { label: 'Windows', sub: `${n(Object.keys(doc.windows ?? {}).length, 'window')} · data, query, time, form`, icon: 'tiles', href: '#windows', on: view === 'windows' },
+      { label: '3D studio', sub: `${n(Object.values(doc.windows ?? {}).filter((w) => w.studio).length, 'window')} in the studio`, icon: 'layers', href: '#studio', on: view === 'studio' },
       { label: 'At sea', sub: 'Cast, bottles and carbon', icon: 'waves', href: '#sea', on: view === 'sea' },
       { label: 'Finder', sub: 'The right chart for your data', icon: 'chart', href: '#finder', on: view === 'finder' },
       { label: 'Formats', sub: `${FORMATS.length} file types, with specs`, icon: 'fileText', href: '#formats', on: view === 'formats' },
@@ -208,7 +239,6 @@ function firstRun() {
 function Site(id) {
   const site = doc.sites[id];
   if (!site) return page('overview', h('p', { class: 'eo-note' }, 'That site isn’t here any more.'));
-  const partner = partnerOf(site);
   setCrumbs([{ label: site.name }]);
   const list = seriesOf(doc, site.id);
   const profile = depthsOf(list) >= 3;
@@ -240,6 +270,7 @@ async function takeFile(file) {
   if (file.size > 20 * 1024 * 1024) { toast('That file is over 20 MB: split it, or bring in a month at a time.'); return; }
   if (/\.(xlsx?|nc|hex)$/i.test(file.name)) { toast(/\.xls/i.test(file.name) ? 'Save the sheet as CSV first: EoViz reads CSV for now.' : 'Binary netCDF and raw .hex come in a later stage. Try CDL (ncdump) or the converted .cnv.'); return; }
   const text = await file.text();
+  if (takeOceanFile(ocean, file.name, text)) return;
   holdFile(file.name, file.size, text);
 }
 function holdFile(name, size, text, formatId = null) {

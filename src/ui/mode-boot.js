@@ -7,8 +7,8 @@
  * follows the device. Public sites keep their own look. A plain script.
  */
 (function () {
-  var DARK_MODE = false;
-  var mode = 'light';
+  const DARK_MODE = false;
+  let mode = 'light';
   if (DARK_MODE) {
     try { mode = localStorage.getItem('dashi.mode'); } catch (e) { /* private window */ }
     if (mode !== 'light' && mode !== 'dark') mode = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';

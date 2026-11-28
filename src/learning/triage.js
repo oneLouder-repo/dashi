@@ -184,7 +184,7 @@ export function triageLearners(learn, teach, org) {
 export function withTriageTeach(teach, org) {
   if ((teach.packs ?? []).includes(TRIAGE_PACK)) return teach;
   const by = Object.values(org?.staff ?? {}).find((s) => s.roleId === 'admin')?.id ?? null;
-  let x = { ...teach, cartridges: { ...(teach.cartridges ?? {}) }, offers: { ...(teach.offers ?? {}) }, packs: [...(teach.packs ?? []), TRIAGE_PACK] };
+  const x = { ...teach, cartridges: { ...(teach.cartridges ?? {}) }, offers: { ...(teach.offers ?? {}) }, packs: [...(teach.packs ?? []), TRIAGE_PACK] };
   for (const c of triageCartridges(by)) x.cartridges[c.id] ??= c;
   return triageOffers(x, org, by);
 }

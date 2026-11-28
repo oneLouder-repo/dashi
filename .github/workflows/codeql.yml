@@ -1,0 +1,29 @@
+# GitHub's code scanning for security problems in the JavaScript (server and
+# browser). Findings show under the repository's Security tab.
+# It needs code scanning switched on for the repository (Settings, then Code
+# security). Until it is, it runs only weekly or by hand, so pull requests
+# stay green; once it is on, add `pull_request:` and `push: branches: [master]`.
+name: CodeQL
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * 1'
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          queries: security-and-quality
+          config: |
+            paths-ignore:
+              - vendor
+              - node_modules
+      - uses: github/codeql-action/analyze@v4

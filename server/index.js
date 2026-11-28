@@ -7,11 +7,12 @@ import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { config, urlFor, orgHost } from './config.js';
 import { openDb } from './db.js';
-import { createApp, hashPassword } from './app.js';
+import { createApp, hashPassword, newId } from './app.js';
 import { exampleDocs } from '../src/platform/seeds.js';
 import { MOCK_ORGS, mockDocs, mockFiles } from '../src/platform/mockOrgs.js';
 import { seedPlanDocs } from '../src/platform/plandocs.js';
-import { CLIENT_ORGS, CLIENT_RESET, CLIENT_TOPUPS } from '../src/platform/clients/index.js';
+import { CLIENT_ORGS, CLIENT_RESET, CLIENT_TOPUPS, CLIENT_LINKS } from '../src/platform/clients/index.js';
+import { linkOrgs } from './network.js';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { scheduleBackups } from './backup.js';
@@ -102,6 +103,7 @@ export async function start({ port = config.port, quiet = false, resolver } = {}
  */
 async function seedClientPlatform(db, app) {
   const added = [];
+  const fresh = new Set();
   for (const spec of CLIENT_ORGS) {
     if (db.prepare('SELECT 1 FROM orgs WHERE id = ? OR slug = ?').get(spec.id, spec.slug)) continue;
     // A client with generated library files (Kestrel Bay) gives a bundle: its documents and the files to write.
@@ -111,6 +113,12 @@ async function seedClientPlatform(db, app) {
     app.createOrg({ id: spec.id, slug: spec.slug, name: spec.name, plan: spec.plan, docs });
     if (made.length) writeMediaFiles(db, spec.id, made);
     added.push(spec.name);
+    fresh.add(spec.id);
+  }
+  // Links between client orgs (the Halcyon network), made once, when one side is new: a link someone ends stays ended.
+  const q = (sql) => db.prepare(sql);
+  for (const [hub, member] of CLIENT_LINKS) {
+    if ((fresh.has(hub) || fresh.has(member)) && q('SELECT 1 FROM orgs WHERE id = ?').get(hub) && q('SELECT 1 FROM orgs WHERE id = ?').get(member)) linkOrgs(q, () => new Date().toISOString(), newId, hub, member);
   }
   added.push(...resetClientDocs(db, app));
   added.push(...topUpClientDocs(db, app));

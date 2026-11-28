@@ -1,6 +1,6 @@
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
-import { Shell, Avatar } from '../ui/Shell.js';
+import { Shell } from '../ui/Shell.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
 import { swSections } from '../strategy/swNav.js';
 import { PluginHeader } from '../ui/PluginHeader.js';
@@ -12,7 +12,7 @@ import { loadAllMaps } from '../platform/maps.js';
 import { migrateStrategy, strategyOps, rootOf } from '../platform/strategy.js';
 import { currentUser } from '../platform/session.js';
 import { mergeStudio, migrateStudio, plansOf, studioOps, ofPlan, QUADRANTS } from '../platform/studio.js';
-import { short, range, today, daysBetween } from '../strategy/dates.js';
+import { range, today, daysBetween } from '../strategy/dates.js';
 import { taskSummary } from '../platform/strategy.js';
 import { loadPlanDocs } from '../platform/docs.js';
 import { LevelBadge, ProgressRing, AvatarStack, objectiveOrder } from '../ui/strategyLook.js';

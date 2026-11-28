@@ -6,14 +6,16 @@ import { SJR_SEASONS, RADIO_ADA } from '../src/platform/clients/sjrArchive.js';
 import { actuaDocs, ACTUA_TAGS } from '../src/platform/clients/actua.js';
 import { fmtDuration } from '../src/site/station.js';
 
-test('four client orgs, each on its own subdomain', () => {
-  assert.deepEqual(CLIENT_ORGS.map((o) => o.slug), ['sjr', 'actua-ai', 'kestrel', 'coalition']);
+test('the client orgs, each on its own subdomain', () => {
+  assert.deepEqual(CLIENT_ORGS.map((o) => o.slug).slice(0, 5), ['sjr', 'actua-ai', 'kestrel', 'coalition', 'halcyon']);
   for (const o of CLIENT_ORGS) {
     const docs = o.docs();
     assert.equal(docs.org.id, o.id);
     assert.ok(docs.org.staff);
     // The coalition is a Place example: no plan is made up for it.
     if (o.id === 'org-coalition') { assert.ok(docs.place && !docs.strategy); continue; }
+    // The Halcyon member labs are small: people, a library and what they share.
+    if (!docs.strategy && o.id.startsWith('org-') && docs.org.network) continue;
     assert.ok(docs.strategy);
     // One framework per org, and plans sit under it, never inside another plan.
     const nodes = Object.values(docs.strategy.nodes);
@@ -81,4 +83,29 @@ test('an episode with linked audio shows no made-up length', () => {
   assert.equal(fmtDuration(undefined), '');
   assert.equal(fmtDuration(65), '1:05');
   assert.equal(fmtDuration(3723), '1:02:03');
+});
+
+test('the Halcyon network: ten made-up orgs, 66 people, linked to a hub that shares on purpose', async () => {
+  const { HALCYON_ORGS, HALCYON_LINKS, halcyonDocs } = await import('../src/platform/clients/halcyon.js');
+  const { networkOf, sharedFor } = await import('../src/platform/network.js');
+  assert.equal(HALCYON_ORGS.length, 10);
+  const docs = Object.fromEntries(HALCYON_ORGS.map((o) => [o.id, halcyonDocs(o.id)]));
+  const names = Object.values(docs).flatMap((d) => Object.values(d.org.staff).map((s) => s.name));
+  assert.equal(names.length, 66);
+  assert.equal(new Set(names).size, 66, 'no two people share a name');
+  const links = HALCYON_LINKS.map(([hubId, memberId]) => ({ hubId, memberId, status: 'active' }));
+  const net = networkOf('org-labsea', links);
+  assert.equal(net.get('org-halcyon'), 'hub');
+  assert.equal(net.get('org-davis'), 'sibling');
+  assert.ok(!net.has('org-oocc'), 'the global commons is the hub’s network, not each lab’s');
+  // The hub and the Labrador Sea lab are in every plugin.
+  for (const id of ['org-halcyon', 'org-labsea']) for (const name of ['strategy', 'library', 'mobilize', 'pages']) assert.ok(docs[id][name], `${id} has ${name}`);
+  assert.ok(docs['org-halcyon'].place && docs['org-halcyon'].social && docs['org-halcyon'].podcasts);
+  assert.ok(docs['org-labsea'].teach.cartridges.crt_bench_basin);
+  // What travels: people without emails; held knowledge never.
+  const people = sharedFor('people', { org: docs['org-halcyon'].org });
+  assert.ok(people.length === 15 && people.every((p) => !('email' in p)));
+  const mob = sharedFor('mobilize', { org: docs['org-halcyon'].org, mobilize: docs['org-halcyon'].mobilize });
+  assert.ok(!mob.objects['ko-h-northern-knowledge'], 'held, OCAP knowledge stays home');
+  assert.ok(mob.objects['ko-h-convection-carbon']);
 });

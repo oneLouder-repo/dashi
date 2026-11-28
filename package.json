@@ -1,6 +1,6 @@
 {
   "name": "ecosystem-mapper",
-  "version": "0.4.0-alpha",
+  "version": "0.4.1-alpha",
   "private": true,
   "description": "Dashi: planning, ecosystem mapping, data dashboards, podcasts and public sites for small nonprofits.",
   "type": "module",
@@ -8,6 +8,11 @@
     "start": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning server.js",
     "dev": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning --watch-path=server server.js",
     "test": "node --disable-warning=ExperimentalWarning --test \"test/**/*.test.js\"",
+    "lint": "eslint .",
+    "typecheck": "node scripts/typecheck.js",
+    "coverage": "node --disable-warning=ExperimentalWarning --test --experimental-test-coverage --test-coverage-exclude=\"test/**\" --test-coverage-exclude=\"vendor/**\" --test-coverage-lines=80 \"test/**/*.test.js\"",
+    "a11y": "node --disable-warning=ExperimentalWarning scripts/a11y.js",
+    "check": "npm run lint && npm run typecheck && npm test",
     "audit": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning server/audit-cli.js",
     "backup": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning -e \"import('./server/config.js').then(async ({config})=>{const {openDb}=await import('./server/db.js');const {backupNow}=await import('./server/backup.js');console.log(backupNow(openDb(config.dataDir)))})\"",
     "import": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning server/import-cli.js",
@@ -17,5 +22,14 @@
   "engines": {
     "node": ">=22.13"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.7",
+    "axe-core": "^4.14.1",
+    "eslint": "^10.16.0",
+    "globals": "^17.14.0",
+    "playwright": "^1.63.0",
+    "typescript": "^5.9.3"
+  }
 }

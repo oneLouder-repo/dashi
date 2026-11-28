@@ -281,10 +281,6 @@ function CoverUpload(current, size, onPick, label) {
   return h('label', { class: 'cover-upload', title: label }, Cover(current, size), h('span', { class: 'cover-edit' }, current?.cover ? 'Change art' : 'Upload art'), input);
 }
 
-function Segmented(name, choices, value, onPick) {
-  return h('div', { class: 'join look-choices', role: 'radiogroup', 'aria-label': name },
-    choices.map((c) => h('button', { class: `btn btn-sm join-item${c.id === value ? ' btn-primary' : ''}`, role: 'radio', 'aria-checked': String(c.id === value), title: c.blurb ?? '', onclick: () => onPick(c.id) }, c.label)));
-}
 
 /* ------------------------------------------------------------------ station */
 /** The station as a whole: its name and art, and the line-up of series listeners meet first. */
@@ -300,7 +296,6 @@ function Station() {
     if (!other) return;
     store.apply(col.batch(shows.map((s, k) => col.update('podcasts', s.id, { order: s === show ? i + dir : s === other ? i : k }))));
   };
-  const site = stationSite();
   const hostIds = new Set(shows.flatMap((s) => s.hostIds));
 
   return h('div', { class: 'pc-main pc-station' },

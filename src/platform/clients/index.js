@@ -7,6 +7,8 @@
  *   kestrel.<base>   Kestrel Bay Community Foundation (made up, alpha 0.3): the biggest test org,
  *                    every plugin on, a busy public portal, a board site and the Social Media Integrator
  *   coalition.<base> Shared Ground Canada (made up): the example Place project, a nation-wide coalition with a hub org
+ *   halcyon.<base>   Halcyon Ocean Observatory (made up, alpha 0.5): a national ocean agency, the hub of nine linked
+ *                    orgs (labsea-carbon, davis-moorings, …) and a member of a global commons; see halcyon.js
  *
  * Each builder is a pure function of public sources, so the server seeds
  * the same documents every time. See docs/INTAKE.md for turning this into
@@ -19,7 +21,10 @@ import { seedPlanDocs } from '../plandocs.js';
 import { actuaDocs } from './actua.js';
 import { kestrelBundle } from './kestrel.js';
 import { coalitionDocs } from './coalition.js';
+import { HALCYON_CLIENTS, HALCYON_LINKS } from './halcyon.js';
 import { seedKestrelEco } from '../../eoviz/kestrel.js';
+import { actuaMobilize, addMobilizeGoals } from '../../mobilize/actua.js';
+import { migrateStrategy } from '../strategy.js';
 
 /**
  * A fresh start for testing (0.2, PR 9): when this mark changes, the client
@@ -65,6 +70,16 @@ export const CLIENT_TOPUPS = [
     if (org && org.plugins?.eoviz == null) out.org = { ...org, plugins: { ...(org.plugins ?? {}), eoviz: true } };
     return out;
   } },
+  // Mobilize stage 1 (alpha 0.5): switched on for Actua, with a starting set of knowledge objects and two plan goals for the loop to feed.
+  { id: 'a05-mobilize', org: 'org-actua-ai', label: 'Mobilize starting set', run: (read) => {
+    const org = read('org');
+    const strategy = read('strategy');
+    const out = {};
+    if (strategy) { addMobilizeGoals(strategy); out.strategy = migrateStrategy(strategy); }
+    if (!Object.keys(read('mobilize')?.objects ?? {}).length) out.mobilize = actuaMobilize(out.strategy ?? strategy);
+    if (org && org.plugins?.mobilize == null) out.org = { ...org, plugins: { ...(org.plugins ?? {}), mobilize: true } };
+    return out;
+  } },
 ];
 
 export const CLIENT_ORGS = [
@@ -72,4 +87,8 @@ export const CLIENT_ORGS = [
   { id: 'org-actua-ai', slug: 'actua-ai', name: 'Strategic AI at Actua', plan: 'custom', docs: actuaDocs },
   { id: 'org-kestrel', slug: 'kestrel', name: 'Kestrel Bay Community Foundation', plan: 'custom', docs: () => kestrelBundle().docs, bundle: kestrelBundle },
   { id: 'org-coalition', slug: 'coalition', name: 'Shared Ground Canada', plan: 'custom', docs: coalitionDocs },
+  ...HALCYON_CLIENTS,
 ];
+
+/** Linked organisations among the client orgs: [hub, member], made active when either org is first seeded. */
+export const CLIENT_LINKS = HALCYON_LINKS;

@@ -210,15 +210,6 @@ function LegalPrompt(due) {
   document.body.append(bar);
 }
 
-/** A new account hasn't confirmed its email yet: a quiet note with a resend link. */
-function VerifyNote() {
-  const note = h('div', { class: 'verify-note', role: 'note' }, 'Please confirm your email address: we sent you a link. ',
-    h('button', { class: 'link-button', onclick: async () => {
-      await fetch('/api/auth/verify', { method: 'POST', headers: { 'content-type': 'application/json', 'x-toolbox': '1' }, body: '{}' });
-      note.replaceChildren('Sent. Check your inbox (and spam).');
-    } }, 'Send it again'));
-  document.body.prepend(note);
-}
 
 /** Someone else saved the same document: say so until the page is reloaded. */
 function conflictBanner({ why }) {

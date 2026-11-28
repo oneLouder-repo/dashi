@@ -485,7 +485,6 @@ async function visuals() {
     grounds.length || glows.length ? import(new URL('effects/fx.js', HERE).href).then(m => m.default) : null,
     import(new URL('ui/ui.js', HERE).href).then(m => m.default),
   ]);
-  const name = el => el.dataset.uiLoad || el.dataset.ui || '';
   const loops = el => !phone && !!el.closest('[data-ui-loop], [data-ui-cycles]');
   // a fragment that does not loop is held on its finished picture as soon as its own load resolves
   frags.forEach(el => { if (!loops(el)) el.setAttribute('data-ui-still', ''); });

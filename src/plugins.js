@@ -42,7 +42,7 @@ export const PLUGINS = [
   {
     id: 'assets',
     owns: ['assets'],
-    reads: ['maps', 'map/*', 'library', 'strategy', 'dashboards'],
+    reads: ['maps', 'map/*', 'library', 'strategy', 'dashboards', 'mobilize'],
     short: 'Assets',
     tone: '#2c4fa3',
     name: 'Assets',
@@ -136,7 +136,7 @@ export const PLUGINS = [
     parent: 'rhizome',
     owns: ['graph'],
     // The same as Assets reads, so the graph never opens a door Assets keeps shut.
-    reads: ['assets', 'maps', 'map/*', 'library', 'strategy', 'dashboards'],
+    reads: ['assets', 'maps', 'map/*', 'library', 'strategy', 'dashboards', 'mobilize'],
     short: 'Graph',
     tone: '#e0705f',
     name: 'Graph',
@@ -221,6 +221,21 @@ export const PLUGINS = [
     defaultOff: true,
     blurb: 'Experimental: the eco data lens. Bring in water, air and soil data from loggers, sondes, labs and open data, keep it with its units and flags, and find the right way to draw it.',
     stats: ({ eco }) => (eco?.sites ? `${count(eco.sites)} sites · ${count(eco.files)} files · experimental` : 'No data yet · experimental'),
+  },
+  {
+    id: 'mobilize',
+    owns: ['mobilize'],
+    // Links to plan items and library sources by id; reads them to name them, never changes them.
+    reads: ['strategy', 'library', 'assets'],
+    short: 'Mobilize',
+    tone: '#b5532a',
+    name: 'Mobilize',
+    href: 'mobilize.html',
+    icon: 'sec-mobilize',
+    experimental: true,
+    defaultOff: true,
+    blurb: 'Experimental: knowledge mobilization. Hold what your organization learns as knowledge objects, share them with the people who can use them, listen for what comes back, and feed it into the plan.',
+    stats: ({ mobilize }) => (mobilize?.objects ? `${count(mobilize.objects)} knowledge objects · experimental` : 'No knowledge objects yet · experimental'),
   },
   {
     id: 'pages',

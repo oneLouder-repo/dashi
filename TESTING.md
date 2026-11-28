@@ -37,6 +37,18 @@ The platform admin works the queue in **Platform admin → Support**: set status
 
 `npm test` runs the unit and server tests (Node's own test runner, no installs). Run it before every pull request.
 
+The quality checks need the dev tools once: `npm install` (the app itself still needs nothing installed).
+
+| Command | What it checks |
+| --- | --- |
+| `npm run check` | lint, type check and tests together: run it before every pull request |
+| `npm run lint` | ESLint: undefined names, unused code, unreachable branches |
+| `npm run typecheck` | TypeScript reading the plain JS; fails only if a file gets worse than `typecheck-baseline.json` |
+| `npm run coverage` | the tests with a coverage report; fails below 80% of lines |
+| `npm run a11y` | axe-core WCAG 2.1 AA on 21 pages; fails only if a page gets worse than `a11y-baseline.json`. Needs `npx playwright install chromium` once |
+
+The two baselines are ratchets. When you fix findings, run the check with `-- --update` and commit the smaller baseline. GitHub Actions runs all of this, plus CodeQL security scanning, on every pull request.
+
 ## The client test platform
 
 `npm run clients` (or `node clients.js`) starts a platform with just the client orgs, in its own `data-clients/` folder: Social Justice Radio at `sjr.localhost:5173` (a podcast station with its whole archive, linked rather than uploaded) and Strategic AI at Actua at `actua-ai.localhost:5173` (plans, ecosystem map, bibliography). Sign in as the platform admin. Delete `data-clients/` to start again from a fresh seed (do this whenever you switch to a new release branch, so you test what a new org would get). Kestrel Bay (`kestrel.localhost:5173`, made up) has every plugin switched on, including the experimental ones. See `src/platform/clients/` and `docs/INTAKE.md`.

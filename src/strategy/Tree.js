@@ -1,7 +1,7 @@
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { NODE_TYPES, childrenOf, rootOf, statusById, taskSummary, ancestors } from '../platform/strategy.js';
-import { range } from './dates.js';
+
 import { levelIcon } from '../ui/strategyLook.js';
 
 /** The strategy as an outline: click to open, ▸ to expand, + to add the first allowed child. */

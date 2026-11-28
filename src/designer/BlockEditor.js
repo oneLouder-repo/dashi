@@ -29,7 +29,7 @@ export const KINDS = [
 ];
 
 export function BlockEditor(opts) {
-  let blocks = splitBlocks(opts.body);
+  const blocks = splitBlocks(opts.body);
   let title = opts.title ?? '';
   let editing = -1;
   let dragFrom = -1;

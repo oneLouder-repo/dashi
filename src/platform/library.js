@@ -413,7 +413,7 @@ export function parseBibtex(text) {
       const f = fm.exec(text);
       if (!f) { if (text[i] === '}') depth--; i++; continue; }
       i = fm.lastIndex;
-      let value = '';
+      let value;
       if (text[i] === '{') {
         let d = 0; const start = i;
         for (; i < text.length; i++) { if (text[i] === '{') d++; else if (text[i] === '}') { d--; if (d === 0) { i++; break; } } }
@@ -452,7 +452,7 @@ export function parseRis(text) {
   const out = [];
   let cur = null;
   for (const line of String(text).split(/\r?\n/)) {
-    const m = line.match(/^([A-Z][A-Z0-9])  - ?(.*)$/);
+    const m = line.match(/^([A-Z][A-Z0-9]) {2}- ?(.*)$/);
     if (!m) continue;
     const [, tag, v] = m;
     const val = v.trim();

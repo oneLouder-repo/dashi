@@ -41,6 +41,7 @@ export const SUPPORT_SCHEMA = [
    CREATE INDEX ticket_messages_ticket ON ticket_messages (ticket_id);`,
 ];
 
+// eslint-disable-next-line no-control-regex -- strips control characters on purpose
 const clip = (s, n) => String(s ?? '').replace(/\u0000/g, '').trim().slice(0, n);
 
 /** Only the technical details a ticket may carry, each trimmed. */

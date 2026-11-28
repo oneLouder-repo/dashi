@@ -196,7 +196,6 @@ window.lyCheck = function lyCheck(opts = {}) {
     const exact = (vw >= 1280 || vw < 640) && !grown, off = Math.min(...Array.from({ length: s.most }, (_, k) => Math.abs(h - (k + 1) * u)));
     if (!s.free && i > 0 && ((exact && off > tol) || h > s.most * u + tol)) add('screen-height', name(s.el), `${Math.round(h)}px, ${(h / u).toFixed(2)} screens; ${s.most > 2 ? 'a live photo-chapters section is a whole number of screens, four at most' : `a section is exactly one or two (--h)${vw < 640 ? ', or on a phone at least one that its content fills' : ''}`}`);
     if (!s.free && !s.stmt && i > 0 && s.ink.length && (s.cBot - s.cTop) / h < 0.5) add('sparse', name(s.el), `its content fills ${Math.round(100 * (s.cBot - s.cTop) / h)}% of its screen; merge it or give it its visual (0.55 is the aim)`);
-    const ch = s.cBot - s.cTop;
     // frame the section as the judge does: its top at the top of the screen (the hero at scroll 0), and a
     // second frame one screen down when it is two screens tall; with a header that is not fixed, its top
     // under the nav

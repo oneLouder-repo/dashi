@@ -85,7 +85,7 @@ const HAIR = ['#1f1a17', '#3b2a20', '#5a3b26', '#8a5a33', '#b07a45', '#d8b26e', 
 const BG = ['#dbe7f8', '#f8e1d6', '#d9f0e6', '#f6ecd0', '#e8def5', '#f3dbe6', '#dcecef', '#e9e9e2'];
 const SHIRT = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#6a4fb5', '#c43c6b', '#2f4858', '#8a8a8a', '#0f7c8c', '#b5523b'];
 
-const svgUrl = (svg) => `data:image/svg+xml;base64,${typeof btoa === 'function' ? btoa(unescape(encodeURIComponent(svg))) : Buffer.from(svg).toString('base64')}`;
+const svgUrl = (svg) => `data:image/svg+xml;base64,${typeof btoa === 'function' ? btoa(unescape(encodeURIComponent(svg))) : globalThis.Buffer.from(svg).toString('base64')}`;
 
 /** A simple head-and-shoulders portrait, as a profile photo stand-in. */
 export function portrait(r) {

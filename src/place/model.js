@@ -214,7 +214,7 @@ export function featuresFromGeoJSON(obj) {
 
 /** Split CSV text into rows (quotes, commas or semicolons, CRLF). */
 export function parseCsv(text) {
-  const src = String(text ?? '').replace(/^﻿/, '');
+  const src = String(text ?? '').replace(/^\uFEFF/, '');
   const firstLine = src.split(/\r?\n/, 1)[0] ?? '';
   const sep = (firstLine.match(/;/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0) ? ';' : firstLine.includes('\t') && !firstLine.includes(',') ? '\t' : ',';
   const rows = [];

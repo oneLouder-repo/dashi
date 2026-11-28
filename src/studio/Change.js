@@ -5,7 +5,7 @@ import { assetTile } from '../strategy/Assets.js';
 import { LevelBadge } from '../ui/strategyLook.js';
 import { measureIndex } from '../platform/strategy.js';
 import { col } from '../core/collections.js';
-import { TOC_LANES, TOC_CONFIDENCE, TOC_TO_LEVEL, laneIndex, ofPlan, tocFromPlan, tocToPlan, tocReadiness, tocStory, tocMarkdown, layersOf, layerOf } from '../platform/studio.js';
+import { TOC_LANES, TOC_CONFIDENCE, laneIndex, ofPlan, tocFromPlan, tocToPlan, tocReadiness, tocStory, tocMarkdown, layersOf, layerOf } from '../platform/studio.js';
 import { Drawer } from '../ui/drawer.js';
 import { linkTo } from '../plugins.js';
 import { uiConfirm } from '../ui/dialog.js';

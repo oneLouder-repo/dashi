@@ -85,5 +85,34 @@ Each suggestion says why it fits. Charts are for reading; the **Sketchbook** is 
 # Care with data
 A partner's data is its own. A site can be **held back**: its place is not shown outside the group (a harvesting spot, a nest). Indigenous guardians' data follows the group's own rules (OCAP).`,
     },
+    {
+      id: 'eoviz-ocean',
+      title: 'The ocean studio: data, windows and 3D',
+      body: `For ocean scientists: cruises, floats and moorings, side by side.
+
+# Ocean data
+EoViz keeps ocean observations in four dimensions: where, when, how deep, what. One **collection** is one cruise, one float's track or one mooring. EoViz reads:
+- **GLODAP** merged product extracts (CSV, G2… columns). GLODAP is open under CC BY 4.0: cite the version you use.
+- **WOCE / CCHDO bottle exchange** files, with their _FLAG_W columns.
+- **Profiling floats** in Argo-style CSV, with _QC columns (mapped to WOCE flags).
+- **Mooring** CSVs, with “# mooring:”, “# lat:” and “# lon:” lines.
+
+Every value keeps its **flag** (WOCE: 2 good, 3 questionable, 4 bad, 9 not sampled) and every collection its **citation**. Nothing is changed: a window chooses which flags to keep. EoViz works out **σθ** (EOS-80 at the surface; use TEOS-10 for a paper) and **AOU** (Garcia and Gordon 1992) from values that pass.
+
+# Windows
+A window is a small view of the data, made of four chips:
+- **Data**: a cruise line, a mooring array or a float fleet, your own or shared by your network.
+- **Query**: the variable, the depths, and good flags or all.
+- **Time**: all years, one year, a season, or a run of years.
+- **Form**: section, profile, T–S (with density lines), time series, Hovmöller, scatter or map.
+
+**Vary** a chip to make a sibling window (the next year, the next variable, the next form). **Link** windows and their time slices move together. Colours keep one scale across a set's years, so two years side by side compare honestly. The **starter gallery** has a dozen windows to begin from.
+
+# The 3D studio
+Switch on **Studio** on the windows you want, and they meet in one space: a cruise as a **bottle cloud** and a **curtain** along the line, floats as **ribbons** along their tracks at each depth, moorings as a **helix** that turns once a year. Stretch the depth, turn the view, save a picture.
+
+# From the network
+When your organisation is linked to others (Organisation → Network), what they share appears on Ocean data and in every window, cited to the org that holds it.`,
+    },
   ],
 };

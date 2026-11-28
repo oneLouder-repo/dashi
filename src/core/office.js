@@ -16,6 +16,7 @@
  */
 import { zipBytes } from './zip.js';
 
+// eslint-disable-next-line no-control-regex -- strips control characters on purpose
 const x = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '');
 const list = (v) => (Array.isArray(v) ? v : v ? [v] : []);
 const isoNow = () => new Date().toISOString().replace(/\.\d+Z$/, 'Z');

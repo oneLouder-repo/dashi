@@ -97,7 +97,7 @@ function DevLogin(options, next) {
       const res = await post('/api/auth/dev', { userId: u.id });
       if (res.ok) location.assign(next);
     } },
-      h('span', { class: 'avatar-initials', style: 'width:30px;height:30px;font-size:12px' }, initials(u.name)),
+      h('span', { class: 'avatar-initials', 'aria-hidden': 'true', style: 'width:30px;height:30px;font-size:12px' }, initials(u.name)),
       h('span', {}, h('strong', {}, u.name, u.isSuper && h('span', { class: 'badge badge-sm badge-primary', style: 'margin-left:6px' }, 'platform admin'),
         role && h('span', { class: 'badge badge-sm badge-ghost', style: 'margin-left:6px' }, role)),
         h('small', {}, [u.email, ...((u.orgs ?? []).length > 1 ? u.orgs : [])].join(' · ')))));

@@ -8,7 +8,8 @@ import { Store } from '../core/Store.js';
 import { applyCollectionOp, col } from '../core/collections.js';
 import { autosaveDoc, isHosted, session } from '../platform/storage.js';
 import { toast } from '../ui/Shell.js';
-import { loadOrg } from '../platform/docs.js';
+import { loadOrg, loadLibrary } from '../platform/docs.js';
+import { SHARE_KINDS, shareOf } from '../platform/network.js';
 import { ROLES, staffList, teamList, membersOf } from '../platform/org.js';
 import { renameOrg } from '../platform/session.js';
 import { PLUGINS, pausedForOrg, featureOn, chosenByOrg, roleHas, linkTo, orderPlugins } from '../plugins.js';
@@ -39,6 +40,7 @@ const TABS = [
   ['plugins', 'Plugins', 'workbench', 'What your org uses'],
   ['plan', 'Plan', 'star', 'What you have, and what you use'],
   ['domain', 'Domain', 'link', 'Your own web address'],
+  ['network', 'Network', 'connect', 'Linked organisations, and what you share'],
 ];
 app.classList.add('frame');
 const main = h('section', { class: 'page-main' });
@@ -51,6 +53,8 @@ if (location.hash === '#sites') location.replace(linkTo('pages', '#look') ?? '#p
 if (location.hash === '#platform') history.replaceState(null, '', '#profile');
 
 let lastTab = null;
+/** Organisation → Network: the links and the network, from the server (fetched when the tab opens). */
+let netState = null;
 function render() {
   const org = store.doc;
   Shell(document.querySelector('#shell'), { current: 'org', org });
@@ -68,10 +72,23 @@ function render() {
   main.replaceChildren(
     h('div', { class: 'page' },
       h('div', { class: 'org-head' }, Logo(org, 56), h('div', {}, h('h1', {}, org.name), h('p', { class: 'lede' }, org.description || org.mission))),
-      { profile: Profile, people: People, teams: Teams, plugins: Plugins, plan: Plan, domain: Domain }[t](org)));
+      pageFor(t)(org)));
   if (!app.contains(main)) app.replaceChildren(side, main);
   main.scrollTop = scroll;
   if (focused) app.querySelector(`[name="${focused}"]`)?.focus({ preventScroll: true });
+}
+
+/** The page for a tab (a switch, so the route word never indexes an object). */
+function pageFor(t) {
+  switch (t) {
+    case 'people': return People;
+    case 'teams': return Teams;
+    case 'plugins': return Plugins;
+    case 'plan': return Plan;
+    case 'domain': return Domain;
+    case 'network': return Network;
+    default: return Profile;
+  }
 }
 
 const field = (label, control, hint) => h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, label), control, hint && h('span', { class: 'label' }, hint));
@@ -79,7 +96,7 @@ const text = (name, value, onchange, attrs = {}) => h('input', { class: 'input i
 const area = (name, value, onchange) => h('textarea', { class: 'textarea textarea-sm', name, rows: 3, onchange: (e) => onchange(e.target.value.trim()) }, value ?? '');
 
 function imagePicker({ name, current, onPick, onClear, preview }) {
-  const input = h('input', { type: 'file', accept: 'image/*', class: 'file-input file-input-sm', name, onchange: async (e) => {
+  const input = h('input', { type: 'file', accept: 'image/*', class: 'file-input file-input-sm', name, 'aria-label': 'Choose an image file', onchange: async (e) => {
     try { onPick(await readImage(e.target.files[0])); } catch (err) { uiAlert(err.message); }
   } });
   return h('div', { class: 'image-picker' }, preview, h('div', {}, input, current && h('button', { class: 'btn btn-xs btn-ghost', onclick: onClear }, 'Remove')));
@@ -121,14 +138,6 @@ async function sendInvite(s, button) {
   } catch (err) { toast(err.message, 'error'); }
   button.disabled = false;
 }
-const signInCell = (s) => {
-  if (!isHosted() || !session()?.canAdmin || !s.email) return null;
-  const st = signInStatus?.[s.id];
-  const seen = st?.lastSignIn ? `Last signed in ${new Date(st.lastSignIn).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : 'Hasn’t signed in yet';
-  return h('div', { class: 'invite-cell' },
-    h('small', { class: 'muted' }, signInStatus ? seen : ''),
-    h('button', { class: 'btn btn-xs', title: `Email ${s.email} a link to set a password and sign in (good for a week)`, onclick: (e) => sendInvite(s, e.currentTarget) }, st?.lastSignIn ? 'Send sign-in link' : 'Invite'));
-};
 
 /* -------------------------------------------------------------- people */
 const isAdminHere = () => !isHosted() || !!session()?.canAdmin;
@@ -739,3 +748,101 @@ store.addEventListener('change', render);
 window.addEventListener('hashchange', () => { render(); openFromHash(); });
 render();
 openFromHash();
+
+/* ------------------------------------------------------------- network */
+
+/**
+ * Linked organisations: a hub and its members. Each org stays its own; this
+ * page links them and says, kind by kind, what this org lets its network see.
+ */
+async function loadNetwork() {
+  try {
+    netState = await api('GET', '/api/network');
+    netState.people = netState.orgs.length ? (await api('GET', '/api/network/shared?kind=people').catch(() => ({ orgs: [] }))).orgs : [];
+  } catch (err) { netState = { error: err.message }; }
+  render();
+}
+const netQuery = { q: '' };
+/** People the network shares: a directory card each (never emails), filtered as you type. */
+function NetworkPeople() {
+  const list = h('div', { class: 'net-people' });
+  const fill = () => {
+    const q = netQuery.q.toLowerCase();
+    const match = (p) => !q || [p.name, p.title, ...(p.interests ?? []), ...(p.teams ?? [])].join(' ').toLowerCase().includes(q);
+    list.replaceChildren(...netState.people.map(({ org: o, data }) => {
+      const people = data.filter(match);
+      return people.length ? h('details', { class: 'net-people-org', open: !!q || netState.people.length < 4 },
+        h('summary', {}, h('strong', {}, o.name), h('span', { class: 'muted small' }, ` ${people.length} ${people.length === 1 ? 'person' : 'people'}`)),
+        h('ul', {}, people.map((p) => h('li', {}, h('div', {}, h('strong', {}, p.name), h('span', { class: 'muted small' }, ` ${p.title}`)),
+          p.interests?.length > 0 && h('div', { class: 'net-tags' }, p.interests.map((t) => h('span', { class: 'badge badge-sm badge-ghost' }, t))))))) : null;
+    }).filter(Boolean));
+    if (!list.childElementCount) list.append(h('p', { class: 'muted small' }, q ? 'Nobody in the network matches.' : 'No one in your network shares their people directory yet.'));
+  };
+  fill();
+  return h('section', { class: 'panel net-people-panel' },
+    h('h2', {}, 'People across the network'),
+    h('p', { class: 'muted small' }, 'From the organisations that share their people directory: names, titles and interests, never emails or phone numbers.'),
+    h('input', { class: 'input input-sm', type: 'search', name: 'net-q', placeholder: 'Find someone by name, title or interest', value: netQuery.q, oninput: (e) => { netQuery.q = e.target.value; fill(); } }),
+    list);
+}
+const ROLE_WORD = { hub: 'Our hub', member: 'Member', sibling: 'Fellow member' };
+
+function Network(org) {
+  if (!isHosted()) return h('p', { class: 'note' }, 'Linking organisations works on the hosted platform: each org is its own space there.');
+  if (!netState) { loadNetwork(); return h('p', { class: 'muted' }, 'Loading…'); }
+  if (netState.error) return h('p', { class: 'note' }, netState.error);
+  const admin = isAdminHere();
+  const share = shareOf(org);
+  const setShare = (patch) => set('network', { ...(org.network ?? {}), share: { ...share, ...patch } });
+  const act = async (fn, done) => { try { await fn(); if (done) toast(done); await loadNetwork(); } catch (err) { toast(err.message, 'error'); } };
+  const waiting = netState.links.filter((l) => l.status === 'pending');
+  const plugOn = (k) => { const p = k.plugin && PLUGINS.find((x) => x.id === k.plugin); return !k.plugin || (!!p && chosenByOrg(org, p)); };
+  let lib = null;
+  try { lib = loadLibrary(); } catch { /* no library here */ }
+
+  const invite = () => {
+    const slug = h('input', { class: 'input input-sm', name: 'net-slug', placeholder: 'their Dashi address, e.g. harbourlab', autocomplete: 'off' });
+    const as = h('select', { class: 'select select-sm', name: 'net-as' }, options([{ id: 'member', label: 'as a member of ours' }, { id: 'hub', label: 'as our hub' }], 'member'));
+    return h('form', { class: 'net-invite', onsubmit: (e) => { e.preventDefault(); act(() => api('POST', '/api/network/invite', { slug: slug.value, as: as.value }), 'Invitation sent. Their admin accepts it on this page.'); } },
+      slug, as, h('button', { class: 'btn btn-sm btn-primary', type: 'submit' }, 'Invite'));
+  };
+  const linkRow = (l) => h('li', { class: 'net-link' },
+    h('div', {}, h('strong', {}, l.other?.name ?? 'An organisation'), h('span', { class: 'muted small' }, ` ${l.other?.slug ?? ''} · ${l.other?.role === 'hub' ? 'our hub' : 'a member'}`),
+      l.status === 'pending' && h('p', { class: 'small muted' }, l.waitingOnUs ? 'They invited you.' : 'Waiting for them to accept.')),
+    admin && h('div', { class: 'net-actions' },
+      l.status === 'pending' && l.waitingOnUs && h('button', { class: 'btn btn-xs btn-primary', onclick: () => act(() => api('POST', `/api/network/links/${l.id}/accept`), `Linked with ${l.other?.name}`) }, 'Accept'),
+      h('button', { class: 'btn btn-xs btn-ghost', onclick: async () => {
+        const word = l.status === 'pending' ? (l.waitingOnUs ? 'Decline' : 'Cancel') : 'End link';
+        if (l.status === 'active' && !await uiConfirm(`End the link with ${l.other?.name}? Neither org sees what the other shares from then on. Nothing is deleted.`, { ok: 'End link' })) return;
+        act(() => api('DELETE', `/api/network/links/${l.id}`), `${word}: done`);
+      } }, l.status === 'pending' ? (l.waitingOnUs ? 'Decline' : 'Cancel') : 'End link')));
+
+  return h('div', { class: 'net-page settings-grid' },
+    h('section', { class: 'panel' },
+      h('h2', {}, 'Your network'),
+      h('p', { class: 'muted small' }, 'Organisations you are linked with: your hub, your members, and your hub’s other members. Each stays its own space; only what each chooses to share is seen.'),
+      netState.orgs.length
+        ? h('ul', { class: 'net-orgs' }, netState.orgs.map((o) => h('li', {}, h('strong', {}, o.name), h('span', { class: 'badge badge-sm badge-ghost' }, ROLE_WORD[o.role] ?? o.role))))
+        : h('p', { class: 'muted' }, 'No linked organisations yet.'),
+      waiting.length > 0 && h('h3', {}, 'Invitations'),
+      waiting.length > 0 && h('ul', { class: 'net-links' }, waiting.map(linkRow)),
+      netState.links.some((l) => l.status === 'active') && h('h3', {}, 'Links'),
+      h('ul', { class: 'net-links' }, netState.links.filter((l) => l.status === 'active').map(linkRow)),
+      admin && (netState.allowed ? invite() : h('p', { class: 'note' }, 'Linking organisations comes with the Network plan. You can still accept an invitation from a hub.'))),
+    h('section', { class: 'panel' },
+      h('h2', {}, 'What you share'),
+      h('p', { class: 'muted small' }, 'Off until you switch it on. Even then, only what is meant to travel goes: never emails or phone numbers, never held or internal knowledge, never the place of a held-back site, never an uploaded file itself.'),
+      h('ul', { class: 'net-share' }, SHARE_KINDS.map((k) => h('li', {},
+        k.id === 'library'
+          ? h('div', {}, h('strong', {}, k.label), h('p', { class: 'small muted' }, k.about),
+            Object.values(lib?.folders ?? {}).length
+              ? h('div', { class: 'net-folders' }, Object.values(lib.folders).filter((f) => !f.parentId).map((f) => h('label', { class: 'net-check' },
+                h('input', { type: 'checkbox', class: 'checkbox checkbox-xs', name: `share-lib-${f.id}`, checked: share.library.includes(f.id), disabled: !admin || !plugOn(k),
+                  onchange: (e) => setShare({ library: e.target.checked ? [...share.library, f.id] : share.library.filter((x) => x !== f.id) }) }), f.name)))
+              : h('p', { class: 'small muted' }, 'Your library has no folders yet.'))
+          : h('label', { class: 'net-check' },
+            h('input', { type: 'checkbox', class: 'toggle toggle-sm', name: `share-${k.id}`, checked: share[k.id], disabled: !admin || !plugOn(k), onchange: (e) => setShare({ [k.id]: e.target.checked }) }),
+            h('div', {}, h('strong', {}, k.label), h('p', { class: 'small muted' }, k.about), !plugOn(k) && h('p', { class: 'small muted' }, 'Switch the plugin on first, in Plugins.')))))),
+      !admin && h('p', { class: 'small muted' }, 'Only your organisation’s admins change what is shared.')),
+    netState.orgs.length > 0 && NetworkPeople());
+}

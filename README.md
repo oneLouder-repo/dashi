@@ -1,6 +1,6 @@
 # Dashi
 
-**Version 0.4.0-alpha** (in progress): the learning release. Teach and Learn get a warmer look and a nicer player, and Rhizome gains a rack of set and graph modules and the critical AI visualiser. Going live moves to 0.5. Before that, **0.3.0-alpha** closed alpha 0.3, UI tinkering and enhancements, and **0.2.0-alpha** brought plugin access enforced on the server and per person. See [CHANGELOG.md](CHANGELOG.md) for what's in it, [TESTING.md](TESTING.md) for testing it, and [DEPLOY.md](DEPLOY.md) for running it.
+**Version 0.4.1-alpha** (in progress): quality checks (lint, type checks, coverage, accessibility, CI) on top of **0.4.0-alpha**, the learning release. Teach and Learn get a warmer look and a nicer player, and Rhizome gains a rack of set and graph modules and the critical AI visualiser. Going live moves to 0.5. Before that, **0.3.0-alpha** closed alpha 0.3, UI tinkering and enhancements, and **0.2.0-alpha** brought plugin access enforced on the server and per person. See [CHANGELOG.md](CHANGELOG.md) for what's in it, [TESTING.md](TESTING.md) for testing it, and [DEPLOY.md](DEPLOY.md) for running it.
 
 A small, cohesive platform for nonprofits' planning, knowledge and learning work. It holds many organisations; each picks the **plugins** it uses. Open `index.html` (via `npm start`) for the dashboard, then choose a plugin:
 

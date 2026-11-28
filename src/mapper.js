@@ -130,7 +130,7 @@ const ctx = {
       const taken = Object.values(mapView.world.actors);
       const free = (x, y) => taken.every((a) => Math.abs(a.x - x) > (a.w + ACTOR_SIZE.w) / 2 + 10 || Math.abs(a.y - y) > (a.h + ACTOR_SIZE.h) / 2 + 10);
       let spot = c;
-      for (let i = 0, r = 0; i < 400 && !free(spot.x, spot.y); i++) {
+      for (let i = 0, r; i < 400 && !free(spot.x, spot.y); i++) {
         r = 30 + i * 6;
         const t = i * 2.4;
         spot = { x: c.x + r * Math.cos(t), y: c.y + r * Math.sin(t) * 0.6 };
@@ -303,7 +303,6 @@ ctx.ui.editLabel = LabelEditor(ctx);
 const toolsEl = h('ul');
 const layersEl = h('div', { class: 'side-layers' });
 const inspectorEl = h('div', { class: 'side-inspector' });
-const main = document.querySelector('main');
 const newMapItem = { label: 'New map', sub: 'Start an empty map', icon: 'plus', onclick: async () => { const title = await uiPrompt('Name', 'Untitled map', { title: 'New ecosystem map', ok: 'Create map' }); if (title?.trim()) ctx.actions.newMap(title.trim()); } };
 const mapItems = () => Object.values(index.maps).map((m) => ({ label: m.title || 'Untitled map', sub: m.id === mapId ? 'Open now' : (m.description || 'Ecosystem map').split(/[.\n]/)[0], icon: 'mapTrifold', href: `#${m.id}`, on: m.id === mapId }));
 const sideHost = document.querySelector('#mapside');

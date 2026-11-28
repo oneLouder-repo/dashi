@@ -3370,3 +3370,23 @@ body.site-page.tpl-field { background: color-mix(in oklab, var(--color-primary) 
 .rt-ev-group label input { margin-top: 2px; }
 .rt-ev-group b { display: block; font-size: 13px; font-weight: 600; }
 .rt-ev-group small { display: block; font-size: 12px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Organisation → Network (linked organisations, alpha 0.5) */
+.net-orgs, .net-links, .net-share { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.net-orgs li { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 14px; }
+.net-link { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; padding: 8px 10px; border: 1px solid var(--line, #d5d8de); border-radius: 4px; }
+.net-link p { margin: 2px 0 0; }
+.net-actions { display: flex; gap: 6px; flex: none; }
+.net-invite { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+.net-invite input { flex: 1 1 220px; }
+.net-invite select { width: auto; }
+.net-check { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.net-check p { margin: 2px 0 0; }
+.net-folders { display: grid; gap: 4px; margin-top: 6px; }
+.net-folders .net-check { align-items: center; font-size: 13px; }
+.net-people-panel { grid-column: 1 / -1; }
+.net-people { display: grid; gap: 8px; }
+.net-people-org summary { cursor: pointer; padding: 4px 0; }
+.net-people-org ul { list-style: none; margin: 6px 0 4px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.net-people-org li { border: 1px solid var(--line, #d5d8de); border-radius: 4px; padding: 8px 10px; font-size: 13.5px; display: grid; gap: 4px; }
+.net-tags { display: flex; gap: 4px; flex-wrap: wrap; }

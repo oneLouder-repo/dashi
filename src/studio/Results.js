@@ -20,8 +20,6 @@ import { LevelBadge, LEVELS } from '../ui/strategyLook.js';
  *   result: { …, nodeId, taskId }   where it comes from: nodeId is any plan
  *   item (taskId is kept for results seeded from a task, and read as nodeId).
  */
-const COLS = 12;
-const ROW = 56;
 const FREQ = ['Monthly', 'Quarterly', 'Twice a year', 'Yearly', 'At the end'].map((x) => ({ id: x, label: x }));
 
 /** Where a result comes from: its plan item, or the plan. */
@@ -128,38 +126,6 @@ function openResult(ctx, plan, id, measures, tree) {
     ] });
 }
 
-/** Move or resize a card on the grid, snapping to cells, then nudge anything it lands on downwards. */
-function drag(ctx, card, r, all, e, mode) {
-  if (e.button !== 0) return;
-  e.preventDefault();
-  const grid = card.parentElement;
-  const g = grid.getBoundingClientRect();
-  const colW = g.width / COLS;
-  const start = { x: e.clientX, y: e.clientY };
-  let next = { x: r.x, y: r.y, w: r.w, h: r.h };
-  ctx.dragging = true;
-  card.classList.add('dragging');
-  const move = (ev) => {
-    const dc = Math.round((ev.clientX - start.x) / colW);
-    const dr = Math.round((ev.clientY - start.y) / ROW);
-    next = mode === 'move'
-      ? { ...next, x: clamp(r.x + dc, 0, COLS - r.w), y: Math.max(0, r.y + dr) }
-      : { ...next, w: clamp(r.w + dc, 3, COLS - r.x), h: Math.max(3, r.h + dr) };
-    card.style.gridColumn = `${next.x + 1} / span ${next.w}`;
-    card.style.gridRow = `${next.y + 1} / span ${next.h}`;
-  };
-  const up = () => {
-    window.removeEventListener('pointermove', move);
-    window.removeEventListener('pointerup', up);
-    card.classList.remove('dragging');
-    ctx.endDrag();
-    if (next.x === r.x && next.y === r.y && next.w === r.w && next.h === r.h) return;
-    ctx.put('results', r.id, next);
-    for (const [id, patch] of settle(all.map((x) => (x.id === r.id ? { ...x, ...next } : x)), r.id)) ctx.put('results', id, patch);
-  };
-  window.addEventListener('pointermove', move);
-  window.addEventListener('pointerup', up);
-}
 
 /** Cards under the moved one slide down below it, and so on. Returns [[id, { y }]]. */
 export function settle(cards, movedId) {
@@ -179,4 +145,3 @@ export function settle(cards, movedId) {
   return [...changed];
 }
 
-const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));

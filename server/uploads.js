@@ -121,10 +121,10 @@ export function uploadRoutes({ q, newId, limitsOf = () => ({}) }) {
       q('DELETE FROM uploads WHERE id = ?').run(u.id);
     }
     // Part files with no row (a crash between steps).
-    let orgs = [];
+    let orgs;
     try { orgs = readdirSync(join(config.dataDir, 'uploads')); } catch { return; }
     for (const org of orgs) {
-      let files = [];
+      let files;
       try { files = readdirSync(join(config.dataDir, 'uploads', org)); } catch { continue; }
       for (const f of files) if (!q('SELECT 1 FROM uploads WHERE id = ?').get(f.replace(/\.part$/, ''))) rmSync(join(config.dataDir, 'uploads', org, f), { force: true });
     }

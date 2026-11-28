@@ -41,6 +41,7 @@ export const SOCIAL_SCHEMA = [
 ];
 
 export const LIVE_NETWORKS = ['bluesky', 'mastodon', 'webhook'];
+// eslint-disable-next-line no-control-regex -- strips control characters on purpose
 const clip = (s, n) => String(s ?? '').replace(/\u0000/g, '').trim().slice(0, n);
 /** Mastodon's post visibility: public, unlisted (public but kept off timelines), or private (followers only). */
 export const VISIBILITIES = ['public', 'unlisted', 'private'];

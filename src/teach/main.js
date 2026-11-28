@@ -7,7 +7,7 @@ import { setCrumbs } from '../ui/crumbs.js';
 import { Drawer } from '../ui/drawer.js';
 import { uiConfirm } from '../ui/dialog.js';
 import { saveDoc, canWriteDoc } from '../platform/storage.js';
-import { loadOrg, loadTeach, loadLearn, loadPodcasts, loadAssets, loadMaps, loadLibrary, loadStrategy } from '../platform/docs.js';
+import { loadOrg, loadTeach, loadLearn, loadPodcasts, loadAssets, loadMaps, loadLibrary, loadStrategy, loadRhizome } from '../platform/docs.js';
 import { loadAllMaps } from '../platform/maps.js';
 import { linkables, openLinkPicker, manifestEntry } from './LinkPicker.js';
 import { blankLearn } from '../learning/records.js';
@@ -16,11 +16,11 @@ import { ROLES, teamList } from '../platform/org.js';
 import { enabledPlugins, linkTo, currentWho } from '../plugins.js';
 import {
   BLOCK_TYPES, BLOCK_GROUPS, TRACK_KINDS, KINDS, blockType, trackKind, kindLabel, blankCartridge, addBlock, updateBlock, removeBlock, duplicateBlock,
-  addTrack, updateTrack, removeTrack, moveTrack, addPace, updatePace, removePace, updateCartridge, publish, unpublish, phases, dateOf, dayOf, shortDate,
+  addTrack, updateTrack, removeTrack, moveTrack, addPace, updatePace, removePace, updateCartridge, publish, phases, dateOf, dayOf, shortDate,
   pathByWeek, weekLoad, cartridgeStats, exportCartridge, importCartridge, weekOf, weekLabel,
   ROOM, lessonSections, STREAM_TEMPLATES, applyStream, linkStream, updateStream, unlinkBlock, dissolveStream, removeStream, streamBlocks, streamToTemplate, addToStream, STREAM_TONES,
 } from '../learning/cartridge.js';
-import { runChecks, canPublish, LEVELS, RULES, ruleLabel, udlBalance, issuesFor } from '../learning/checks.js';
+import { runChecks, canPublish, LEVELS, RULES, udlBalance, issuesFor } from '../learning/checks.js';
 import { TEMPLATES, createBoard, templateLabel } from '../learning/collab.js';
 import { About } from '../learning/About.js';
 import { Timeline, ZOOMS, HEAD_WIDTH } from './Timeline.js';
@@ -59,7 +59,7 @@ let linkCache = null;
 const allLinkables = () => {
   if (linkCache) return linkCache;
   const maps = plugins.has('mapper') ? loadMaps() : null;
-  linkCache = linkables({ org, assets, podcasts, maps, mapContents: maps ? loadAllMaps(maps) : {}, library: plugins.has('library') ? loadLibrary() : null, strategy: plugins.has('strategy') ? loadStrategy() : null }, plugins);
+  linkCache = linkables({ org, assets, podcasts, maps, mapContents: maps ? loadAllMaps(maps) : {}, library: plugins.has('library') ? loadLibrary() : null, strategy: plugins.has('strategy') ? loadStrategy() : null, rhizome: plugins.has('rhizome') ? loadRhizome() : null }, plugins);
   return linkCache;
 };
 /** Learn's records, read-only here, for who has joined and how far they are. */
@@ -794,7 +794,6 @@ const text = (value, onchange, attrs = {}) => h('input', { class: 'input input-s
 
 let blockTab = 'content';
 let trayFull = false;
-const TEXT_TYPES = ['reading', 'case', 'page', 'announce', 'discussion', 'reflection', 'feedback', 'assignment', 'peer', 'email', 'milestone', 'checkin', 'release', 'voice', 'showcase', 'checkpoint', 'resource', 'video', 'live', 'office', 'meetup', 'whiteboard', 'mapwalk'];
 /** Where each kind of block is made in full, in another plugin. Hidden if that plugin is off for you. */
 function fullEditor(b) {
   const go = (plugin, hash, label) => { const href = linkTo(plugin, hash); return href ? { href, label } : null; };
@@ -960,7 +959,6 @@ function ContentEditor(c, b, set, titleEl = null) {
   }
   if (['live', 'office', 'meetup', 'whiteboard'].includes(b.type)) secs.push(SessionFields(c, b, set));
   if (['resource', 'video'].includes(b.type)) extra.push(field(b.type === 'video' ? 'Video link' : b.type === 'resource' ? 'Link' : 'Meeting link (Zoom, Meet, Teams)', text(b.settings?.url, (v) => set({ settings: { ...b.settings, url: v } }), { type: 'url', placeholder: 'https://' })));
-  if (false) extra.push(field('Repeats', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ settings: { ...b.settings, repeat: e.target.value } }) }, options([{ id: 'none', label: 'Just this once' }, { id: 'weekly', label: 'Every week of the run' }], b.settings?.repeat ?? 'none'))));
   if (b.type === 'whiteboard') secs.push(formSec('The board', 'palette', WhiteboardField(c, b, set)));
   if (b.type === 'assignment') extra.push(field('Learners hand in', h('select', { class: 'select select-sm', disabled: !canEdit, onchange: (e) => set({ settings: { ...b.settings, handIn: e.target.value } }) }, options([{ id: 'doc', label: 'A Dashi doc' }, { id: 'file', label: 'A file' }, { id: 'any', label: 'Their choice: a doc, a file, audio or video' }], b.settings?.handIn ?? 'doc')), 'Offering a choice of format is the UDL way.'));
   if (b.type === 'page') extra.push(field('Web page', text(b.settings?.slug, (v) => set({ settings: { ...b.settings, slug: v } }), { placeholder: 'e.g. grants/how-to-apply' }), 'Link this block to a page in Web, or write a short one here.'));
@@ -991,9 +989,9 @@ function Manifest(c, b, set) {
         href && h('a', { class: 'btn btn-ghost btn-xs', href, target: '_blank', rel: 'noopener', title: 'Open it where it lives' }, icon('export', 13)),
         canEdit && i > 0 && h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', 'aria-label': 'Move up', onclick: () => { const nx = [...list]; [nx[i - 1], nx[i]] = [nx[i], nx[i - 1]]; put(nx); } }, icon('chevronUp', 13)),
         canEdit && h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', 'aria-label': `Unlink ${a.title}`, onclick: () => put(list.filter((_, j) => j !== i), 'Unlinked') }, icon('close', 13)));
-    })) : h('p', { class: 'lx-note' }, 'Nothing linked yet. Add documents, other episodes or slideshows, ecosystem maps, plans or work that go with this block.'),
+    })) : h('p', { class: 'lx-note' }, b.type === 'experiment' ? 'Nothing linked yet. Link a Rhizome Lab experiment or a saved console patch for learners to try.' : 'Nothing linked yet. Add documents, other episodes or slideshows, ecosystem maps, plans, work or Rhizome Lab experiments that go with this block.'),
     canEdit && h('button', { type: 'button', class: 'btn btn-sm', onclick: () => openLinkPicker({
-      items: allLinkables(),
+      items: allLinkables(), start: b.type === 'experiment' ? 'lab' : null,
       current: () => new Set((doc.cartridges[c.id]?.blocks[b.id]?.assets ?? b.assets ?? []).map((a) => a.key)),
       onPick: (it) => { const cur = doc.cartridges[c.id]?.blocks[b.id]?.assets ?? []; if (!cur.some((a) => a.key === it.key)) set({ assets: [...cur, manifestEntry(it)] }, 'Linked'); },
     }) }, icon('plus', 14), 'Link items'));
@@ -1223,15 +1221,6 @@ function QuestionsField(b, set) {
     canEdit && h('button', { type: 'button', class: 'btn btn-sm', onclick: () => put([...qs, { q: '', options: ['', '', ''], answer: 0 }]) }, icon('plus', 14), 'Add a question'));
 }
 
-function ImageField(b, set) {
-  const img = b.settings?.images?.[0] ?? null;
-  const put = (patch) => set({ settings: { ...b.settings, images: [{ ...(img ?? {}), ...patch }] } });
-  return h('div', { class: 'lx-field' }, h('span', {}, 'Picture'),
-    h('div', { class: 'lx-row' },
-      field('Picture address', text(img?.src, (v) => (v ? put({ src: v }) : set({ settings: { ...b.settings, images: [] } })), { placeholder: '/media/photos/nature/…' })),
-      field('Alt text', text(img?.alt, (v) => put({ alt: v }), { placeholder: 'What the picture shows' }))),
-    img?.src && h('label', { class: 'lx-check' }, h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', disabled: !canEdit, checked: !!img.decorative, onchange: (e) => put({ decorative: e.target.checked }) }), 'Decorative only (screen readers skip it)'));
-}
 
 function openSettings(cid) {
   drawer?.close();

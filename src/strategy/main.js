@@ -18,9 +18,9 @@ import { PluginHeader } from '../ui/PluginHeader.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
 import { swSections } from './swNav.js';
 import { withoutLayers, layersInPlan } from '../platform/strategy.js';
-import { short } from './dates.js';
+
 import { uiConfirm, uiPrompt } from '../ui/dialog.js';
-import { linkTo } from '../plugins.js';
+
 
 /**
  * Plan, in sections listed down the shared sidebar:

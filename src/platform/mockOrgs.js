@@ -369,7 +369,7 @@ export function mockDocs(spec, examples = null) {
   const r = rng(spec.id);
   const sector = SECTORS[spec.sector];
   const docs = examples ? structuredClone(examples) : {};
-  const plan = { free: { bibs: false }, basic: { bibs: false }, standard: { bibs: true }, custom: { bibs: true } }[spec.plan];
+  const plan = { free: { bibs: false }, basic: { bibs: false }, standard: { bibs: true }, network: { bibs: true }, custom: { bibs: true } }[spec.plan];
   spec = { ...spec, twoSites: spec.plan === 'standard' || spec.plan === 'custom' };
 
   // People and the org profile.

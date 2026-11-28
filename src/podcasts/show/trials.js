@@ -27,7 +27,6 @@ const text = (html) => ({ id: bid(), type: 'text', html });
 const list = (items, ordered = false) => ({ id: bid(), type: 'bullets', items, ordered });
 const stat = (value, label, note = '') => ({ id: bid(), type: 'card', card: { kind: 'stat', value, label, note } });
 const prog = (value, label, note = '') => ({ id: bid(), type: 'card', card: { kind: 'progress', value, label, note } });
-const quote = (value, label) => ({ id: bid(), type: 'card', card: { kind: 'quote', value, label, note: '' } });
 const callout = (value, label = '', note = '') => ({ id: bid(), type: 'card', card: { kind: 'callout', value, label, note } });
 const img = (photoId, alt, caption = '') => ({ id: bid(), type: 'image', src: photo(photoId), alt, caption });
 

@@ -43,7 +43,7 @@ export function Toolbar(el, ctx) {
       toolButton(t('connect')),
       toolButton(t('pan')),
       toolButton(t('dataviz')),
-    ].map((b) => h('li', {}, b)));
+    ].map((b) => h('li', { role: 'none' }, b)));
   };
   tools.addEventListener('change', render);
   render();

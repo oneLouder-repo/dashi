@@ -22,7 +22,7 @@
   --well: #f8f6f2;           /* inset: fields, wells, hovered rows */
   --ink-1: #22252b;          /* titles, values */
   --ink-2: #4d515a;          /* body copy */
-  --ink-3: #757982;          /* labels, metadata */
+  --ink-3: #666a73;          /* labels, metadata */
   --ink-4: #a4a7ad;          /* placeholders, disabled */
   --rule: rgb(70 60 40 / 0.10);        /* hairlines between things */
   --rule-soft: rgb(70 60 40 / 0.06);   /* rows inside a list */

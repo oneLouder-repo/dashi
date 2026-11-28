@@ -44,7 +44,6 @@ const CAT_TONE = { Routing: '#56657f', Sources: '#3e8fa6', Shapers: '#ee7d2b', L
 const PCTS = ['p25', 'p50', 'p75', 'p90'];
 const PCT_LABEL = { p25: '25%', p50: 'median', p75: '75%', p90: '90%' };
 
-let dragFrom = null; // { m, port, dir, x, y } while a cable is being patched
 let flipped = false; // looking at the back of the rack
 const visState = {}; // where each visualiser is up to (lane, playing, speed), kept across re-renders
 let selected = null; // the module the Rack 2.0 inspector shows
@@ -786,7 +785,6 @@ export function Rack(env, patchId) {
     const from = centre(fixed);
     const temp = svg('path', { class: 'rk-cable-temp', d: '' }, cables);
     if (color) temp.setAttribute('stroke', color);
-    dragFrom = start;
     const at = (ev) => { const s = stage.getBoundingClientRect(); return { x: ev.clientX - s.left, y: ev.clientY - s.top }; };
     temp.setAttribute('d', sag(from, at(e)));
     const move = (ev) => temp.setAttribute('d', sag(from, at(ev)));
@@ -795,7 +793,6 @@ export function Rack(env, patchId) {
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', cancel);
       temp.remove();
-      dragFrom = null;
       const target = cancelled ? null : document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-jack]');
       if (!target) return held ? commit('Cable pulled out') : undefined;
       const [tm, tport, tdir] = target.dataset.jack.split('|');

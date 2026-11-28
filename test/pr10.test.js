@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { actuaDocs } from '../src/platform/clients/actua.js';
 import { CLIENT_RESET } from '../src/platform/clients/index.js';
-import { col } from '../src/core/collections.js';
+
 import { studioOps, tocToPlan, tocFromPlan, layersOf, layerOf, draftsOf, acceptDraftOps, plansOf, ofPlan } from '../src/platform/studio.js';
 
 const applyAll = (doc, ops) => {

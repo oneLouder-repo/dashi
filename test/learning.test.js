@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ROOM, blankCartridge, addBlock, moveBlock, resizeBlock, removeBlock, duplicateBlock, addTrack, removeTrack, moveTrack, updateTrack,
-  phases, phaseOf, dateOf, dayOf, weekOf, weekLoad, pathByWeek, publish, exportCartridge, importCartridge, BLOCK_TYPES, trackFor, addPace,
+  phases, phaseOf, dateOf, dayOf, weekOf, weekLoad, pathByWeek, exportCartridge, importCartridge, BLOCK_TYPES, trackFor, addPace,
 } from '../src/learning/cartridge.js';
 import { runChecks, canPublish, readingGrade, contrast, bestInk, udlBalance } from '../src/learning/checks.js';
 import { blankLearn, enrol, markDone, progress, isOpen, nextBlock, dueSoon, todayDay, recordLines, toStatement, saveSettings, settingsOf, leave } from '../src/learning/records.js';
@@ -26,7 +26,7 @@ test('days, dates and phases: a cartridge keeps day numbers, a run pins day 0', 
 
 test('blocks go on their usual track, move, stretch, copy and go', () => {
   let c = blankCartridge({ start: '2027-01-11' });
-  let r = addBlock(c, { type: 'quiz', start: 3 });
+  const r = addBlock(c, { type: 'quiz', start: 3 });
   c = r.cartridge;
   assert.equal(c.blocks[r.id].trackId, trackFor(c, 'quiz').id, 'a quiz lands on the assessment track');
   assert.equal(c.tracks.find((t) => t.id === c.blocks[r.id].trackId).kind, 'assess');
@@ -81,7 +81,7 @@ test('load and path: effort per week, the learner’s outline leaves out hidden 
 
 test('checks: transcripts and alt text stop publishing; the rest explain themselves', () => {
   let c = blankCartridge({ weeks: 1 });
-  let r = addBlock(c, { type: 'slideshow', start: 0, ref: { plugin: 'podcasts', type: 'episode', id: 'ep1' } });
+  const r = addBlock(c, { type: 'slideshow', start: 0, ref: { plugin: 'podcasts', type: 'episode', id: 'ep1' } });
   c = r.cartridge;
   let issues = runChecks(c);
   assert.ok(issues.some((i) => i.rule === 'transcript' && i.level === 'block'));
@@ -164,7 +164,7 @@ test('the learner’s record as xAPI: an account id, never an email', () => {
 });
 
 test('learner settings', () => {
-  let d = saveSettings(blankLearn(), 'a', { textSize: 'xl', motion: 'calm' });
+  const d = saveSettings(blankLearn(), 'a', { textSize: 'xl', motion: 'calm' });
   assert.deepEqual([settingsOf(d, 'a').textSize, settingsOf(d, 'a').motion, settingsOf(d, 'a').captions], ['xl', 'calm', true]);
 });
 

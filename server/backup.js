@@ -20,7 +20,7 @@ const NAME = /^toolbox-(\d{4}-\d\d-\d\dT\d\d-\d\d-\d\d(-\d{3})?)\.db$/;
 
 /** The snapshots there are, newest first: [{ name, size, at }]. */
 export function listBackups() {
-  let names = [];
+  let names;
   try { names = readdirSync(DIR()); } catch { return []; }
   return names.filter((n) => NAME.test(n)).map((name) => {
     const st = statSync(join(DIR(), name));

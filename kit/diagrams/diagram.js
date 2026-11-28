@@ -1231,7 +1231,7 @@ class Diagram {
       };
       if (L === 'sync') el.style.setProperty('--dg-sys-w', Math.round(v ? Math.min(W - 2 * pad, 300) : clamp((W - 2 * pad - 112 - 56) / 2, 150, t === 'l' ? 270 : 220)) + 'px');
       const G = {};
-      for (const [id, n] of m.nodes) {
+      for (const [, n] of m.nodes) {
         if (n.role === 'tile') continue;
         const kind = kindOf(n, ctx);
         const nodeEl = makeNode(n, kind, ctx, layer, this.reg);
@@ -1272,7 +1272,7 @@ class Diagram {
     // a flat drawing (a timeline, a sync, a short chain) that fills under 55% of the box's height
     // takes the next size up (cards with their sub lines, larger tiles, wider gaps) when that fits clean
     const FLAT = ['timeline', 'sync', 'grid', 'tree', 'free', 'lanes', 'fanin', 'bowtie'];
-    let up = null;
+    let up;
     if (!best.issues && best.t === 'n' && tier === 'n' && !best.v && best.level === 0 && FLAT.includes(L) && best.extH < 0.55 * H && W >= 480 && sp.fit !== false) {
       up = attempt(0, 'l', false);
       if (up && !up.issues && up.extH > best.extH + 8) { best = up; lastRun = up; }

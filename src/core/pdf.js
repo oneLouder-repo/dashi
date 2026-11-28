@@ -204,7 +204,7 @@ function assemble(pages, dc) {
   const list = (v) => (Array.isArray(v) ? v : v ? [v] : []);
   const xe = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const bag = (tag, items, kind = 'Bag') => (items.length ? `<dc:${tag}><rdf:${kind}>${items.map((i) => `<rdf:li>${xe(i)}</rdf:li>`).join('')}</rdf:${kind}></dc:${tag}>` : '');
-  const xmp = `<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:pdf="http://ns.adobe.com/pdf/1.3/">`
+  const xmp = `<?xpacket begin="\uFEFF" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:pdf="http://ns.adobe.com/pdf/1.3/">`
     + `<dc:title><rdf:Alt><rdf:li xml:lang="x-default">${xe(dc.title)}</rdf:li></rdf:Alt></dc:title>${bag('creator', list(dc.creator), 'Seq')}${bag('subject', list(dc.subject))}`
     + `${dc.description ? `<dc:description><rdf:Alt><rdf:li xml:lang="x-default">${xe(dc.description)}</rdf:li></rdf:Alt></dc:description>` : ''}${bag('publisher', list(dc.publisher))}${bag('contributor', list(dc.contributor))}${bag('date', list(dc.date), 'Seq')}`
     + `${bag('identifier', list(dc.identifier))}${bag('language', list(dc.language))}${dc.rights ? `<dc:rights><rdf:Alt><rdf:li xml:lang="x-default">${xe(dc.rights)}</rdf:li></rdf:Alt></dc:rights>` : ''}<dc:format>application/pdf</dc:format>`

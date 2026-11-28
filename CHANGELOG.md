@@ -2,6 +2,50 @@
 
 Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and so on). Each point version (0.2, 0.3…) is one major platform feature; 0.2.1-alpha, 0.2.2-alpha… are fixes and polish from testing. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
+## 0.5.0-alpha (in progress): Mobilize, linked organisations, the EoViz ocean studio
+
+Stage 1 of the alpha 0.5 feature, built on the same branch as 0.4.1 and merged with it.
+
+- **Mobilize** (experimental, off until an org switches it on; Organization plan and up): a new plugin for moving what an organization learns to the people who can use it, and learning from what they do with it.
+  - **Knowledge objects:** one finding, practice, lesson, resource or open question, held with Lavis's five questions: what, to whom, by whom, how, and with what effect. Each has evidence (library sources and where it came from, and how strong it is), links to the plan's objectives, goals and workplans, an owner and a review date.
+  - **Readiness check:** an object moves from Draft to Ready to share only when the five questions, evidence, consent and review date are in place. Each failing check says what is missing.
+  - **Consent first:** open, partners, internal, or held by its holders. Community and Indigenous knowledge (OCAP) can't be shared until the holders' sign-off is recorded, and held objects never show in the asset library.
+  - **The loop:** make, share, listen, review. Log what comes back (counts, stories of use, pickups, decisions). Each review records what was heard and what changes. A double-loop review proposes a change to the plan, listed on the Loop page with links to the plan items.
+  - **Asset library:** knowledge objects show there as live cards.
+  - **Strategic AI at Actua:** Mobilize is switched on with eight knowledge objects from the AI strategy and Actua's public reports. The plan gains two goals with workplans: knowledge mobilization (a Mobilize pilot) and learning development grounded in adult education. Figures are from the reports; stories marked "Example" only show how the loop works.
+  - Help gains a Mobilize section, shown on Mobilize's About tab too.
+- **Linked organisations** (the Network plan): a hub org and its member orgs. Each org stays its own space.
+  - **Invite and accept:** an admin invites another org by its Dashi address, as a member or as the hub; that org's admin accepts. Either side can decline or end a link. Every step goes in the audit log.
+  - **Opt-in sharing (Organisation → Network):** each kind is off until an admin switches it on, and each is filtered so only what is meant to travel goes. People: names, titles, teams and interests, never emails or phone numbers. EoViz data: partners that chose to share; a held-back site never shows where it is. Library folders: references and Dashi docs, never uploaded files. Knowledge objects: open and partners only, never held, internal or OCAP.
+  - The server checks everything (`/api/network/…`): a member sees a kind only when its plugin is on in their own org, and a network is your hub, your members and your hub's other members.
+  - **People across the network:** a directory of the people linked orgs share, searchable by name, title or interest.
+- **The Halcyon ocean network** (made up, on the client test platform): a national ocean observatory as hub, eight member labs and a teaching commons, under a global ocean carbon commons. Sixty-six people in ten linked orgs. The hub and the Labrador Sea Carbon Lab are seeded across the plugins (plan, maps, library, Listen's *Below the Mixed Layer*, Web, a Social plan, Place with the Labrador Sea line and the Davis Strait array, Rhizome, Mobilize, and Teach's *Ocean carbon from bench to basin*).
+- **EoViz ocean studio:**
+  - **Ocean data:** cruises, floats and moorings in four dimensions, read from GLODAP extracts, WOCE/CCHDO bottle exchange, Argo-style float CSV and mooring CSV. Values keep their WOCE flags and collections their citations. σθ and AOU are worked out from values that pass. Mock data (labelled) for the Labrador Sea line 2014–2026, the Davis Strait moorings and four floats.
+  - **Windows:** small views, each four chips (data, query, time, form: section, profile, T–S with density lines, time series, Hovmöller, scatter, map). Vary a chip to make a sibling, link windows to move their time slice together, arrange and resize, and start from a gallery. Colours keep one scale across a set's years.
+  - **3D studio** (three.js r170, vendored): the windows switched on, together: a bottle cloud and a curtain along the cruise line, float ribbons, and a helix per mooring that turns once a year. Depth stretch, reset, save a picture.
+  - Data shared by linked orgs shows up on Ocean data and in every window, cited to the org that holds it.
+
+## 0.4.1-alpha (unreleased): quality checks
+
+Fixes and tooling only, no new features. Dashi stays plain JavaScript with no build step and no runtime packages; these tools are for development only and the app never loads them.
+
+- **Lint (ESLint):** `npm run lint` checks the whole codebase for real mistakes: undefined names, unused code, unreachable branches. The code is clean, and the sweep fixed a few real bugs along the way (a duplicated key in cartridges, a dead branch in Teach, an off-by-one in a test, stray arguments).
+- **Type check (TypeScript on plain JS):** `npm run typecheck` reads the code with TypeScript's checker. It started with 541 known findings, mostly loose object shapes. They are kept in `typecheck-baseline.json` as a ratchet: a file may get better but never worse, and `npm run typecheck -- --update` locks in each gain.
+- **Coverage:** `npm run coverage` runs the tests and reports coverage (85.8% of lines in the code the tests load), and fails below 80%.
+- **Accessibility (axe-core):** `npm run a11y` opens 21 pages, public and staff, on a throwaway seeded server and runs the WCAG 2.1 AA rules. Also a ratchet (`a11y-baseline.json`). First fixes: muted text darkened to pass contrast (about 450 findings gone), labels on two file pickers, the Mapper toolbar's list roles. The main one left is white text on the Dashi orange (3.9:1, AA wants 4.5:1), which is a brand choice to make.
+- **CI:** GitHub Actions runs lint, type check, tests with coverage and the accessibility check on every push and pull request, and CodeQL scans for security problems weekly and on each PR. Dependabot now also watches the dev tools.
+- `npm run check` runs lint, type check and tests together.
+- **Rhizome Lab (a small experiment):** the Lab takes the Rack's place on Rhizome's tabs, and the Rack becomes one of its experiments (`#rack` still works). All read-only and in the browser:
+  - **Console:** a short pipe language over the facts (`people | weigh broker | top 3 | say`), saved patches, two patch packs to install, and export or paste a pack to share.
+  - **Communities:** Leiden-style (Louvain moves, then every community split into its connected parts), with modularity.
+  - **Brokers:** Burt's structural holes: constraint, effective size and a broker score.
+  - **Ties worth making:** Adamic–Adar link prediction, clearly labelled as guesses.
+  - **Shape checks:** after W3C SHACL: actors with no ties, objectives outside a plan, people without a title.
+  - **Hive plot:** people, ecosystem and work on three axes, the same network always drawn the same.
+  - **Sound, *Far Beyond the Graph*:** the network heard as music, made only from its relationships. Each community is a loop. Members on the edge play as bells. The brokers carry the bass line. Likely ties play as ghost notes, marked as guesses, and saved snapshots play as a worn groove under vinyl crackle. It is synthesised in the browser with Web Audio, and you can record a take as an audio file. The score is plain data (`labSound.js`), so it is tested and can later be rendered to a file.
+  - **In Teach:** a new *Lab experiment* block. The link picker gains a Rhizome Lab group with every experiment and the org's saved patches, so a course can teach with them. A patch opens the console with its command already run.
+
 ## 0.4.0-alpha (2026-11-27): learning, on a clean build
 
 Alpha 0.4 is the learning release (Teach, Learn and what follows), opened from the `v0.3.0-alpha` tag and tested on a fresh `data-clients` seed. It ends with a last feature batch (PR #37). From here, 0.4.x is fixes from testing only, with no new features. Going live moves to 0.5. Newest first.
