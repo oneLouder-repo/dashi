@@ -18,6 +18,7 @@
  */
 import { SUPPORT_SCHEMA } from './support.js';
 import { SOCIAL_SCHEMA } from './social.js';
+import { NETWORK_SCHEMA } from './network.js';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
@@ -116,6 +117,8 @@ const SCHEMA = [
      created_at TEXT NOT NULL, created_by TEXT, last_used_at TEXT, revoked_at TEXT)`,
   // 0.4: real posting for the Social Media Integrator (server/social.js): sealed credentials, and each post sent once.
   ...SOCIAL_SCHEMA,
+  // 0.5: linked organisations (server/network.js): a hub org and its members.
+  ...NETWORK_SCHEMA,
 ];
 
 export function openDb(dataDir) {

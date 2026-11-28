@@ -38,6 +38,7 @@ import { backupNow, listBackups } from './backup.js';
 import { PROVIDERS, authorizeUrl, finish } from './oauth.js';
 import { supportRoutes } from './support.js';
 import { socialRoutes } from './social.js';
+import { networkRoutes } from './network.js';
 import { textFor as socialText } from '../src/platform/social.js';
 import { sendMail, letter } from './mail.js';
 import { zipStream, zipSize } from '../src/core/zip.js';
@@ -50,7 +51,7 @@ import { siteContent } from '../src/platform/salesSite.js';
 import { mergeRegistry, registryView, pausedByRegistry, manifestProblems, cleanManifest, compareVersions, bumpVersion, defaultManifest, manifestFromPackage, blankManifest, SCAFFOLDS } from '../src/platform/pluginRegistry.js';
 import { blankStrategy } from '../src/platform/strategySeed.js';
 import { BUILT_IN_PLUGINS } from '../src/plugins.js';
-import { docMode, orgHas } from '../src/platform/access.js';
+import { docMode, orgHas, canUse } from '../src/platform/access.js';
 import { buildGraph, EXPORTS as GRAPH_EXPORTS } from '../src/platform/graph.js';
 import { cleanResponse, migrateFeedback } from '../src/platform/feedback.js';
 import { newSecret, checkCode, otpauthUrl } from './totp.js';
@@ -415,6 +416,12 @@ export function createApp(db, options = {}) {
   const support = supportRoutes({ q, newId, now, bump: (key, max) => bump(key, max) });
   // Real posting to Bluesky, Mastodon and webhooks (server/social.js); scheduled posts go out once a minute.
   const social = socialRoutes({ q, now, dataDir: config.dataDir, mayPost: (a) => modeOf(a, 'social') === 'write', mayGoLive: (orgId) => !!orgPlan(orgById(orgId)).features.liveSocial, fetchImpl: options.fetch ?? fetch, allowLocal: options.socialAllowLocal ?? process.env.SOCIAL_ALLOW_LOCAL === 'true' });
+  // Linked organisations (server/network.js): hub and member orgs, and what each lets its network see.
+  const network = networkRoutes({
+    q, now, newId, orgById, orgBySlug: (slug) => q('SELECT * FROM orgs WHERE slug = ?').get(slug), readDoc, writeDoc,
+    mayLink: (org) => !!orgPlan(org).features.linkedOrgs, audit, announce,
+    mayUse: (a, pluginId) => { const orgDoc = readDoc(a.org.id, 'org'); return canUse(accessPlugins(), orgDoc, pluginId, whoOf(a, orgDoc)); },
+  });
   let sweeping = false;
   setInterval(async () => {
     if (sweeping) return;
@@ -566,6 +573,7 @@ export function createApp(db, options = {}) {
 
     if (path.startsWith('/api/tickets') && (await support.handle(req, res, a, path)) !== false) return;
     if (path.startsWith('/api/social/') && (await social.handle(req, res, a, path)) !== false) return;
+    if (path.startsWith('/api/network') && (await network.handle(req, res, a, path)) !== false) return;
 
     // Forgot your password: email a link. The answer is the same whether or not the email has an account.
     if (path === '/api/auth/reset/request' && method === 'POST') {
