@@ -1,8 +1,16 @@
-# Dependabot watches the Docker base image (Node) for security updates and
-# opens a pull request when there is one. Dashi has no npm packages.
+# Dependabot watches the Docker base image (Node) for security updates, and the
+# development tools (lint, type check, accessibility) in package.json. Dashi
+# itself has no runtime npm packages.
 version: 2
 updates:
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: weekly
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      dev-tools:
+        dependency-type: development

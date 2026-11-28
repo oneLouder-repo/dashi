@@ -4,7 +4,7 @@ import { icon } from '../ui/icons.js';
 import { col } from '../core/collections.js';
 import { measureIndex } from '../platform/strategy.js';
 import { dataMonths, monthRange, calcSeries, calcMeasure } from '../platform/data.js';
-import { parseFormula, formulaText, formulaStore } from '../core/formula.js';
+import { formulaText, formulaStore } from '../core/formula.js';
 import { monthLabel } from '../strategy/dates.js';
 
 /**
@@ -81,7 +81,6 @@ export function DataGrid(ctx) {
     const [c1, c2] = [st.ac ?? st.c, st.c].sort((a, b) => a - b);
     return { r1, r2, c1, c2 };
   };
-  const inRange = (r, c) => { const g = range(); return r >= g.r1 && r <= g.r2 && c >= g.c1 && c <= g.c2; };
 
   /* The table. */
   const cells = [];
@@ -191,7 +190,7 @@ export function DataGrid(ctx) {
     } else if (mod && e.key.toLowerCase() === 'a') {
       e.preventDefault(); st.ar = 0; st.ac = 0; st.r = months.length - 1; st.c = cols.length - 1; paint();
     } else if (e.key === 'Escape') { st.ar = null; st.ac = null; paint(); }
-    else if (!mod && e.key.length === 1 && /[\d.\-]/.test(e.key)) { e.preventDefault(); startEdit(e.key); }
+    else if (!mod && e.key.length === 1 && /[\d.-]/.test(e.key)) { e.preventDefault(); startEdit(e.key); }
   });
   grid.addEventListener('copy', (e) => {
     if (editing) return;

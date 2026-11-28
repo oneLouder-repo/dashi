@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { buildFacts } from '../src/rhizome/facts.js';
 import { measureFacts } from '../src/rhizome/measures.js';
 import { MODULES, blankPatch, addModule, connect, runPatch, unfoldTranslator, specToPatch, defaultRack, museVariants } from '../src/rhizome/rack.js';
-import { translate, narrate, verify, critique, conceptLens, usageOf, tutor, roundtable, guard } from '../src/rhizome/neuro.js';
+import { translate, narrate, verify, critique, conceptLens, usageOf, roundtable, guard } from '../src/rhizome/neuro.js';
 import { kestrelBundle } from '../src/platform/clients/kestrel.js';
 
 const ctx = (() => {

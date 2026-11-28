@@ -195,7 +195,7 @@ export function addBlock(c, { type = 'lesson', trackId = null, start = 0, ...pat
   const track = trackId ?? trackFor(c, type)?.id ?? null;
   const cartridge = edit(c, (x) => {
     x.blocks[id] = {
-      id, trackId: track, type, title: t.label, start: clampDay(x, start), length: t.length, at: null,
+      trackId: track, type, title: t.label, start: clampDay(x, start), length: t.length, at: null,
       minutes: t.minutes, required: !['office', 'resource', 'announce', 'email', 'release', 'checkin'].includes(type),
       after: [], body: '', ref: null, settings: {}, alts: [], competencies: [], ...patch, id,
     };

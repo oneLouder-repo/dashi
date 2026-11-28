@@ -170,7 +170,7 @@ export const FORMATS = [
         const d = new Date(Date.UTC(2024, 4 + m, 12, 10 + (r() * 3) | 0, (r() * 59) | 0)), k = doy(d);
         if ([11, 12, 13, 14].includes((4 + m) % 12 === 0 ? 12 : (4 + m) % 12) && r() < 0.6) continue; // winter: ice, fewer samples
         for (const [cn, p, u, dp] of chars) {
-          let v = wave(p, k, 11, r) * (id === 'KB-03' && ['ecoli', 'tp'].includes(p) ? 1.8 : 1);
+          const v = wave(p, k, 11, r) * (id === 'KB-03' && ['ecoli', 'tp'].includes(p) ? 1.8 : 1);
           let res = round(v, dp), condn = '', lim = '';
           if (p === 'tp' && v < 0.01) { res = ''; condn = 'Not Detected'; lim = '0.01'; }
           lines.push(['Kestrel Bay Watershed Monitoring', id, nm, la, lo, 'Sample-Routine', day(d), clock(d).slice(0, 5), '0.2', 'm', `"${cn}"`, res, u, condn, lim].join(','));

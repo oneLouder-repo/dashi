@@ -1,5 +1,5 @@
 import { h } from '../ui/dom.js';
-import { icon } from '../ui/icons.js';
+
 import { Shell } from '../ui/Shell.js';
 import { SideNav, swapSide } from '../ui/SideNav.js';
 import { Store } from '../core/Store.js';

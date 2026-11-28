@@ -16,7 +16,7 @@ import {
   TYPES, FIELDS, ROLES, typeOf, blankMeta, blankBib, migrateBib, extOf, FILE_KINDS, ACCEPT, formatLabel, titleFromName,
   apaReference, apaCitation, runsToHtml, runsToText, runsToMarkdown, dublinCore, parseReferences, wordCount, annotationLength,
   weekKey, weekLabel, shiftWeek, tagMap, allowedTags, parseRule, groupItems, weekAnnotations, draftBrief, newsletter,
-  searchItems, fullName, yearOf, sortKey, apaList, fileHints, matchReference,
+  searchItems, yearOf, sortKey, fileHints, matchReference,
   libraryTags, itemsTagged, suggestTags, renameTag, frameworksFor, weekResources, isMapFile,
 } from '../platform/library.js';
 import { FORMATS, download, fileName, renderMarkdown, exportDoc, printHtml, exportDublinCore, exportCsl, exportBibtex, exportRis, referenceBlocks, byline } from './exports.js';
@@ -95,14 +95,14 @@ store.addEventListener('change', () => { if (!quiet) render(); });
 window.addEventListener('hashchange', () => { closeEditor(); render(); main.scrollTop = 0; });
 
 function render() {
-  const [view, a, b] = route();
+  const [view, a] = route();
   drawSide(view, a);
   const scroll = main.scrollTop;
   let page;
   if (view === 'read' && lib().items[a]?.file) page = Reader(lib().items[a], readerCtx);
   else if (view === 'item' && lib().items[a]) page = lib().items[a].kind === 'doc' ? DocPage(lib().items[a]) : ItemPage(lib().items[a]);
   else if (view === 'bibs') page = BibList();
-  else if (view === 'bib' && lib().bibs[a]) page = bibsAllowed ? BibPage(lib().bibs[a], b || 'annotations') : Upsell();
+  else if (view === 'bib' && lib().bibs[a]) page = bibsAllowed ? BibPage(lib().bibs[a]) : Upsell();
   else if (view === 'tags') page = TagsPage();
   else if (view === 'tag' && a) page = TagPage(a);
   else page = Files(a || 'all');

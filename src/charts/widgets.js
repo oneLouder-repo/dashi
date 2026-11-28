@@ -4,7 +4,7 @@ import { measureIndex, descendants, TASK_STATUSES, statusAt } from '../platform/
 import { valueAt, pointsUntil, seriesOf, calcMeasure, dataMonths } from '../platform/data.js';
 import { monthLabel, addDays, short, today } from '../strategy/dates.js';
 import { RoadSvg, lightFor, LIGHT_COLOR } from '../strategy/Road.js';
-import { taskSummary, childrenOf } from '../platform/strategy.js';
+import { taskSummary } from '../platform/strategy.js';
 
 /**
  * Dashboard widgets. Each renders for one moment in time (`ctx.asOf`), so

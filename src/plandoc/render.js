@@ -56,7 +56,7 @@ const rgb = (c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
 const distance = (a, b) => { const [x, y] = [rgb(a), rgb(b)]; return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]); };
 /** Turn a colour's hue by `deg`, giving it some saturation if it has little. */
 function rotate(c, deg) {
-  let [r, g, b] = rgb(c).map((v) => v / 255);
+  const [r, g, b] = rgb(c).map((v) => v / 255);
   const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2;
   let hh = 0, sat = 0;
   if (max !== min) {

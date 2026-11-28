@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { parseFormula, evaluate, formulaStore, formulaText } from '../src/core/formula.js';
 import { calcSeries, monthRange } from '../src/platform/data.js';
 
-const run = (text, values, at = values.a?.length - 1 ?? 0) => {
+const run = (text, values, at = (values.a?.length ?? 1) - 1) => {
   const { tree } = parseFormula(text, (n) => n.toLowerCase());
   return evaluate(tree, at, (id, i) => values[id]?.[i] ?? null);
 };

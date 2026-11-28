@@ -208,7 +208,6 @@ function firstRun() {
 function Site(id) {
   const site = doc.sites[id];
   if (!site) return page('overview', h('p', { class: 'eo-note' }, 'That site isn’t here any more.'));
-  const partner = partnerOf(site);
   setCrumbs([{ label: site.name }]);
   const list = seriesOf(doc, site.id);
   const profile = depthsOf(list) >= 3;

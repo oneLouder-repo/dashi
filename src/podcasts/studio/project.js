@@ -158,7 +158,7 @@ export function duplicateClip(p, id) {
  */
 export function rippleDelete(p, from, to, trackIds = null) {
   if (to - from < MIN_CLIP) return p;
-  let out = splitAll(splitAll(p, from, trackIds), to, trackIds);
+  const out = splitAll(splitAll(p, from, trackIds), to, trackIds);
   const gap = to - from;
   return edit(out, (x) => {
     for (const c of Object.values(x.clips)) {

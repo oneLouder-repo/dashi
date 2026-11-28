@@ -5,3 +5,4 @@ node_modules/
 .taste-skill/
 media/photos/**/*-unsplash.*
 media/podBeam/
+coverage/

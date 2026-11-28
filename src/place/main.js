@@ -222,7 +222,7 @@ const tools = h('div', { class: 'pl-tools' },
     h('button', { class: 'btn btn-xs', title: 'Draw an area', onclick: () => startDraw('area') }, icon('mapTrifold', 14), 'Area')),
   canEdit && h('button', { class: 'btn btn-xs', title: 'Bring in a CSV (latitude and longitude columns) or a GeoJSON file', onclick: () => fileIn.click() }, icon('upload', 14), 'Add data'));
 /* A file brought in becomes a data layer (stage 2). */
-const fileIn = h('input', { type: 'file', class: 'sr-only', accept: '.csv,.tsv,.txt,.geojson,.json,text/csv,application/geo+json,application/json', onchange: (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) bringIn(f); } });
+const fileIn = h('input', { type: 'file', class: 'sr-only', 'aria-label': 'Bring in a data file', accept: '.csv,.tsv,.txt,.geojson,.json,text/csv,application/geo+json,application/json', onchange: (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) bringIn(f); } });
 document.body.append(fileIn);
 const mapPage = h('div', { class: 'pl-page pl-page-map' }, tabs('map'), h('div', { class: 'pl-stage' }, mapEl, tools, hintEl, noteEl, trayEl));
 const dark = document.documentElement.dataset.mode === 'dark';

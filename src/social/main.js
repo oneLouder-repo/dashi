@@ -314,7 +314,6 @@ function Compose(r) {
   };
   const draw = () => {
     const settings = doc().settings;
-    const kind = kindById[post.kind] ?? kindById.note;
     const sourceList = post.kind === 'episode' ? episodes.map((e) => [e.id, `${src.podcasts.podcasts[e.podcastId]?.title} · ${e.title}`])
       : post.kind === 'article' ? articles.map((p) => [p.id, `${p.kind === 'article' ? 'Blog' : 'Page'} · ${p.title}`])
       : post.kind === 'datacard' ? measures.map((m) => [m.id, `${m.name} (${m.nodeTitle})`])

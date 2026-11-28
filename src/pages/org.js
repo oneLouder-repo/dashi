@@ -79,7 +79,7 @@ const text = (name, value, onchange, attrs = {}) => h('input', { class: 'input i
 const area = (name, value, onchange) => h('textarea', { class: 'textarea textarea-sm', name, rows: 3, onchange: (e) => onchange(e.target.value.trim()) }, value ?? '');
 
 function imagePicker({ name, current, onPick, onClear, preview }) {
-  const input = h('input', { type: 'file', accept: 'image/*', class: 'file-input file-input-sm', name, onchange: async (e) => {
+  const input = h('input', { type: 'file', accept: 'image/*', class: 'file-input file-input-sm', name, 'aria-label': 'Choose an image file', onchange: async (e) => {
     try { onPick(await readImage(e.target.files[0])); } catch (err) { uiAlert(err.message); }
   } });
   return h('div', { class: 'image-picker' }, preview, h('div', {}, input, current && h('button', { class: 'btn btn-xs btn-ghost', onclick: onClear }, 'Remove')));
@@ -121,14 +121,6 @@ async function sendInvite(s, button) {
   } catch (err) { toast(err.message, 'error'); }
   button.disabled = false;
 }
-const signInCell = (s) => {
-  if (!isHosted() || !session()?.canAdmin || !s.email) return null;
-  const st = signInStatus?.[s.id];
-  const seen = st?.lastSignIn ? `Last signed in ${new Date(st.lastSignIn).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : 'Hasn’t signed in yet';
-  return h('div', { class: 'invite-cell' },
-    h('small', { class: 'muted' }, signInStatus ? seen : ''),
-    h('button', { class: 'btn btn-xs', title: `Email ${s.email} a link to set a password and sign in (good for a week)`, onclick: (e) => sendInvite(s, e.currentTarget) }, st?.lastSignIn ? 'Send sign-in link' : 'Invite'));
-};
 
 /* -------------------------------------------------------------- people */
 const isAdminHere = () => !isHosted() || !!session()?.canAdmin;

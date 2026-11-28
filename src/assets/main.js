@@ -427,7 +427,7 @@ function MapView(list, cards) {
     mode !== 'arrange' && h('span', { class: 'ah-map-size' }, h('span', { class: 'muted small' }, 'Group by'), seg([['home', 'Where it lives'], ['filed', 'Collection or tag']], groupBy, (v) => { prefs.mapGroup = v; sunFocus = sunFocus.slice(0, 1); })),
     mode !== 'arrange' && h('span', { class: 'ah-map-size' }, h('span', { class: 'muted small' }, 'Size by'), seg([['count', 'Count'], ['links', 'Links']], by, (v) => { prefs.mapSize = v; })),
     h('span', { class: 'muted small ah-map-hint' }, mode === 'wheel' ? 'Click a wedge to open it, the centre to step back. ↑ ↓ step through the list.' : mode === 'icicle' ? 'Click a bar to open it, the left column to step back. ↑ ↓ step through the list.' : 'Drag to sort, or grab the ring on an asset to link it.'));
-  if (mode === 'arrange') return h('div', { class: 'ah-mapview' }, bar, AssetMap(list, cards));
+  if (mode === 'arrange') return h('div', { class: 'ah-mapview' }, bar, AssetMap(list));
   const linksOf = (c) => (c.item?.related ?? []).length + list.filter((x) => x.item?.related?.includes(c.key)).length;
   const filedIn = (c) => (c.collectionIds[0] && hub.collections[c.collectionIds[0]] ? hub.collections[c.collectionIds[0]].name : c.tags[0] ? `#${c.tags[0]}` : 'Not filed');
   const groupOf = groupBy === 'home' ? homeOf : filedIn;

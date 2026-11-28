@@ -2,6 +2,17 @@
 
 Dashi uses version numbers like `0.2.0-alpha` (before 0.2, `0.1.0-alpha.1` and so on). Each point version (0.2, 0.3…) is one major platform feature; 0.2.1-alpha, 0.2.2-alpha… are fixes and polish from testing. While the first number is 0, anything can change between versions. "alpha" means not yet feature complete and still likely to have bugs, but versioned, hosted and ready for invited testers. The version shows on the **alpha** badge in the header and at `/version`.
 
+## 0.4.1-alpha (unreleased): quality checks
+
+Fixes and tooling only, no new features. Dashi stays plain JavaScript with no build step and no runtime packages; these tools are for development only and the app never loads them.
+
+- **Lint (ESLint):** `npm run lint` checks the whole codebase for real mistakes: undefined names, unused code, unreachable branches. The code is clean, and the sweep fixed a few real bugs along the way (a duplicated key in cartridges, a dead branch in Teach, an off-by-one in a test, stray arguments).
+- **Type check (TypeScript on plain JS):** `npm run typecheck` reads the code with TypeScript's checker. It started with 541 known findings, mostly loose object shapes. They are kept in `typecheck-baseline.json` as a ratchet: a file may get better but never worse, and `npm run typecheck -- --update` locks in each gain.
+- **Coverage:** `npm run coverage` runs the tests and reports coverage (85.8% of lines in the code the tests load), and fails below 80%.
+- **Accessibility (axe-core):** `npm run a11y` opens 21 pages, public and staff, on a throwaway seeded server and runs the WCAG 2.1 AA rules. Also a ratchet (`a11y-baseline.json`). First fixes: muted text darkened to pass contrast (about 450 findings gone), labels on two file pickers, the Mapper toolbar's list roles. The main one left is white text on the Dashi orange (3.9:1, AA wants 4.5:1), which is a brand choice to make.
+- **CI:** GitHub Actions runs lint, type check, tests with coverage and the accessibility check on every push and pull request, and CodeQL scans for security problems weekly and on each PR. Dependabot now also watches the dev tools.
+- `npm run check` runs lint, type check and tests together.
+
 ## 0.4.0-alpha (2026-11-27): learning, on a clean build
 
 Alpha 0.4 is the learning release (Teach, Learn and what follows), opened from the `v0.3.0-alpha` tag and tested on a fresh `data-clients` seed. It ends with a last feature batch (PR #37). From here, 0.4.x is fixes from testing only, with no new features. Going live moves to 0.5. Newest first.

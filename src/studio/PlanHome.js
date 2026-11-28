@@ -3,7 +3,7 @@ import { icon } from '../ui/icons.js';
 import { Avatar } from '../ui/Shell.js';
 import { PeoplePicker } from '../ui/strategyLook.js';
 import { strategyOps, rootOf } from '../platform/strategy.js';
-import { staffList } from '../platform/org.js';
+
 import { CONTEXT_KINDS, TEAM_ROLES, QUADRANTS, ofPlan } from '../platform/studio.js';
 
 /**

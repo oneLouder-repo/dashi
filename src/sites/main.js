@@ -18,7 +18,7 @@ import { isLivePlan } from '../platform/plandocs.js';
 import { applyTheme, shapeById, SHAPES, themeLabel } from '../platform/themes.js';
 import { PaletteBuilder } from '../ui/PaletteBuilder.js';
 import { brandPalette } from '../platform/palettes.js';
-import { Logo } from '../ui/Shell.js';
+
 import { PAGE_KINDS, uniqueSlug, isLive, embedsIn, siteContent } from '../platform/pages.js';
 import { published } from '../platform/podcasts.js';
 import { pluginOn, staffList } from '../platform/org.js';
@@ -77,7 +77,6 @@ const route = () => decodeURIComponent(location.hash.slice(1)) || 'sites';
 const doc = () => store.doc;
 const siteUrl = (siteId, extra = {}) => `site.html?${new URLSearchParams({ site: siteId, ...extra })}`;
 const ctx = { doc: docs.podcasts, org, today: now, player, link: () => '#' };
-const publicDashboards = () => Object.values(docs.dashboards.dashboards).filter((d) => d.visibility === 'public');
 const liveEpisodes = () => Object.values(docs.podcasts.episodes).filter((e) => published(e, now)).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
 
 /** The Data Workbench's tools, as the Portal's side list shows them (src/palette/main.js has the tools themselves). */
@@ -95,13 +94,6 @@ function renderSide() {
   const r = route();
   const list = (kind) => Object.values(doc().pages).filter((p) => p.kind === kind)
     .sort((a, b) => (kind === 'article' ? b.publishedAt.localeCompare(a.publishedAt) : (a.siteId ?? '').localeCompare(b.siteId ?? '') || a.order - b.order));
-  const item = (p) => ({
-    label: p.title, href: `#${p.id}`, on: r === p.id,
-    lead: h('span', { class: 'side-lead' }, h('span', { class: `status-dot ${isLive(p, now) ? 'live' : p.status}`, title: isLive(p, now) ? 'Published' : p.status === 'draft' ? 'Draft' : 'Scheduled' })),
-    sub: [org.sites[p.siteId]?.name ?? 'No site', p.kind === 'article' ? short(p.publishedAt) : p.inNav ? 'in menu' : null].filter(Boolean).join(' · '),
-  });
-  const siteItem = (x) => ({ label: x.name, href: `#site/${x.id}`, on: r === `site/${x.id}`, icon: x.visibility === 'private' ? 'lock' : x.visibility === 'unlisted' ? 'eyeOff' : 'globe',
-    sub: x.visibility === 'private' ? 'Members only' : `${x.visibility === 'unlisted' ? 'Unlisted' : 'Public'} · ${propertiesOf(x).filter((q) => q.live).length} live` });
   const byVis = (v) => Object.values(org.sites).filter((x) => (v === 'private' ? x.visibility === 'private' : x.visibility !== 'private'));
   side = swapSide(side, SideNav({ label: 'Web', sections: [
     { title: 'Web', items: [

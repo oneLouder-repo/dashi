@@ -33,7 +33,7 @@ export function moveConnect(pending, e, ctx) {
 /** Finish: returns the new connector's id, or null if it was too short to keep. */
 export function endConnect(pending, e, ctx) {
   const { op } = pending;
-  const { store, ops } = ctx;
+  const { store } = ctx;
   cancelConnect(pending, ctx);
   const target = targetOf(e, pending);
   const to = target ? { actorId: target.id } : { x: e.worldX, y: e.worldY };

@@ -50,7 +50,7 @@ const main = h('section', { class: 'palette-main rz-main' });
 app.replaceChildren(side, main);
 
 const canSet = canWriteDoc('rhizome');
-let doc = loadRhizome();
+const doc = loadRhizome();
 function loadDocs() {
   const maps = plugins.has('mapper') ? loadMaps() : null;
   return {
