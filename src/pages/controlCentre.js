@@ -213,23 +213,33 @@ export function Payments({ call }) {
       trialDays: h('input', { class: 'input input-sm', type: 'number', min: 0, max: 90, value: s.trialDays, style: 'width:80px', 'aria-label': 'Trial days' }),
       graceDays: h('input', { class: 'input input-sm', type: 'number', min: 0, max: 60, value: s.graceDays, style: 'width:80px', 'aria-label': 'Grace days' }),
       checkoutOn: h('input', { type: 'checkbox', class: 'toggle toggle-sm toggle-primary', checked: s.checkoutOn, disabled: !x.stripe.connected, 'aria-label': 'Card payments on' }),
+      grassrootsCoupon: h('input', { class: 'input input-sm', value: s.grassrootsCoupon ?? '', placeholder: 'coupon id', 'aria-label': 'Grassroots coupon id' }),
+      alphaCoupon: h('input', { class: 'input input-sm', value: s.alphaCoupon ?? '', placeholder: 'coupon id', 'aria-label': 'Alpha supporter coupon id' }),
     };
+    const makeCoupon = h('button', { class: 'btn btn-xs', disabled: !x.stripe.connected, onclick: async () => {
+      try { await call('POST', '/api/admin/billing/create-coupon'); await load(); } catch (err) { uiAlert(err.message); }
+    } }, 'Create in Stripe');
+    const makeAlpha = h('button', { class: 'btn btn-xs', disabled: !x.stripe.connected, onclick: async () => {
+      try { await call('POST', '/api/admin/billing/create-coupon', { kind: 'alpha' }); await load(); } catch (err) { uiAlert(err.message); }
+    } }, 'Create in Stripe');
     const priceFields = {};
-    const paid = ['basic', 'standard'];
+    const paid = ['basic', 'standard', 'network'].filter((id) => x.plans[id]);
     const priceRows = paid.map((plan) => {
-      const shown = x.plans[plan].price.monthly ?? 0;
+      const pr = x.plans[plan].price;
+      const shown = pr.monthly ?? 0;
+      const shownYear = pr.yearly ?? shown * 10;
       priceFields[plan] = {
         month: h('input', { class: 'input input-xs cc-price-id', value: s.prices[plan]?.month ?? '', placeholder: 'price_…', 'aria-label': `${plan} monthly price id` }),
         year: h('input', { class: 'input input-xs cc-price-id', value: s.prices[plan]?.year ?? '', placeholder: 'price_…', 'aria-label': `${plan} yearly price id` }),
       };
       const make = h('button', { class: 'btn btn-xs', disabled: !x.stripe.connected, onclick: async () => {
-        const year = await uiPrompt(`Yearly price for ${x.plans[plan].label}, in dollars, ${s.taxLabel} included`, String(shown * 12), { title: 'Create the prices in Stripe', help: `The pricing page shows $${shown} a month billed yearly. A monthly price is made at 1.2× that unless you change it next.` });
-        if (!year) return;
-        const month = await uiPrompt(`Monthly price, in dollars, ${s.taxLabel} included`, String(Math.round(shown * 1.2)), { title: 'Create the prices in Stripe' });
+        const month = await uiPrompt(`Monthly price for ${x.plans[plan].label}, in Canadian dollars, ${s.taxLabel} included`, String(shown), { title: 'Create the prices in Stripe', help: `The pricing page shows C$${shown} a month and C$${shownYear} a year (two months free). Each price also gets a US dollar option: US$${pr.usdMonthly ?? '—'} a month, US$${pr.usdYearly ?? '—'} a year.` });
         if (!month) return;
+        const year = await uiPrompt(`Yearly price, in Canadian dollars, ${s.taxLabel} included`, String(shownYear), { title: 'Create the prices in Stripe' });
+        if (!year) return;
         try { await call('POST', '/api/admin/billing/create-prices', { plan, year: Number(year), month: Number(month) }); await load(); } catch (err) { uiAlert(err.message); }
       } }, 'Create in Stripe');
-      return h('tr', {}, h('td', {}, h('strong', {}, x.plans[plan].label), h('div', { class: 'muted small' }, `$${shown}/mo shown, of which ${s.taxLabel} $${taxInsideOf(shown, s.taxRate)}`)),
+      return h('tr', {}, h('td', {}, h('strong', {}, x.plans[plan].label), h('div', { class: 'muted small' }, `C$${shown}/mo · C$${shownYear}/yr · US$${pr.usdMonthly ?? '—'}/mo, of which ${s.taxLabel} C$${taxInsideOf(shown, s.taxRate)}`)),
         h('td', {}, priceFields[plan].month), h('td', {}, priceFields[plan].year), h('td', {}, make));
     });
     const checks = h('div', {});
@@ -266,14 +276,16 @@ export function Payments({ call }) {
         h('div', { class: 'table-scroll' }, h('table', { class: 'table table-sm' }, h('thead', {}, h('tr', {}, ['Plan', 'Monthly', 'Yearly', ''].map((t) => h('th', {}, t)))), h('tbody', {}, priceRows))),
         h('div', { class: 'cc-form' },
           h('label', {}, h('span', {}, 'Free trial, days'), f.trialDays), h('label', {}, h('span', {}, 'Grace after a failed payment, days'), f.graceDays),
-          h('label', { class: 'check' }, f.checkoutOn, h('span', {}, ' Let organisations pay by card'))),
+          h('label', { class: 'check' }, f.checkoutOn, h('span', {}, ' Let organisations pay by card')),
+          h('label', { class: 'cc-span' }, h('span', {}, 'Grassroots coupon (30% off Community and Organization, for orgs that tick “budget under C$250k”)'), h('span', { class: 'inline-form' }, f.grassrootsCoupon, makeCoupon)),
+          h('label', { class: 'cc-span' }, h('span', {}, 'Alpha supporter coupon (half price for the first 12 months; tick “Alpha tester” on an organisation below)'), h('span', { class: 'inline-form' }, f.alphaCoupon, makeAlpha))),
         h('div', { class: 'inline-form' }, h('button', { class: 'btn btn-sm btn-primary', onclick: save }, 'Save'), h('button', { class: 'btn btn-sm', disabled: !x.stripe.connected, onclick: () => runCheck().catch(fail(checks)) }, 'Check the prices with Stripe'), saved),
         checks),
       h('section', { class: 'cc-card' },
         h('h3', {}, 'Organisations'),
         h('p', { class: 'muted small' }, 'A free account (for a pilot partner, say) keeps the plan you give it under Organisations whatever happens in Stripe.'),
         h('div', { class: 'table-scroll' }, h('table', { class: 'table table-sm' },
-          h('thead', {}, h('tr', {}, ['Organisation', 'Plan', 'Billing', 'Renews', 'Last payment', 'Free account'].map((t) => h('th', {}, t)))),
+          h('thead', {}, h('tr', {}, ['Organisation', 'Plan', 'Billing', 'Renews', 'Last payment', 'Alpha tester', 'Free account'].map((t) => h('th', {}, t)))),
           h('tbody', {}, x.orgs.map((o) => {
             const b = o.billing;
             const st = STATUS_LABEL[b.status];
@@ -281,6 +293,9 @@ export function Payments({ call }) {
               h('td', {}, b.comp ? light('ok', 'Free account') : st ? light(st[0], `${st[1]}${b.interval ? `, ${b.interval}ly` : ''}`) : h('span', { class: 'muted' }, '—'), b.failedAt ? h('div', { class: 'small text-error' }, `Failed ${day(b.failedAt)}`) : null),
               h('td', { class: 'small' }, b.cancelAtPeriodEnd ? `Ends ${day(b.periodEnd)}` : day(b.trialEnd && b.status === 'trialing' ? b.trialEnd : b.periodEnd)),
               h('td', { class: 'small' }, b.lastInvoice ? [`$${b.lastInvoice.amount.toFixed(2)} (${s.taxLabel} $${b.lastInvoice.tax.toFixed(2)})`, h('br'), day(b.lastInvoice.at)] : '—'),
+              h('td', {}, h('input', { type: 'checkbox', class: 'checkbox checkbox-xs', checked: !!b.alphaSupporter, 'aria-label': `${o.name} is an alpha tester`, onchange: async (e) => {
+                try { await call('PATCH', `/api/admin/orgs/${o.id}/billing`, { alphaSupporter: e.target.checked }); } catch (err) { uiAlert(err.message); e.target.checked = !e.target.checked; }
+              } })),
               h('td', {}, h('label', { class: 'check small' }, h('input', { type: 'checkbox', class: 'toggle toggle-xs toggle-primary', checked: !!b.comp, onchange: async (e) => {
                 let note = b.compNote ?? '';
                 if (e.target.checked) { note = await uiPrompt('A note, for your records', note || 'Pilot partner', { title: `Free account for ${o.name}`, required: false }); if (note == null) { e.target.checked = false; return; } }
@@ -294,6 +309,27 @@ export function Payments({ call }) {
 }
 
 /* --------------------------------------------- your two-step sign-in, sessions */
+/** A QR code for `text` as an SVG: black squares on white, with a quiet border (made here, nothing sent anywhere). */
+async function qrSvg(text, size = 184) {
+  const { default: qrcode } = await import('../../vendor/qrcode/qrcode.js');
+  const qr = qrcode(0, 'M');
+  qr.addData(text);
+  qr.make();
+  const n = qr.getModuleCount();
+  let d = '';
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (qr.isDark(y, x)) d += `M${x + 4} ${y + 4}h1v1h-1z`;
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${n + 8} ${n + 8}`);
+  svg.setAttribute('width', size); svg.setAttribute('height', size);
+  svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'QR code for your authenticator app');
+  svg.setAttribute('class', 'cc-qr');
+  const bg = document.createElementNS(NS, 'rect'); bg.setAttribute('width', '100%'); bg.setAttribute('height', '100%'); bg.setAttribute('fill', '#fff');
+  const path = document.createElementNS(NS, 'path'); path.setAttribute('d', d); path.setAttribute('fill', '#000'); path.setAttribute('shape-rendering', 'crispEdges');
+  svg.append(bg, path);
+  return svg;
+}
+
 export function TwoStep({ call, onDone }) {
   const box = h('div', { class: 'cc-card' }, loading());
   const load = async () => {
@@ -310,10 +346,12 @@ export function TwoStep({ call, onDone }) {
       const { secret, url } = await call('POST', '/api/auth/two-step/setup');
       const code = h('input', { class: 'input input-sm', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6, placeholder: '123456', 'aria-label': 'Code from your app' });
       const msg = h('span', { class: 'small text-error', role: 'alert' });
+      const qrBox = h('div', { class: 'cc-qr-box' });
+      qrSvg(url).then((svg) => qrBox.replaceChildren(svg)).catch(() => qrBox.remove());
       fill(box, h('h3', {}, 'Set up two-step sign-in'),
         h('ol', { class: 'cc-steps' },
-          h('li', {}, 'Open an authenticator app on your phone (1Password, Google Authenticator, Microsoft Authenticator or Authy) and add an account. Choose “Enter a setup key”.'),
-          h('li', {}, 'Account: ', h('strong', {}, 'Dashi'), '. Key: ', h('code', { class: 'cc-secret' }, secret.match(/.{1,4}/g).join(' ')), '. Type: time-based. On a computer, a password manager can open ', h('a', { href: url }, 'this setup link'), ' instead.'),
+          h('li', {}, 'Open an authenticator app on your phone (1Password, Google Authenticator, Microsoft Authenticator or Authy), add an account and scan this code:', qrBox),
+          h('li', {}, 'Can’t scan it? Choose “Enter a setup key” instead. Account: ', h('strong', {}, 'Dashi'), '. Key: ', h('code', { class: 'cc-secret' }, secret.match(/.{1,4}/g).join(' ')), ' (letters A–Z and digits 2–7 only, so O is a letter, never zero). Type: time-based. On a computer, a password manager can open ', h('a', { href: url }, 'this setup link'), ' instead.'),
           h('li', {}, 'Type the six-digit code it shows.')),
         h('form', { class: 'inline-form', onsubmit: async (e) => {
           e.preventDefault();

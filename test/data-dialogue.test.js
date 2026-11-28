@@ -89,7 +89,7 @@ test('assets resolve against the map, org and strategy, and survive deletion', (
   const actor = used.find((a) => a.kind === 'actor');
   docs.mapContents['map-ecosystem'].actors[actor.ref].label = 'Renamed';
   assert.equal(resolveAsset(actor, docs).label, 'Renamed');
-  assert.equal(resolveAsset(actor, docs).href, 'mapper.html#map-ecosystem');
+  assert.equal(resolveAsset(actor, docs).href, 'mapper.html#map-ecosystem/actor-indig-comm');
   delete docs.mapContents['map-ecosystem'].actors[actor.ref];
   const gone = resolveAsset(actor, docs);
   assert.equal(gone.missing, true);

@@ -66,7 +66,31 @@ In a place's tray, click **Pin a thing here**, search for an actor, asset, story
 In a pin's tray, tick the places it **serves**. A food bank in Birch Cove might serve Gannet Point and Millbrook too. Switch on the **Who serves where** layer to see those lines.
 
 # Coming next
-Drawing your own lines and areas, data layers from a spreadsheet or GeoJSON file, place profiles, and Rhizome's findings on the map.`,
+Place profiles, and Rhizome's findings on the map.`,
+    },
+    {
+      id: 'place-data',
+      title: 'Data layers and drawing',
+      body: `Bring your own data onto the map, or draw routes, boundaries and spots of your own.
+
+# Bring in a file
+1. In Place's side nav, under **Data layers**, press **Bring in a file**.
+2. Pick a **CSV** with latitude and longitude columns (Dashi finds them by their headings, like *lat* and *lng*), or a **GeoJSON** file.
+3. The file becomes a layer, drawn under your places and pins in its own colour. Rows without a usable position are skipped, and a note says how many.
+
+A layer holds up to 5,000 features. GeoJSON can have points, lines and areas, including their Multi- forms.
+
+# Use a layer
+- **Click a feature** to open its tray: its details and, for a line, its length.
+- **Click the layer's name** in the side nav to rename it, change its colour, hide or show it, export it as GeoJSON, or remove it.
+
+# Draw
+1. Pick **Point**, **Line** or **Area** from the drawing tools over the map.
+2. Click the map to add each corner.
+3. **Double-click**, press **Enter**, or press **Finish** to end the shape. **Backspace** takes back the last corner, and **Esc** stops.
+4. Give it a name and a note in its tray.
+
+Everything you draw goes into the **Your drawings** layer.`,
     },
   ],
 };

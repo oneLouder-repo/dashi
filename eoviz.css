@@ -1,0 +1,117 @@
+/* EoViz (src/eoviz/main.js, stage 1, experimental): the eco data lens. White panels, soft grey lines, one green, honest charts and a sketchbook. */
+.eoviz-page { --eo: #2f8f5b; --eo-ink: #16181d; --eo-line: #d5d8de; --eo-warn: #c8432f; --eo-paper: #fff; }
+.eo-main { display: block; height: 100%; overflow: auto; padding: 14px 18px 40px; }
+.eo-page { display: grid; gap: 14px; max-width: 1240px; }
+.eo-page h3 { font-size: 15px; margin: 0; display: flex; gap: 8px; align-items: center; }
+.eo-note { font-size: 13px; color: var(--muted); margin: 0; }
+.eo-warn { color: var(--eo-warn); }
+.eo-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.eo-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.eo-stack { display: grid; gap: 14px; }
+.eo-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 1.5px var(--eo-ink); }
+
+.eo-panel { background: #fff; border: 1px solid var(--eo-line); border-radius: 4px; padding: 14px 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.eo-panel-head { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.eo-best { border-color: var(--eo); box-shadow: inset 3px 0 0 var(--eo); }
+.eo-intro { background: #fff; border: 1px solid var(--eo-line); border-left: 3px solid var(--c, var(--eo)); border-radius: 4px; padding: 16px 18px; }
+.eo-intro h2 { font-size: 20px; margin: 0 0 4px; color: var(--eo-ink); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.eo-intro p { margin: 0; color: var(--muted); max-width: 78ch; }
+.eo-share { display: inline-flex; gap: 4px; align-items: center; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border: 1px solid var(--eo-line); border-radius: 99px; color: var(--muted); }
+.eo-ref { display: grid; grid-template-columns: minmax(110px, auto) 1fr; gap: 6px 14px; margin: 0; font-size: 13px; }
+.eo-ref dt { font-weight: 600; }
+.eo-ref dd { margin: 0; color: var(--muted); }
+
+/* Partners: separate groups, each its own card */
+.eo-partners { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.eo-partner { display: grid; gap: 6px; background: #fff; border: 1px solid var(--eo-line); border-top: 4px solid var(--c); border-radius: 4px; padding: 14px 16px; color: inherit; text-decoration: none; }
+.eo-partner:hover { border-color: var(--c); box-shadow: 0 6px 20px -12px rgb(0 0 0 / .35); }
+.eo-partner p { margin: 0; font-size: 13px; color: var(--muted); }
+.eo-partner-icon { width: 38px; height: 38px; display: grid; place-content: center; border-radius: 50%; background: color-mix(in oklab, var(--c) 18%, #fff); color: color-mix(in oklab, var(--c) 80%, #000); }
+.eo-partner-stats { font-size: 12.5px; }
+
+/* Site cards: latest readings against their guides */
+.eo-sites { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.eo-site { display: grid; gap: 8px; background: #fff; border: 1px solid var(--eo-line); border-radius: 4px; padding: 12px 14px; color: inherit; text-decoration: none; align-content: start; }
+.eo-site:hover { border-color: var(--eo); }
+.eo-site header { display: flex; gap: 8px; align-items: center; }
+.eo-site footer { font-size: 12px; }
+.eo-kind { display: inline-grid; place-content: center; width: 24px; height: 24px; border-radius: 50%; color: #fff; flex: none; }
+.eo-kind-water { background: #3e8fa6; } .eo-kind-air { background: #8a919c; } .eo-kind-soil { background: #9a6b3c; }
+.eo-held { color: var(--muted); margin-left: auto; }
+.eo-readings { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.eo-readings li { display: grid; border: 1px solid var(--eo-line); border-radius: 3px; padding: 4px 6px; font-size: 11px; color: var(--muted); }
+.eo-readings b { font-size: 15px; color: var(--eo-ink); font-variant-numeric: tabular-nums; }
+.eo-readings small { font-size: 10px; }
+.eo-readings li.eo-ok { border-left: 3px solid var(--eo); }
+.eo-readings li.eo-low, .eo-readings li.eo-high { border-left: 3px solid var(--eo-warn); background: #fdf3f1; }
+td.eo-low, td.eo-high { color: var(--eo-warn); font-weight: 600; }
+
+/* Tables */
+.eo-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.eo-table th { text-align: left; font-weight: 600; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--eo-line); padding: 6px 8px; }
+.eo-table td { border-bottom: 1px solid #eeede9; padding: 6px 8px; font-variant-numeric: tabular-nums; }
+.eo-table-small td, .eo-table-small th { padding: 4px 6px; font-size: 12px; }
+
+/* Files: the preview */
+.eo-preview { border-color: var(--eo); }
+.eo-chip { display: inline-block; font-size: 12px; padding: 1px 7px; margin: 0 4px 4px 0; border-radius: 99px; background: #eaf4ee; color: #1f5f3c; }
+.eo-chip-unknown { background: #f3f1ec; color: var(--muted); }
+.eo-import { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+.eo-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 14px; }
+.eo-picks figure { margin: 0; display: grid; gap: 6px; }
+.eo-picks figcaption { font-size: 12.5px; color: var(--muted); }
+
+/* At sea: three steps */
+.eo-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.eo-step { display: flex; gap: 10px; background: #fff; border: 1px dashed var(--eo-line); border-radius: 4px; padding: 12px 14px; }
+.eo-step.done { border-style: solid; border-color: var(--eo); }
+.eo-step p { margin: 4px 0 8px; }
+.eo-step-n { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-content: center; font-weight: 700; border: 1.5px solid var(--eo-ink); }
+.eo-step.done .eo-step-n { background: var(--eo); color: #fff; border-color: var(--eo); }
+.eo-file { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; font-size: 13px; margin: 0; word-break: break-all; }
+.eo-file .eo-note { word-break: normal; }
+
+/* The finder */
+.eo-source select { margin-left: 6px; max-width: 420px; }
+.eo-shape { grid-template-columns: auto 1fr; align-items: center; gap: 14px; }
+.eo-shape-kind { font: 700 12px/1 var(--font-mono, ui-monospace, monospace); text-transform: uppercase; letter-spacing: .08em; background: var(--eo-ink); color: #fff; padding: 8px 10px; border-radius: 3px; }
+.eo-ranked { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 14px; }
+.eo-score { font: 700 13px/1 var(--font-mono, ui-monospace, monospace); color: var(--eo); }
+.eo-fam { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: 2px 6px; border-radius: 3px; background: #eaf4ee; color: #1f5f3c; }
+.eo-fam-sketchbook { background: #f1eafd; color: #5b22b0; }
+.eo-matrix svg { max-height: 640px; }
+
+/* Formats */
+.eo-family { display: grid; gap: 10px; }
+.eo-family > h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.eo-formats { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+.eo-format { background: #fff; border: 1px solid var(--eo-line); border-radius: 4px; padding: 12px 14px; display: grid; gap: 8px; align-content: start; }
+.eo-format header { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.eo-format-fam { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--eo); }
+.eo-format code { font-size: 11.5px; color: var(--muted); }
+.eo-format p { margin: 0; font-size: 13px; }
+
+/* Charts */
+.eo-chart { min-width: 0; }
+.eo-svg { width: 100%; height: auto; display: block; font: 11px var(--font-sans, system-ui); }
+.eo-axis text { fill: #6b7280; font-size: 10.5px; }
+.eo-axis path, .eo-axis line { stroke: #cfd3da; }
+.eo-ylabel { fill: var(--eo-ink); font-size: 11.5px; font-weight: 600; }
+.eo-guide { stroke: var(--eo-warn); stroke-dasharray: 4 4; stroke-width: 1; }
+.eo-guide-label { fill: var(--eo-warn); font-size: 10px; }
+.eo-key { font-size: 11px; }
+.eo-key:not([fill]) { fill: #4b5563; }
+.eo-key-light { fill: #cfe7da; }
+.eo-row-label { font-size: 11px; fill: var(--eo-ink); }
+.eo-row-label.eo-sketch { fill: #5b22b0; }
+.eo-row-unit { font-size: 10px; fill: #6b7280; }
+.eo-row-last { font-size: 11px; font-weight: 600; fill: var(--eo-ink); }
+.eo-empty { fill: var(--muted); font-size: 13px; }
+.eo-help { max-width: 80ch; }
+.eo-tutorials { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.eo-tutorials a { display: inline-flex; gap: 6px; align-items: center; }
+
+@media (max-width: 900px) {
+  .eo-two, .eo-steps { grid-template-columns: 1fr; }
+  .eo-ranked { grid-template-columns: 1fr; }
+}

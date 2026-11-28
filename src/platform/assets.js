@@ -45,7 +45,7 @@ export function resolveAsset(asset, docs) {
       if (!found) return { label: asset.label, sub: 'No longer on the map', missing: true };
       const { actor: a, mapId } = found;
       const mapTitle = docs.maps?.maps[mapId]?.title ?? 'the ecosystem map';
-      return { label: a.label, sub: `${a.kind === 'agent' ? 'Agent' : 'Actor'} on ${mapTitle}`, href: linkTo('mapper', `#${mapId}`) };
+      return { label: a.label, sub: `${a.kind === 'agent' ? 'Agent' : 'Actor'} on ${mapTitle}`, href: linkTo('mapper', `#${mapId}/${a.id}`) };
     }
     case 'map': {
       if (asset.libraryId) {

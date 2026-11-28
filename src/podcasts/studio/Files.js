@@ -9,6 +9,9 @@ import { clock } from './project.js';
 import { prettySize } from '../../platform/assetHub.js';
 import { sessionFromFile } from './slides.js';
 import { PluginHeader } from '../../ui/PluginHeader.js';
+import { Drawer } from '../../ui/drawer.js';
+import { TagSuggest } from '../../ui/TagSuggest.js';
+import { tagVocab } from '../../platform/tagSuggest.js';
 import { showsInOrder } from '../../platform/podcasts.js';
 
 /**
@@ -106,14 +109,14 @@ export function StudioFiles(ctx) {
     const doc = ctx.doc();
     const all = sorted(doc);
     const q = query.toLowerCase();
-    const shown = all.filter((f) => (origin === 'all' || f.origin === origin) && (!q || [f.name, ...(f.tags ?? [])].join(' ').toLowerCase().includes(q)));
+    const shown = all.filter((f) => (origin === 'all' || f.origin === origin) && (!q || [f.name, f.description, f.credit, ...(f.tags ?? [])].filter(Boolean).join(' ').toLowerCase().includes(q)));
     list.replaceChildren(shown.length ? h('table', { class: 'table af-table' },
       h('thead', {}, h('tr', {}, h('th', {}, ''), h('th', {}, 'Name'), h('th', {}, 'Length'), h('th', {}, 'Where from'), h('th', {}, 'Used in'), h('th', {}, ''))),
       h('tbody', {}, shown.map((f) => {
         const uses = usesOf(doc, f);
         return h('tr', {},
           h('td', {}, PlayButton(f)),
-          h('td', {}, h('strong', {}, f.name), f.slides?.length > 0 && h('span', { class: 'af-slides', title: 'This file has a slide show along it' }, icon('image', 12), `${f.slides.length} slides`), h('small', { class: 'muted af-size' }, [prettySize(f.size), (f.tags ?? []).map((t) => `#${t}`).join(' ')].filter(Boolean).join(' · '))),
+          h('td', {}, h('button', { type: 'button', class: 'af-name', title: 'Details, tags and copies', onclick: () => FileTray(ctx, f.id, draw) }, f.name), f.slides?.length > 0 && h('span', { class: 'af-slides', title: 'This file has a slide show along it' }, icon('image', 12), `${f.slides.length} slides`), h('small', { class: 'muted af-size' }, [prettySize(f.size), (f.tags ?? []).map((t) => `#${t}`).join(' ')].filter(Boolean).join(' · '))),
           h('td', { class: 'af-num' }, clock(f.duration ?? 0, { tenths: false })),
           h('td', {}, ORIGINS[f.origin] ?? 'Imported'),
           h('td', {}, (() => {
@@ -121,7 +124,8 @@ export function StudioFiles(ctx) {
             return links.length ? links.slice(0, 2).map((a, i) => [i ? ', ' : '', a]) : h('span', { class: 'muted' }, 'Not used yet');
           })()),
           h('td', { class: 'af-tools' },
-            h('button', { type: 'button', class: 'btn btn-xs af-open', title: 'Open it in the studio’s multitrack view (with its slides, if it has them)', onclick: () => openInStudio(ctx, f) }, icon('waveform', 13), 'Open in studio'),
+            h('button', { type: 'button', class: 'btn btn-xs af-open', title: 'Open it in the studio’s multitrack view (with its slides, if it has them)', onclick: () => openInStudio(ctx, f) }, icon('waveform', 13), 'Edit in studio'),
+            h('button', { type: 'button', class: 'btn btn-ghost btn-xs', onclick: () => FileTray(ctx, f.id, draw) }, 'Details'),
             h('button', { type: 'button', class: 'btn btn-ghost btn-xs', onclick: async () => { const n = await uiPrompt('Name', f.name, { title: 'Rename the file', ok: 'Rename' }); if (n?.trim()) { ctx.store.apply(ctx.col.update('files', f.id, { name: n.trim() })); draw(); } } }, 'Rename'),
             h('button', { type: 'button', class: 'btn btn-ghost btn-xs', onclick: async () => { const t = await uiPrompt('Tags, separated by commas', (f.tags ?? []).join(', '), { title: 'Tag the file', ok: 'Save' }); if (t != null) { ctx.store.apply(ctx.col.update('files', f.id, { tags: t.split(',').map((x) => x.trim().replace(/^#/, '')).filter(Boolean) })); draw(); } } }, 'Tags'),
             h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-error', 'aria-label': `Delete ${f.name}`, onclick: async () => {
@@ -141,6 +145,71 @@ export function StudioFiles(ctx) {
       h('label', { class: 'input input-sm af-search' }, icon('search', 14), h('input', { type: 'search', placeholder: 'Search names and tags', oninput: (e) => { query = e.target.value; draw(); } })),
       seg, status),
     list);
+}
+
+/**
+ * One audio file in a tray (d, 2026-11-27): a scaled-back asset manager. Its name, a description,
+ * credit and licence, tags; save a copy (the same sound under a new name, for another edit); edit it
+ * in the studio; delete it. Changes save as you go.
+ */
+function FileTray(ctx, id, redraw) {
+  const cur = () => ctx.doc().files?.[id];
+  const f0 = cur();
+  if (!f0) return;
+  const put = (patch) => { ctx.store.apply(ctx.col.update('files', id, patch)); redraw(); };
+  const fieldOf = (label, el, note) => h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, label), el, note && h('span', { class: 'label muted small' }, note));
+  const text = (key, ph) => h('input', { class: 'input input-sm w-full', value: f0[key] ?? '', placeholder: ph, onchange: (e) => put({ [key]: e.target.value.trim() }) });
+  // Tags, with suggestions from the name and description and the tags on the other files.
+  const tagsHost = h('div');
+  const TagsField = () => { drawTags(); return tagsHost; };
+  const drawTags = () => {
+    const f = cur();
+    if (!f) return;
+    const others = Object.values(ctx.doc().files ?? {}).filter((x) => x.id !== id).map((x) => ({ text: [x.name, x.description].filter(Boolean).join('. '), tags: x.tags ?? [] }));
+    tagsHost.replaceChildren(
+      fieldOf('Tags', h('input', { class: 'input input-sm w-full', value: (f.tags ?? []).join(', '), placeholder: 'interview, intro, bed', onchange: (e) => { put({ tags: e.target.value.split(',').map((x) => x.trim().replace(/^#/, '')).filter(Boolean) }); drawTags(); } }), 'Separated by commas. Search finds them.'),
+      TagSuggest({ text: [f.name.replace(/\.[a-z0-9]+$/i, '').replace(/[-_]+/g, ' '), f.description, f.credit].filter(Boolean).join('. '), have: f.tags ?? [], vocab: tagVocab(others),
+        onAdd: (tag) => { put({ tags: [...new Set([...(cur().tags ?? []), tag])] }); drawTags(); } }));
+  };
+  const body = () => {
+    const f = cur();
+    if (!f) return h('p', { class: 'empty' }, 'That file was deleted.');
+    const doc = ctx.doc();
+    const uses = usesOf(doc, f);
+    const eps = episodesOf(doc, f);
+    return h('div', { class: 'af-tray lx-form' },
+      h('div', { class: 'af-tray-play' }, PlayButton(f), h('span', {}, clock(f.duration ?? 0, { tenths: false })), h('span', { class: 'muted small' }, [prettySize(f.size), ORIGINS[f.origin] ?? 'Imported', f.createdAt && new Date(f.createdAt).toLocaleDateString()].filter(Boolean).join(' · '))),
+      fieldOf('Name', h('input', { class: 'input input-sm w-full', value: f.name, onchange: (e) => { if (e.target.value.trim()) { put({ name: e.target.value.trim() }); d.setTitle(e.target.value.trim(), 'Audio file'); } } })),
+      fieldOf('Description', h('textarea', { class: 'textarea textarea-sm w-full', rows: 3, placeholder: 'What it is, who is speaking, where it was recorded', onchange: (e) => { put({ description: e.target.value.trim() }); drawTags(); } }, f.description ?? '')),
+      h('div', { class: 'af-tray-two' },
+        fieldOf('Credit', text('credit', 'Who made or recorded it')),
+        fieldOf('Licence', text('licence', 'Yours, CC BY 4.0, used with permission…'))),
+      TagsField(),
+      h('div', { class: 'af-tray-uses' }, h('h4', {}, 'Used in'),
+        eps.length || uses.length
+          ? h('ul', {}, [...eps.map((e) => h('li', {}, h('a', { href: `#episodes/${e.id}` }, icon('music', 13), e.title))), ...uses.map((p) => h('li', {}, h('a', { href: `#studio/${p.id}` }, icon('waveform', 13), p.title)))])
+          : h('p', { class: 'muted small' }, 'Not used yet.')));
+  };
+  const copy = async () => {
+    const f = cur();
+    const name = await uiPrompt('Name of the copy', `${f.name} (copy)`, { title: 'Save a copy', ok: 'Save the copy' });
+    if (!name?.trim()) return;
+    const { id: _old, ...rest } = structuredClone(f);
+    const dup = { ...rest, id: uid('aud'), name: name.trim(), copyOf: f.id, createdAt: new Date().toISOString(), createdBy: ctx.me ?? null };
+    ctx.store.apply(ctx.col.add('files', dup));
+    redraw(); d.close(); FileTray(ctx, dup.id, redraw);
+  };
+  const d = Drawer({ title: f0.name, sub: 'Audio file', lead: h('span', { class: 'tc-lead', style: 'background:#6d4fc2' }, icon('waveform', 18)), body: body(), actions: [
+    h('button', { type: 'button', class: 'btn btn-sm btn-ghost text-error', onclick: async () => {
+      const f = cur(); const n = usesOf(ctx.doc(), f).length;
+      if (!await uiConfirm(n ? `“${f.name}” is used in ${n} session${n === 1 ? '' : 's'}. Take it out of the list anyway? The sessions keep playing it.` : `Delete “${f.name}” from the list?`)) return;
+      ctx.store.apply(ctx.col.remove('files', id)); redraw(); d.close();
+    } }, icon('trash', 14), 'Delete'),
+    h('button', { type: 'button', class: 'btn btn-sm', onclick: copy }, icon('copy', 14), 'Save a copy'),
+    h('span', { class: 'spacer' }),
+    h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { d.close(); openInStudio(ctx, cur()); } }, icon('waveform', 14), 'Edit in studio'),
+    h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => d.close() }, 'Done'),
+  ] });
 }
 
 /** The lighter chooser, in a session's dock: search, hear, add at the playhead. */

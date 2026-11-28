@@ -1,7 +1,7 @@
 import { h } from './dom.js';
 import { icon } from './icons.js';
 import { RippleMark } from './Wordmark.js';
-import { enabledPlugins, canOpen, orgUses, currentWho, toneFor, topOf, PLUGINS } from '../plugins.js';
+import { enabledPlugins, orderPlugins, canOpen, orgUses, currentWho, toneFor, topOf, PLUGINS } from '../plugins.js';
 import { ROLES, initials } from '../platform/org.js';
 import { FeedbackButton, version } from './Support.js';
 import { NetLight } from './netlight.js';
@@ -44,7 +44,7 @@ export function Shell(el, { current, org }) {
   el.classList.add('shell');
   el.replaceChildren(
     h('div', { class: 'shell-top' },
-      h('a', { class: 'shell-home', href: 'index.html', title: 'Dashi home' }, RippleMark(26), h('span', { class: 'shell-word' }, 'dashi'), StageBadge()),
+      h('a', { class: 'shell-home', href: 'index.html', title: 'Dashi home' }, RippleMark(30), h('span', { class: 'shell-word' }, 'dashi'), StageBadge()),
       // The server-call light: for the platform admin only, a bare light beside the logo (click for the recent calls).
       account?.isSuper && (netLight ??= NetLight({ compact: true })),
       h('span', { class: 'shell-slash', 'aria-hidden': 'true' }, '/'),
@@ -109,7 +109,7 @@ let netLight = null;
  * with any number of plugins switched on.
  */
 export function PluginBar(org, link) {
-  const plugins = enabledPlugins(org).filter((p) => p.nav !== false && !p.parent);
+  const plugins = orderPlugins(org, enabledPlugins(org).filter((p) => p.nav !== false && !p.parent));
   const links = plugins.map((p) => link(p.id, p.href, p.name, p.icon));
   const tiles = h('div', { class: 'shell-more-grid' });
   const count = h('b', { class: 'shell-more-count' });

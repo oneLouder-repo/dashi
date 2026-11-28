@@ -14,12 +14,14 @@
  *   pages       pages and articles that are out, on public sites
  *   plandocs    published plan documents on public sites: their design and the snapshot taken when published
  *   plugin/critical-media  if the org has Critical Media on: where its prompts show and its own lessons
+ *   place       if the org has Place on and shares its map: places that aren't held back and public data layers, never pins
  *   maps        nothing
  */
 import { published } from '../src/platform/podcasts.js';
 import { isLive } from '../src/platform/pages.js';
 import { measuresOf } from '../src/platform/dashboards.js';
 import { criticalOn, DOC as CRITICAL_DOC } from '../src/platform/criticalMedia.js';
+import { publicPlace } from '../src/place/model.js';
 
 const pick = (o, keys) => Object.fromEntries(keys.filter((k) => o?.[k] !== undefined).map((k) => [k, o[k]]));
 const pluginOn = (org, id) => !org.platform?.paused?.[id] && org.plugins?.[id] !== false;
@@ -109,6 +111,10 @@ export function publicDocs(docs, today = new Date().toISOString().slice(0, 10)) 
     const cm = docs[CRITICAL_DOC] ?? {};
     out[CRITICAL_DOC] = { id: CRITICAL_DOC, settings: cm.settings ?? {}, collections: { lessons: cm.collections?.lessons ?? {}, sessions: {} } };
   }
+
+  // Place: the shared map (places, public layers), for [[map:…]] embeds and community pages.
+  const place = pluginOn(org, 'place') && Object.keys(sites).length ? publicPlace(docs.place) : null;
+  if (place) out.place = place;
 
   out.org = {
     ...pick(org, ['id', 'name', 'description', 'mission', 'contact', 'logo', 'theme', 'plugins', 'platform']),

@@ -6,6 +6,7 @@
  *   actua-ai.<base>  Strategic AI at Actua: plan, ecosystem map, bibliography and files
  *   kestrel.<base>   Kestrel Bay Community Foundation (made up, alpha 0.3): the biggest test org,
  *                    every plugin on, a busy public portal, a board site and the Social Media Integrator
+ *   coalition.<base> Shared Ground Canada (made up): the example Place project, a nation-wide coalition with a hub org
  *
  * Each builder is a pure function of public sources, so the server seeds
  * the same documents every time. See docs/INTAKE.md for turning this into
@@ -17,6 +18,8 @@ import { migrateAssets, blankAssets } from '../assetHub.js';
 import { seedPlanDocs } from '../plandocs.js';
 import { actuaDocs } from './actua.js';
 import { kestrelBundle } from './kestrel.js';
+import { coalitionDocs } from './coalition.js';
+import { seedKestrelEco } from '../../eoviz/kestrel.js';
 
 /**
  * A fresh start for testing (0.2, PR 9): when this mark changes, the client
@@ -53,10 +56,20 @@ export const CLIENT_TOPUPS = [
     }
     return out;
   } },
+  // EoViz stage 1 (alpha 0.4): Kestrel's two partners and their files, for a Kestrel set up before EoViz.
+  { id: 'a04-eoviz', org: 'org-kestrel', label: 'EoViz demo data', run: (read) => {
+    const eco = read('eco');
+    const org = read('org');
+    const out = {};
+    if (!eco || !Object.keys(eco.sites ?? {}).length) out.eco = seedKestrelEco();
+    if (org && org.plugins?.eoviz == null) out.org = { ...org, plugins: { ...(org.plugins ?? {}), eoviz: true } };
+    return out;
+  } },
 ];
 
 export const CLIENT_ORGS = [
   { id: 'org-sjr', slug: 'sjr', name: 'Social Justice Radio', plan: 'standard', docs: sjrDocs },
   { id: 'org-actua-ai', slug: 'actua-ai', name: 'Strategic AI at Actua', plan: 'custom', docs: actuaDocs },
   { id: 'org-kestrel', slug: 'kestrel', name: 'Kestrel Bay Community Foundation', plan: 'custom', docs: () => kestrelBundle().docs, bundle: kestrelBundle },
+  { id: 'org-coalition', slug: 'coalition', name: 'Shared Ground Canada', plan: 'custom', docs: coalitionDocs },
 ];

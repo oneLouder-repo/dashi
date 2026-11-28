@@ -4,7 +4,8 @@
  * a time, the critical lens, and tape-deck controls (back, play, step, speed).
  * The same panel opens big in a tray.
  *
- * VisualiserPanel({ trace, state, canSet, onAsk, onWeights, onExpand, big })
+ * VisualiserPanel({ trace, state, canSet, onAsk, onWeights, onExpand, big, mode, pick, onMode, onPick })
+ *   mode   'ask' (your question) or 'statements' (the rack's own sentences, from a Say module)
  *   trace  from visualise() in visualiser.js
  *   state  { lane, playing, speed } kept by the caller so a re-render
  *          (a knob turned elsewhere in the rack) doesn't lose your place
@@ -24,7 +25,7 @@ const svg = (tag, attrs = {}, parent = null) => {
 export const SPEEDS = { slow: 3600, normal: 2000, fast: 900 };
 const KIND_TONE = { name: 'name', measure: 'measure', type: 'type', category: 'cat', zone: 'zone' };
 
-export function VisualiserPanel({ trace, state, canSet, graph, onAsk, onWeights, onExpand = null, big = false }) {
+export function VisualiserPanel({ trace, state, canSet, graph, onAsk, onWeights, onExpand = null, big = false, mode = 'ask', pick = 0, onMode = null, onPick = null }) {
   let timer = null;
   const lights = h('div', { class: 'vz-lanes', role: 'tablist', 'aria-label': 'The six steps' });
   const screen = h('div', { class: 'vz-screen', 'aria-live': 'polite' });
@@ -92,7 +93,7 @@ export function VisualiserPanel({ trace, state, canSet, graph, onAsk, onWeights,
           h('b', {}, Number(W[k]).toFixed(2))))));
     }
     if (id === 'reasoning') {
-      return h('ol', { class: 'vz-chain' }, L.reasoning.length ? L.reasoning.map((r, i) => h('li', { class: r.fits === true ? 'fires' : r.fits === false ? 'misses' : 'quiet', style: `--d:${i * 150}ms` },
+      return h('ol', { class: 'vz-chain' }, L.reasoning.length ? L.reasoning.map((r, i) => h('li', { class: `${r.fits === true ? 'fires' : r.fits === false ? 'misses' : 'quiet'}${r.rack ? ' rack' : ''}`, style: `--d:${i * 150}ms`, title: r.rack ? 'A step the rack really took' : 'A step the engine takes' },
         h('span', { class: 'vz-chain-dot' }), h('b', {}, r.name), h('span', {}, r.text))) : h('li', { class: 'quiet' }, 'Nothing to reason about.'));
     }
     const A = L.answer;
@@ -137,8 +138,17 @@ export function VisualiserPanel({ trace, state, canSet, graph, onAsk, onWeights,
       for (const b of speed.children) { const on = b === e.currentTarget; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }
     },
   }, s)));
-  const root = h('div', { class: `vz-panel${big ? ' big' : ''}` },
-    h('div', { class: 'vz-ask' }, q, h('button', { type: 'button', class: 'vz-go', disabled: !canSet, onclick: ask, title: 'Ask, and watch it think' }, 'Ask'),
+  // The rack's statements (from a Say module upstream): pick one and watch it read.
+  const said = trace.statements ?? [];
+  const reading = mode === 'statements' && said.length > 0;
+  const modes = said.length && onMode ? h('div', { class: 'vz-modes', role: 'radiogroup', 'aria-label': 'What it reads' },
+    [['ask', 'Ask a question'], ['statements', `Read the rack’s statements (${said.length})`]].map(([id, label]) => h('button', { type: 'button', role: 'radio', 'aria-checked': String((reading ? 'statements' : 'ask') === id), class: (reading ? 'statements' : 'ask') === id ? 'on' : '', disabled: !canSet,
+      onclick: () => { state.lane = 0; state.playing = true; onMode(id); } }, label))) : null;
+  const picker = reading ? h('select', { class: 'vz-q vz-pick', disabled: !canSet, 'aria-label': 'Which statement to read', onchange: (e) => { state.lane = 0; state.playing = true; onPick(Number(e.target.value)); } },
+    said.map((t, i) => h('option', { value: i, selected: i === Math.min(said.length - 1, pick) }, `${i + 1}. ${t.length > 110 ? `${t.slice(0, 109)}…` : t}`))) : null;
+  const root = h('div', { class: `vz-panel${big ? ' big' : ''}${reading ? ' reading' : ''}` },
+    modes,
+    h('div', { class: 'vz-ask' }, reading ? picker : q, reading ? null : h('button', { type: 'button', class: 'vz-go', disabled: !canSet, onclick: ask, title: 'Ask, and watch it think' }, 'Ask'),
       onExpand ? h('button', { type: 'button', class: 'vz-btn', title: 'Open big, in a tray', onclick: () => { pause(); onExpand(); } }, icon('fit', 13)) : null),
     lights, screen, lens,
     h('div', { class: 'vz-deck' },
@@ -148,7 +158,9 @@ export function VisualiserPanel({ trace, state, canSet, graph, onAsk, onWeights,
       h('button', { type: 'button', class: 'vz-btn', title: 'Step forward', onclick: () => step(1) }, '›'),
       h('button', { type: 'button', class: 'vz-btn', title: 'Straight to the answer', onclick: () => { pause(); state.lane = LANES.length - 1; paint(); } }, '⏭'),
       speed),
-    h('p', { class: 'vz-honest' }, 'A toy engine, not a real language model. It shows the shape of what real AI does, slowly, so you can question it.'));
+    h('p', { class: 'vz-honest' }, reading
+      ? 'Reading the rack’s own sentence: the rack’s steps are real, and the rest is a toy model of how a language system would read it. Nothing here is a real language model.'
+      : 'A toy engine, not a real language model. It shows the shape of what real AI does, slowly, so you can question it.'));
   paint();
   if (state.playing) timer = setTimeout(tick, SPEEDS[state.speed] ?? SPEEDS.normal);
   return root;

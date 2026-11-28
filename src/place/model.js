@@ -11,6 +11,8 @@
  *     pins: { entityKey: Pin },
  *     layers: { id: { on } },                   which layers show (see LAYERS)
  *     drawn: GeoJSON FeatureCollection | null,  a drawn base map (land, marsh, rivers, roads)
+ *     data: { id: DataLayer },                  files brought in and things drawn (stage 2, below)
+ *     publicMap: boolean,                       the map may show on the org's public sites (see publicPlace)
  *   }
  *
  *   Place = { id, name, kind, geo: { lat, lng }, area?: GeoJSON Polygon,
@@ -54,6 +56,7 @@ export const blankPlace = () => ({
   pins: {},
   layers: Object.fromEntries(LAYERS.map((l) => [l.id, { on: LAYER_DEFAULTS[l.id] }])),
   drawn: null,
+  data: {},
 });
 
 const num = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
@@ -80,6 +83,7 @@ export function migratePlace(doc) {
   for (const l of LAYERS) d.layers = { ...d.layers, [l.id]: { on: LAYER_DEFAULTS[l.id], ...(d.layers?.[l.id] ?? {}) } };
   if (!['street', 'drawn', 'blank'].includes(d.basemap)) d.basemap = 'street';
   if (d.basemap === 'drawn' && !d.drawn) d.basemap = 'street';
+  d.data = migrateData(d.data);
   return d;
 }
 
@@ -166,4 +170,165 @@ export function formatGeo(g) {
   if (!g) return '';
   const f = (v, pos, neg) => `${Math.abs(v).toFixed(3)}° ${v >= 0 ? pos : neg}`;
   return `${f(g.lat, 'N', 'S')}, ${f(g.lng, 'E', 'W')}`;
+}
+
+/* ------------------------------------------------------------ data layers and drawings (Place stage 2) */
+/**
+ *   place.data = { id: DataLayer }
+ *   DataLayer = { id, name, colour (wheel hue id), on, source: 'csv' | 'geojson' | 'drawing',
+ *                 features: [GeoJSON Feature], addedAt, note? }
+ *
+ * A file brought in (a CSV with latitude and longitude columns, or GeoJSON) becomes one layer; what
+ * you draw on the map (points, lines, areas) goes into a drawing layer. Only Point, LineString and
+ * Polygon geometries (and their Multi- forms) are kept, up to MAX_FEATURES a layer.
+ */
+export const MAX_FEATURES = 5000;
+export const DATA_COLOURS = ['blue', 'orchid', 'green', 'orange', 'violet', 'teal', 'red', 'amber'];
+const GEOMS = new Set(['Point', 'MultiPoint', 'LineString', 'MultiLineString', 'Polygon', 'MultiPolygon']);
+const okPos = (c) => Array.isArray(c) && okLng(c[0]) && okLat(c[1]);
+const okCoords = (type, c) => {
+  if (type === 'Point') return okPos(c);
+  if (type === 'MultiPoint' || type === 'LineString') return Array.isArray(c) && c.length >= (type === 'LineString' ? 2 : 1) && c.every(okPos);
+  if (type === 'MultiLineString') return Array.isArray(c) && c.every((l) => okCoords('LineString', l));
+  if (type === 'Polygon') return Array.isArray(c) && c.length >= 1 && c.every((r) => Array.isArray(r) && r.length >= 4 && r.every(okPos));
+  if (type === 'MultiPolygon') return Array.isArray(c) && c.every((p) => okCoords('Polygon', p));
+  return false;
+};
+/** A clean feature (or null): a known geometry with sane coordinates and plain properties. */
+export function cleanFeature(f) {
+  const g = f?.type === 'Feature' ? f.geometry : f;
+  if (!g || !GEOMS.has(g.type) || !okCoords(g.type, g.coordinates)) return null;
+  const props = {};
+  for (const [k, v] of Object.entries(f?.properties ?? {})) if (v == null || ['string', 'number', 'boolean'].includes(typeof v)) props[String(k).slice(0, 60)] = typeof v === 'string' ? v.slice(0, 500) : v;
+  return { type: 'Feature', geometry: { type: g.type, coordinates: g.coordinates }, properties: props };
+}
+
+/** GeoJSON in (a FeatureCollection, a Feature, a geometry or a list of them): { features, skipped }. */
+export function featuresFromGeoJSON(obj) {
+  const list = Array.isArray(obj) ? obj : obj?.type === 'FeatureCollection' ? obj.features ?? [] : obj?.type === 'GeometryCollection' ? obj.geometries ?? [] : [obj];
+  const features = [];
+  let skipped = 0;
+  for (const f of list) { const c = cleanFeature(f); if (c && features.length < MAX_FEATURES) features.push(c); else skipped++; }
+  return { features, skipped };
+}
+
+/** Split CSV text into rows (quotes, commas or semicolons, CRLF). */
+export function parseCsv(text) {
+  const src = String(text ?? '').replace(/^﻿/, '');
+  const firstLine = src.split(/\r?\n/, 1)[0] ?? '';
+  const sep = (firstLine.match(/;/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0) ? ';' : firstLine.includes('\t') && !firstLine.includes(',') ? '\t' : ',';
+  const rows = [];
+  let row = [], cell = '', quoted = false;
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (quoted) {
+      if (ch === '"' && src[i + 1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"' && cell === '') quoted = true;
+    else if (ch === sep) { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && src[i + 1] === '\n') i++; row.push(cell); if (row.some((c) => c.trim() !== '')) rows.push(row); row = []; cell = ''; }
+    else cell += ch;
+  }
+  row.push(cell);
+  if (row.some((c) => c.trim() !== '')) rows.push(row);
+  return rows;
+}
+
+const LAT_COLS = ['lat', 'latitude', 'y', 'lat_dd', 'latitude_dd'];
+const LNG_COLS = ['lng', 'lon', 'long', 'longitude', 'x', 'lng_dd', 'longitude_dd'];
+const NAME_COLS = ['name', 'title', 'label', 'site', 'place', 'organisation', 'organization'];
+/**
+ * A CSV with latitude and longitude columns as points: { features, skipped, columns, latCol, lngCol,
+ * nameCol, error? }. Columns are found by their header (lat / latitude / y, lng / lon / longitude / x).
+ */
+export function featuresFromCsv(text) {
+  const rows = parseCsv(text);
+  if (rows.length < 2) return { features: [], skipped: 0, columns: rows[0] ?? [], error: 'The file has no rows under its header.' };
+  const head = rows[0].map((c) => c.trim());
+  const low = head.map((c) => c.toLowerCase().replace(/[\s-]+/g, '_'));
+  const find = (names) => low.findIndex((c) => names.includes(c));
+  const li = find(LAT_COLS), gi = find(LNG_COLS);
+  let ni = find(NAME_COLS);
+  if (ni < 0) ni = low.findIndex((_, i) => i !== li && i !== gi);
+  if (li < 0 || gi < 0) return { features: [], skipped: rows.length - 1, columns: head, error: 'It needs a latitude and a longitude column (headed lat and lng, or latitude and longitude).' };
+  const features = [];
+  let skipped = 0;
+  for (const r of rows.slice(1)) {
+    const lat = num(String(r[li] ?? '').trim()), lng = num(String(r[gi] ?? '').trim());
+    if (!okLat(lat) || !okLng(lng) || features.length >= MAX_FEATURES) { skipped++; continue; }
+    const properties = {};
+    head.forEach((k, i) => { if (i !== li && i !== gi && k) properties[k.slice(0, 60)] = String(r[i] ?? '').trim().slice(0, 500); });
+    features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [lng, lat] }, properties });
+  }
+  return { features, skipped, columns: head, latCol: head[li], lngCol: head[gi], nameCol: ni >= 0 ? head[ni] : null };
+}
+
+/** What to call a feature: its name-like property, else its kind. */
+export function featureName(f, nameCol = null) {
+  const p = f?.properties ?? {};
+  const key = (nameCol && p[nameCol] != null && p[nameCol] !== '') ? nameCol : Object.keys(p).find((k) => NAME_COLS.includes(k.toLowerCase()) && p[k] !== '' && p[k] != null);
+  if (key) return String(p[key]);
+  const t = f?.geometry?.type ?? '';
+  return /Point/.test(t) ? 'Point' : /Line/.test(t) ? 'Line' : /Polygon/.test(t) ? 'Area' : 'Feature';
+}
+
+/** Every position in a set of features, as { lat, lng } (for fitting the map). */
+export function pointsOfFeatures(features) {
+  const out = [];
+  const walk = (c) => { if (okPos(c)) out.push({ lng: c[0], lat: c[1] }); else if (Array.isArray(c)) c.forEach(walk); };
+  for (const f of features ?? []) walk(f.geometry?.coordinates);
+  return out;
+}
+
+/** A new data layer id that isn't taken. */
+export function newDataId(doc, name = 'layer') {
+  const base = `data-${String(name).toLowerCase().replace(/\.[a-z]+$/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'layer'}`;
+  let id = base;
+  for (let i = 2; doc.data?.[id]; i++) id = `${base}-${i}`;
+  return id;
+}
+
+/** Keep data layers drawable: clean features, a colour, a name. */
+export function migrateData(data) {
+  const out = {};
+  let i = 0;
+  for (const [id, l] of Object.entries(data ?? {})) {
+    if (!l || typeof l !== 'object') continue;
+    const features = (l.features ?? []).map(cleanFeature).filter(Boolean).slice(0, MAX_FEATURES);
+    out[id] = { id, name: String(l.name ?? 'Data').slice(0, 80), colour: DATA_COLOURS.includes(l.colour) ? l.colour : DATA_COLOURS[i % DATA_COLOURS.length], on: l.on !== false, source: ['csv', 'geojson', 'drawing'].includes(l.source) ? l.source : 'geojson', features, addedAt: l.addedAt ?? null, ...(l.nameCol ? { nameCol: String(l.nameCol) } : {}), ...(l.note ? { note: String(l.note).slice(0, 300) } : {}), ...(l.public ? { public: true } : {}), ...(l.group ? { group: String(l.group).slice(0, 40) } : {}) };
+    i++;
+  }
+  return out;
+}
+
+/**
+ * What a visitor may see of the map on a public site (a coalition's members site,
+ * alpha 0.4): nothing unless `publicMap` is on; then the base map, the view,
+ * the places that aren't held back, and only the data layers marked public.
+ * Never the pins: they tie people and private things to places. Each public
+ * feature gets the id of the place of the same name, for its community page.
+ */
+export function publicPlace(doc) {
+  if (!doc?.publicMap) return null;
+  const d = migratePlace(doc);
+  const places = Object.fromEntries(Object.entries(d.places).filter(([, p]) => !p.held)
+    .map(([id, p]) => [id, { id, name: p.name, kind: p.kind, geo: p.geo, ...(p.within ? { within: p.within } : {}), description: p.description ?? '', tags: p.tags ?? [] }]));
+  const byName = new Map(Object.values(places).map((p) => [p.name.toLowerCase(), p.id]));
+  const data = Object.fromEntries(Object.values(d.data).filter((l) => l.public).map((l) => [l.id, {
+    ...l, on: true,
+    features: l.features.map((f) => {
+      const placeId = byName.get(String(featureName(f, l.nameCol)).toLowerCase());
+      return placeId ? { ...f, properties: { ...f.properties, placeId } } : f;
+    }),
+  }]));
+  return { version: d.version, basemap: d.basemap, view: d.view, drawn: d.drawn, places, pins: {}, data, publicMap: true, layers: d.layers };
+}
+
+/** The public layers a [[map:<id>]] embed shows: all of them, one layer, or a group of layers. */
+export const layersFor = (pub, id = 'place') => Object.values(pub?.data ?? {}).filter((l) => !id || id === 'place' || l.id === id || l.group === id);
+
+/** A place's networks on the public map: each public layer it's in, with that feature's properties. */
+export function placeMemberships(pub, placeId) {
+  return Object.values(pub?.data ?? {}).flatMap((l) => l.features.filter((f) => f.properties?.placeId === placeId).map((f) => ({ layer: l, props: f.properties })));
 }

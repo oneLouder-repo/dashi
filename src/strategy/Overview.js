@@ -1,4 +1,5 @@
 import { h } from '../ui/dom.js';
+import { EmptyState } from '../ui/EmptyState.js';
 import { icon } from '../ui/icons.js';
 import { rootOf, childrenOf, descendants, taskSummary, measureIndex, TASK_STATUSES } from '../platform/strategy.js';
 import { workplanProgress, PROGRESS_STATES, strategyCounts, LIGHTS, lightOf } from '../platform/strategyReports.js';
@@ -19,6 +20,7 @@ export function Overview(ctx) {
   const doc = ctx.store.doc;
   const root = rootOf(doc);
   if (!root) return h('p', { class: 'empty' }, 'No strategy yet.');
+  if (!Object.values(doc.nodes).some((n) => n.type === 'plan')) return FirstRun(ctx, root);
   const now = today();
   const counts = strategyCounts(doc);
   const tasks = taskSummary(doc, root.id);
@@ -211,4 +213,24 @@ function Details(ctx, n, now, { hovering, isDraft, lightOfWp, pinned, unpin, rin
   }
   out.push(h('a', { class: 'btn btn-sm sw-sb-open', href: `#${n.id}` }, `Open the ${NODE_TYPES[n.type].label.toLowerCase()}`, icon('chevronRight', 13)));
   return out.filter(Boolean);
+}
+
+/** Plan on first run: no plans yet (d, 2026-11-27). Three steps, a file or the example. */
+function FirstRun(ctx, root) {
+  const said = [root.mission, root.vision, root.values].some((x) => x?.trim());
+  return EmptyState({
+    icon: 'strategy',
+    title: 'Your plan starts here',
+    text: 'Plan keeps your strategic framework and the plans under it, from objectives and goals down to workplans and tasks, with the roadmap and reports drawn from them.',
+    steps: [
+      { title: said ? 'Your mission, vision and values ✓' : 'Say who you are', text: 'Mission, vision and values sit at the top, in the framework.', action: h('a', { class: `btn btn-sm${said ? '' : ' btn-primary'}`, href: `#${root.id}` }, said ? 'Edit' : 'Open the framework') },
+      { title: 'Start a plan', text: 'A name and dates. Plan it together in the Planning Studio, or straight into the outline.', action: h('button', { class: `btn btn-sm${said ? ' btn-primary' : ''}`, onclick: () => ctx.newPlan() }, 'New plan') },
+      { title: 'Add objectives and goals', text: 'Then workplans and tasks under them. The roadmap and reports fill in as you go.' },
+    ],
+    actions: [
+      h('button', { class: 'btn btn-sm btn-ghost', onclick: () => ctx.openPlanFile() }, icon('upload', 14), 'Open a plan file'),
+      h('button', { class: 'btn btn-sm btn-ghost', onclick: () => ctx.loadExample() }, icon('sparkle', 14), 'Look at the example'),
+    ],
+    note: 'The example replaces what is here, so try it before you start, or in a sandbox org.',
+  });
 }

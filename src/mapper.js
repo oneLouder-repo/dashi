@@ -21,6 +21,8 @@ import { LabelEditor } from './ui/LabelEditor.js';
 import { migrateMap } from './seed.js';
 import { Shell } from './ui/Shell.js';
 import { h } from './ui/dom.js';
+import { icon } from './ui/icons.js';
+import { EmptyState } from './ui/EmptyState.js';
 import { autosaveDoc, saveDoc } from './platform/storage.js';
 import { loadOrg, loadMaps, loadLibrary } from './platform/docs.js';
 import { putMedia, mediaUrl } from './platform/media.js';
@@ -364,14 +366,98 @@ requestAnimationFrame(() => requestAnimationFrame(() => { if (!fittedCamera || (
 document.fonts?.ready.then(() => { if (fittedCamera && stage.x === fittedCamera.x && stage.y === fittedCamera.y && stage.scale === fittedCamera.scale) fitView(); });
 if (focusId && (store.map.actors[focusId] || store.map.connectors[focusId] || store.map.groups?.[focusId])) {
   history.replaceState(null, '', `#${mapId}`);
-  setTimeout(() => { mapView.select([focusId]); mapView.signalActor(focusId); ctx.panel?.reveal('inspector'); }, 450);
+  setTimeout(() => arriveAt(focusId), 450);
+}
+/**
+ * Opening the map at an item (d, 2026-11-27): bring it to the middle of the
+ * board without changing the zoom much, choose it, and for about four seconds
+ * let it pulse while everything else dims, so the eye lands on it.
+ */
+function arriveAt(id) {
+  const w = mapView.world;
+  const actorIds = w.actors[id] ? [id] : w.connectors[id] ? [w.connectors[id].from, w.connectors[id].to] : w.groups[id]?.memberIds ?? [];
+  const boxes = actorIds.map((a) => w.actors[a]).filter(Boolean);
+  if (boxes.length) {
+    const x0 = Math.min(...boxes.map((a) => a.x - a.w / 2)), x1 = Math.max(...boxes.map((a) => a.x + a.w / 2));
+    const y0 = Math.min(...boxes.map((a) => a.y - a.h / 2)), y1 = Math.max(...boxes.map((a) => a.y + a.h / 2));
+    const { clientWidth: cw, clientHeight: ch } = stage.svgEl;
+    // Arrive close on it, hold a beat, then ease out to take in the map
+    // around it (d, 2026-11-27): ending well short of close-up, but never
+    // further out than the fitted view.
+    const fit = stage.scale;
+    const close = Math.max(fit, Math.min(1.2, (cw * 0.6) / Math.max(1, x1 - x0), (ch * 0.6) / Math.max(1, y1 - y0)));
+    const far = Math.max(fit, Math.min(close * 0.45, (cw * 0.16) / Math.max(1, x1 - x0)));
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    const at = (sc) => { stage.scale = sc; stage.moveTo(cw / 2 - cx * sc, ch / 2 - cy * sc); stage.dispatchEvent('camera'); };
+    at(close);
+    cancelAnimationFrame(arriveAt.frame);
+    clearTimeout(arriveAt.hold);
+    const reduce = matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (far < close - 0.01) {
+      if (reduce) at(far);
+      else arriveAt.hold = setTimeout(() => {
+        const t0 = performance.now(), dur = 2400;
+        const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+        const step = (now) => {
+          const t = Math.min(1, (now - t0) / dur);
+          // Zoom in log space, so the speed feels even.
+          at(Math.exp(Math.log(close) + (Math.log(far) - Math.log(close)) * ease(t)));
+          if (t < 1) arriveAt.frame = requestAnimationFrame(step);
+        };
+        arriveAt.frame = requestAnimationFrame(step);
+      }, 900);
+      // Any touch or wheel on the board stops the camera where it is.
+      const stop = () => { clearTimeout(arriveAt.hold); cancelAnimationFrame(arriveAt.frame); };
+      stage.svgEl.addEventListener('pointerdown', stop, { once: true });
+      stage.svgEl.addEventListener('wheel', stop, { once: true, passive: true });
+    }
+  }
+  mapView.select([id]);
+  ctx.panel?.reveal('inspector');
+  if (ctx.tools.active?.id === 'dataviz') { mapView.signalActor(id); return; } // the data view's own focus stays
+  mapView.focus([id, ...actorIds]);
+  mapView.signalActor(id);
+  stage.svgEl.classList.add('arrival');
+  clearTimeout(arriveAt.timer);
+  const end = () => {
+    clearTimeout(arriveAt.timer);
+    stage.svgEl.removeEventListener('pointerdown', end);
+    if (!stage.svgEl.classList.contains('arrival')) return;
+    stage.svgEl.classList.remove('arrival');
+    if (ctx.tools.active?.id !== 'dataviz') mapView.focus(null);
+  };
+  arriveAt.timer = setTimeout(end, 5200);
+  stage.svgEl.addEventListener('pointerdown', end);
 }
 autosaveDoc(mapDocName(mapId), store);
 // The map's name and its title in the org's list of maps stay the same.
 store.map.name = index.maps[mapId].title;
 store.addEventListener('change', () => {
   if (store.map.name && store.map.name !== index.maps[mapId].title) ctx.actions.updateEntry({ title: store.map.name });
+  drawEmptyHint();
 });
+
+/*
+ * An empty map (d, 2026-11-27): a card over the board with the first moves,
+ * until the first actor goes on. It never blocks the board around it.
+ */
+const emptyHint = h('div', { class: 'map-empty', hidden: true });
+document.querySelector('main').append(emptyHint);
+function drawEmptyHint() {
+  const empty = !Object.keys(store.map.actors).length;
+  emptyHint.hidden = !empty;
+  if (!empty || emptyHint.childElementCount) return;
+  const key = (k) => h('kbd', {}, k);
+  emptyHint.append(EmptyState({ compact: true, icon: 'sec-mapper', title: 'Map your ecosystem',
+    text: 'Put the people, groups and organisations around your work on the board, then draw how they are linked. The rings are a lens: change it above.',
+    steps: [
+      { title: 'Add an actor', text: h('span', {}, 'Press ', key('A'), ' over the board, or use Actor on the left. Type its name.'), action: h('button', { class: 'btn btn-sm btn-primary', onclick: () => ctx.actions.addActorInView('actor') }, 'Add one') },
+      { title: 'Link two actors', text: h('span', {}, 'Press ', key('C'), ', then drag from one note to another.') },
+      { title: 'Choose a lens', text: 'Micro, meso and macro; the Water of Systems Change; leverage points…' },
+    ],
+    actions: [h('button', { class: 'btn btn-sm btn-ghost', onclick: () => ctx.openMapFile?.() }, icon('folderOpen', 14), 'Open a map file')] }));
+}
+drawEmptyHint();
 
 // Where the pointer last was on the board, so A adds an actor there.
 let pointer = null;

@@ -83,7 +83,7 @@ export function Timeline({ cartridge: c, issues = [], ppd = 20, today = new Date
       if (!sp) return null;
       const n = streamBlocks(c, st.id).length;
       const bar = h('div', { class: 'tl-stream', 'data-sid': st.id, style: `left:${x(sp.start) + 1}px;width:${(sp.end - sp.start) * ppd - 2}px;--tone:${st.tone}`, tabindex: '0', role: 'button',
-        title: `${st.name}: ${n} linked blocks. Drag to move them together; click to edit.`, 'aria-label': `Stream ${st.name}, ${n} blocks` },
+        title: `${st.name}: ${n} linked blocks. Drag to move them together; click to edit.`, 'aria-label': `Pack ${st.name}, ${n} blocks` },
       icon('link', 12), h('span', {}, st.name), h('small', {}, String(n)));
       bar.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onStream?.(st.id); }
@@ -102,16 +102,22 @@ export function Timeline({ cartridge: c, issues = [], ppd = 20, today = new Date
           moved = true;
           for (const el of members()) { el.classList.add('dragging'); el.style.transform = `translateX(${Math.round(dx / ppd) * ppd}px)`; }
         };
-        const up = (ev) => {
+        const done = () => {
           bar.removeEventListener('pointermove', move);
           bar.removeEventListener('pointerup', up);
-          bar.removeEventListener('pointercancel', up);
+          bar.removeEventListener('pointercancel', cancel);
+        };
+        const reset = () => { for (const el of members()) { el.classList.remove('dragging'); el.style.transform = ''; } };
+        const cancel = () => { done(); reset(); };
+        const up = (ev) => {
+          done();
           if (!moved) { onStream?.(st.id); return; }
-          onChange?.(moveStream(c, st.id, Math.round((ev.clientX - sx) / ppd)), null);
+          const dd = Math.round((ev.clientX - sx) / ppd);
+          if (dd) onChange?.(moveStream(c, st.id, dd), null); else reset();
         };
         bar.addEventListener('pointermove', move);
         bar.addEventListener('pointerup', up);
-        bar.addEventListener('pointercancel', up);
+        bar.addEventListener('pointercancel', cancel);
       });
       return bar;
     }));
@@ -179,34 +185,67 @@ export function Timeline({ cartridge: c, issues = [], ppd = 20, today = new Date
       const members = () => (together ? [...document.querySelectorAll(`.tl-clip[data-stream="${b.streamId}"]`), ...document.querySelectorAll(`.tl-stream[data-sid="${b.streamId}"]`)] : [el]);
       const sx = e.clientX;
       const sy = e.clientY;
+      // The timeline scrolls sideways under a long drag: count that in, so the block stays under the pointer.
+      const scrollBox = el.closest('.tl-scroll');
+      const sl0 = scrollBox?.scrollLeft ?? 0;
+      const dxOf = (ev) => ev.clientX - sx + ((scrollBox?.scrollLeft ?? 0) - sl0);
       let moved = false;
+      let last = e;
+      let edgeTimer = null;
       el.setPointerCapture(e.pointerId);
-      const move = (ev) => {
-        const dx = ev.clientX - sx;
+      const paint = (ev) => {
+        const dx = dxOf(ev);
         const dy = ev.clientY - sy;
-        if (!moved && Math.hypot(dx, dy) < 4) return;
-        if (!canEdit) return;
-        moved = true;
-        el.classList.add('dragging');
         if (grip) el.style.width = `${Math.max(ppd - 2, (b.length + Math.round(dx / ppd)) * ppd - 2)}px`;
         else if (together) for (const m of members()) { m.classList.add('dragging'); m.style.transform = `translateX(${Math.round(dx / ppd) * ppd}px)`; }
         else el.style.transform = `translate(${Math.round(dx / ppd) * ppd}px, ${dy}px)`;
       };
-      const up = (ev) => {
+      // Near either edge, the timeline scrolls along with the drag.
+      const edge = () => {
+        clearInterval(edgeTimer); edgeTimer = null;
+        if (!scrollBox) return;
+        const r = scrollBox.getBoundingClientRect();
+        const step = last.clientX > r.right - 40 ? 12 : last.clientX < r.left + HEAD + 40 ? -12 : 0;
+        if (step) edgeTimer = setInterval(() => { scrollBox.scrollLeft += step; paint(last); }, 30);
+      };
+      const move = (ev) => {
+        last = ev;
+        if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 4) return;
+        if (!canEdit) return;
+        moved = true;
+        el.classList.add('dragging');
+        paint(ev);
+        edge();
+      };
+      const reset = () => {
+        for (const m of members()) { m.classList.remove('dragging'); m.style.transform = ''; m.style.visibility = ''; }
+        el.style.width = el.dataset.w ?? el.style.width;
+      };
+      const finish = () => {
+        clearInterval(edgeTimer);
         el.removeEventListener('pointermove', move);
         el.removeEventListener('pointerup', up);
-        el.removeEventListener('pointercancel', up);
+        el.removeEventListener('pointercancel', cancel);
+      };
+      // A cancelled pointer (the browser took over, a touch scroll) puts everything back as it was.
+      const cancel = () => { finish(); reset(); };
+      const up = (ev) => {
+        finish();
         if (!moved) { onOpen?.(b.id); return; }
-        const dd = Math.round((ev.clientX - sx) / ppd);
-        if (grip) { onChange?.(resizeBlock(c, b.id, 'right', b.start + b.length - 1 + dd), b.id); return; }
-        if (together) { onChange?.(moveStream(c, b.streamId, dd), b.id); return; }
+        const dd = Math.round(dxOf(ev) / ppd);
+        if (grip) { if (dd) onChange?.(resizeBlock(c, b.id, 'right', b.start + b.length - 1 + dd), b.id); else reset(); return; }
+        if (together) { if (dd) onChange?.(moveStream(c, b.streamId, dd), b.id); else reset(); return; }
         el.style.visibility = 'hidden';
         const under = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-track]');
-        onChange?.(moveBlock(c, b.id, { start: b.start + dd, trackId: under?.dataset.track ?? b.trackId }), b.id);
+        const trackId = under?.dataset.track ?? b.trackId;
+        // Dropped where it started: nothing to save, just put it back (it used to stay hidden).
+        if (!dd && trackId === b.trackId) { reset(); return; }
+        onChange?.(moveBlock(c, b.id, { start: b.start + dd, trackId }), b.id);
       };
+      el.dataset.w = el.style.width;
       el.addEventListener('pointermove', move);
       el.addEventListener('pointerup', up);
-      el.addEventListener('pointercancel', up);
+      el.addEventListener('pointercancel', cancel);
     });
     return el;
   }
@@ -224,7 +263,7 @@ export function Timeline({ cartridge: c, issues = [], ppd = 20, today = new Date
     meter,
     h('div', { class: 'tl-head tl-head-meta' }, icon('flag', 14), h('span', { class: 'tl-head-text' }, h('b', {}, 'Pace notes'), h('small', {}, canEdit ? 'Double-click the lane to add' : `${(c.pace ?? []).length} notes`))),
     pace,
-    streams.length > 0 && h('div', { class: 'tl-head tl-head-meta' }, icon('link', 14), h('span', { class: 'tl-head-text' }, h('b', {}, 'Streams'), h('small', {}, `${streams.length} · drag to move together`))),
+    streams.length > 0 && h('div', { class: 'tl-head tl-head-meta' }, icon('link', 14), h('span', { class: 'tl-head-text' }, h('b', {}, 'Packs'), h('small', {}, `${streams.length} · drag to move together`))),
     streams.length > 0 && streamLane,
     lanes.flatMap(({ head, lane }) => [head, lane]));
   // The bands sit behind the lanes, outside the grid, so they never push a row out of place.

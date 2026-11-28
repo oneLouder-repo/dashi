@@ -29,15 +29,15 @@ export const DEFAULT_SITE = {
     title: 'About Dashi',
     intro: 'Dashi is a platform for small nonprofits, social enterprises and the networks they belong to. It started from a simple frustration: the strategy lives in one document, the data in a spreadsheet, the partners in someone’s head, and the website is always out of date.',
     sections: [
-      { title: 'How it works', text: 'Each organisation gets its own space at its own address, such as riverbend.dashi.ca, or on the Custom plan its own domain. Staff sign in to plan and work; visitors see only what the organisation publishes: its site, its dashboards and its podcast.' },
+      { title: 'How it works', text: 'Each organisation gets its own space at its own address, such as riverbend.dashi.ca, or from the Community plan up, its own domain. Staff sign in to plan and work; visitors see only what the organisation publishes: its site, its dashboards and its podcast.' },
       { title: 'Plugins', text: 'Dashi is made of plugins: the ecosystem mapper, strategy and work, the planning studio, the data workbench, the document library, podcasts and public sites. Each plan includes a set of them, and an organisation can switch off what it doesn’t use.' },
       { title: 'Security and privacy', text: 'Passwords are stored as salted hashes, sign-in tokens as one-way hashes, and every page is protected against the common web attacks. The platform runs a security audit on itself and takes a backup every day. Data is hosted in Canada and never sold or shared.' },
       { title: 'Who runs it', text: 'Dashi is run as a social enterprise. Revenue from paid plans keeps the free plan free for the smallest groups.' },
     ],
     faq: [
-      { q: 'Is the free plan really free?', a: 'Yes. It has limits (five people, one map, one dashboard, one podcast show) but no time limit and no card needed.' },
+      { q: 'Is the Seed plan really free?', a: 'Yes. It has limits (three people, one plan, one map, one dashboard, one public site) but no time limit and no card needed.' },
       { q: 'Can we move up or down a plan?', a: 'Any time. Nothing is deleted if you move down; you just can’t add more than the smaller plan allows.' },
-      { q: 'Can we use our own domain?', a: 'On the Custom plan. You keep managing your own DNS; Dashi tells you exactly which two records to add and checks them for you.' },
+      { q: 'Can we use our own domain?', a: 'From the Community plan up. You keep managing your own DNS; Dashi tells you exactly which two records to add and checks them for you.' },
       { q: 'Can we get our data out?', a: 'Yes. Program data exports as CSV, documents as Word, PDF or Markdown, and podcasts as standard feeds and zip archives.' },
     ],
   },

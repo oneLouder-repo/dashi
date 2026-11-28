@@ -3,7 +3,7 @@
  * into a small tree (no HTML). Kept free of other imports so any page,
  * including Dashi's own public site, can use it.
  */
-export const EMBEDS = ['dashboard', 'episode', 'show', 'calculator', 'story'];
+export const EMBEDS = ['dashboard', 'episode', 'show', 'calculator', 'story', 'map', 'form'];
 
 /**
  * Parse the light markdown that page bodies use into a small tree. Nothing

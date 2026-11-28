@@ -27,6 +27,9 @@ import { DashboardView } from '../charts/DashboardView.js';
 import { CalculatorView } from '../charts/CalculatorView.js';
 import { StoryView } from '../charts/StoryView.js';
 import { Markdown } from '../ui/markdown.js';
+import { publicPlace, layersFor, migratePlace } from '../place/model.js';
+import { PublicMap } from '../site/publicMap.js';
+import { FormView } from '../site/feedbackForm.js';
 import { readImage } from '../ui/images.js';
 import { EpisodeCard, ShowCard, Player } from '../site/station.js';
 import { today, short } from '../strategy/dates.js';
@@ -57,6 +60,9 @@ autosaveDoc('pages', store, 250);
 Shell(document.querySelector('#shell'), { current: 'pages', org });
 // Other plugins' content, for embeds and the site overview.
 const docs = { org, strategy: loadStrategy(), data: loadData(), dashboards: loadDashboards(), podcasts: loadPodcasts(), plandocs: loadPlanDocs(), library: loadLibrary(), critical: migrateCritical(loadDoc(CRITICAL_DOC)) };
+
+// The shared Place map, for [[map:…]] embeds (read when a page needs it).
+const placeDoc = () => migratePlace(loadDoc('place'));
 
 const app = document.querySelector('#app');
 app.classList.add('palette', 'sites-app', 'frame');
@@ -128,11 +134,11 @@ function HomeChooser(site, save) {
   const pagesHere = Object.values(doc().pages).filter((p) => p.siteId === site.id && p.kind === 'page');
   const value = site.home?.kind === 'page' ? `page:${site.home.slug}` : site.home?.kind === 'station' && hasStation ? 'station' : 'default';
   const opts = [
-    { id: 'default', label: 'Dashi home: dashboards, news, the latest episode' },
+    { id: 'default', label: 'Dashi home (dashboards, news, episodes)' },
     hasStation && { id: 'station', label: `The podcast station (${docs.podcasts.station.name || 'station'})` },
     ...pagesHere.map((p) => ({ id: `page:${p.slug}`, label: `Page: ${p.title}` })),
   ].filter(Boolean);
-  return h('label', { class: 'fieldset' }, h('span', { class: 'fieldset-legend' }, 'Homepage'),
+  return h('label', { class: 'fieldset site-home-pick' }, h('span', { class: 'fieldset-legend' }, 'Homepage'),
     h('select', { class: 'select select-sm w-full', name: 'site-home', onchange: (e) => {
       const v = e.target.value;
       save({ home: v === 'default' ? { kind: 'default' } : v === 'station' ? { kind: 'station' } : { kind: 'page', slug: v.slice(5) } });
@@ -152,14 +158,18 @@ function CmsList(kind) {
       h('div', {}, h('h2', {}, article ? 'News articles' : 'Pages'), h('p', { class: 'muted' }, article ? 'Dated news for your sites, newest first. Each has a cover and can go out on a schedule.' : 'The pages in your sites’ menus. Open one to write it, with a live preview beside it.')),
       h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: () => newPage(kind) }, icon('plus', 15), article ? 'New article' : 'New page')),
     rows.length ? h('table', { class: 'table cms-table' },
-      h('thead', {}, h('tr', {}, h('th', {}, 'Title'), h('th', {}, 'Site'), h('th', {}, article ? 'Date' : 'Menu'), h('th', {}, 'Status'))),
+      h('thead', {}, h('tr', {}, h('th', {}, 'Title'), h('th', {}, 'Site'), h('th', {}, article ? 'Date' : 'Menu'), h('th', {}, 'Status'), h('th', { class: 'cms-open-col' }, h('span', { class: 'sr-only' }, 'Open')))),
       h('tbody', {}, rows.map((p) => {
         const [cls, label] = state(p);
         return h('tr', { tabindex: 0, onclick: () => { location.hash = p.id; }, onkeydown: (e) => { if (e.key === 'Enter') location.hash = p.id; } },
           h('td', {}, h('a', { href: `#${p.id}`, class: 'cms-title' }, p.title || 'Untitled'), p.summary && h('small', { class: 'muted cms-sum' }, p.summary)),
           h('td', {}, org.sites[p.siteId]?.name ?? 'No site'),
           h('td', {}, article ? (p.publishedAt ? short(p.publishedAt) : '–') : p.inNav ? 'In the menu' : 'Not in the menu'),
-          h('td', {}, h('span', { class: 'cms-status' }, h('span', { class: `status-dot ${cls}` }), label)));
+          h('td', {}, h('span', { class: 'cms-status' }, h('span', { class: `status-dot ${cls}` }), label)),
+          // Open it to write, or see it on its site (a draft shows as a preview to people signed in).
+          h('td', { class: 'cms-open' },
+            h('a', { class: 'btn btn-xs', href: `#${p.id}`, onclick: (e) => e.stopPropagation() }, icon('pencil', 13), 'Edit'),
+            p.siteId && h('a', { class: 'btn btn-xs btn-ghost', href: siteUrl(p.siteId, { page: p.slug }), target: '_blank', rel: 'noopener', title: 'Open it on its site, in a new tab', onclick: (e) => e.stopPropagation() }, icon('export', 13), 'View')));
       })))
       : h('p', { class: 'empty' }, article ? 'No news articles yet.' : 'No pages yet.'));
 }
@@ -649,6 +659,8 @@ function Editor(p) {
     if (kind === 'show') { const s = docs.podcasts.podcasts[id]; return s ? ShowCard(ctx, s) : null; }
     if (kind === 'calculator') { const c = docs.dashboards.calculators[id]; return c ? CalculatorView(c, docs) : null; }
     if (kind === 'story') { const s = docs.dashboards.stories[id]; return s ? StoryView(s, docs) : null; }
+    if (kind === 'map') return PublicMap(publicPlace({ ...placeDoc(), publicMap: true }), id, { link: () => '#' });
+    if (kind === 'form') { const f = docs.dashboards.forms?.[id]; return f ? FormView(f, { onSubmit: async () => {} }) : null; }
     return null;
   };
   const drawPreview = () => {
@@ -667,6 +679,13 @@ function Editor(p) {
         const x = docs.dashboards[kind === 'story' ? 'stories' : 'calculators'][id];
         return !x ? `No ${kind} “${id}”.` : x.visibility !== 'public' ? `“${x.title}” is private, so the public site leaves it out.` : null;
       }
+      if (kind === 'map') {
+        const pd = placeDoc();
+        if (!pluginOn(org, 'place')) return 'Place is off for this organisation, so the public site leaves the map out.';
+        if (!pd.publicMap) return 'The map isn’t shared yet: in Place, turn on “Show on public sites”.';
+        return layersFor(publicPlace(pd), id).length ? null : `No public map layer “${id}”: in Place, mark a data layer “On public sites”.`;
+      }
+      if (kind === 'form') { const f = docs.dashboards.forms?.[id]; return !f ? `No form “${id}”.` : f.visibility !== 'public' || f.siteId !== cur().siteId ? `“${f.title}” isn’t public on this site, so the public site leaves it out.` : null; }
       return null;
     }).filter(Boolean);
     warnings.replaceChildren(...notes.map((n) => h('div', { role: 'status', class: 'alert alert-warning alert-soft' }, n)));
@@ -706,7 +725,10 @@ function Editor(p) {
     h('optgroup', { label: 'Impact calculators' }, Object.values(docs.dashboards.calculators).map((c) => h('option', { value: `[[calculator:${c.id}]]` }, `${c.title}${c.visibility === 'public' ? '' : ' (private)'}`))),
     h('optgroup', { label: 'Data stories' }, Object.values(docs.dashboards.stories).map((s) => h('option', { value: `[[story:${s.id}]]` }, `${s.title}${s.visibility === 'public' ? '' : ' (private)'}`))),
     pluginOn(org, 'podcasts') && h('optgroup', { label: 'Podcast episodes' }, liveEpisodes().map((e) => h('option', { value: `[[episode:${e.id}]]` }, `${docs.podcasts.podcasts[e.podcastId]?.title}: ${e.title}`))),
-    pluginOn(org, 'podcasts') && h('optgroup', { label: 'Podcast shows' }, Object.values(docs.podcasts.podcasts).map((s) => h('option', { value: `[[show:${s.id}]]` }, s.title))));
+    pluginOn(org, 'podcasts') && h('optgroup', { label: 'Podcast shows' }, Object.values(docs.podcasts.podcasts).map((s) => h('option', { value: `[[show:${s.id}]]` }, s.title))),
+    pluginOn(org, 'place') && h('optgroup', { label: 'Map (Place)' }, h('option', { value: '[[map:place]]' }, 'The shared map, every public layer'),
+      Object.values(placeDoc().data ?? {}).filter((l) => l.public).map((l) => h('option', { value: `[[map:${l.id}]]` }, `Map: ${l.name}`))),
+    Object.keys(docs.dashboards.forms ?? {}).length > 0 && h('optgroup', { label: 'Forms' }, Object.values(docs.dashboards.forms).map((f) => h('option', { value: `[[form:${f.id}]]` }, `${f.title}${f.visibility === 'public' ? '' : ' (private)'}`))));
 
   const statusSel = h('select', { class: 'select select-sm', name: 'page-status', 'aria-label': 'Status', onchange: (e) => { save({ status: e.target.value }); render(); } },
     options([{ id: 'draft', label: 'Draft' }, { id: 'published', label: 'Published' }], p.status));
@@ -734,7 +756,7 @@ function Editor(p) {
   drawPreview();
   return h('div', { class: 'page-editor' },
     h('div', { class: 'page-editor-head' },
-      h('input', { class: 'title-input station-name', name: 'page-title', value: p.title, 'aria-label': 'Title', onchange: (e) => {
+      h('input', { class: 'title-input station-name', name: 'page-title', value: p.title, 'aria-label': 'Title', placeholder: 'Write a title', title: 'Click to edit the title', onchange: (e) => {
         const title = e.target.value.trim() || 'Untitled';
         // Keep the address in step with the title until the page goes live.
         save({ title, ...(p.status === 'draft' ? { slug: uniqueSlug(doc(), title, p.siteId, p.id) } : {}) });

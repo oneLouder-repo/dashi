@@ -6,12 +6,15 @@ import { SJR_SEASONS, RADIO_ADA } from '../src/platform/clients/sjrArchive.js';
 import { actuaDocs, ACTUA_TAGS } from '../src/platform/clients/actua.js';
 import { fmtDuration } from '../src/site/station.js';
 
-test('three client orgs, each on its own subdomain', () => {
-  assert.deepEqual(CLIENT_ORGS.map((o) => o.slug), ['sjr', 'actua-ai', 'kestrel']);
+test('four client orgs, each on its own subdomain', () => {
+  assert.deepEqual(CLIENT_ORGS.map((o) => o.slug), ['sjr', 'actua-ai', 'kestrel', 'coalition']);
   for (const o of CLIENT_ORGS) {
     const docs = o.docs();
     assert.equal(docs.org.id, o.id);
-    assert.ok(docs.strategy && docs.org.staff);
+    assert.ok(docs.org.staff);
+    // The coalition is a Place example: no plan is made up for it.
+    if (o.id === 'org-coalition') { assert.ok(docs.place && !docs.strategy); continue; }
+    assert.ok(docs.strategy);
     // One framework per org, and plans sit under it, never inside another plan.
     const nodes = Object.values(docs.strategy.nodes);
     assert.equal(nodes.filter((n) => n.type === 'framework').length, 1);

@@ -208,6 +208,21 @@ export const PLUGINS = [
     stats: ({ place }) => (place?.places ? `${count(place.places)} places · ${count(place.pins)} pins · experimental` : 'No places yet · experimental'),
   },
   {
+    id: 'eoviz',
+    owns: ['eco'],
+    // Reads nothing of anyone else's: its sites, readings and files are its own.
+    reads: [],
+    short: 'EoViz',
+    tone: '#2f8f5b',
+    name: 'EoViz',
+    href: 'eoviz.html',
+    icon: 'sec-eoviz',
+    experimental: true,
+    defaultOff: true,
+    blurb: 'Experimental: the eco data lens. Bring in water, air and soil data from loggers, sondes, labs and open data, keep it with its units and flags, and find the right way to draw it.',
+    stats: ({ eco }) => (eco?.sites ? `${count(eco.sites)} sites · ${count(eco.files)} files · experimental` : 'No data yet · experimental'),
+  },
+  {
     id: 'pages',
     owns: ['pages'],
     reads: ['dashboards', 'data', 'plandocs', 'strategy', 'library'],
@@ -233,7 +248,7 @@ export const PLUGINS = [
     href: 'social.html',
     icon: 'share',
     experimental: true,
-    blurb: 'Experimental: make posts from your episodes, blog posts, data and dashboards, fit them to each network, schedule them and push them to Instagram, Facebook, TikTok, YouTube and more (pretend pushes in this alpha).',
+    blurb: 'Experimental: make posts from your episodes, blog posts, data and dashboards, fit them to each network, schedule them and push them out: Bluesky, Mastodon and webhooks for real, Instagram, Facebook, TikTok, YouTube and LinkedIn as practice until their apps are approved.',
     stats: ({ social }) => { const ps = Object.values(social?.posts ?? {}); return `${ps.filter((p) => p.status === 'scheduled').length} scheduled · ${ps.filter((p) => p.status === 'posted').length} posted · experimental`; },
   },
   {
@@ -349,6 +364,15 @@ export const currentWho = (org) => whoOf(org) ?? {};
 export const currentRole = (org) => currentWho(org).role ?? null;
 /** The plugins the signed-in person sees: the org's, less any switched off for their role or for them. */
 export const enabledPlugins = (org, roleId) => usable(PLUGINS, org, roleId === undefined ? currentWho(org) : { role: roleId, staffId: null });
+/**
+ * The plugin bar's order: the org admin's (org.pluginOrder, a list of plugin ids, set under
+ * Organisation → Plugins), then any plugin not in that list in its usual place.
+ */
+export const orderPlugins = (org, list) => {
+  const order = org?.pluginOrder ?? [];
+  const at = (p) => { const i = order.indexOf(p.id); return i < 0 ? order.length + list.indexOf(p) : i; };
+  return [...list].sort((a, b) => at(a) - at(b));
+};
 /** Can the signed-in person use this plugin (and its parent)? */
 export const canOpen = (org, id) => canUse(PLUGINS, org, id, currentWho(org));
 /** Is this plugin on for the org, whoever is looking (a public site, an admin screen)? */

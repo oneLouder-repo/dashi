@@ -240,8 +240,15 @@ export function autosaveDoc(name, store, delay = 400) {
   store.addEventListener('change', () => {
     if (inBrowser) window.dispatchEvent(new CustomEvent('toolbox:save-pending', { detail: { name } }));
     clearTimeout(timer);
-    timer = setTimeout(() => saveDoc(name, store.doc, orgId), delay);
+    timer = setTimeout(() => { timer = null; saveDoc(name, store.doc, orgId); }, delay);
   });
+  // Leaving the page (another plugin, a reload) inside the wait would drop the last change: send it now.
+  if (inBrowser) {
+    const flush = () => { if (!timer) return; clearTimeout(timer); timer = null; saveDoc(name, store.doc, orgId); };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
+    store.flush = flush;
+  }
 }
 
 /** Load a document, or create it from a seed function the first time. */

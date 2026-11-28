@@ -17,6 +17,7 @@
  *                sign-in to another of the platform's hosts
  */
 import { SUPPORT_SCHEMA } from './support.js';
+import { SOCIAL_SCHEMA } from './social.js';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
@@ -113,6 +114,8 @@ const SCHEMA = [
      id TEXT PRIMARY KEY, org_id TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE, name TEXT NOT NULL,
      hash TEXT NOT NULL UNIQUE, prefix TEXT NOT NULL, scope TEXT NOT NULL DEFAULT 'graph:read',
      created_at TEXT NOT NULL, created_by TEXT, last_used_at TEXT, revoked_at TEXT)`,
+  // 0.4: real posting for the Social Media Integrator (server/social.js): sealed credentials, and each post sent once.
+  ...SOCIAL_SCHEMA,
 ];
 
 export function openDb(dataDir) {

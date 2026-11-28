@@ -197,7 +197,7 @@ export function gatherAssets(hub, docs = {}, { plugins = null } = {}) {
       const n = Object.keys(content?.actors ?? {}).length;
       add({ type: 'map', id: mapId }, { source: 'map', title: entry.title, description: entry.description, href: linkTo('mapper', `#${mapId}`), updatedAt: entry.updatedAt, by: entry.ownerId, kindLabel: 'Ecosystem map', icon: 'sec-mapper', sub: `${n} actor${n === 1 ? '' : 's'}`, abcd: null });
       for (const a of Object.values(content?.actors ?? {})) {
-        add({ type: 'actor', id: a.id, mapId }, { source: 'actor', title: a.label || 'Untitled', description: a.meta?.description ?? '', href: linkTo('mapper', `#${mapId}`), kindLabel: a.kind === 'agent' ? 'Agent' : 'Actor', icon: a.kind === 'agent' ? 'agent' : 'actor', sub: entry.title, abcd: actorAbcd(a) });
+        add({ type: 'actor', id: a.id, mapId }, { source: 'actor', title: a.label || 'Untitled', description: a.meta?.description ?? '', href: linkTo('mapper', `#${mapId}/${a.id}`), kindLabel: a.kind === 'agent' ? 'Agent' : 'Actor', icon: a.kind === 'agent' ? 'agent' : 'actor', sub: entry.title, abcd: actorAbcd(a) });
       }
     }
   }

@@ -1,4 +1,5 @@
 import { h } from '../ui/dom.js';
+import { EmptyState } from '../ui/EmptyState.js';
 import { svg } from '../core/svg.js';
 import { NODE_TYPES, measureIndex, ancestors, withoutDrafts } from '../platform/strategy.js';
 import { measureFacts } from '../platform/data.js';
@@ -38,7 +39,7 @@ function Sparkline(points, w = 120, ht = 32) {
 export function StrategicData(ctx) {
   const doc = withoutDrafts(ctx.store.doc);
   const measures = Object.values(measureIndex(doc));
-  if (!measures.length) return h('p', { class: 'empty' }, 'No measures yet. Add them to objectives and goals in the Framework tab.');
+  if (!measures.length) return EmptyState({ compact: true, icon: 'chart', title: 'No measures yet', text: 'Measures are the numbers you watch: give objectives and goals a measure and a target in the Framework, and program data fills them in here over time.', actions: [h('a', { class: 'btn btn-sm btn-primary', href: '#framework' }, 'Open the framework')] });
   const groups = new Map();
   for (const m of measures) {
     const objective = doc.nodes[m.nodeId].type === 'objective' ? doc.nodes[m.nodeId] : ancestors(doc, m.nodeId).find((n) => n.type === 'objective');
@@ -68,7 +69,7 @@ export function Completion(ctx) {
   const doc = withoutDrafts(ctx.store.doc);
   const now = today();
   const rows = roadmap(doc).map((r) => ({ ...r, p: workplanProgress(doc, r.workplan.id, now) }));
-  if (!rows.length) return h('p', { class: 'empty' }, 'No workplans yet.');
+  if (!rows.length) return EmptyState({ compact: true, icon: 'timeline', title: 'No workplans yet', text: 'Workplans sit under goals and hold the tasks. Once a workplan has dated tasks, this page shows how much is done against how far through its dates it is.', actions: [h('a', { class: 'btn btn-sm btn-primary', href: '#framework' }, 'Open the framework')] });
   const all = rows.reduce((s, r) => ({ done: s.done + r.p.done, total: s.total + r.p.total }), { done: 0, total: 0 });
   const count = (state) => rows.filter((r) => r.p.state === state).length;
 

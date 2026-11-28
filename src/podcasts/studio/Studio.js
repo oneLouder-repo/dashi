@@ -90,7 +90,14 @@ export function StudioEditor(ctx, projectId) {
   let keepStageOnce = false;     // the change came from words typed on the stage, which already shows it
 
   /* ---------- state changes */
-  const save = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => ctx.store.apply(ctx.col.update('projects', project.id, structuredClone(project))), 300); };
+  const write = () => { saveTimer = null; ctx.store.apply(ctx.col.update('projects', project.id, structuredClone(project))); };
+  const save = () => { clearTimeout(saveTimer); saveTimer = setTimeout(write, 300); };
+  // Leaving the session (another tab of Listen, another page) inside the wait used to lose the last
+  // change, often the slides just made: write it straight away, then let the document save at once.
+  const flushSave = () => { if (!saveTimer) return; clearTimeout(saveTimer); write(); ctx.store.flush?.(); };
+  const onLeave = () => { flushSave(); if (!root.isConnected) { removeEventListener('hashchange', onLeave); removeEventListener('pagehide', onLeave); } };
+  addEventListener('hashchange', onLeave);
+  addEventListener('pagehide', onLeave);
   const commit = (next, { keepRedo = false } = {}) => {
     if (!next || next === project) return;
     undo.push(project);

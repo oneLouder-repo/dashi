@@ -316,6 +316,47 @@ body.site-page { background: var(--color-base-100); color: var(--color-base-cont
 .crumbs { font-size: 13px; color: var(--muted); margin: 0 0 8px; }
 .crumbs a { color: var(--color-primary); }
 
+/* ---------------------------------------------------------------- The shared map on a public site (src/site/publicMap.js) */
+.pub-map { margin: 20px 0 28px; display: grid; gap: 10px; }
+/* Wider than the text column: the map is the page's front door. */
+.md .pub-map, .community-page .pub-map { width: min(1072px, calc(100vw - 48px)); }
+.pub-map-key { display: flex; flex-wrap: wrap; gap: 6px; }
+.pub-map-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 99px; background: var(--color-base-100); color: var(--ink); font-size: 13.5px; cursor: pointer; }
+.pub-map-chip small { color: var(--muted); font-variant-numeric: tabular-nums; }
+.pub-map-chip.off { opacity: .5; }
+.pub-map-chip.off .pub-map-swatch { background: transparent; }
+.pub-map-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 1.5px var(--c); flex: none; }
+.pub-map-canvas { height: min(560px, 70vh); border: 1px solid var(--line); border-radius: var(--radius-box); overflow: hidden; }
+.pub-map-dot { position: relative; width: 14px; height: 14px; border-radius: 50%; background: var(--fill); border: 2px solid #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / .45), 0 1px 3px rgb(0 0 0 / .3); cursor: pointer; padding: 0; }
+.pub-map-dot:hover, .pub-map-dot:focus-visible { transform: scale(1.35); z-index: 3; }
+.pub-map-dot.on { width: 20px; height: 20px; border-width: 3px; box-shadow: 0 0 0 2px #1f2328, 0 2px 6px rgb(0 0 0 / .35); z-index: 4; }
+.pub-map-dot.on .pub-map-label { display: block; font-size: 13px; }
+.community-page a, .community-peers a { color: var(--color-primary); }
+.pub-map-label { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); white-space: nowrap; font: 600 11.5px/1 var(--font-sans, system-ui); color: #1f2328; background: rgb(255 255 255 / .88); padding: 2px 5px; border-radius: 3px; pointer-events: none; }
+.distant .pub-map-label { display: none; }
+.distant .pub-map-dot:hover .pub-map-label, .distant .pub-map-dot:focus-visible .pub-map-label { display: block; }
+.pub-map-pop { display: grid; gap: 4px; font-size: 13.5px; color: #1f2328; }
+.pub-map-pop strong { font-size: 15px; }
+.pub-map-pop small { color: #5b6270; }
+.pub-map-pop ul { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 3px; }
+.pub-map-pop li { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0 6px; }
+.pub-map-pop li em { grid-column: 2; font-size: 12px; color: #5b6270; font-style: normal; }
+.pub-map-pop a { color: var(--color-primary); font-weight: 600; }
+.pub-map-note { color: var(--muted); margin: 0; }
+.pub-map-list summary { cursor: pointer; display: inline-flex; gap: 6px; align-items: center; color: var(--color-primary); font-weight: 600; font-size: 14px; }
+.pub-map-provs { columns: 3 220px; column-gap: 24px; margin-top: 12px; }
+.pub-map-provs section { break-inside: avoid; margin: 0 0 14px; }
+.pub-map-provs h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 4px; }
+.pub-map-provs ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 14px; }
+.pub-map-provs li { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.pub-map-provs a { color: var(--ink); }
+.pub-map-dots { display: inline-flex; gap: 3px; }
+.community-nets ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.community-nets li { display: grid; gap: 2px; padding: 10px 14px; border: 1px solid var(--line); border-left: 4px solid var(--c); border-radius: var(--radius-box); background: var(--color-base-100); }
+.community-nets h2, .community-peers h2 { font-size: 20px; margin: 24px 0 10px; }
+.community-peers ul { list-style: none; padding: 0; margin: 8px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 18px; }
+.community-page .site-eyebrow { margin: 0 0 4px; }
+
 /* ---------------------------------------------------------------- Podcast station (public) */
 .station { padding: 28px 0 56px; display: flex; flex-direction: column; gap: 36px; }
 .eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-primary); font-weight: 650; margin: 0 0 6px; }
@@ -2437,6 +2478,11 @@ a.cc-tile:hover { border-color: var(--accent); }
 .billing-plans { display: grid; gap: 8px; margin-top: 6px; }
 .billing-plan { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px dashed var(--line-soft, var(--line)); }
 .billing-plan strong { min-width: 90px; }
+.billing-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.billing-grass { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 10px; background: color-mix(in oklab, var(--accent, #f08a24) 8%, transparent); font-size: .9rem; line-height: 1.45; cursor: pointer; }
+.billing-grass input { margin-top: 3px; flex: none; }
+.billing-yr { opacity: .85; font-weight: 400; }
+.billing-yr strong { font-weight: 600; }
 .code-input { font-size: 22px; letter-spacing: 0.3em; text-align: center; }
 .cc-tile strong { color: var(--ink); }
 .cc-banner-text .input { flex: 1; min-width: 0; }

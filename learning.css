@@ -660,3 +660,57 @@ body.ln-focus #app.frame > .side-nav { display: none; }
 .tc-glance-card dt { color: var(--muted); } .tc-glance-card dd { margin: 0; }
 .tc-fsec > .lx-form { gap: 12px; }
 .tc-fsec .lx-form .input:not([type=checkbox]):not([type=radio]) { max-width: none; }
+
+/* Tool tray in three columns (d, 2026-11-27): wider and about a third shorter, so it fits on a laptop screen. */
+.tc-palette { width: 400px; }
+.tc-pal-body section { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tc-pal-item { font-size: 11px; padding: 0 4px 0 6px; gap: 4px; }
+@media (max-width: 900px) { .tc-palette { width: 300px; } .tc-pal-body section { grid-template-columns: 1fr 1fr; } }
+
+/* Teach: linking things to a block (the manifest) and the picker (d, 2026-11-27). */
+.tc-manifest { display: grid; gap: 8px; }
+.tc-manifest-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.tc-manifest-list li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
+.tc-manifest-list li.gone { opacity: .6; border-style: dashed; }
+.tc-linker-ic { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 4px; background: var(--soft, #f3f2ee); flex: none; }
+.tc-linker-text { display: grid; min-width: 0; flex: 1; }
+.tc-linker-text b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tc-linker-text small { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tc-linker-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 240px minmax(0, 1fr); }
+.tc-linker-side { display: grid; align-content: start; gap: 8px; padding: 12px; border-right: 1px solid var(--line); }
+.tc-linker-tabs { display: grid; gap: 2px; }
+.tc-linker-tabs button { display: flex; gap: 8px; align-items: center; padding: 7px 8px; border: 0; background: none; border-radius: 4px; text-align: left; font-size: 13px; cursor: pointer; color: var(--ink); }
+.tc-linker-tabs button span { flex: 1; }
+.tc-linker-tabs button small { color: var(--muted); }
+.tc-linker-tabs button.on { background: color-mix(in oklab, var(--lx, #c8862b) 14%, #fff); font-weight: 600; }
+.tc-linker-main { overflow: auto; padding: 8px 12px; }
+.tc-linker-list { display: grid; gap: 2px; }
+.tc-linker-row { display: flex; gap: 10px; align-items: center; padding: 6px 6px; border-radius: 4px; }
+.tc-linker-row:hover { background: var(--soft, #f6f5f1); }
+.tc-linker-row.on .tc-linker-text b::after { content: ' ✓'; color: var(--muted); font-weight: 400; }
+.tc-swap { justify-self: start; }
+@media (max-width: 700px) { .tc-linker-body { grid-template-columns: 1fr; } .tc-linker-side { border-right: 0; border-bottom: 1px solid var(--line); } }
+/* Learn (and Teach's preview): what's linked to a block. */
+.ln-also { margin-top: 18px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.ln-also h4 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+.ln-also ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ln-also li { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.ln-also li small { color: var(--muted); font-size: 12px; margin-left: auto; }
+
+/* Teach → Preview: the course as learners read it, editable in place (d, 2026-11-27). */
+.tc-pvpage { display: grid; grid-template-columns: 220px minmax(0, 760px); gap: 20px; align-items: start; margin-top: 14px; }
+.tc-pv-weeks { position: sticky; top: 10px; display: grid; gap: 3px; }
+.tc-pv-weeks button { display: grid; text-align: left; padding: 7px 10px; border: 1px solid transparent; background: none; border-radius: 4px; cursor: pointer; color: var(--ink); }
+.tc-pv-weeks button b { font-size: 13px; }
+.tc-pv-weeks button small { font-size: 11.5px; color: var(--muted); }
+.tc-pv-weeks button.on { background: #fff; border-color: #16181d; }
+.tc-pv-stage { display: grid; gap: 14px; }
+.tc-pv-weekhead { display: flex; align-items: baseline; gap: 10px; }
+.tc-pv-weekhead h3 { margin: 0; font-size: 20px; }
+.tc-pv-weekhead small { color: var(--muted); }
+.tc-pv-live { position: relative; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.tc-pv-live:hover, .tc-pv-live:focus-visible { border-color: #9aa1ab; box-shadow: 0 2px 10px rgb(22 24 29 / .07); outline: none; }
+.tc-pv-live.on { border-color: #16181d; box-shadow: inset 4px 0 0 var(--lx, #c8862b); }
+.tc-pv-edit { position: absolute; top: 10px; right: 12px; display: inline-flex; gap: 4px; align-items: center; font-size: 11.5px; color: var(--muted); opacity: 0; transition: opacity .15s; }
+.tc-pv-live:hover .tc-pv-edit, .tc-pv-live.on .tc-pv-edit { opacity: 1; }
+@media (max-width: 900px) { .tc-pvpage { grid-template-columns: 1fr; } .tc-pv-weeks { position: static; grid-auto-flow: column; overflow-x: auto; } }

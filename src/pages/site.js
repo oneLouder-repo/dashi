@@ -32,6 +32,9 @@ import { StationHome, ShowPage, EpisodePage, EpisodeCard, ShowCard, Player, look
 import { today, short } from '../strategy/dates.js';
 import { criticalOn, migrateCritical, onSiteFor, lessonsOf, suggestFor, STOP_THINK_CHECK, SIX_QUESTIONS, TRACE, CREDIT, DOC as CRITICAL_DOC } from '../platform/criticalMedia.js';
 import { linkTo } from '../plugins.js';
+import { publicPlace, placeMemberships, kmBetween, kindLabel } from '../place/model.js';
+import { PublicMap } from '../site/publicMap.js';
+import { WHEEL } from '../ui/wheel.js';
 
 /**
  * A sample public site: site.html?site=<id>, with its own pages:
@@ -44,6 +47,7 @@ import { linkTo } from '../plugins.js';
  *   ?site=x&show=<id>         a show, by season
  *   ?site=x&episode=<id>      an episode
  *   ?site=x&plan=<id>         a published strategic plan document (Plan designer), printable as PDF
+ *   ?site=x&place=<id>        a community page, made from the shared Place map (e.g. a coalition's members site)
  *
  * A private site is a members-only portal, e.g. the board's: signed-in
  * staff and viewers see it, everyone else gets a sign-in panel. A board
@@ -73,6 +77,8 @@ const docs = {
   library: staffMember() ? loadLibrary() : migrateLibrary({}),
 };
 // Visitors get only published plan documents from the server; staff previews read their own.
+// The shared map: only what visitors may see, for staff too, so a preview shows the public map.
+docs.place = publicPlace(loadDoc('place'));
 docs.plandocs = migratePlanDocs((!isHosted() || session()?.member ? loadPlanDocs() : loadDoc('plandocs')) ?? { docs: {} }, docs.strategy);
 function staffMember() { return !isHosted() || !!session()?.member; }
 /** Critical Media prompts on this site, if the org has the plugin on: its settings, else null. */
@@ -148,6 +154,8 @@ function render() {
     if (kind === 'show') { const s = pod.podcasts[ref]; return s && pluginOn(org, 'podcasts') ? ShowCard(ctx, s) : null; }
     if (kind === 'calculator') { const c = docs.dashboards.calculators[ref]; return c?.visibility === 'public' ? CalculatorView(c, docs) : null; }
     if (kind === 'story') { const s = docs.dashboards.stories[ref]; return s?.visibility === 'public' ? StoryView(s, docs) : null; }
+    if (kind === 'map') return pluginOn(org, 'place') ? PublicMap(docs.place, ref, { link }) : null;
+    if (kind === 'form') { const f = docs.dashboards.forms?.[ref]; return f?.visibility === 'public' && f.siteId === id ? FeedbackCard(f) : null; }
     return null;
   };
 
@@ -166,6 +174,10 @@ function render() {
     title = pg?.title ?? 'Not found';
     body = pg ? Article(pg, embed) : h('p', { class: 'empty' }, 'That page is not here.');
     editable = pg && canLiveEdit() ? pg : null;
+  } else if (p.place) {
+    const pl = pluginOn(org, 'place') ? docs.place?.places[p.place] : null;
+    title = pl?.name ?? 'Not found';
+    body = pl ? CommunityPage(site, pl) : h('p', { class: 'empty' }, 'That community is not here.');
   } else if (p.story) {
     const s = docs.dashboards.stories[p.story];
     const ok = s?.visibility === 'public' && s.siteId === id;
@@ -473,6 +485,43 @@ function BoardPage(site, p, current, title) {
     h('section', { class: 'site-hero portal slim' }, h('p', { class: 'crumbs' }, h('a', { href: link({}) }, 'Home')), h('h1', {}, kind.label), h('p', {}, kind.blurb)),
     list.length > 4 && h('label', { class: 'portal-search' }, icon('search', 16), h('input', { type: 'search', placeholder: kind.id === 'minutes' ? 'Search the minutes (a decision, a name, a year)' : `Search ${kind.label.toLowerCase()}`, oninput: (e) => draw(e.target.value) })),
     results) };
+}
+
+/* ---------------------------------------------------------------- Community pages (shared Place map) */
+const wheelHex = (id) => WHEEL.find((w) => w.id === id)?.hex ?? '#56657f';
+/**
+ * One member community, made from the public map: the networks it's in (and
+ * who, and where that comes from), its peers nearest first, a small map, and
+ * any forms placed on community pages ("Is this right?").
+ */
+function CommunityPage(site, pl) {
+  const pub = docs.place;
+  const mine = placeMemberships(pub, pl.id);
+  const layerIds = new Set(mine.map((x) => x.layer.id));
+  const region = pub.places[pl.within];
+  const peers = Object.values(pub.places)
+    .filter((q) => q.id !== pl.id && placeMemberships(pub, q.id).some((x) => layerIds.has(x.layer.id)))
+    .map((q) => ({ q, km: kmBetween(pl.geo, q.geo) })).sort((a, b) => a.km - b.km).slice(0, 6);
+  const withMap = Object.values(docs.pages.pages).filter((pg) => pg.siteId === site.id && /\[\[map:place\]\]/.test(pg.body ?? '') && pg.status === 'published');
+  // The map page, not the home page that also shows it.
+  const home = withMap.find((pg) => pg.slug !== site.home?.slug) ?? null;
+  return h('article', { class: 'site-article page community-page' },
+    h('header', {},
+      h('p', { class: 'crumbs' }, h('a', { href: link({}) }, 'Home'), home && [' · ', h('a', { href: link({ page: home.slug }) }, home.title)]),
+      h('p', { class: 'site-eyebrow' }, kindLabel(pl.kind), region ? ` · ${region.name}` : ''),
+      h('h1', {}, pl.name)),
+    h('section', { class: 'community-nets' },
+      h('h2', {}, mine.length === 1 ? 'Its network' : 'Its networks'),
+      mine.length ? h('ul', {}, mine.map(({ layer, props }) => h('li', { style: `--c:${wheelHex(layer.colour)}` },
+        h('strong', {}, layer.name),
+        props.organisations && h('span', {}, props.organisations),
+        h('small', { class: 'muted' }, props.basis ?? '', props.source && [' · ', h('a', { href: props.source, target: '_blank', rel: 'noopener' }, 'source ↗')])))) : h('p', { class: 'muted' }, 'Not in a network on the public map yet.')),
+    PublicMap({ ...pub, view: { ...(pub.view ?? {}), lat: pl.geo.lat, lng: pl.geo.lng, zoom: Math.max(pub.view?.regionZoom ?? 5, 5) } }, 'place', { link, focus: pl.id }),
+    peers.length > 0 && h('section', { class: 'community-peers' },
+      h('h2', {}, 'Peers nearest by'),
+      h('p', { class: 'muted' }, 'Communities in the same networks, nearest first: people to call.'),
+      h('ul', {}, peers.map(({ q, km }) => h('li', {}, h('a', { href: link({ place: q.id }) }, q.name), h('small', { class: 'muted' }, ` ${km < 10 ? 'close by' : `${Math.round(km).toLocaleString('en-CA')} km`}`))))),
+    Forms(site.id, 'community'));
 }
 
 /* ---------------------------------------------------------------- Feedback forms */

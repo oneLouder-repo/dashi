@@ -1,7 +1,7 @@
 import { h } from './dom.js';
 import { icon } from './icons.js';
 import { enabledPlugins } from '../plugins.js';
-import { buildIndex, search, groupById, GROUPS } from '../platform/search.js';
+import { buildIndex, buildHelpIndex, search, groupById, GROUPS } from '../platform/search.js';
 
 /**
  * The header's search: type a few words and results from every plugin drop
@@ -10,6 +10,8 @@ import { buildIndex, search, groupById, GROUPS } from '../platform/search.js';
  * jumps to it from anywhere. "See all results" opens search.html.
  *
  * The index is built from the org's documents the first time the box is used.
+ * Help pages are searched too, from a separate index (helpIndex) that never
+ * touches the org's documents; their results always come last.
  */
 let index = null;
 export async function orgIndex(org) {
@@ -32,6 +34,21 @@ export async function orgIndex(org) {
   index = buildIndex(docs, { plugins });
   return index;
 }
+let helpIdx = null;
+/** The help library's own index, apart from the org's (see buildHelpIndex). */
+export async function helpIndex() {
+  if (helpIdx) return helpIdx;
+  try {
+    const { loadHelp } = await import('../platform/help.js');
+    helpIdx = buildHelpIndex((await loadHelp()).doc);
+  } catch { helpIdx = []; }
+  return helpIdx;
+}
+/** Org results and help results for one query, kept as two lists. */
+export async function searchAll(org, q, { limit = 400 } = {}) {
+  const [idx, hidx] = await Promise.all([orgIndex(org), helpIndex()]);
+  return { results: search(idx, q, { limit }), help: search(hidx, q, { limit }) };
+}
 // Something changed somewhere: build the index again next time.
 if (typeof window !== 'undefined') window.addEventListener('toolbox:saved', () => { index = null; });
 
@@ -49,22 +66,24 @@ export function SearchBox(org) {
   async function run() {
     const q = input.value.trim();
     if (q.length < 2) { open(false); return; }
-    const idx = await orgIndex(org);
-    const results = search(idx, q, { limit: 400 });
+    const { results, help } = await searchAll(org, q);
     rows = [];
     at = -1;
-    if (!results.length) {
-      panel.replaceChildren(h('p', { class: 'gs-empty' }, `Nothing found for “${q}”.`), h('p', { class: 'gs-help' }, 'Try fewer words, ', h('code', {}, 'tag:'), ' for a tag, or ', h('code', {}, 'in:maps'), ' (or people, strategy, library, assets) for one place.'));
+    if (!results.length && !help.length) {
+      panel.replaceChildren(h('p', { class: 'gs-empty' }, `Nothing found for “${q}”.`), h('p', { class: 'gs-help' }, 'Try fewer words, ', h('code', {}, 'tag:'), ' for a tag, or ', h('code', {}, 'in:maps'), ' (or people, strategy, library, assets, help) for one place.'));
       open(true);
       return;
     }
     const by = new Map();
     for (const r of results) by.set(r.entry.group, [...(by.get(r.entry.group) ?? []), r]);
-    const groups = GROUPS.filter((g) => by.has(g.id)).sort((a, b) => by.get(b.id)[0].score - by.get(a.id)[0].score);
+    const groups = GROUPS.filter((g) => !g.separate && by.has(g.id)).sort((a, b) => by.get(b.id)[0].score - by.get(a.id)[0].score);
+    // Help always comes last, in a group of its own.
+    if (help.length) { by.set('help', help); groups.push(groupById.help); }
+    const total = results.length + help.length;
     panel.replaceChildren(
-      ...groups.map((g) => h('section', { class: 'gs-group' },
+      ...groups.map((g) => h('section', { class: `gs-group${g.separate ? ' gs-help-group' : ''}` },
         h('h4', {}, icon(g.icon, 14), g.label, h('span', {}, String(by.get(g.id).length))),
-        by.get(g.id).slice(0, 4).map((r) => {
+        by.get(g.id).slice(0, g.separate ? 3 : 4).map((r) => {
           const a = h('a', { class: 'gs-row', href: r.entry.href, role: 'option', tabindex: -1 },
             h('span', { class: 'gs-ico' }, icon(r.entry.icon, 15)),
             h('span', { class: 'gs-text' },
@@ -74,7 +93,7 @@ export function SearchBox(org) {
           rows.push(a);
           return a;
         }))),
-      h('a', { class: 'gs-all', href: `search.html?q=${encodeURIComponent(q)}` }, `See all ${results.length} result${results.length === 1 ? '' : 's'} →`));
+      h('a', { class: 'gs-all', href: `search.html?q=${encodeURIComponent(q)}` }, `See all ${total} result${total === 1 ? '' : 's'} →`));
     rows.push(panel.querySelector('.gs-all'));
     open(true);
   }
@@ -86,7 +105,7 @@ export function SearchBox(org) {
     rows[at].scrollIntoView({ block: 'nearest' });
   };
   input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(run, 120); });
-  input.addEventListener('focus', () => { if (input.value.trim().length >= 2) run(); else orgIndex(org); });
+  input.addEventListener('focus', () => { if (input.value.trim().length >= 2) run(); else { orgIndex(org); helpIndex(); } });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }

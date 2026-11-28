@@ -66,11 +66,14 @@ export function swSections({ page, tab = null, planId = null, strategy, studio =
   }, plans.map((p) => h('option', { value: p.id, selected: p.id === pid }, p.title)), onNewPlan && h('option', { value: '+' }, '+ New plan…'));
   const studioItems = [
     { label: 'Framework and plans', sub: 'Every plan, where it stands', icon: 'strategy', href: toStudio('#framework'), on: studioTab === 'framework' },
-    ...STUDIO_TOOLS.map((t) => ({
+    // No plan yet: the tools have nothing to open, so each one starts a plan (it used to be a dead link).
+    ...STUDIO_TOOLS.map((t) => (!pid ? {
+      label: t.label, sub: 'Start a plan first', icon: t.icon, className: 'side-tool',
+      ...(onNewPlan ? { onclick: onNewPlan, title: `${t.label}: start a plan to use it` } : { href: toStudio('#framework') }),
+    } : {
       label: t.label, sub: t.sub, icon: t.icon, href: tabHref(t.id),
       on: !!pid && pid === planId && (studioTab === t.id || (t.id === 'soar' && ['s', 'o', 'a'].includes(studioTab))),
       badge: studio && pid && t.count ? String(ofPlan(studio, t.count, pid).length || '') || null : null,
-      disabled: !pid && t.id !== 'home',
       className: 'side-tool',
     })),
   ];

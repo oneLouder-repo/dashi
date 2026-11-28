@@ -8,17 +8,26 @@
  * coloured patch cables. The engines (the AI visualiser, Claude, the open
  * slot) are modern glass, on purpose: the future, plugged into the past.
  *
+ * Rack 2.0 (d, 2026-11-27) draws the same patch another way: one
+ * full-width rack in rows, like Reason, in the late-90s sampler look (warm
+ * white panels, big knurled dials, backlit dot-matrix screens, rubber pads),
+ * with the modules, the neuro-symbolic tools and an inspector in draggable
+ * tool panels. Classic / 2.0 on the strip switches, per person; the patch,
+ * the engine and every module are the same in both.
+ *
  * Rack(env) draws it; env = { doc, save, render, ctx, canSet, toast, linkFact }.
  */
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
-import { MODULES, CATEGORIES, FIELDS, HP, LIST_SOURCE, TYPE_SOURCE, order, isNumeric, blankPatch, addModule, removeModule, moveModule, swapRack, placeModule, inRack, rowsOf, connect, disconnect, runPatch, ruleToPatch, patchToRule, starterPatch, describeModule } from './rack.js';
+import { MODULES, CATEGORIES, FIELDS, HP, LIST_SOURCE, TYPE_SOURCE, order, isNumeric, blankPatch, addModule, removeModule, moveModule, swapRack, placeModule, inRack, rowsOf, connect, disconnect, runPatch, ruleToPatch, patchToRule, starterPatch, describeModule, unfoldTranslator, museVariants } from './rack.js';
+import { MOCK_MODEL, usageOf } from './neuro.js';
 import { RULES, ruleById, OPS } from './rules.js';
 import { TIPS, tipById } from './tips.js';
 import { ENTITY_TYPES, typeLabel } from './facts.js';
 import { themeById } from './setup.js';
 import { graphOf, plotLayout, spectrumOf, vennCounts } from './rackGraph.js';
 import { VisualiserPanel } from './VisualiserView.js';
+import { Readout, readoutLines } from './Readout.js';
 import { RippleMark } from '../ui/Wordmark.js';
 import { Drawer } from '../ui/drawer.js';
 import { PLUGINS } from '../plugins.js';
@@ -31,13 +40,36 @@ const svg = (tag, attrs = {}, parent = null) => {
   return el;
 };
 const n = (count, word, plural = `${word}s`) => `${count.toLocaleString()} ${count === 1 ? word : plural}`;
-const CAT_TONE = { Routing: '#56657f', Sources: '#3e8fa6', Shapers: '#ee7d2b', Logic: '#8a4fd8', 'Sets & graphs': '#2e9d8f', Voice: '#d23c2c', Displays: '#22252b', Engines: '#2f6fd6' };
+const CAT_TONE = { Routing: '#56657f', Sources: '#3e8fa6', Shapers: '#ee7d2b', Logic: '#8a4fd8', 'Sets & graphs': '#2e9d8f', Voice: '#d23c2c', Displays: '#22252b', Engines: '#2f6fd6', 'Neuro-symbolic': '#6c4ee6' };
 const PCTS = ['p25', 'p50', 'p75', 'p90'];
 const PCT_LABEL = { p25: '25%', p50: 'median', p75: '75%', p90: '90%' };
 
 let dragFrom = null; // { m, port, dir, x, y } while a cable is being patched
 let flipped = false; // looking at the back of the rack
 const visState = {}; // where each visualiser is up to (lane, playing, speed), kept across re-renders
+let selected = null; // the module the Rack 2.0 inspector shows
+const tutorState = {}; // which question each Tutor is on, and whether its answer shows
+let trayTab = 'modules'; // the Rack 2.0 tool tray's open tab
+const TRAY_KEY = 'dashi.rhizome.rack2-tray';
+
+/** Classic ('1') or Rack 2.0 ('2'), remembered per person in this browser. */
+const VKEY = 'dashi.rhizome.rack-view';
+export const rackVersion = () => { try { return localStorage.getItem(VKEY) === '2' ? '2' : '1'; } catch { return '1'; } };
+const setRackVersion = (v) => { try { localStorage.setItem(VKEY, v); } catch { /* private window: just for now */ } };
+/**
+ * Rack 2.0 mixes makers, like a real studio rack (d, 2026-11-27): each kind
+ * of module takes a family look, all wearing the Dashi badge. The looks are
+ * inspired by late-90s gear, not copies of it, and name no maker.
+ *   sampler  warm white, red labels, green-yellow LCD (the big samplers)
+ *   module   slate blue, yellow labels, amber LCD (rack sound modules)
+ *   groove   charcoal, orange labels, red LED readouts (grooveboxes)
+ *   station  graphite, teal labels, blue-green LCD (workstations)
+ *   pads     pale grey, blue LCD and rubber pads (the drum machines), for the neuro-symbolic tools
+ */
+const FAMILY = { Routing: 'groove', Sources: 'sampler', Shapers: 'module', Logic: 'module', 'Sets & graphs': 'station', Voice: 'sampler', Displays: 'groove', Engines: 'station', 'Neuro-symbolic': 'pads' };
+const FAMILY_OF = { scope: 'module', printer: 'sampler', meter: 'sampler', venn: 'station', spectrum: 'groove', plotter: 'sampler' };
+/** A Rack 2.0 row is the whole width, so it holds twice a classic row. */
+const HP2 = HP * 2;
 
 export function Rack(env, patchId) {
   const { doc, canSet } = env;
@@ -52,6 +84,7 @@ export function Rack(env, patchId) {
     if (canSet) { doc.patches[patch.id] = patch; env.save(note); }
     env.render();
   };
+  const v2 = rackVersion() === '2';
   const { signals, inputs, traces } = runPatch(patch, env.ctx());
   const facts = env.ctx().facts;
   const measures = env.ctx().measures;
@@ -68,6 +101,9 @@ export function Rack(env, patchId) {
       h('input', { type: 'checkbox', class: 'toggle toggle-xs', checked: patch.visibility !== 'private', onchange: (e) => { patch.visibility = e.target.checked ? 'public' : 'private'; commit(e.target.checked ? 'Public' : 'Private'); } }),
       patch.visibility === 'private' ? 'Private' : 'Public'),
     h('span', { class: 'rk-grow' }),
+    h('div', { class: 'rk-vtoggle', role: 'radiogroup', 'aria-label': 'Which rack' },
+      [['1', 'Classic'], ['2', 'Rack 2.0']].map(([v, label]) => h('button', { type: 'button', role: 'radio', 'aria-checked': String(rackVersion() === v), class: rackVersion() === v ? 'on' : '',
+        title: v === '2' ? 'One wide rack, tool panels, and the neuro-symbolic tools close at hand' : 'The twin 1950s racks', onclick: () => { if (rackVersion() !== v) { setRackVersion(v); env.render(); } } }, label))),
     h('button', { class: `btn btn-sm ${flipped ? 'btn-primary' : 'btn-ghost'}`, 'aria-pressed': String(flipped), title: 'Turn the rack round to see the power bus and the wiring', onclick: () => { flipped = !flipped; env.render(); } }, icon('swap', 14), flipped ? 'Front' : 'Flip'),
     canSet && h('select', { class: 'select select-bordered select-sm', title: 'Open one of the built-in rules as a patch', onchange: (e) => {
       if (!e.target.value) return;
@@ -91,6 +127,13 @@ export function Rack(env, patchId) {
     } }, icon('trash', 14)));
 
   /* ------------------------------------------------------ the module drawer */
+  const addButtons = (cats) => cats.map((cat) => h('div', { class: 'rk-cat' },
+      h('small', { style: `--c:${CAT_TONE[cat]}` }, cat),
+      Object.entries(MODULES).filter(([, d]) => d.cat === cat).map(([type, d]) => h('button', {
+        class: `rk-add ${d.look}${d.neuro ? ' neuro' : ''}`, title: d.blurb, disabled: !canSet || (type === 'patchbay' && patch.modules.some((m) => m.type === 'patchbay')),
+        onclick: () => { const made = addModule(patch, type); selected = made?.id ?? selected; commit(`${d.label} added`); },
+        draggable: v2 && canSet ? 'true' : null, ondragstart: v2 ? (e) => { e.dataTransfer.setData('text/x-rk-module', type); e.dataTransfer.effectAllowed = 'copy'; } : null,
+      }, h('b', {}, d.label), h('span', {}, d.neuro ? 'mock' : d.stage ? `Stage ${d.stage}` : d.stage === null ? 'Open' : `${d.hp} HP`)))));
   const drawer = h('aside', { class: 'rk-drawer' },
     h('h4', {}, 'Modules'),
     CATEGORIES.map((cat) => h('div', { class: 'rk-cat' },
@@ -104,21 +147,22 @@ export function Rack(env, patchId) {
   /* ------------------------------------------------------ the twin racks */
   const stage = h('div', { class: 'rk-stage' });
   const cables = svg('svg', { class: 'rk-cables', 'aria-hidden': 'true' });
-  const racks = h('div', { class: 'rk-twins' },
-    Case('a', 'Rack A · controls'), Case('b', 'Rack B · screens and engines'));
+  const racks = h('div', { class: `rk-twins${v2 ? ' rk-one' : ''}` },
+    Case('a', v2 ? 'Controls' : 'Rack A · controls'), Case('b', v2 ? 'Screens · engines · neuro-symbolic' : 'Rack B · screens and engines'));
   stage.append(racks, cables);
 
   function Case(rack, title) {
     const mods = inRack(patch, rack);
-    const rows = rowsOf(mods);
+    const width = v2 ? HP2 : HP;
+    const rows = rowsOf(mods, width);
     return h('section', { class: `rk-case rk-${rack}` },
       h('div', { class: 'rk-cheek' }),
       h('div', { class: 'rk-body' },
-        h('div', { class: 'rk-plate' }, h('span', {}, title), h('em', {}, rack === 'a' ? 'RHIZOME' : 'MODEL 3')),
+        h('div', { class: 'rk-plate' }, h('span', {}, title), h('em', {}, v2 ? (rack === 'a' ? 'RHIZOME · RULES' : 'RHIZOME · NEURO') : rack === 'a' ? 'RHIZOME' : 'MODEL 3')),
         rows.length ? rows.map((row) => h('div', { class: 'rk-row' },
           h('div', { class: 'rk-rail' }),
-          h('div', { class: 'rk-mods' }, row.map((m) => Module(m)), Blank(HP - row.reduce((s, m) => s + (MODULES[m.type]?.hp ?? 10), 0))),
-          h('div', { class: 'rk-rail' }))) : h('div', { class: 'rk-row' }, h('div', { class: 'rk-rail' }), h('div', { class: 'rk-mods' }, Blank(HP, rack === 'a' ? 'Add modules from the left' : 'Screens and engines land here')), h('div', { class: 'rk-rail' }))),
+          h('div', { class: 'rk-mods' }, row.map((m) => Module(m)), Blank(width - row.reduce((s, m) => s + (MODULES[m.type]?.hp ?? 10), 0))),
+          h('div', { class: 'rk-rail' }))) : h('div', { class: 'rk-row' }, h('div', { class: 'rk-rail' }), h('div', { class: 'rk-mods' }, Blank(width, rack === 'a' ? (v2 ? 'Add modules from the Modules panel' : 'Add modules from the left') : (v2 ? 'Screens, engines and neuro-symbolic tools land here' : 'Screens and engines land here'))), h('div', { class: 'rk-rail' }))),
       h('div', { class: 'rk-cheek' }));
   }
   function Blank(hp, words = '') { return hp > 0 ? h('div', { class: 'rk-blank', style: `flex:${hp} 1 0` }, words && h('span', {}, words)) : null; }
@@ -130,16 +174,16 @@ export function Rack(env, patchId) {
     const outs = signals[m.id] ?? {};
     const p = m.params ?? {};
     const set = (patchParams, note = null) => { Object.assign(m.params, patchParams); commit(note); };
-    const face = m.type === 'visualiser' ? VisFace(m, p, set) : def.look === 'digital' ? Digital(m, def, ins) : Face(m, def, ins, outs, p, set);
+    const face = m.type === 'visualiser' ? VisFace(m, p, set) : def.neuro ? NeuroFace(m, def, ins, outs, p, set) : def.look === 'digital' ? Digital(m, def, ins) : Face(m, def, ins, outs, p, set);
     const movable = canSet && m.type !== 'patchbay';
-    return h('div', { class: `rk-mod ${def.look} t-${m.type}`, style: `flex:${def.hp} 1 0;--c:${CAT_TONE[def.cat]}`, 'data-mod': m.id },
-      h('header', {},
+    return h('div', { class: `rk-mod ${def.look}${def.neuro ? ' neuro' : ''} t-${m.type}${v2 ? ` fam-${FAMILY_OF[m.type] ?? FAMILY[def.cat] ?? 'sampler'}` : ''}${v2 && selected === m.id ? ' sel' : ''}`, style: `flex:${def.hp} 1 0;--c:${CAT_TONE[def.cat]}`, 'data-mod': m.id },
+      h('header', { onclick: v2 ? (e) => { if (e.target.closest('button')) return; selected = selected === m.id ? null : m.id; if (selected) trayTab = 'inspect'; env.render(); } : null, title: v2 ? 'Click to inspect' : null },
         movable ? Grip(m, def) : h('i', { class: 'rk-screw' }),
         h('span', { class: 'rk-title', title: def.label }, h('span', { class: 'rk-title-long' }, def.label), def.short ? h('span', { class: 'rk-title-short' }, def.short) : null),
         movable ? h('button', { type: 'button', class: 'rk-x', title: `Take the ${def.label} out of the rack`, 'aria-label': `Take the ${def.label} out of the rack`, onclick: () => { removeModule(patch, m.id); commit(`${def.label} taken out`); } }, '×') : h('i', { class: 'rk-screw' })),
       m.type === 'visualiser' ? h('span', { class: 'rk-brand-future', 'aria-hidden': 'true' }, h('b', {}, 'DASHI'), h('i', {}), h('small', {}, 'VIS·01')) : null,
       face,
-      def.brand ? h('span', { class: 'rk-logo', title: 'Dashi' }, RippleMark(15, 'rk-logo-mark')) : null,
+      def.brand || (v2 && m.type !== 'visualiser') ? h('span', { class: 'rk-logo', title: 'Dashi' }, RippleMark(15, 'rk-logo-mark')) : null,
       Jacks(m, def, ins, outs));
   }
 
@@ -209,6 +253,12 @@ export function Rack(env, patchId) {
     window.addEventListener('pointercancel', up);
   }
 
+  /** Everything on a cable, in full, in a tray. */
+  function openReadout(signal, title) {
+    const n = signal?.kind === 'findings' ? signal.findings.length : signal?.rows?.length ?? 0;
+    Drawer({ title, sub: `${n} ${signal?.kind === 'findings' ? (n === 1 ? 'finding' : 'findings') : (n === 1 ? 'row' : 'rows')}, in full`, wide: true, body: Readout(signal, { typeLabel, toast: env.toast }) });
+  }
+
   /* ------------------------------------------------------ the AI visualiser */
   function VisFace(m, p, set) {
     const trace = traces[m.id];
@@ -216,8 +266,11 @@ export function Rack(env, patchId) {
     if (!trace) return h('div', { class: 'rk-face' });
     const panel = (big, st) => VisualiserPanel({
       trace, state: st, big, canSet, graph: graphOf(facts),
-      onAsk: (q) => { set({ q }, 'Asked the visualiser'); },
+      onAsk: (q) => { set({ q, mode: 'ask' }, 'Asked the visualiser'); },
       onWeights: (weights) => set({ weights }),
+      mode: p.mode ?? 'ask', pick: Number(p.pick) || 0,
+      onMode: (mode) => set({ mode, pick: 0 }, mode === 'statements' ? 'The visualiser reads the rack’s statements' : 'The visualiser takes questions'),
+      onPick: (pick) => set({ pick }),
       onExpand: big ? null : () => openTray(),
     });
     const openTray = () => {
@@ -297,7 +350,23 @@ export function Rack(env, patchId) {
           h('div', { class: 'rk-crt-head' }, h('span', {}, !s ? 'NO SIGNAL' : s.kind === 'findings' ? 'FINDINGS' : 'ROWS'), h('span', {}, String(total).padStart(3, '0'))),
           !s ? h('p', { class: 'rk-nosig' }, 'Patch a cable into IN') : lines.length ? h('ol', {}, lines.map(([sc, t]) => h('li', {}, sc ? h('b', {}, sc) : null, t))) : h('p', { class: 'rk-nosig' }, 'Nothing flowing'),
           total > lines.length ? h('small', {}, `+${total - lines.length} more`) : null),
-        Toggle(['green', 'amber'], p.phosphor === 'amber' ? 'amber' : 'green', (v) => set({ phosphor: v })));
+        h('div', { class: 'rk-switchrow' },
+          Toggle(['green', 'amber'], p.phosphor === 'amber' ? 'amber' : 'green', (v) => set({ phosphor: v })),
+          h('button', { type: 'button', class: 'rk-read', disabled: !total, title: 'Read every line in full, with why each one got through', onclick: () => openReadout(s, 'Scope readout') }, 'Read')));
+    }
+    if (m.type === 'printer') {
+      const s = ins.in;
+      const lines = readoutLines(s, { typeLabel });
+      return h('div', { class: 'rk-face' },
+        h('div', { class: 'rk-paper', tabindex: '0', 'aria-label': 'The paper roll' },
+          !s ? h('p', { class: 'rk-paper-idle' }, '— patch a cable into IN —') : !lines.length ? h('p', { class: 'rk-paper-idle' }, '— nothing to print —')
+            : lines.slice(0, 40).map((l, i) => h('div', { class: 'rk-paper-line' },
+              h('p', {}, h('b', {}, `${String(i + 1).padStart(2, '0')}${l.score != null ? ` · ${l.score.toFixed(2)}` : ''}`), ' ', l.text),
+              l.trail.length > 0 && h('small', {}, l.trail.map((t) => `${t.kind === 'weigh' ? '⚖' : t.kind === 'cite' ? (t.ok ? '↳' : '?') : t.kind === 'meaning' ? '≈' : t.ok ? '✓' : '✗'} ${t.text}`).join('  ')))),
+          lines.length > 40 && h('p', { class: 'rk-paper-idle' }, `— ${lines.length - 40} more: tear it off to read them all —`)),
+        h('div', { class: 'rk-switchrow' },
+          Led('lines', lines.length, 'amber'),
+          h('button', { type: 'button', class: 'rk-read', disabled: !lines.length, title: 'Tear it off: read it all in a tray, find in it, copy it', onclick: () => openReadout(s, 'Teleprinter') }, 'Tear off')));
     }
     if (m.type === 'meter') {
       const s = ins.in;
@@ -447,6 +516,123 @@ export function Rack(env, patchId) {
     });
     return h('div', { class: 'rk-plot-wrap' }, box,
       h('small', {}, `${n(lay.nodes.length, 'point')} · ${n(lay.edges.length, 'tie')}${lay.more > 0 ? ` · +${lay.more} off the paper` : ''}`));
+  }
+
+  /* ------------------------------------------------------ neuro-symbolic faces (mocked Claude tools) */
+  function Usage(u) { return u ? h('small', { class: 'rk-usage', title: 'An estimate only: four characters a token, at placeholder prices. No call is made.' }, `≈ ${u.inTok} in · ${u.outTok} out · $${u.cost.toFixed(4)} · mock`) : null; }
+  function openPrompt(m, def) {
+    const tr = traces[m.id] ?? {};
+    const u = tr.usage ?? (tr.prompt ? usageOf(tr.prompt, tr.reply ?? '') : null);
+    Drawer({ title: `${def.label}: the prompt`, sub: `What it would send to ${MOCK_MODEL.replace(' (mocked)', '')}. This is a mock: nothing is sent.`, wide: true,
+      body: h('div', { class: 'rk-prompt' },
+        h('h4', {}, 'Prompt'), h('pre', {}, tr.prompt ?? '—'),
+        tr.reply ? [h('h4', {}, 'Reply (mocked)'), h('pre', {}, tr.reply)] : null,
+        u ? h('p', { class: 'rz-note' }, `About ${u.inTok} tokens in and ${u.outTok} out, roughly $${u.cost.toFixed(4)} at placeholder prices. When Claude arrives (the AI plugin, alpha 0.7) your organisation’s own key and cost caps will apply.`) : null) });
+  }
+  function NeuroFace(m, def, ins, outs, p, set) {
+    const tr = traces[m.id] ?? {};
+    const Pad = (label, onclick, opts = {}) => h('button', { type: 'button', class: `rk-pad${opts.alt ? ' alt' : ''}`, disabled: opts.disabled ?? false, title: opts.title ?? label, onclick }, label);
+    const promptPad = () => Pad('PROMPT', () => openPrompt(m, def), { alt: true, title: 'Show the prompt it would send' });
+    const count = (sig) => (!sig ? 0 : sig.kind === 'findings' ? sig.findings.length : sig.rows.length);
+    if (m.type === 'translator') {
+      return h('div', { class: 'rk-face rk-neuro' },
+        h('textarea', { class: 'rk-lcd-in', rows: 2, disabled: !canSet, 'aria-label': 'Your question', onchange: (e) => set({ q: e.target.value.trim() }, 'The Translator has a new question') }, p.q ?? ''),
+        h('div', { class: 'rk-lcd' },
+          h('div', { class: 'rk-lcd-head' }, h('span', {}, 'PATCH'), h('span', {}, `CONF ${Math.round((tr.confidence ?? 0) * 100)}%`)),
+          h('ol', {}, (tr.steps ?? []).map((st) => h('li', {}, st))),
+          tr.unknown?.length ? h('small', {}, `no word for: ${tr.unknown.slice(0, 4).join(', ')}`) : null,
+          tr.clarify ? h('small', { class: 'rk-ask-back' }, `? ${tr.clarify}`) : null),
+        h('div', { class: 'rk-switchrow' },
+          Pad('UNFOLD', () => { unfoldTranslator(patch, m.id, env.ctx()); commit('Unfolded into the rack: read it, turn a knob, run it'); }, { disabled: !canSet, title: 'Put the proposed modules in the rack, cabled up' }),
+          promptPad(), Led('out', count(outs.out), 'green')),
+        Usage(tr.usage));
+    }
+    if (m.type === 'concept') {
+      return h('div', { class: 'rk-face rk-neuro' },
+        h('input', { class: 'rk-lcd-in', value: p.seed ?? '', disabled: !canSet, 'aria-label': 'The concept', placeholder: 'a concept', onchange: (e) => set({ seed: e.target.value.trim() }) }),
+        h('div', { class: 'rk-lcd' },
+          h('div', { class: 'rk-lcd-head' }, h('span', {}, 'MEANING'), h('span', {}, `CUT ${Number(p.cut ?? 0.3).toFixed(2)}`)),
+          (tr.ranked ?? []).slice(0, 5).map((x) => h('div', { class: 'rk-lcd-bar' }, h('span', {}, x.name), h('i', { style: `width:${Math.round(x.sim * 100)}%` }))),
+          !ins.in ? h('p', { class: 'rk-nosig' }, 'PATCH IN') : null),
+        h('div', { class: 'rk-switchrow' },
+          Knob({ label: 'cut', min: 0, max: 1, step: 0.05, value: Number(p.cut ?? 0.3), onChange: (v) => set({ cut: v }), small: true }),
+          h('div', { class: 'rk-leds col' }, Led('near', count(outs.near), 'green'), Led('far', count(outs.far), 'amber'))));
+    }
+    if (m.type === 'narrator') {
+      return h('div', { class: 'rk-face rk-neuro' },
+        h('div', { class: 'rk-lcd tall' },
+          h('div', { class: 'rk-lcd-head' }, h('span', {}, 'SUMMARY'), h('span', {}, String(p.audience ?? 'board').toUpperCase())),
+          (tr.sentences ?? []).length ? h('p', {}, tr.sentences.map((st) => [st.text, ' ', h('sup', {}, st.cites.length ? `[${st.cites.slice(0, 3).map((c) => c + 1).join(',')}${st.cites.length > 3 ? '…' : ''}]` : '[?]'), ' '])) : h('p', { class: 'rk-nosig' }, 'PATCH FINDINGS IN')),
+        h('div', { class: 'rk-switchrow' },
+          Toggle(['board', 'team', 'public'], p.audience ?? 'board', (v) => set({ audience: v })),
+          Knob({ label: 'imagination', min: 0, max: 1, step: 0.05, value: Number(p.imagination ?? 0.2), onChange: (v) => set({ imagination: v }), small: true }),
+          promptPad()),
+        Usage(tr.usage));
+    }
+    if (m.type === 'verifier') {
+      const flagged = outs.flag?.findings ?? [];
+      return h('div', { class: 'rk-face rk-neuro' },
+        h('div', { class: 'rk-lcd' },
+          h('div', { class: 'rk-lcd-head' }, h('span', {}, 'GROUNDING'), h('span', {}, `${tr.checked ?? 0} CHK`)),
+          !ins.in ? h('p', { class: 'rk-nosig' }, 'PATCH WORDS IN') : flagged.length
+            ? h('ol', {}, flagged.slice(0, 3).map((f) => h('li', {}, (f.trail ?? []).filter((t) => t.ok === false).map((t) => t.text)[0] ?? 'Flagged')))
+            : h('p', {}, 'ALL GROUNDED ✓')),
+        h('div', { class: 'rk-leds' }, Led('ok', count(outs.ok), 'green'), Led('flag', count(outs.flag), 'red')));
+    }
+    if (m.type === 'critic') {
+      const notes = tr.notes ?? [];
+      return h('div', { class: 'rk-face rk-neuro' },
+        h('div', { class: 'rk-lcd tall' },
+          h('div', { class: 'rk-lcd-head' }, h('span', {}, 'REVIEW'), h('span', {}, `${notes.length} NOTE${notes.length === 1 ? '' : 'S'}`)),
+          notes.length ? h('ol', {}, notes.slice(0, 4).map((x) => h('li', {}, x.text))) : h('p', {}, 'NOTHING TO ADD ✓')),
+        h('div', { class: 'rk-switchrow' }, Pad('READ', () => openReadout(outs.out, 'Critic'), { disabled: !notes.length }), Led('notes', notes.length, 'amber')));
+    }
+    if (m.type === 'tutor') {
+      const qs = tr.questions ?? [];
+      const st = (tutorState[m.id] ??= { at: 0, show: false });
+      const q = qs[Math.min(st.at, Math.max(0, qs.length - 1))];
+      const redraw = () => env.render();
+      return h('div', { class: 'rk-face rk-neuro' },
+        h('div', { class: 'rk-lcd tall' },
+          h('div', { class: 'rk-lcd-head' }, h('span', {}, q ? String(q.kind).toUpperCase() : 'TUTOR'), h('span', {}, `${qs.length ? Math.min(st.at, qs.length - 1) + 1 : 0}/${qs.length}`)),
+          q ? h('p', {}, q.text) : null,
+          q && st.show && q.answer ? h('small', { class: 'rk-answer' }, `→ ${q.answer}`) : null),
+        h('div', { class: 'rk-switchrow' },
+          Pad(st.show ? 'HIDE' : 'REVEAL', () => { st.show = !st.show; redraw(); }, { disabled: !q?.answer }),
+          Pad('NEXT', () => { st.at = (st.at + 1) % Math.max(1, qs.length); st.show = false; redraw(); }, { alt: true, disabled: qs.length < 2 })));
+    }
+    if (m.type === 'muse') {
+      const vs = tr.variants ?? [];
+      return h('div', { class: 'rk-face rk-neuro' },
+        h('div', { class: 'rk-lcd tall' },
+          h('div', { class: 'rk-lcd-head' }, h('span', {}, 'WHAT IF'), h('span', {}, `${vs.length} IDEAS`)),
+          vs.length ? h('ol', { class: 'rk-muse' }, vs.map((v, k) => h('li', {}, h('span', {}, `${v.label}: `, h('b', {}, v.count), ` (now ${v.before})`),
+            canSet ? h('button', { type: 'button', class: 'rk-mini', title: v.why, onclick: () => { const fresh = museVariants({ ...patch, modules: patch.modules.filter((x) => !MODULES[x.type]?.reads) }, env.ctx())[k]; if (fresh) { fresh.apply(patch); commit(`Muse: ${v.label}`); } } }, 'TRY') : null)))
+            : h('p', {}, 'PATCH A FEW MODULES AND I’LL PLAY WHAT-IF')));
+    }
+    if (m.type === 'roundtable') {
+      const said = tr.said ?? [];
+      return h('div', { class: 'rk-face rk-neuro' },
+        h('div', { class: 'rk-lcd tall' },
+          h('div', { class: 'rk-lcd-head' }, h('span', {}, 'ROUND TABLE'), h('span', {}, `${(p.seats ?? []).length} SEATS`)),
+          !ins.in ? h('p', { class: 'rk-nosig' }, 'PATCH FINDINGS IN') : h('ol', {}, said.slice(0, 5).map((x) => h('li', {}, x.text)))),
+        h('div', { class: 'rk-switchrow' }, Pad('READ', () => openReadout(outs.out, 'Round table'), { disabled: !said.length }), promptPad()));
+    }
+    if (m.type === 'guardrail') {
+      const held = outs.hold?.findings ?? [];
+      return h('div', { class: 'rk-face rk-neuro' },
+        h('div', { class: 'rk-lcd tall' },
+          h('div', { class: 'rk-lcd-head' }, h('span', {}, 'GUARDRAIL'), h('span', {}, String(p.audience ?? 'team').toUpperCase())),
+          !ins.in ? h('p', { class: 'rk-nosig' }, 'PATCH WORDS IN') : held.length
+            ? h('ol', {}, held.slice(0, 3).map((f) => h('li', {}, h('span', {}, (f.held ?? [])[0] ?? 'Held'),
+              canSet ? h('button', { type: 'button', class: 'rk-mini', title: 'I’ve looked at it: let it through', onclick: () => set({ approved: [...(p.approved ?? []), f.id] }, 'Approved by a person') }, 'OK') : null)))
+            : h('p', {}, 'NOTHING HELD ✓')),
+        h('div', { class: 'rk-switchrow' },
+          Toggle(['team', 'board', 'public'], p.audience ?? 'team', (v) => set({ audience: v })),
+          h('div', { class: 'rk-leds col' }, Led('pass', count(outs.pass), 'green'), Led('hold', count(outs.hold), 'red'))),
+        (p.approved ?? []).length ? h('small', { class: 'rk-usage' }, `${p.approved.length} approved by a person`) : null);
+    }
+    return h('div', { class: 'rk-face rk-neuro' });
   }
 
   /* ------------------------------------------------------ digital faces (the engines) */
@@ -715,7 +901,113 @@ export function Rack(env, patchId) {
     h('summary', {}, compiled.rule ? 'This patch, as a rule' : 'Why this patch isn’t a rule yet'),
     compiled.rule ? h('pre', { class: 'rz-json' }, JSON.stringify(compiled.rule, null, 2)) : h('p', { class: 'rz-note' }, compiled.problem));
 
-  return h('div', { class: 'rk-wrap' }, strip, h('div', { class: 'rk-work' }, drawer, flipped ? Back() : stage), ruleBox);
+  if (!v2) return h('div', { class: 'rk-wrap' }, strip, h('div', { class: 'rk-work' }, drawer, flipped ? Back() : stage), ruleBox);
+
+  /* ------------------------------------------------------ Rack 2.0: one tool tray over a wide rack */
+  // One floating, draggable tray with tabs (like Teach's tool tray): Modules,
+  // Neuro-symbolic and Inspect. Drag a module from it onto the rack, or click to add.
+  const work = h('div', { class: 'rk-work rk2-work' }, flipped ? Back() : stage);
+  stage.addEventListener('dragover', (e) => { if (e.dataTransfer?.types.includes('text/x-rk-module')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } });
+  stage.addEventListener('drop', (e) => {
+    const type = e.dataTransfer?.getData('text/x-rk-module');
+    if (!type || !MODULES[type] || !canSet) return;
+    e.preventDefault();
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    const ref = target?.closest('[data-mod]');
+    const caseEl = target?.closest('.rk-case');
+    const made = addModule(patch, type);
+    if (!made) return;
+    if (ref) { const r = ref.getBoundingClientRect(); const tm = patch.modules.find((x) => x.id === ref.dataset.mod); placeModule(patch, made.id, tm?.rack ?? made.rack, tm?.id, e.clientX > r.left + r.width / 2); }
+    else if (caseEl) placeModule(patch, made.id, caseEl.classList.contains('rk-b') ? 'b' : 'a');
+    selected = made.id;
+    commit(`${MODULES[type].label} added`);
+  });
+  return h('div', { class: 'rk-wrap rk2' }, strip, work, ruleBox, Tray());
+
+  function Tray() {
+    let pos = { x: null, y: 260, folded: false };
+    try { pos = { ...pos, ...JSON.parse(localStorage.getItem(TRAY_KEY) ?? '{}') }; } catch { /* fine */ }
+    const keep = () => { try { localStorage.setItem(TRAY_KEY, JSON.stringify(pos)); } catch { /* fine */ } };
+    const minTop = () => Math.ceil((document.querySelector('#shell')?.getBoundingClientRect().bottom ?? 60) + 8);
+    const tray = h('aside', { class: `rk2-tray${pos.folded ? ' folded' : ''}`, 'aria-label': 'Rack tools' });
+    const place = () => {
+      pos.y = Math.max(minTop(), Math.min(innerHeight - 50, pos.y));
+      if (pos.x != null) { pos.x = Math.max(0, Math.min(innerWidth - 140, pos.x)); tray.style.left = `${pos.x}px`; tray.style.right = 'auto'; }
+      tray.style.top = `${pos.y}px`;
+    };
+    place();
+    requestAnimationFrame(place);
+    const head = h('header', { class: 'rk2-tray-head' }, icon('dragHandle', 14), h('b', {}, 'Rack tools'),
+      h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', 'aria-label': pos.folded ? 'Open the tray' : 'Fold the tray', onclick: () => { pos.folded = !pos.folded; tray.classList.toggle('folded', pos.folded); keep(); } }, icon(pos.folded ? 'chevronDown' : 'chevronUp', 14)));
+    head.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      const r = tray.getBoundingClientRect();
+      const dx = e.clientX - r.left, dy = e.clientY - r.top;
+      head.setPointerCapture(e.pointerId);
+      const move = (ev) => { pos.x = ev.clientX - dx; pos.y = ev.clientY - dy; place(); };
+      const up = () => { head.removeEventListener('pointermove', move); head.removeEventListener('pointerup', up); keep(); };
+      head.addEventListener('pointermove', move);
+      head.addEventListener('pointerup', up);
+    });
+    const tabs = [['modules', 'Modules'], ['neuro', 'Neuro-symbolic'], ['inspect', 'Inspect']];
+    const tabBar = h('div', { class: 'rk2-tray-tabs', role: 'tablist' }, tabs.map(([id, label]) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(trayTab === id), class: trayTab === id ? 'on' : '',
+      onclick: () => { trayTab = id; tray.replaceWith(Tray()); } }, label, id === 'inspect' && selected ? h('i', { class: 'rk2-dot', 'aria-hidden': 'true' }) : null)));
+    const body = trayTab === 'neuro' ? NeuroPanel() : trayTab === 'inspect' ? Inspector()
+      : h('div', { class: 'rk2-panel' }, h('p', { class: 'rk-hint' }, 'Drag a module onto the rack, or click to add it. Click a module’s name to inspect it.'), h('div', { class: 'rk2-grid' }, addButtons(CATEGORIES.filter((c) => c !== 'Neuro-symbolic'))));
+    tray.append(head, tabBar, body);
+    return tray;
+  }
+
+  /** The neuro-symbolic tools: ask in words, add a tool, or wire the loop. */
+  function NeuroPanel() {
+    const q = h('textarea', { class: 'rk2-ask', rows: 3, placeholder: 'Ask in plain words, e.g. Who is one step away from our hubs?', disabled: !canSet });
+    const firstSay = patch.modules.find((m) => m.type === 'say' && patch.cables.some((c) => c.to.m === m.id));
+    return h('div', { class: 'rk2-panel' },
+      h('p', { class: 'rk2-mock' }, h('b', {}, 'Mocked'), ` · ${MOCK_MODEL}. Each tool shows the prompt it would send. Claude arrives with the AI plugin.`),
+      q,
+      h('button', { type: 'button', class: 'rk-pad wide', disabled: !canSet, onclick: () => {
+        const text = q.value.trim();
+        if (!text) return env.toast('Ask a question first');
+        const t = addModule(patch, 'translator', { q: text });
+        selected = t.id;
+        commit('The Translator proposes a patch');
+      } }, 'Translate to a patch'),
+      h('button', { type: 'button', class: 'rk-pad wide alt', disabled: !canSet || !firstSay, title: firstSay ? 'Narrator and Verifier after your Say: words from the findings, checked against the facts' : 'Patch a Say first', onclick: () => {
+        const nm = addModule(patch, 'narrator'), vf = addModule(patch, 'verifier'), pr = addModule(patch, 'printer');
+        connect(patch, { m: firstSay.id, port: 'out' }, { m: nm.id, port: 'in' });
+        connect(patch, { m: nm.id, port: 'out' }, { m: vf.id, port: 'in' });
+        connect(patch, { m: vf.id, port: 'flag' }, { m: pr.id, port: 'in' });
+        selected = nm.id;
+        commit('Wired the loop: Say → Narrator → Verifier');
+      } }, 'Wire the loop after Say'),
+      addButtons(['Neuro-symbolic']),
+      h('dl', { class: 'rk2-kinds' },
+        h('dt', {}, 'Words → rules'), h('dd', {}, 'Translator, Concept lens'),
+        h('dt', {}, 'Rules → words'), h('dd', {}, 'Narrator'),
+        h('dt', {}, 'Checks'), h('dd', {}, 'Verifier, Critic, Guardrail'),
+        h('dt', {}, 'Learn and make'), h('dd', {}, 'Tutor, Muse, Round table')),
+      h('p', { class: 'rk-hint' }, 'Neural tools read and write words; the rack’s rules count and check. Every tool keeps a person in the loop: nothing it says goes anywhere until you patch it on.'));
+  }
+
+  /** The selected module: what it is, its settings, what flows through it, and for a tool, its prompt. */
+  function Inspector() {
+    const m = patch.modules.find((x) => x.id === selected);
+    if (!m) return h('div', { class: 'rk2-panel' }, h('p', { class: 'rk-hint' }, 'Click a module’s name in the rack to see it here: its settings, what flows in and out, and for a neuro-symbolic tool, the prompt it would send.'));
+    const def = MODULES[m.type];
+    const count = (sig) => (!sig ? '—' : sig.kind === 'findings' ? n(sig.findings.length, 'finding') : n(sig.rows.length, 'row'));
+    const tr = traces[m.id];
+    return h('div', { class: 'rk2-panel rk2-inspect' },
+      h('header', {}, h('b', {}, def.label), h('small', { style: `--c:${CAT_TONE[def.cat]}` }, def.cat)),
+      h('p', { class: 'rk-hint' }, def.blurb),
+      h('dl', {},
+        Object.entries(m.params ?? {}).filter(([, v]) => v != null && typeof v !== 'object').flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, String(v))]),
+        def.ins.flatMap((port) => [h('dt', {}, `in ${port}`), h('dd', {}, count(inputs[m.id]?.[port]))]),
+        def.outs.flatMap((port) => [h('dt', {}, `out ${port}`), h('dd', {}, count(signals[m.id]?.[port]))])),
+      h('div', { class: 'rk2-row' },
+        def.outs.length > 0 && h('button', { type: 'button', class: 'rk-pad', onclick: () => openReadout(signals[m.id]?.[def.outs[0]], `${def.label} · ${def.outs[0]}`) }, 'Read out'),
+        tr?.prompt && h('button', { type: 'button', class: 'rk-pad alt', onclick: () => openPrompt(m, def) }, 'Prompt'),
+        canSet && m.type !== 'patchbay' && h('button', { type: 'button', class: 'rk-pad', onclick: () => { removeModule(patch, m.id); selected = null; commit(`${def.label} taken out`); } }, 'Remove')));
+  }
 }
 
 export { describeModule };

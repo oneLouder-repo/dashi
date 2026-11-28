@@ -11,7 +11,7 @@ import { toast } from '../ui/Shell.js';
 import { loadOrg } from '../platform/docs.js';
 import { ROLES, staffList, teamList, membersOf } from '../platform/org.js';
 import { renameOrg } from '../platform/session.js';
-import { PLUGINS, pausedForOrg, featureOn, chosenByOrg, roleHas, linkTo } from '../plugins.js';
+import { PLUGINS, pausedForOrg, featureOn, chosenByOrg, roleHas, linkTo, orderPlugins } from '../plugins.js';
 import { LIMITS, FEATURES, PLAN_IDS, PLAN_PLUGINS, amount } from '../platform/plans.js';
 import { uiAlert, uiConfirm, uiPrompt } from '../ui/dialog.js';
 
@@ -383,6 +383,7 @@ function openFromHash() {
  * plugin's features open in a drawer.
  */
 const READING_SET = ['strategy', 'palette', 'library', 'pages'];
+let orderOpen = false;   // the menu-order box stays open while you move things
 function Plugins(org) {
   const cats = [...new Set(PLUGINS.filter((p) => !p.platformOff).map((p) => p.category ?? 'Other'))];
   // Sub-plugins sit right under their parent (Planning Studio under Plan).
@@ -443,12 +444,23 @@ function Plugins(org) {
               'aria-label': `${p.name} for ${r.label}`, title: used ? `${p.name} for ${r.label}` : `${p.name} is switched off for the whole organisation`,
               onchange: (e) => setRole(p.id, r.id, e.target.checked) }))));
   };
+  // The plugin bar's order: up and down arrows, saved as org.pluginOrder.
+  const barList = orderPlugins(org, PLUGINS.filter((p) => !p.platformOff && !p.parent && p.nav !== false && p.id !== 'home' && inUse(p)));
+  const moveTo = (i, j) => { const ids = barList.map((p) => p.id); [ids[i], ids[j]] = [ids[j], ids[i]]; set('pluginOrder', ids); };
+  const orderBox = h('details', { class: 'rp-order', open: orderOpen, ontoggle: (e) => { orderOpen = e.target.open; } },
+    h('summary', {}, icon('listNumbers', 14), ' Order of the plugin menu', h('small', { class: 'muted' }, ' · the bar at the top of every page')),
+    h('ol', { class: 'rp-order-list' }, barList.map((p, i) => h('li', { style: `--tone:${p.tone}` },
+      h('span', { class: 'tone-tile' }, icon(p.icon, 16)), h('span', { class: 'rp-order-name' }, p.name),
+      h('button', { type: 'button', class: 'btn btn-xs btn-ghost btn-square', 'aria-label': `Move ${p.name} up`, title: 'Move up', disabled: i === 0, onclick: () => moveTo(i, i - 1) }, icon('chevronUp', 14)),
+      h('button', { type: 'button', class: 'btn btn-xs btn-ghost btn-square', 'aria-label': `Move ${p.name} down`, title: 'Move down', disabled: i === barList.length - 1, onclick: () => moveTo(i, i + 1) }, icon('chevronDown', 14))))),
+    org.pluginOrder?.length ? h('button', { type: 'button', class: 'btn btn-xs btn-ghost', onclick: () => set('pluginOrder', []) }, 'Back to the usual order') : null);
   return h('div', { class: 'rp' },
     h('p', { class: 'lede' }, 'Choose the plugins your organisation uses, then which roles get each one. Leaders can have a different palette of tools from the board or guests. Switching one off hides it from the dashboard and header; its data is kept.'),
     h('div', { class: 'rp-presets' },
       h('span', { class: 'section-label' }, 'Start from'),
       h('button', { class: 'btn btn-sm', onclick: () => preset('all') }, 'Same tools for everyone'),
       h('button', { class: 'btn btn-sm', onclick: () => preset('reading') }, 'Reading tools for the board and guests')),
+    orderBox,
     h('div', { class: 'rp-scroll' },
       h('table', { class: 'rp-table' }, h('thead', {}, head), h('tbody', {}, list.map(row)))),
     h('p', { class: 'muted small rp-note' }, icon('info', 13), ' Board directors, guests and viewers can only read, whatever their palette. Someone who opens a plugin outside their palette is told who to ask.'));
@@ -588,26 +600,53 @@ function Plan(org) {
  */
 function Billing(plans, current) {
   const box = h('div', {});
+  let currency = 'cad';
+  try { currency = localStorage.getItem('dashi.currency') === 'usd' ? 'usd' : 'cad'; } catch {}
   api('GET', '/api/billing').then((b) => {
     const st = b.billing;
-    const paid = Object.keys(b.prices).filter((id) => b.prices[id].month || b.prices[id].year);
+    const g = b.grassroots ?? { percent: 30, plans: [], declared: false };
+    const paid = Object.keys(b.prices).filter((id) => plans[id] && (b.prices[id].month || b.prices[id].year));
     const day = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { dateStyle: 'long' }) : '');
     const go = async (url, body) => { try { location.assign((await api('POST', url, body)).url); } catch (err) { uiAlert(err.message); } };
     const STATUS = { active: 'Paid by card', trialing: `Free trial until ${day(st.trialEnd)}`, past_due: 'The last payment didn’t go through', canceled: 'Cancelled' };
     if (st.comp) return box.replaceChildren(h('p', { class: 'note' }, 'Your organisation has a free account from Dashi. Thank you for helping us build it.'));
-    if (!b.online && !st.status) return;
-    box.replaceChildren(h('section', { class: 'card card-border bg-base-100 billing-card' }, h('div', { class: 'card-body' },
-      h('h2', { class: 'card-title' }, 'Billing'),
+    const grassrootsOn = (id) => g.declared && g.online && g.plans.includes(id);
+    const money = (n) => `${currency === 'usd' ? 'US$' : 'C$'}${n % 1 ? n.toFixed(2) : n}`;
+    const cost = (id, interval) => {
+      const pr = plans[id].price;
+      const base = currency === 'usd' ? (interval === 'year' ? pr.usdYearly : pr.usdMonthly) : (interval === 'year' ? pr.yearly : pr.monthly);
+      if (base == null) return '';
+      const off = grassrootsOn(id) ? Math.round(base * (100 - g.percent)) / 100 : null;
+      return off != null ? h('span', {}, h('s', { class: 'muted' }, money(base)), ' ', h('strong', {}, money(off))) : h('strong', {}, money(base));
+    };
+    const declare = async (on) => {
+      try { await api('PUT', '/api/billing/grassroots', { declared: on }); g.declared = on; draw(); toast(on ? `Thank you. The grassroots rate (${g.percent}% off) is on for Community and Organization.` : 'The grassroots rate is off.'); } catch (err) { uiAlert(err.message); }
+    };
+    const setCurrency = (c) => { currency = c; try { localStorage.setItem('dashi.currency', c); } catch {} draw(); };
+    const budget = currency === 'usd' ? `US$${(g.budgetUsd ?? 200000).toLocaleString()}` : `C$${(g.budgetCad ?? 250000).toLocaleString()}`;
+    const draw = () => box.replaceChildren(h('section', { class: 'card card-border bg-base-100 billing-card' }, h('div', { class: 'card-body' },
+      h('div', { class: 'billing-head' },
+        h('h2', { class: 'card-title' }, 'Billing'),
+        h('div', { class: 'join billing-cur', role: 'group', 'aria-label': 'Currency' },
+          ['cad', 'usd'].map((c) => h('button', { class: `btn btn-xs join-item ${currency === c ? 'btn-active' : ''}`, 'aria-pressed': String(currency === c), onclick: () => setCurrency(c) }, c.toUpperCase())))),
       new URLSearchParams(location.search).get('paid') && h('p', { class: 'note' }, 'Thank you. Your plan changes as soon as Stripe confirms the payment, usually within a minute.'),
       st.status && h('p', {}, h('strong', {}, STATUS[st.status] ?? st.status), st.periodEnd && st.status !== 'canceled' ? ` · ${st.cancelAtPeriodEnd ? 'ends' : 'renews'} ${day(st.periodEnd)}` : '',
         st.lastInvoice ? h('span', { class: 'muted' }, ` · last payment $${st.lastInvoice.amount.toFixed(2)}, including $${st.lastInvoice.tax.toFixed(2)} ${b.taxLabel}`) : ''),
       st.portal && h('button', { class: 'btn btn-sm', onclick: () => go('/api/billing/portal') }, 'Change card, see receipts, or cancel'),
+      b.alpha && h('p', { class: 'note' }, `Thank you for testing Dashi’s alpha. Your first ${b.alpha.months} months are half price${b.alpha.online ? ', applied at checkout' : ''}.`),
+      h('label', { class: 'billing-grass' },
+        h('input', { type: 'checkbox', class: 'checkbox checkbox-sm', checked: g.declared, onchange: (e) => declare(e.target.checked) }),
+        h('span', {}, h('strong', {}, `Grassroots rate: ${g.percent}% off Community and Organization. `),
+          `Tick this if your organisation’s yearly budget is under ${budget}. We take your word for it.`,
+          g.declared && !g.online ? h('span', { class: 'muted' }, ' The platform admin applies it when they set up your plan.') : '')),
       b.online && !['active', 'trialing', 'past_due'].includes(st.status) && paid.length > 0 && h('div', { class: 'billing-plans' },
-        h('p', { class: 'muted small' }, `Pay by card. Prices include ${b.taxLabel}.${b.trialDays ? ` Your first ${b.trialDays} days are free, and you can cancel before you pay anything.` : ''}`),
+        h('p', { class: 'muted small' }, `Pay by card. Prices include ${b.taxLabel}. Paying yearly gives you two months free.${b.trialDays ? ` Your first ${b.trialDays} days are free, and you can cancel before you pay anything.` : ''}`),
         paid.map((id) => h('div', { class: 'billing-plan' },
-          h('strong', {}, plans[id].label), h('span', { class: 'muted small' }, `$${plans[id].price.monthly} ${plans[id].price.note}`),
-          b.prices[id].year && h('button', { class: `btn btn-sm ${id === current.id ? '' : 'btn-primary'}`, onclick: () => go('/api/billing/checkout', { plan: id, interval: 'year' }) }, 'Pay yearly'),
-          b.prices[id].month && h('button', { class: 'btn btn-sm btn-ghost', onclick: () => go('/api/billing/checkout', { plan: id, interval: 'month' }) }, 'Pay monthly')))))));
+          h('strong', {}, plans[id].label),
+          h('span', { class: 'small' }, cost(id, 'month'), h('span', { class: 'muted' }, ' a month')),
+          b.prices[id].year && h('button', { class: `btn btn-sm ${id === current.id ? '' : 'btn-primary'}`, onclick: () => go('/api/billing/checkout', { plan: id, interval: 'year', currency }) }, 'Pay yearly ', h('span', { class: 'billing-yr' }, cost(id, 'year'))),
+          b.prices[id].month && h('button', { class: 'btn btn-sm btn-ghost', onclick: () => go('/api/billing/checkout', { plan: id, interval: 'month', currency }) }, 'Pay monthly')))))));
+    draw();
   }).catch(() => {});
   return box;
 }

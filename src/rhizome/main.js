@@ -22,7 +22,7 @@ import { HELP_SHOTS } from '../help/library.js';
 import { Markdown } from '../ui/markdown.js';
 import { linkTo } from '../plugins.js';
 import './adapters.js';
-import { Rack } from './RackView.js';
+import { Rack, rackVersion } from './RackView.js';
 import { Output } from './OutputView.js'; // not Rack.js: macOS would mix it up with rack.js
 import { loadTips, saveTips } from '../platform/tipsLibrary.js';
 import { can } from '../platform/session.js';
@@ -122,7 +122,9 @@ function render() {
 
 function drawSide(view) {
   const fc = factCounts(facts);
-  side = swapSide(side, SideNav({ label: 'Rhizome', sections: [
+  // Rack 2.0 gives the rack the room: the side nav starts folded there, and keeps its own fold.
+  const rack2 = view === 'rack' && rackVersion() === '2';
+  side = swapSide(side, SideNav({ label: 'Rhizome', ...(rack2 ? { foldKey: 'dashi.rhizome.rack2-nav', foldDefault: true } : {}), sections: [
     { title: 'Rhizome · experimental', items: [
       { label: 'Home', sub: setupDone(doc) ? 'Signals worth a look' : 'Finish setting up', icon: 'home', href: '#home', on: view === 'home' },
       { label: 'Analyses', sub: `${n(ANALYSES.length, 'canned analysis', 'canned analyses')} · ${n(RULES.length, 'rule')}`, icon: 'spark', href: '#analyses', on: view === 'analyses' },
@@ -354,7 +356,7 @@ function Finding(f, { compact = false } = {}) {
   const rule = ruleById[f.ruleId] ?? doc.ownRules?.[f.ruleId];
   const tone = THEME_TONE[rule?.theme] ?? '#56657f';
   const first = facts.entities[f.items[0]];
-  const mapHref = f.show === 'map' && first?.attrs.mapId ? linkTo('mapper', `#${first.attrs.mapId}`) : null;
+  const mapHref = f.show === 'map' && first?.attrs.mapId ? linkTo('mapper', `#${f.items[0].startsWith('actor:') ? f.items[0].slice(6) : first.attrs.mapId}`) : null;
   // Things with a real-world location can be shown on Place's map (only for people who can open Place).
   const placeHref = f.placed?.length && plugins.has('place') ? linkTo('place', `#show/${f.placed.slice(0, 40).map(encodeURIComponent).join(',')}`) : null;
   const whyOpen = openWhy === f.id;
@@ -554,7 +556,10 @@ const helpHref = (pageId) => `help.html#${RHIZOME_HELP_ID}/${pageId}`;
 
 /** About: an immediate reference beside the work, and the same tutorials as Help. */
 function About(arg) {
-  const section = helpDoc ?? RHIZOME_HELP;
+  // A help library saved before a page was added still gets the new built-in pages.
+  const saved = helpDoc ?? RHIZOME_HELP;
+  const missing = RHIZOME_HELP.pages.filter((p) => !saved.pages.some((x) => x.id === p.id));
+  const section = missing.length ? { ...saved, pages: [...missing.filter((p) => p.id === 'rhizome-how'), ...saved.pages, ...missing.filter((p) => p.id !== 'rhizome-how')] } : saved;
   const page = section.pages.find((p) => p.id === arg) ?? null;
   setCrumbs(page ? [{ label: page.title }] : []);
   const flow = [['Facts', 'Everything your plugins know, as things and ties', 'sec-rhizome'], ['Measures', 'Numbers over the facts, calibrated to you', 'chart'], ['Rules', 'When, weigh, say, show', 'spark'], ['Findings', 'Ranked tips, each with a Why?', 'check']];
@@ -567,7 +572,11 @@ function About(arg) {
     page
       ? h('article', { class: 'rz-panel rz-help' }, h('header', { class: 'rz-ahead' }, h('h3', {}, page.title), h('a', { class: 'btn btn-xs btn-outline', href: helpHref(page.id) }, 'Open in Help')), Markdown(page.body, { embeds: ['shot'], embed: ({ id }) => HELP_SHOTS[id] ? h('figure', { class: 'rz-shot' }, h('img', { src: `media/help/${id}.jpg`, alt: HELP_SHOTS[id], loading: 'lazy' }), h('figcaption', {}, HELP_SHOTS[id])) : null }),
         h('a', { class: 'rz-back', href: '#about' }, '← Quick reference'))
-      : h('div', { class: 'rz-two' },
+      : h('div', { class: 'rz-stack' },
+        h('a', { class: 'rz-panel rz-how', href: '#about/rhizome-how' },
+          h('div', {}, h('h3', {}, 'How Rhizome thinks'), h('p', { class: 'rz-note' }, 'What happens between your data and a tip, how a question is built out of modules (with examples), what every module does, and how this fits with modern AI such as Claude.'), h('span', { class: 'rz-how-go' }, 'Read the introduction →')),
+          h('ol', { class: 'rz-sentence', 'aria-label': 'A graph question, as modules' }, [['Which things', 'Facts · Measure'], ['that meet conditions', 'Filter · Gate'], ['ranked by', 'Weigh'], ['and so…', 'Say']].map(([w, m]) => h('li', {}, h('b', {}, w), h('small', {}, m))))),
+        h('div', { class: 'rz-two' },
         h('div', { class: 'rz-stack' },
           ref('The tabs', [['Home', 'Your welcome report and the signals worth a look'], ['Analyses', 'Canned analyses, your set, findings with Why?, every rule'], ['Facts', 'Every thing Rhizome knows, and its ties'], ['Measures', 'The network actor by actor, your calibration, the ABCD balance'], ['Set-up', 'Your context profile and the set-up steps'], ['About', 'This page']]),
           ref('Words you’ll see', [['Single point of failure', 'An actor whose loss splits its network'], ['Hub', 'Top 10% for links, for your organisation'], ['Betweenness', 'How often an actor sits on the shortest way between two others'], ['One-way flow', 'Resources, information or power with nothing coming back'], ['Zone gap', 'A part of a lens with nobody in it, or zones that never link'], ['Calibration', 'Cut-offs from your own data, so “few” means few for you']]),
@@ -576,7 +585,7 @@ function About(arg) {
           h('section', { class: 'rz-panel' }, h('h3', {}, 'Tutorials'), h('p', { class: 'rz-note' }, 'The same pages are in Help, under Rhizome.'),
             h('ul', { class: 'rz-tutorials' }, section.pages.map((p) => h('li', {}, h('a', { href: `#about/${p.id}` }, icon('book', 15), p.title), h('a', { class: 'rz-out', href: helpHref(p.id), title: 'Open in Help' }, 'Help'))))),
           h('section', { class: 'rz-panel' }, h('h3', {}, 'Your data'), h('p', { class: 'rz-note' }, 'Rhizome only reads the plugins you can open. Everything runs in your browser. Nothing is sent anywhere. Only your instance (profile, baseline, runs and dismissals) is saved, in your organisation’s Rhizome document.')),
-          h('section', { class: 'rz-panel' }, h('h3', {}, 'Where the tips come from'), h('ul', { class: 'rz-sourcelist' }, Object.values(SOURCES).map((s) => h('li', {}, s)))))));
+          h('section', { class: 'rz-panel' }, h('h3', {}, 'Where the tips come from'), h('ul', { class: 'rz-sourcelist' }, Object.values(SOURCES).map((s) => h('li', {}, s))))))));
 }
 
 /* --------------------------------------------------------------- facts */
