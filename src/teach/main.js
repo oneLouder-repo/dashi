@@ -7,7 +7,7 @@ import { setCrumbs } from '../ui/crumbs.js';
 import { Drawer } from '../ui/drawer.js';
 import { uiConfirm } from '../ui/dialog.js';
 import { saveDoc, canWriteDoc } from '../platform/storage.js';
-import { loadOrg, loadTeach, loadLearn, loadPodcasts, loadAssets, loadMaps, loadLibrary, loadStrategy } from '../platform/docs.js';
+import { loadOrg, loadTeach, loadLearn, loadPodcasts, loadAssets, loadMaps, loadLibrary, loadStrategy, loadRhizome } from '../platform/docs.js';
 import { loadAllMaps } from '../platform/maps.js';
 import { linkables, openLinkPicker, manifestEntry } from './LinkPicker.js';
 import { blankLearn } from '../learning/records.js';
@@ -59,7 +59,7 @@ let linkCache = null;
 const allLinkables = () => {
   if (linkCache) return linkCache;
   const maps = plugins.has('mapper') ? loadMaps() : null;
-  linkCache = linkables({ org, assets, podcasts, maps, mapContents: maps ? loadAllMaps(maps) : {}, library: plugins.has('library') ? loadLibrary() : null, strategy: plugins.has('strategy') ? loadStrategy() : null }, plugins);
+  linkCache = linkables({ org, assets, podcasts, maps, mapContents: maps ? loadAllMaps(maps) : {}, library: plugins.has('library') ? loadLibrary() : null, strategy: plugins.has('strategy') ? loadStrategy() : null, rhizome: plugins.has('rhizome') ? loadRhizome() : null }, plugins);
   return linkCache;
 };
 /** Learn's records, read-only here, for who has joined and how far they are. */
@@ -989,9 +989,9 @@ function Manifest(c, b, set) {
         href && h('a', { class: 'btn btn-ghost btn-xs', href, target: '_blank', rel: 'noopener', title: 'Open it where it lives' }, icon('export', 13)),
         canEdit && i > 0 && h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', 'aria-label': 'Move up', onclick: () => { const nx = [...list]; [nx[i - 1], nx[i]] = [nx[i], nx[i - 1]]; put(nx); } }, icon('chevronUp', 13)),
         canEdit && h('button', { type: 'button', class: 'btn btn-ghost btn-xs btn-square', 'aria-label': `Unlink ${a.title}`, onclick: () => put(list.filter((_, j) => j !== i), 'Unlinked') }, icon('close', 13)));
-    })) : h('p', { class: 'lx-note' }, 'Nothing linked yet. Add documents, other episodes or slideshows, ecosystem maps, plans or work that go with this block.'),
+    })) : h('p', { class: 'lx-note' }, b.type === 'experiment' ? 'Nothing linked yet. Link a Rhizome Lab experiment or a saved console patch for learners to try.' : 'Nothing linked yet. Add documents, other episodes or slideshows, ecosystem maps, plans, work or Rhizome Lab experiments that go with this block.'),
     canEdit && h('button', { type: 'button', class: 'btn btn-sm', onclick: () => openLinkPicker({
-      items: allLinkables(),
+      items: allLinkables(), start: b.type === 'experiment' ? 'lab' : null,
       current: () => new Set((doc.cartridges[c.id]?.blocks[b.id]?.assets ?? b.assets ?? []).map((a) => a.key)),
       onPick: (it) => { const cur = doc.cartridges[c.id]?.blocks[b.id]?.assets ?? []; if (!cur.some((a) => a.key === it.key)) set({ assets: [...cur, manifestEntry(it)] }, 'Linked'); },
     }) }, icon('plus', 14), 'Link items'));

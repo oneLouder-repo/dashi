@@ -97,3 +97,41 @@ test('the Lab took the Rack’s place on the tabs', () => {
   assert.ok(RHIZOME_TABS.some((t) => t.id === 'lab'));
   assert.ok(!RHIZOME_TABS.some((t) => t.id === 'rack'));
 });
+
+test('Far Beyond the Graph: the score comes from the network, the same every time', async () => {
+  const { scoreOf, degree, hashOf, STEPS } = await import('../src/rhizome/labSound.js');
+  const { facts, g } = kestrel;
+  const a = scoreOf(facts, g, { snapshots: [{ at: '2026-11-01T00:00:00Z', entities: 300, relations: 400 }] });
+  assert.deepEqual(scoreOf(facts, g, { snapshots: [{ at: '2026-11-01T00:00:00Z', entities: 300, relations: 400 }] }), a);
+  assert.ok(a.bpm >= 72 && a.bpm <= 92);
+  assert.ok(a.present.length > 1 && a.present.length <= 6);
+  for (const l of a.present) {
+    const steps = l.notes.map((n) => n.step);
+    assert.equal(new Set(steps).size, steps.length, 'one note per step in a loop');
+    assert.ok(steps.every((s) => s >= 0 && s < STEPS));
+  }
+  assert.ok(a.bass.length && a.bass.every((b) => b.midi < 40), 'brokers on bass');
+  assert.ok(a.projected.length && a.projected.every((p) => p.guess), 'ghost notes are marked as guesses');
+  assert.ok(a.past.ratio > 0 && a.past.ratio <= 1 && a.past.since === '2026-11-01');
+  assert.match(a.madeOf, /^Made of \d+ connected things and \d[\d,]* ties: .* as loops.*nothing leaves it\.$/);
+  // The edge is heard: a member with one tie becomes a bell.
+  const toyG = toy();
+  const tiny = scoreOf({ entities: Object.fromEntries([...toyG.keys()].map((id) => [id, { id, name: id.toUpperCase(), type: 'actor', attrs: {} }])), relations: [] }, toyG);
+  assert.ok(tiny.present.flatMap((l) => l.notes).some((n) => n.id === 'y' && n.edge));
+  assert.equal(degree(0), 50);
+  assert.equal(degree(5), 62);
+  assert.equal(hashOf('abc'), hashOf('abc'));
+});
+
+test('Teach can link Lab experiments and saved patches into a block', async () => {
+  const { linkables, GROUPS } = await import('../src/teach/LinkPicker.js');
+  const { blockType } = await import('../src/learning/cartridge.js');
+  assert.ok(GROUPS.some((g) => g.id === 'lab'));
+  assert.equal(blockType('experiment').id, 'experiment');
+  const items = linkables({ rhizome: { labPatches: { p1: { id: 'p1', name: 'Who bridges groups', cmd: 'people | weigh broker', note: '' } } } }, new Set(['rhizome']));
+  const lab = items.filter((it) => it.group === 'lab');
+  assert.ok(lab.some((it) => it.key === 'lab:sound' && it.href.endsWith('#lab/sound')));
+  assert.ok(lab.some((it) => it.key === 'labpatch:p1' && it.href.includes('#lab/console?run=people%20%7C%20weigh%20broker')));
+  // Rhizome off: none.
+  assert.ok(!linkables({}, new Set()).some((it) => it.group === 'lab'));
+});

@@ -104,6 +104,8 @@ export const BLOCK_TYPES = [
   { id: 'poll', label: 'Quick poll', group: 'Dialogue and care', icon: 'chart', track: 'support', minutes: 2, length: 3, modes: ['hands-on'], presence: ['social'], preview: true, blurb: 'One question, everyone answers, everyone sees.' },
   { id: 'voice', label: 'Voice note', group: 'Dialogue and care', icon: 'mic', track: 'support', minutes: 5, length: 4, modes: ['audio'], presence: ['social', 'reflective'], preview: true, blurb: 'Learners answer out loud instead of typing.' },
   { id: 'showcase', label: 'Showcase', group: 'Dialogue and care', icon: 'image', track: 'support', minutes: 15, length: 7, modes: ['visual'], presence: ['social'], preview: true, blurb: 'A gallery where learners share what they made.' },
+  // Alpha 0.4.x: a Rhizome Lab experiment as a teaching element (link it with the block's Link button).
+  { id: 'experiment', label: 'Lab experiment', group: 'Practice and assessment', icon: 'flask', track: 'assess', minutes: 20, length: 5, modes: ['hands-on', 'visual', 'audio'], presence: ['reflective'], preview: true, blurb: 'Try a Rhizome Lab experiment: the console, communities, a hive plot, the sound piece.' },
   { id: 'release', label: 'Release', group: 'Comms', icon: 'unlock', track: 'comms', minutes: 0, length: 1, modes: [], presence: [], blurb: 'New lessons open (“week 3 opens”).' },
 ];
 export const blockType = (id) => BLOCK_TYPES.find((t) => t.id === id) ?? BLOCK_TYPES[0];

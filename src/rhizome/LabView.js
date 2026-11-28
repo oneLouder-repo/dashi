@@ -11,7 +11,7 @@
  *   #lab/ties        ties worth making (Adamic–Adar)
  *   #lab/shapes      shape checks (after SHACL)
  *   #lab/hive        a hive plot
- *   #lab/sound       the sound experiment (coming)
+ *   #lab/sound       Far Beyond the Graph, the sound experiment
  *   #rack            the Rack, unchanged, under the Lab tab
  */
 import { h } from '../ui/dom.js';
@@ -19,18 +19,11 @@ import { icon } from '../ui/icons.js';
 import { typeLabel } from './facts.js';
 import { graphOf } from './rackGraph.js';
 import { labMeasures, predictTies, checkShapes } from './labAlgo.js';
+import { LAB_EXPERIMENTS } from './labList.js';
+import { scoreOf } from './labSound.js';
+import { createPlayer } from './labPlayer.js';
 import { runCommand, sayOf, FIELDS, VERBS, SOURCES, PATCH_PACKS, installPack, exportPack, readPack } from './labConsole.js';
 
-export const LAB_EXPERIMENTS = [
-  { id: 'console', name: 'Console', icon: 'code', line: 'Ask the network in a short pipe language. Save what works as patches, install packs, share yours.' },
-  { id: 'rack', name: 'The rack', icon: 'connect', href: '#rack', line: 'Patch modules together, twin racks, the critical AI visualiser.' },
-  { id: 'communities', name: 'Communities', icon: 'sec-graph', line: 'How the network splits into groups, Leiden-style: every group truly connected.' },
-  { id: 'brokers', name: 'Brokers', icon: 'connect', line: 'Who bridges groups that would not otherwise meet: Burt’s structural holes.' },
-  { id: 'ties', name: 'Ties worth making', icon: 'spark', line: 'Pairs who share contacts but are not tied yet, by Adamic–Adar.' },
-  { id: 'shapes', name: 'Shape checks', icon: 'tidy', line: 'What should be there and isn’t: a tie, a plan, a title. After W3C SHACL.' },
-  { id: 'hive', name: 'Hive plot', icon: 'chart', line: 'The network on three axes, people, ecosystem and work, so its shape can be compared over time.' },
-  { id: 'sound', name: 'Sound', icon: 'flask', line: 'Far Beyond the Graph: the network heard as loops, past, present and projected. Coming next.', soon: true },
-];
 
 const nameOf = (facts, id) => facts.entities[id]?.name ?? id;
 
@@ -41,6 +34,8 @@ function Chips(sub) {
 }
 
 /** The Lab page body (under Rhizome's tabs). */
+export { LAB_EXPERIMENTS };
+
 export function Lab(ctx, sub) {
   const g = graphOf(ctx.facts);
   const body = {
@@ -50,7 +45,7 @@ export function Lab(ctx, sub) {
     ties: () => Ties(ctx, g),
     shapes: () => Shapes(ctx, g),
     hive: () => Hive(ctx, g),
-    sound: () => Sound(),
+    sound: () => Sound(ctx, g),
   }[sub];
   return h('div', { class: 'lab' }, Chips(body ? sub : null), body ? body() : Home(ctx, g));
 }
@@ -91,6 +86,7 @@ function Result(res, facts) {
 
 function ConsolePanel(ctx, g) {
   const { doc, facts, save, canSet, toast } = ctx;
+  if (ctx.run) consoleState.cmd = ctx.run;
   const out = h('div', { class: 'lab-out', 'aria-live': 'polite' });
   const input = h('input', { class: 'input lab-input', value: consoleState.cmd, 'aria-label': 'Command', spellcheck: 'false', autocomplete: 'off',
     onkeydown: (e) => {
@@ -284,8 +280,89 @@ function Hive({ facts }, g) {
 
 /* ------------------------------------------------------------------ sound */
 
-function Sound() {
-  return h('section', { class: 'rz-intro lab-sound' },
-    h('h2', {}, 'Far Beyond the Graph'),
-    h('p', {}, 'Coming next: the network heard as music. Each community a loop, each person or actor a note, the brokers who bridge communities a bass line. Saved snapshots play as the past, the live graph as the present, and likely ties as quiet ghost notes, clearly marked as guesses. Played in your browser; nothing leaves it.'));
+let player = null;
+// Leaving the sound page (or Rhizome) stops the music.
+const stopPlayer = () => { player?.close(); player = null; };
+if (typeof window !== 'undefined') window.addEventListener('hashchange', () => { if (!location.hash.startsWith('#lab/sound')) stopPlayer(); });
+
+function Sound({ facts, doc }, g) {
+  const score = scoreOf(facts, g, { snapshots: doc.snapshots ?? [] });
+  const S = 440, C = S / 2;
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs = {}, ...kids) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) if (v != null) n.setAttribute(k, v); n.append(...kids); return n; };
+  const at = (step, r) => { const a = -Math.PI / 2 + (step / score.steps) * 2 * Math.PI; return [C + r * Math.cos(a), C + r * Math.sin(a)]; };
+  const ring = (i) => 70 + i * 22;
+  const svg = el('svg', { viewBox: `0 0 ${S} ${S}`, class: 'lab-sound-disc', role: 'img', 'aria-label': `The score as a disc: ${score.present.length} loops, ${score.bass.length} bass notes, ${score.projected.length} ghost notes` });
+  svg.append(el('circle', { cx: C, cy: C, r: C - 6, class: 'lab-disc-vinyl' }));
+  for (let r = 40; r < C - 8; r += 6) svg.append(el('circle', { cx: C, cy: C, r, class: 'lab-disc-groove' }));
+  const dots = new Map(); // step → dots lit on that step
+  const mark = (step, node) => { if (!dots.has(step)) dots.set(step, []); dots.get(step).push(node); svg.append(node); };
+  score.bass.forEach((n) => { const [x, y] = at(n.step, 46); mark(n.step, el('circle', { cx: x, cy: y, r: 5, class: 'lab-dot bass' }, el('title', {}, `Bass: ${n.name}`))); });
+  score.present.forEach((l, i) => {
+    svg.append(el('circle', { cx: C, cy: C, r: ring(i), class: 'lab-disc-ring' }));
+    for (const n of l.notes) { const [x, y] = at(n.step, ring(i)); mark(n.step, el('circle', { cx: x, cy: y, r: n.edge ? 4.5 : 3, class: `lab-dot loop-${i % 6}${n.edge ? ' edge' : ''}` }, el('title', {}, n.edge ? `${n.name}, on the edge: a bell` : n.name))); }
+  });
+  const outer = ring(score.present.length) + 4;
+  score.projected.forEach((n) => { const [x, y] = at(n.step, outer); mark(n.step, el('circle', { cx: x, cy: y, r: 3.5, class: 'lab-dot ghost' }, el('title', {}, `A guess: ${n.names.join(' and ')}`))); });
+  svg.append(el('circle', { cx: C, cy: C, r: 30, class: 'lab-disc-label' }), el('text', { x: C, y: C - 2, 'text-anchor': 'middle', class: 'lab-disc-title' }, 'RHIZOME'), el('text', { x: C, y: C + 11, 'text-anchor': 'middle', class: 'lab-disc-sub' }, `${score.bpm} bpm`));
+  const hand = el('line', { x1: C, y1: C, x2: C, y2: 12, class: 'lab-disc-hand', visibility: 'hidden' });
+  svg.append(hand);
+  let lit = [];
+  const onStep = (s) => {
+    for (const d of lit) d.classList.remove('on');
+    if (s < 0) { hand.setAttribute('visibility', 'hidden'); return; }
+    hand.setAttribute('visibility', 'visible');
+    const [x, y] = at(s, C - 10);
+    hand.setAttribute('x2', x); hand.setAttribute('y2', y);
+    lit = dots.get(s) ?? [];
+    for (const d of lit) d.classList.add('on');
+  };
+
+  const layers = { present: true, drums: true, projected: true, past: true };
+  const layerBtn = (id, label, line) => h('button', { type: 'button', class: 'lab-layer', 'aria-pressed': 'true', title: line,
+    onclick: (e) => { layers[id] = !layers[id]; e.currentTarget.setAttribute('aria-pressed', String(layers[id])); player?.setLayer(id, layers[id]); } }, h('span', { class: `lab-layer-dot ${id}`, 'aria-hidden': 'true' }), label);
+  const status = h('p', { class: 'rz-note', 'aria-live': 'polite' });
+  const take = h('div', { class: 'lab-take' });
+  const playBtn = h('button', { type: 'button', class: 'btn btn-primary' }, 'Play');
+  const recBtn = h('button', { type: 'button', class: 'btn', disabled: true }, 'Record a take');
+  playBtn.onclick = async () => {
+    if (player?.playing) { stopPlayer(); playBtn.textContent = 'Play'; recBtn.disabled = true; recBtn.textContent = 'Record a take'; status.textContent = ''; return; }
+    try {
+      stopPlayer();
+      player = createPlayer(score, { onStep });
+      for (const [id, on] of Object.entries(layers)) player.setLayer(id, on);
+      await player.start();
+      playBtn.textContent = 'Stop';
+      recBtn.disabled = !player.canRecord;
+      status.textContent = 'Playing. It loops until you stop it.';
+    } catch {
+      status.textContent = 'This browser can’t play it (no Web Audio).';
+    }
+  };
+  let recording = false;
+  recBtn.onclick = async () => {
+    if (!player) return;
+    if (!recording) { player.startRecording(); recording = true; recBtn.textContent = 'Stop and keep the take'; status.textContent = 'Recording…'; return; }
+    recording = false; recBtn.textContent = 'Record a take';
+    const blob = await player.stopRecording();
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    take.replaceChildren(h('audio', { controls: true, src: url }), h('a', { class: 'btn btn-sm', href: url, download: `far-beyond-the-graph-${new Date().toISOString().slice(0, 10)}.webm` }, 'Save the take'));
+    status.textContent = 'Your take is below. Saving to Assets and sharing through Listen come later.';
+  };
+
+  return h('div', { class: 'lab-sound' },
+    h('section', { class: 'rz-panel lab-sound-panel' },
+      h('h3', {}, 'Far Beyond the Graph'),
+      h('div', { class: 'lab-sound-wrap' }, svg,
+        h('div', { class: 'lab-sound-side' },
+          h('div', { class: 'rz-actions' }, playBtn, recBtn),
+          status,
+          h('div', { class: 'lab-layers', role: 'group', 'aria-label': 'Layers' },
+            layerBtn('past', 'Past', 'Saved snapshots, as a worn groove and vinyl crackle'),
+            layerBtn('present', 'Present', 'Each community a loop, brokers on bass, the edge as bells'),
+            layerBtn('drums', 'Pulse', 'A slow boom-bap; busier when the network is tight'),
+            layerBtn('projected', 'Projected', 'Likely ties not yet made, as quiet ghost notes: guesses, not facts')),
+          take)),
+      h('p', { class: 'lab-made-of' }, score.madeOf)));
 }

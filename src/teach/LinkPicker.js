@@ -2,18 +2,20 @@ import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { gatherAssets, blankAssets } from '../platform/assetHub.js';
 import { linkTo } from '../plugins.js';
+import { LAB_EXPERIMENTS } from '../rhizome/labList.js';
 
 /**
  * Linking things into a cartridge block (d, 2026-11-27): one picker over what the org already has,
  * the same things the Asset manager shows (stories, files, links, notes, ecosystem maps and actors,
- * library documents, podcast episodes and studio audio), plus slideshows and the strategy (plans,
- * objectives, work). A block keeps what's linked as its manifest, `b.assets`:
+ * library documents, podcast episodes and studio audio), plus slideshows, the strategy (plans,
+ * objectives, work) and Rhizome Lab: its experiments and the org's saved console patches, so a course
+ * can teach with them. A block keeps what's linked as its manifest, `b.assets`:
  *
  *   b.assets = [{ key, title, kind, icon, href }]   key = the Asset manager's key (assetHub keyOf),
  *                                                    'node:<id>' for strategy, title kept in case it goes
  *
  *   linkables(docs, plugins)  → [{ key, title, kind, icon, href, sub, group }]
- *   openLinkPicker({ items, current: () => Set(keys), onPick(item), only: [groups], single, title })
+ *   openLinkPicker({ items, current: () => Set(keys), onPick(item), only: [groups], single, start: group, title })
  */
 export const GROUPS = [
   { id: 'show', label: 'Slideshows and episodes', icon: 'music' },
@@ -21,6 +23,7 @@ export const GROUPS = [
   { id: 'doc', label: 'Documents', icon: 'book' },
   { id: 'map', label: 'Ecosystem maps', icon: 'sec-mapper' },
   { id: 'plan', label: 'Strategy and work', icon: 'strategy' },
+  { id: 'lab', label: 'Rhizome Lab', icon: 'flask' },
 ];
 const NODE_WORD = { framework: 'Framework', plan: 'Plan', goal: 'Goal', objective: 'Objective', strategy: 'Strategy', workplan: 'Work plan', task: 'Task', activity: 'Activity', outcome: 'Outcome' };
 
@@ -39,16 +42,21 @@ export function linkables(docs, plugins) {
       out.push({ key: `node:${nd.id}`, title: nd.title, kind: NODE_WORD[nd.type] ?? 'Strategy', icon: 'strategy', href: linkTo('strategy', `#${nd.id}`), sub: nd.description?.slice(0, 80) ?? '', group: 'plan' });
     }
   }
+  // Rhizome Lab: each experiment, and each saved console patch (it opens in the console, ready to run).
+  if ((!plugins || plugins.has('rhizome')) && linkTo('rhizome')) {
+    for (const x of LAB_EXPERIMENTS) out.push({ key: `lab:${x.id}`, title: x.name, kind: 'Lab experiment', icon: x.icon, href: linkTo('rhizome', x.href ?? `#lab/${x.id}`), sub: x.line, group: 'lab' });
+    for (const p of Object.values(docs.rhizome?.labPatches ?? {})) out.push({ key: `labpatch:${p.id}`, title: p.name, kind: 'Lab patch', icon: 'code', href: linkTo('rhizome', `#lab/console?run=${encodeURIComponent(p.cmd)}`), sub: p.note || p.cmd, group: 'lab' });
+  }
   return out;
 }
 
 /** What a manifest entry keeps: enough to show it even if the thing is later removed. */
 export const manifestEntry = (it) => ({ key: it.key, title: it.title, kind: it.kind, icon: it.icon, href: it.href ?? null });
 
-export function openLinkPicker({ items, current = () => new Set(), onPick, only = null, single = false, title = 'Link things to this block' }) {
+export function openLinkPicker({ items, current = () => new Set(), onPick, only = null, single = false, start = null, title = 'Link things to this block' }) {
   const pool = only ? items.filter((it) => only.includes(it.group)) : items;
   const groups = GROUPS.filter((g) => pool.some((it) => it.group === g.id));
-  let group = groups[0]?.id ?? null;
+  let group = (groups.some((g) => g.id === start) ? start : groups[0]?.id) ?? null;
   let query = '';
   const dialog = h('dialog', { class: 'chooser tc-linker', 'aria-label': title });
   const list = h('div', { class: 'tc-linker-list', role: 'list' });

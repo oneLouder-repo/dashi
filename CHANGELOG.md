@@ -19,7 +19,8 @@ Fixes and tooling only, no new features. Dashi stays plain JavaScript with no bu
   - **Ties worth making:** Adamic–Adar link prediction, clearly labelled as guesses.
   - **Shape checks:** after W3C SHACL: actors with no ties, objectives outside a plan, people without a title.
   - **Hive plot:** people, ecosystem and work on three axes, the same network always drawn the same.
-  - **Sound:** a placeholder for the coming sound experiment.
+  - **Sound, *Far Beyond the Graph*:** the network heard as music, made only from its relationships. Each community is a loop. Members on the edge play as bells. The brokers carry the bass line. Likely ties play as ghost notes, marked as guesses, and saved snapshots play as a worn groove under vinyl crackle. It is synthesised in the browser with Web Audio, and you can record a take as an audio file. The score is plain data (`labSound.js`), so it is tested and can later be rendered to a file.
+  - **In Teach:** a new *Lab experiment* block. The link picker gains a Rhizome Lab group with every experiment and the org's saved patches, so a course can teach with them. A patch opens the console with its command already run.
 
 ## 0.4.0-alpha (2026-11-27): learning, on a clean build
 

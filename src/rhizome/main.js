@@ -420,10 +420,12 @@ function RackPage(arg) {
 /* ----------------------------------------------------------------- lab */
 
 function LabPage(arg) {
-  const x = LAB_EXPERIMENTS.find((e) => e.id === arg);
+  // #lab/console?run=<command> opens the console with that command run (a Teach block links patches this way).
+  const [sub, run = null] = arg.split('?run=');
+  const x = LAB_EXPERIMENTS.find((e) => e.id === sub);
   setCrumbs(x ? [{ label: x.name }] : []);
   return h('div', { class: 'rz-page rz-page-wide' }, tabs('lab'),
-    Lab({ doc, facts, save, render, canSet, toast }, x ? arg : null));
+    Lab({ doc, facts, save, render, canSet, toast, run }, x ? sub : null));
 }
 
 /* -------------------------------------------------------------- report */
