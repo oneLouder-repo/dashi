@@ -326,7 +326,7 @@ export function sjrOrg() {
     teams: { 't-sjr': { id: 't-sjr', name: 'Student Society', color: SJR_COLOURS.primary } },
     sites: {
       'site-main': {
-        id: 'site-main', name: 'Social Justice Radio', url: 'https://sjr.dashi.example', visibility: 'public', shows: 'The station, every season and the Radio Ada shows',
+        id: 'site-main', name: 'Social Justice Radio', url: 'https://socialjusticeradio.ca', visibility: 'public', shows: 'The station, every season and the Radio Ada shows',
         look: { template: 'harbour', masthead: { preset: 'upload', image: SJR_BANNER, height: 'l', focus: 50 }, type: 'grotesk', header: 'over' },
       },
     },
