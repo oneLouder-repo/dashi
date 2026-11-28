@@ -53,6 +53,8 @@ if (location.hash === '#sites') location.replace(linkTo('pages', '#look') ?? '#p
 if (location.hash === '#platform') history.replaceState(null, '', '#profile');
 
 let lastTab = null;
+/** Organisation → Network: the links and the network, from the server (fetched when the tab opens). */
+let netState = null;
 function render() {
   const org = store.doc;
   Shell(document.querySelector('#shell'), { current: 'org', org });
@@ -753,10 +755,35 @@ openFromHash();
  * Linked organisations: a hub and its members. Each org stays its own; this
  * page links them and says, kind by kind, what this org lets its network see.
  */
-let netState = null;
 async function loadNetwork() {
-  try { netState = await api('GET', '/api/network'); } catch (err) { netState = { error: err.message }; }
+  try {
+    netState = await api('GET', '/api/network');
+    netState.people = netState.orgs.length ? (await api('GET', '/api/network/shared?kind=people').catch(() => ({ orgs: [] }))).orgs : [];
+  } catch (err) { netState = { error: err.message }; }
   render();
+}
+const netQuery = { q: '' };
+/** People the network shares: a directory card each (never emails), filtered as you type. */
+function NetworkPeople() {
+  const list = h('div', { class: 'net-people' });
+  const fill = () => {
+    const q = netQuery.q.toLowerCase();
+    const match = (p) => !q || [p.name, p.title, ...(p.interests ?? []), ...(p.teams ?? [])].join(' ').toLowerCase().includes(q);
+    list.replaceChildren(...netState.people.map(({ org: o, data }) => {
+      const people = data.filter(match);
+      return people.length ? h('details', { class: 'net-people-org', open: !!q || netState.people.length < 4 },
+        h('summary', {}, h('strong', {}, o.name), h('span', { class: 'muted small' }, ` ${people.length} ${people.length === 1 ? 'person' : 'people'}`)),
+        h('ul', {}, people.map((p) => h('li', {}, h('div', {}, h('strong', {}, p.name), h('span', { class: 'muted small' }, ` ${p.title}`)),
+          p.interests?.length > 0 && h('div', { class: 'net-tags' }, p.interests.map((t) => h('span', { class: 'badge badge-sm badge-ghost' }, t))))))) : null;
+    }).filter(Boolean));
+    if (!list.childElementCount) list.append(h('p', { class: 'muted small' }, q ? 'Nobody in the network matches.' : 'No one in your network shares their people directory yet.'));
+  };
+  fill();
+  return h('section', { class: 'panel net-people-panel' },
+    h('h2', {}, 'People across the network'),
+    h('p', { class: 'muted small' }, 'From the organisations that share their people directory: names, titles and interests, never emails or phone numbers.'),
+    h('input', { class: 'input input-sm', type: 'search', name: 'net-q', placeholder: 'Find someone by name, title or interest', value: netQuery.q, oninput: (e) => { netQuery.q = e.target.value; fill(); } }),
+    list);
 }
 const ROLE_WORD = { hub: 'Our hub', member: 'Member', sibling: 'Fellow member' };
 
@@ -816,5 +843,6 @@ function Network(org) {
           : h('label', { class: 'net-check' },
             h('input', { type: 'checkbox', class: 'toggle toggle-sm', name: `share-${k.id}`, checked: share[k.id], disabled: !admin || !plugOn(k), onchange: (e) => setShare({ [k.id]: e.target.checked }) }),
             h('div', {}, h('strong', {}, k.label), h('p', { class: 'small muted' }, k.about), !plugOn(k) && h('p', { class: 'small muted' }, 'Switch the plugin on first, in Plugins.')))))),
-      !admin && h('p', { class: 'small muted' }, 'Only your organisation’s admins change what is shared.')));
+      !admin && h('p', { class: 'small muted' }, 'Only your organisation’s admins change what is shared.')),
+    netState.orgs.length > 0 && NetworkPeople());
 }

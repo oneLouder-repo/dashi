@@ -3384,3 +3384,9 @@ body.site-page.tpl-field { background: color-mix(in oklab, var(--color-primary) 
 .net-check p { margin: 2px 0 0; }
 .net-folders { display: grid; gap: 4px; margin-top: 6px; }
 .net-folders .net-check { align-items: center; font-size: 13px; }
+.net-people-panel { grid-column: 1 / -1; }
+.net-people { display: grid; gap: 8px; }
+.net-people-org summary { cursor: pointer; padding: 4px 0; }
+.net-people-org ul { list-style: none; margin: 6px 0 4px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.net-people-org li { border: 1px solid var(--line, #d5d8de); border-radius: 4px; padding: 8px 10px; font-size: 13.5px; display: grid; gap: 4px; }
+.net-tags { display: flex; gap: 4px; flex-wrap: wrap; }

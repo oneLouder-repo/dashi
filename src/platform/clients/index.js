@@ -7,6 +7,8 @@
  *   kestrel.<base>   Kestrel Bay Community Foundation (made up, alpha 0.3): the biggest test org,
  *                    every plugin on, a busy public portal, a board site and the Social Media Integrator
  *   coalition.<base> Shared Ground Canada (made up): the example Place project, a nation-wide coalition with a hub org
+ *   halcyon.<base>   Halcyon Ocean Observatory (made up, alpha 0.5): a national ocean agency, the hub of nine linked
+ *                    orgs (labsea-carbon, davis-moorings, …) and a member of a global commons; see halcyon.js
  *
  * Each builder is a pure function of public sources, so the server seeds
  * the same documents every time. See docs/INTAKE.md for turning this into
@@ -19,6 +21,7 @@ import { seedPlanDocs } from '../plandocs.js';
 import { actuaDocs } from './actua.js';
 import { kestrelBundle } from './kestrel.js';
 import { coalitionDocs } from './coalition.js';
+import { HALCYON_CLIENTS, HALCYON_LINKS } from './halcyon.js';
 import { seedKestrelEco } from '../../eoviz/kestrel.js';
 import { actuaMobilize, addMobilizeGoals } from '../../mobilize/actua.js';
 import { migrateStrategy } from '../strategy.js';
@@ -84,4 +87,8 @@ export const CLIENT_ORGS = [
   { id: 'org-actua-ai', slug: 'actua-ai', name: 'Strategic AI at Actua', plan: 'custom', docs: actuaDocs },
   { id: 'org-kestrel', slug: 'kestrel', name: 'Kestrel Bay Community Foundation', plan: 'custom', docs: () => kestrelBundle().docs, bundle: kestrelBundle },
   { id: 'org-coalition', slug: 'coalition', name: 'Shared Ground Canada', plan: 'custom', docs: coalitionDocs },
+  ...HALCYON_CLIENTS,
 ];
+
+/** Linked organisations among the client orgs: [hub, member], made active when either org is first seeded. */
+export const CLIENT_LINKS = HALCYON_LINKS;
