@@ -38,16 +38,18 @@ export { LAB_EXPERIMENTS };
 
 export function Lab(ctx, sub) {
   const g = graphOf(ctx.facts);
-  // A Map, not an object lookup: a route like #lab/constructor must not reach Object's own methods.
-  const body = new Map(Object.entries({
-    console: () => ConsolePanel(ctx, g),
-    communities: () => Communities(ctx, g),
-    brokers: () => Brokers(ctx, g),
-    ties: () => Ties(ctx, g),
-    shapes: () => Shapes(ctx, g),
-    hive: () => Hive(ctx, g),
-    sound: () => Sound(ctx, g),
-  })).get(sub);
+  // A plain switch, not a lookup by the route's word: a route like #lab/constructor reaches nothing.
+  let body;
+  switch (sub) {
+    case 'console': body = () => ConsolePanel(ctx, g); break;
+    case 'communities': body = () => Communities(ctx, g); break;
+    case 'brokers': body = () => Brokers(ctx, g); break;
+    case 'ties': body = () => Ties(ctx, g); break;
+    case 'shapes': body = () => Shapes(ctx, g); break;
+    case 'hive': body = () => Hive(ctx, g); break;
+    case 'sound': body = () => Sound(ctx, g); break;
+    default: body = null;
+  }
   return h('div', { class: 'lab' }, Chips(body ? sub : null), body ? body() : Home(ctx, g));
 }
 
